@@ -1,0 +1,61 @@
+import { useEffect, type HTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '@/lib/utils';
+
+interface DialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}
+
+/** shadcn/ui Dialog 수동 구현 — Portal + Esc 닫기 (Radix 포커스트랩은 Sprint 4b 과제) */
+export function Dialog({ open, onOpenChange, children }: DialogProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onOpenChange(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onOpenChange]);
+
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={() => onOpenChange(false)}
+        aria-hidden="true"
+      />
+      <div role="dialog" aria-modal="true" className="relative z-10 w-full max-w-lg">
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function DialogContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn('rounded-lg border border-border bg-card p-6 text-card-foreground shadow-soft', className)}
+      {...props}
+    />
+  );
+}
+
+export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('mb-4 flex flex-col gap-1.5', className)} {...props} />;
+}
+
+export function DialogTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
+  return <h2 className={cn('text-lg font-semibold leading-none', className)} {...props} />;
+}
+
+export function DialogDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={cn('text-sm text-muted-foreground', className)} {...props} />;
+}
+
+export function DialogFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('mt-4 flex justify-end gap-2', className)} {...props} />;
+}

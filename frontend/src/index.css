@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   디자인_화면설계서 v1.x §4.1 HSL 테마 토큰 — 저채도 다크 기본 + 라이트 토글.
+   다크가 :root 기본이며, 라이트는 <html class="light">로 전환(uiStore.theme).
+   ============================================================================= */
+
+:root {
+  /* 다크 (기본) */
+  --background:        30 8% 12%;
+  --foreground:        36 18% 88%;
+
+  --card:              30 8% 15%;
+  --card-foreground:   36 18% 88%;
+  --popover:           30 8% 18%;
+  --popover-foreground:36 18% 88%;
+
+  --primary:           215 38% 64%;
+  --primary-foreground:30 8% 12%;
+  --secondary:         28 28% 56%;
+  --secondary-foreground:30 8% 12%;
+  --muted:             30 6% 22%;
+  --muted-foreground:  36 10% 64%;
+  --accent:            28 32% 58%;
+  --accent-foreground: 30 8% 12%;
+  --destructive:       4 50% 56%;
+  --destructive-foreground:30 8% 12%;
+  --warning:           30 56% 58%;
+  --warning-foreground:30 8% 12%;
+  --info:              200 36% 60%;
+  --info-foreground:   30 8% 12%;
+
+  --border:            30 6% 26%;
+  --input:             30 6% 28%;
+  --ring:              215 38% 64%;
+
+  /* 상태 칩 (FR-105) */
+  --status-draft:      30 8% 56%;
+  --status-revising:   30 56% 58%;
+  --status-done:       150 32% 52%;
+
+  /* 윤문 카테고리 taxonomy ID A~J (M-4 / FR-503) */
+  --cat-A:  4 56% 64%;
+  --cat-B:  220 44% 68%;
+  --cat-C:  280 38% 70%;
+  --cat-D:  160 36% 58%;
+  --cat-E:  340 38% 68%;
+  --cat-F:  30 48% 62%;
+  --cat-G:  200 40% 64%;
+  --cat-H:  12 50% 64%;
+  --cat-I:  48 50% 60%;
+  --cat-J:  0 0% 64%;
+
+  /* diff 색 (S6) */
+  --diff-add:          150 40% 60%;
+  --diff-del:          4 56% 64%;
+  --diff-add-bg:       150 32% 18%;
+  --diff-del-bg:       4 40% 18%;
+}
+
+.light {
+  /* 라이트 — 종이 결의 따뜻한 오프화이트 */
+  --background:        36 24% 96%;
+  --foreground:        30 14% 14%;
+
+  --card:              36 22% 93%;
+  --card-foreground:   30 14% 14%;
+  --popover:           36 22% 91%;
+  --popover-foreground:30 14% 14%;
+
+  --primary:           215 32% 28%;
+  --primary-foreground:36 24% 96%;
+  --secondary:         28 22% 38%;
+  --secondary-foreground:36 24% 96%;
+  --muted:             36 14% 86%;
+  --muted-foreground:  30 8% 42%;
+  --accent:            28 28% 46%;
+  --accent-foreground: 36 24% 96%;
+  --destructive:       4 42% 42%;
+  --destructive-foreground:36 24% 96%;
+  --warning:           30 50% 42%;
+  --warning-foreground:30 14% 14%;
+  --info:              200 24% 38%;
+  --info-foreground:   36 24% 96%;
+
+  --border:            30 12% 78%;
+  --input:             30 12% 80%;
+  --ring:              215 32% 38%;
+
+  --status-draft:      30 8% 56%;
+  --status-revising:   30 50% 46%;
+  --status-done:       150 28% 36%;
+
+  --cat-A:  4 50% 42%;
+  --cat-B:  220 30% 38%;
+  --cat-C:  280 24% 38%;
+  --cat-D:  160 28% 32%;
+  --cat-E:  340 26% 40%;
+  --cat-F:  30 36% 36%;
+  --cat-G:  200 28% 36%;
+  --cat-H:  12 36% 40%;
+  --cat-I:  48 36% 36%;
+  --cat-J:  0 0% 38%;
+
+  --diff-add:          150 32% 38%;
+  --diff-del:          4 50% 42%;
+  --diff-add-bg:       150 32% 92%;
+  --diff-del-bg:       4 50% 92%;
+}
+
+@layer base {
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+}
+
+/* 얇은 스크롤바 — 저채도 톤 유지 */
+.thin-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--muted)) transparent; }
+.thin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 4px; }

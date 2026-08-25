@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# DB — 로컬 사용자 데이터
+*.db
+*.sqlite3
+
+# Node / 빌드
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 테스트 산출물
+test-results/
+playwright-report/
+screenshots/
+
+# 환경·시크릿
+.env
+.env.*
+*.key
+
+# 기타
+_workspace/
+.DS_Store
+*.db-shm
+*.db-wal

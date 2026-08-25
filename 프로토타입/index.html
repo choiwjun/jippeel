@@ -1,0 +1,2288 @@
+<!DOCTYPE html>
+<!--
+  ==============================================================================
+  Jippeel 디자인 프로토타입 v0.1
+  ----------------------------------------------------------------------
+  기준 문서: 디자인_화면설계서_v1.md (v1.1, v1.2 갱신 반영)
+  대상 화면: S2 회차 에디터 / S5 AI 패널 / S6 윤문 리포트 / S7 설정
+  기술: 단일 HTML — 외부 의존 없음(더블클릭으로 열림)
+        <style> 내장 CSS(HSL 테마 토큰 §4), 바닐라 JS(<script> 내장)
+  UX 원칙 적용: §0 P1~P8 전부 반영, FR/NFR 주석 화면별로 표기
+  ==============================================================================
+-->
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>Jippeel — 디자인 프로토타입</title>
+<style>
+/* =============================================================================
+   §4 HSL 테마 토큰 — 저채도 다크 기본 + 라이트 전환
+   라이트/다크 동일 HSL 라이트닝 구조 유지
+   ============================================================================= */
+:root[data-theme="light"] {
+  --background:         36 24% 96%;
+  --foreground:         30 14% 14%;
+  --card:               36 22% 93%;
+  --card-foreground:    30 14% 14%;
+  --popover:            36 22% 91%;
+  --popover-foreground: 30 14% 14%;
+  --primary:            215 32% 28%;
+  --primary-foreground: 36 24% 96%;
+  --secondary:          28 22% 38%;
+  --secondary-foreground: 36 24% 96%;
+  --muted:              36 14% 86%;
+  --muted-foreground:   30 8% 42%;
+  --accent:             28 28% 46%;
+  --accent-foreground:  36 24% 96%;
+  --destructive:        4 42% 42%;
+  --destructive-foreground: 36 24% 96%;
+  --warning:            30 50% 42%;
+  --warning-foreground: 30 14% 14%;
+  --info:               200 24% 38%;
+  --info-foreground:    36 24% 96%;
+  --border:             30 12% 78%;
+  --input:              30 12% 80%;
+  --ring:               215 32% 38%;
+
+  --status-draft:       30 8% 56%;
+  --status-revising:    30 50% 46%;
+  --status-done:        150 28% 36%;
+
+  /* taxonomy ID A~J — humanize-korean §4.1 매핑 */
+  --cat-A:  4 50% 42%;   /* A 번역투 */
+  --cat-B:  220 30% 38%; /* B 영어인용 */
+  --cat-C:  280 24% 38%; /* C 구조적패턴 */
+  --cat-D:  160 28% 32%; /* D 관용구 */
+  --cat-E:  340 26% 40%; /* E 리듬 */
+  --cat-F:  30 36% 36%;  /* F 수식중복 */
+  --cat-G:  200 28% 36%; /* G Hedging */
+  --cat-H:  12 36% 40%;  /* H 접속사 */
+  --cat-I:  48 36% 36%;  /* I 형식명사 */
+  --cat-J:  0 0% 38%;    /* J 시각장식 */
+
+  --diff-add:    150 32% 38%;
+  --diff-del:    4 50% 42%;
+  --diff-add-bg: 150 32% 92%;
+  --diff-del-bg: 4 50% 92%;
+}
+
+:root[data-theme="dark"] {
+  --background:         30 8% 12%;
+  --foreground:         36 18% 88%;
+  --card:               30 8% 15%;
+  --card-foreground:    36 18% 88%;
+  --popover:            30 8% 18%;
+  --popover-foreground: 36 18% 88%;
+  --primary:            215 38% 64%;
+  --primary-foreground: 30 8% 12%;
+  --secondary:          28 28% 56%;
+  --secondary-foreground: 30 8% 12%;
+  --muted:              30 6% 22%;
+  --muted-foreground:   36 10% 64%;
+  --accent:             28 32% 58%;
+  --accent-foreground:  30 8% 12%;
+  --destructive:        4 50% 56%;
+  --destructive-foreground: 30 8% 12%;
+  --warning:            30 56% 58%;
+  --warning-foreground: 30 8% 12%;
+  --info:               200 36% 60%;
+  --info-foreground:    30 8% 12%;
+  --border:             30 6% 26%;
+  --input:              30 6% 28%;
+  --ring:               215 38% 64%;
+
+  --status-draft:       30 8% 56%;
+  --status-revising:    30 56% 58%;
+  --status-done:        150 32% 52%;
+
+  --cat-A:  4 56% 64%;
+  --cat-B:  220 44% 68%;
+  --cat-C:  280 38% 70%;
+  --cat-D:  160 36% 58%;
+  --cat-E:  340 38% 68%;
+  --cat-F:  30 48% 62%;
+  --cat-G:  200 40% 64%;
+  --cat-H:  12 50% 64%;
+  --cat-I:  48 50% 60%;
+  --cat-J:  0 0% 64%;
+
+  --diff-add:    150 40% 60%;
+  --diff-del:    4 56% 64%;
+  --diff-add-bg: 150 32% 18%;
+  --diff-del-bg: 4 40% 18%;
+}
+
+/* =============================================================================
+   §0 P7 — 저채도 다크/라이트 + 세리프 본문 (전역 베이스)
+   ============================================================================= */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  height: 100%;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Noto Serif KR', '본명조', 'Source Han Serif', 'Source Serif Pro',
+               'Pretendard', Georgia, serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea {
+  font-family: 'Pretendard', 'Inter', system-ui, -apple-system, sans-serif;
+  color: inherit;
+}
+
+::selection { background: hsl(var(--primary) / 0.28); }
+
+/* 스크롤바 — 저채도 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.35); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.55); }
+
+/* =============================================================================
+   §1.1 / §1.3 — 3분할 레이아웃 셸
+   ============================================================================= */
+.app {
+  display: grid;
+  grid-template-rows: 56px 1fr 32px;
+  height: 100vh;
+  min-width: 1280px;
+}
+
+/* ---- TopBar (FR-106 자동저장 표시) ---- */
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  height: 56px;
+}
+.topbar .logo {
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: hsl(var(--foreground));
+  margin-right: 8px;
+}
+.topbar .logo .dot { color: hsl(var(--accent)); }
+
+.topbar .proj-select {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.topbar .proj-select:hover { background: hsl(var(--accent) / 0.15); }
+
+.topbar .chapter-pill {
+  padding: 4px 10px;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.topbar .status-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.topbar .status-chip .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+.topbar .status-chip.draft    { color: hsl(var(--status-draft));    background: hsl(var(--status-draft) / 0.15); }
+.topbar .status-chip.revising { color: hsl(var(--status-revising)); background: hsl(var(--status-revising) / 0.15); }
+.topbar .status-chip.done     { color: hsl(var(--status-done));     background: hsl(var(--status-done) / 0.15); }
+
+.topbar .spacer { flex: 1; }
+
+/* FR-106 — 저장 상태 표시 */
+.save-indicator {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+.save-indicator.saving { color: hsl(var(--warning)); }
+.save-indicator.error  { color: hsl(var(--destructive)); }
+.save-indicator .icon  { font-size: 11px; }
+
+.topbar .icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+}
+.topbar .icon-btn:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+
+/* ---- 메인 3분할 (좌/중/우) ---- */
+.main {
+  display: grid;
+  grid-template-columns: 240px 1fr 360px;
+  min-height: 0;
+  position: relative;
+}
+.main.right-closed {
+  grid-template-columns: 240px 1fr 0;
+}
+.main.right-closed .right-panel {
+  display: none;
+}
+
+/* ---- LeftSidebar (회차 트리) ---- */
+.left-sidebar {
+  background: hsl(var(--card));
+  border-right: 1px solid hsl(var(--border));
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.tree-section-title {
+  padding: 10px 16px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+}
+.tree-list { list-style: none; margin: 0; padding: 0; }
+.tree-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: hsl(var(--foreground));
+  border-left: 2px solid transparent;
+}
+.tree-item:hover { background: hsl(var(--muted) / 0.6); }
+.tree-item.active {
+  background: hsl(var(--primary) / 0.14);
+  border-left-color: hsl(var(--primary));
+  font-weight: 500;
+}
+.tree-item .caret {
+  width: 14px; display: inline-block;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+}
+.tree-item .status-mark {
+  margin-left: auto;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+.tree-item .status-mark.draft    { background: hsl(var(--status-draft)); }
+.tree-item .status-mark.revising { background: hsl(var(--status-revising)); }
+.tree-item .status-mark.done     { background: hsl(var(--status-done)); }
+
+.tree-volume {
+  font-weight: 600;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  letter-spacing: 0.04em;
+}
+.tree-children { padding-left: 8px; }
+.tree-add {
+  margin: 6px 16px 0;
+  padding: 6px 10px;
+  width: calc(100% - 32px);
+  background: transparent;
+  border: 1px dashed hsl(var(--border));
+  border-radius: 4px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  cursor: pointer;
+}
+.tree-add:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border-style: solid;
+}
+
+/* ---- CenterStage ---- */
+.center {
+  display: flex; flex-direction: column;
+  min-width: 0;
+  background: hsl(var(--background));
+  overflow: hidden;
+}
+.screen-tabs {
+  display: flex;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  padding: 0 12px;
+}
+.screen-tab {
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+.screen-tab:hover { color: hsl(var(--foreground)); }
+.screen-tab.active {
+  color: hsl(var(--foreground));
+  border-bottom-color: hsl(var(--primary));
+}
+.screen-tab .fr-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'D2Coding', monospace;
+}
+
+.screen {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.screen.active { display: flex; flex-direction: column; }
+
+/* ---- RightPanel (AI 패널/윤문) ---- */
+.right-panel {
+  background: hsl(var(--card));
+  border-left: 1px solid hsl(var(--border));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.rp-header {
+  display: flex; align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Pretendard', sans-serif;
+}
+.rp-header .close-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: hsl(var(--muted-foreground));
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.rp-header .close-btn:hover { color: hsl(var(--foreground)); }
+.rp-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+.rp-section { margin-bottom: 18px; }
+.rp-section h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  font-family: 'Pretendard', sans-serif;
+}
+
+/* ---- StatusBar ---- */
+.statusbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 16px;
+  background: hsl(var(--card));
+  border-top: 1px solid hsl(var(--border));
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  font-family: 'JetBrains Mono', 'D2Coding', monospace;
+}
+.statusbar .sep { width: 1px; height: 12px; background: hsl(var(--border)); }
+
+/* =============================================================================
+   공용 컴포넌트
+   ============================================================================= */
+
+/* ---- Alert (P1·NFR-201·NFR-404 고정) ---- */
+.alert {
+  display: flex; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid;
+  margin-bottom: 10px;
+}
+.alert .icon { flex: none; font-size: 16px; line-height: 1; margin-top: 1px; }
+.alert .body { flex: 1; }
+.alert .title { font-weight: 600; margin-bottom: 2px; }
+.alert.info    { background: hsl(var(--info) / 0.10); border-color: hsl(var(--info) / 0.4);  color: hsl(var(--foreground)); }
+.alert.info .icon { color: hsl(var(--info)); }
+.alert.warning { background: hsl(var(--warning) / 0.10); border-color: hsl(var(--warning) / 0.4); color: hsl(var(--foreground)); }
+.alert.warning .icon { color: hsl(var(--warning)); }
+.alert.error   { background: hsl(var(--destructive) / 0.10); border-color: hsl(var(--destructive) / 0.4); color: hsl(var(--foreground)); }
+.alert.error .icon { color: hsl(var(--destructive)); }
+.alert.success { background: hsl(var(--status-done) / 0.10); border-color: hsl(var(--status-done) / 0.4); color: hsl(var(--foreground)); }
+.alert.success .icon { color: hsl(var(--status-done)); }
+
+/* ---- 버튼 (저채도·저명암 트랜지션) ---- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  font-family: 'Pretendard', sans-serif;
+}
+.btn:hover { background: hsl(var(--accent) / 0.18); }
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn.primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
+.btn.primary:hover { background: hsl(var(--primary) / 0.85); }
+.btn.danger {
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+  border-color: hsl(var(--destructive));
+}
+.btn.danger:hover { background: hsl(var(--destructive) / 0.85); }
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: hsl(var(--muted-foreground));
+}
+.btn.ghost:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.btn.outline {
+  background: transparent;
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+.btn.outline:hover { background: hsl(var(--muted)); }
+.btn.sm { height: 26px; padding: 0 8px; font-size: 12px; }
+.btn.lg { height: 38px; padding: 0 16px; font-size: 14px; }
+.btn.block { width: 100%; }
+
+/* ---- Input/Textarea/Select ---- */
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.field label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  font-family: 'Pretendard', sans-serif;
+}
+.input, .textarea, .select {
+  width: 100%;
+  padding: 7px 10px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--input));
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.input:focus, .textarea:focus, .select:focus {
+  outline: none;
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.18);
+}
+.textarea { resize: vertical; min-height: 64px; line-height: 1.6; }
+.select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, hsl(var(--muted-foreground)) 50%), linear-gradient(135deg, hsl(var(--muted-foreground)) 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 28px; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ---- Badge ---- */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-family: 'Pretendard', sans-serif;
+}
+.badge.primary { background: hsl(var(--primary) / 0.18); color: hsl(var(--primary)); }
+.badge.warning { background: hsl(var(--warning) / 0.18); color: hsl(var(--warning)); }
+.badge.danger  { background: hsl(var(--destructive) / 0.18); color: hsl(var(--destructive)); }
+.badge.success { background: hsl(var(--status-done) / 0.20); color: hsl(var(--status-done)); }
+.badge.streaming {
+  background: hsl(var(--info) / 0.20); color: hsl(var(--info));
+  font-family: 'JetBrains Mono', 'D2Coding', monospace;
+}
+.badge.streaming::before {
+  content: '●';
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ---- Card / Panel ---- */
+.card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+
+/* ---- Progress ---- */
+.progress {
+  position: relative;
+  height: 8px;
+  background: hsl(var(--muted));
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress .bar {
+  height: 100%;
+  background: hsl(var(--primary));
+  transition: width 200ms;
+}
+.progress.warn .bar { background: hsl(var(--warning)); }
+.progress.block .bar { background: hsl(var(--destructive)); }
+.progress .threshold {
+  position: absolute;
+  top: -2px; bottom: -2px;
+  width: 1px;
+  background: hsl(var(--foreground) / 0.4);
+}
+.progress .threshold::after {
+  content: attr(data-label);
+  position: absolute;
+  top: -16px;
+  left: 50%; transform: translateX(-50%);
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', 'D2Coding', monospace;
+}
+
+/* ---- Checkbox / Radio (커스텀) ---- */
+.check, .radio-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.check input { accent-color: hsl(var(--primary)); }
+.radio-row input { accent-color: hsl(var(--primary)); }
+
+/* ---- 토스트 (끼워넣기 결과) ---- */
+.toast-host {
+  position: fixed;
+  right: 380px; bottom: 50px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 100;
+  pointer-events: none;
+}
+.toast {
+  padding: 10px 14px;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  font-size: 12px;
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.12);
+  animation: slidein 200ms ease-out;
+  pointer-events: auto;
+}
+.toast.success { border-color: hsl(var(--status-done) / 0.5); }
+@keyframes slidein {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* =============================================================================
+   S2 — 회차 에디터 (FR-101~109 / NFR-101·204)
+   ============================================================================= */
+.editor-shell {
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0;
+  padding: 20px 24px 0;
+}
+.editor-meta {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.editor-meta .title-input {
+  flex: 1;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 22px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: hsl(var(--foreground));
+}
+.editor-meta .title-input:hover  { border-color: hsl(var(--border)); }
+.editor-meta .title-input:focus  { outline: none; border-color: hsl(var(--ring)); background: hsl(var(--card)); }
+.editor-meta .memo-btn {
+  width: 32px; height: 32px;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  font-size: 14px;
+}
+.editor-meta .menu-btn { /* FR-109 내보내기 트리거 */
+  width: 32px; height: 32px;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  font-size: 14px;
+}
+
+.editor-tabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid hsl(var(--border));
+  margin-bottom: 12px;
+}
+.editor-tab {
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  cursor: pointer;
+  font-family: 'Pretendard', sans-serif;
+  margin-bottom: -1px;
+}
+.editor-tab.active {
+  color: hsl(var(--foreground));
+  border-bottom-color: hsl(var(--primary));
+}
+
+.editor-body {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.editor-textarea {
+  flex: 1;
+  width: 100%;
+  padding: 18px 22px;
+  background: transparent;
+  border: none;
+  color: hsl(var(--foreground));
+  font-family: 'Noto Serif KR', '본명조', 'Source Han Serif', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.85;
+  letter-spacing: 0.005em;
+  resize: none;
+  outline: none;
+  overflow-y: auto;
+}
+.editor-preview {
+  flex: 1;
+  padding: 18px 22px;
+  overflow-y: auto;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 17px;
+  line-height: 1.85;
+  color: hsl(var(--foreground));
+}
+.editor-preview h1, .editor-preview h2, .editor-preview h3 {
+  font-family: 'Pretendard', sans-serif;
+  margin-top: 1.4em; margin-bottom: 0.6em;
+}
+.editor-preview h2 { font-size: 20px; color: hsl(var(--primary)); }
+
+.editor-footer {
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 22px;
+  background: hsl(var(--popover));
+  border-top: 1px solid hsl(var(--border));
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-family: 'Pretendard', sans-serif;
+}
+.editor-footer .word-count strong {
+  font-family: 'JetBrains Mono', 'D2Coding', monospace;
+  color: hsl(var(--foreground));
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.editor-footer .auto-save-progress {
+  flex: 1;
+  max-width: 200px;
+}
+.editor-footer .auto-save-progress .progress { height: 4px; }
+.editor-footer .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* FAB (NFR-303) */
+.fab-rail {
+  position: absolute;
+  right: 16px; top: 50%;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 5;
+}
+.fab {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 22px;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px hsl(var(--foreground) / 0.10);
+  font-family: 'Pretendard', sans-serif;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.04em;
+}
+.fab:hover { background: hsl(var(--accent) / 0.15); color: hsl(var(--foreground)); }
+.fab.ai-fab { background: hsl(var(--primary) / 0.12); color: hsl(var(--primary)); }
+.fab.refine-fab { background: hsl(var(--accent) / 0.12); color: hsl(var(--accent)); }
+
+/* 메뉴 드롭다운 (FR-109) */
+.menu-pop {
+  position: absolute;
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 220px;
+  box-shadow: 0 4px 16px hsl(var(--foreground) / 0.14);
+  z-index: 20;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 13px;
+}
+.menu-pop .mi {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.menu-pop .mi:hover { background: hsl(var(--muted)); }
+.menu-pop .mi .ext { margin-left: auto; color: hsl(var(--muted-foreground)); font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+.menu-pop .sep { height: 1px; background: hsl(var(--border)); margin: 4px 0; }
+
+/* =============================================================================
+   S5 — AI 패널 (FR-401~409 / NFR-102·201·202·203)
+   ============================================================================= */
+.ai-stream-box {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  padding: 12px;
+  font-family: 'JetBrains Mono', 'D2Coding', monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: hsl(var(--foreground));
+  max-height: 280px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  position: relative;
+}
+.ai-stream-box .placeholder { color: hsl(var(--muted-foreground)); font-style: italic; }
+.ai-stream-box .stream-caret {
+  display: inline-block;
+  width: 7px; height: 13px;
+  background: hsl(var(--primary));
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.action-row {
+  display: flex; gap: 6px;
+  margin-top: 8px;
+}
+.action-row .btn { flex: 1; }
+
+.stream-meta {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 컨텍스트 칩 */
+.chip-row {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  margin-top: 4px;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  font-size: 11px;
+  font-family: 'Pretendard', sans-serif;
+}
+.chip .x { cursor: pointer; color: hsl(var(--muted-foreground)); }
+
+/* 프리셋 */
+.preset-list { display: flex; flex-direction: column; gap: 4px; }
+.preset-item {
+  padding: 6px 10px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.preset-item:hover { background: hsl(var(--muted)); }
+.preset-item.active { border-color: hsl(var(--primary)); background: hsl(var(--primary) / 0.10); }
+.preset-item .meta { color: hsl(var(--muted-foreground)); font-size: 10px; margin-top: 2px; }
+
+/* =============================================================================
+   S6 — 윤문 리포트 (FR-501~507 / NFR-401)
+   ============================================================================= */
+.refine-summary {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'Pretendard', sans-serif;
+  margin-bottom: 12px;
+}
+.refine-summary .gate-tag {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+.gate-tag.pass  { background: hsl(var(--status-done) / 0.18); color: hsl(var(--status-done)); }
+.gate-tag.warn  { background: hsl(var(--warning) / 0.18);    color: hsl(var(--warning)); }
+.gate-tag.block { background: hsl(var(--destructive) / 0.18); color: hsl(var(--destructive)); }
+
+.refine-progress-wrap { padding: 0 4px; margin-bottom: 12px; }
+.refine-progress-labels {
+  display: flex; justify-content: space-between;
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 18px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.diff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.diff-pane {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  padding: 12px 14px;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 13.5px;
+  line-height: 1.8;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.diff-pane h5 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+  font-family: 'Pretendard', sans-serif;
+  display: flex; justify-content: space-between;
+}
+.diff-pane .char-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+  text-transform: none;
+  letter-spacing: 0;
+}
+.diff-add { color: hsl(var(--diff-add)); background: hsl(var(--diff-add-bg)); padding: 1px 2px; border-radius: 2px; }
+.diff-del { color: hsl(var(--diff-del)); background: hsl(var(--diff-del-bg)); padding: 1px 2px; border-radius: 2px; text-decoration: line-through; text-decoration-color: hsl(var(--diff-del) / 0.7); }
+.diff-unchanged { color: hsl(var(--foreground)); }
+
+/* 진단 카테고리 범례 */
+.cat-legend {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px 12px;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-family: 'Pretendard', sans-serif;
+}
+.cat-legend .row { display: flex; align-items: center; gap: 6px; }
+.cat-legend .swatch {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+}
+
+/* 진단 마크 (taxonomy ID A~J) */
+.diag-mark {
+  border-bottom: 2px solid;
+  padding: 0 1px;
+  cursor: help;
+}
+.diag-A { border-color: hsl(var(--cat-A)); }
+.diag-B { border-color: hsl(var(--cat-B)); }
+.diag-C { border-color: hsl(var(--cat-C)); }
+.diag-D { border-color: hsl(var(--cat-D)); }
+.diag-E { border-color: hsl(var(--cat-E)); }
+.diag-F { border-color: hsl(var(--cat-F)); }
+.diag-G { border-color: hsl(var(--cat-G)); }
+.diag-H { border-color: hsl(var(--cat-H)); }
+.diag-I { border-color: hsl(var(--cat-I)); }
+.diag-J { border-color: hsl(var(--cat-J)); }
+
+.gate-actions {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.gate-actions h5 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-family: 'Pretendard', sans-serif;
+}
+.gate-actions .help {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin: 6px 0 0;
+}
+.gate-actions.blocked .accept-btn {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.gate-actions .btn-row { display: flex; gap: 6px; }
+.gate-actions .btn-row .btn { flex: 1; }
+
+.history {
+  margin-top: 14px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 12px;
+}
+.history-row {
+  display: flex; gap: 8px; align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.history-row:last-child { border: none; }
+.history-row .ts { font-family: 'JetBrains Mono', monospace; }
+.history-row .verdict.accept { color: hsl(var(--status-done)); }
+.history-row .verdict.reject { color: hsl(var(--muted-foreground)); }
+
+/* =============================================================================
+   S7 — 설정 (FR-401~409 / NFR-202·203·401·403·404)
+   ============================================================================= */
+.settings-shell {
+  display: flex; flex-direction: column;
+  flex: 1;
+  padding: 20px 32px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+.settings-shell h1 {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+.settings-tabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid hsl(var(--border));
+  margin-bottom: 18px;
+}
+.settings-tab {
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Pretendard', sans-serif;
+  margin-bottom: -1px;
+}
+.settings-tab.active {
+  color: hsl(var(--foreground));
+  border-bottom-color: hsl(var(--primary));
+}
+
+.settings-pane { display: none; }
+.settings-pane.active { display: block; }
+
+.endpoint-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.endpoint-card .row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.endpoint-card .row .label { width: 110px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.endpoint-card .row .val { flex: 1; font-size: 13px; }
+.endpoint-card .row .val.mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+.endpoint-card .row .val.masked { letter-spacing: 0.08em; }
+.endpoint-card .default-mark {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px;
+  color: hsl(var(--primary));
+}
+.endpoint-card .actions {
+  display: flex; gap: 6px;
+  margin-top: 8px;
+}
+
+.policy-list .policy-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+}
+.policy-list .policy-item .platform { font-weight: 600; min-width: 80px; }
+.policy-list .policy-item .date { margin-left: auto; color: hsl(var(--muted-foreground)); font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+.plus-progress { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.plus-progress .label { font-size: 12px; min-width: 110px; }
+.plus-progress .progress { flex: 1; }
+
+/* =============================================================================
+   유틸
+   ============================================================================= */
+.row-flex { display: flex; align-items: center; gap: 8px; }
+.muted { color: hsl(var(--muted-foreground)); }
+.mono { font-family: 'JetBrains Mono', 'D2Coding', monospace; }
+.hide { display: none !important; }
+
+/* 디자인 가이드 주석을 시각화 */
+.fr-callout {
+  position: fixed;
+  bottom: 40px; left: 16px;
+  max-width: 320px;
+  padding: 10px 12px;
+  background: hsl(var(--popover) / 0.95);
+  border: 1px solid hsl(var(--border));
+  border-left: 3px solid hsl(var(--info));
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
+  font-family: 'JetBrains Mono', 'D2Coding', monospace;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.92;
+}
+.fr-callout .fr-key { color: hsl(var(--primary)); font-weight: 600; }
+
+/* 강조 (삽입 후 1.5s 하이라이트 시뮬레이션) */
+.flash {
+  animation: flash 1.5s ease-out;
+}
+@keyframes flash {
+  0%   { background: hsl(var(--warning) / 0.35); }
+  100% { background: transparent; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ====================================================================
+       §1.1 TopBar — 로고, 프로젝트 셀렉터(FR-101), 자동저장 표시(FR-106)
+       ==================================================================== -->
+  <header class="topbar">
+    <div class="logo">Jippeel<span class="dot">.</span></div>
+
+    <div class="proj-select" title="프로젝트 셀렉터 (FR-101)">
+      <span>작품A — 왕도 아르칸 전기</span>
+      <span class="muted" style="font-size:10px;">▾</span>
+    </div>
+
+    <div class="chapter-pill">1권 · 3화</div>
+    <span class="status-chip revising"><span class="dot"></span>수정중</span>
+
+    <div class="spacer"></div>
+
+    <!-- FR-106 — 저장 상태 -->
+    <div class="save-indicator" id="saveIndicator">
+      <span class="icon">✓</span>
+      <span id="saveText">저장됨 · 방금 전</span>
+    </div>
+
+    <!-- 우측 패널 토글 (S5 진입점) -->
+    <button class="icon-btn" id="toggleRightPanel" title="AI 패널 토글 (Alt+A, NFR-303)" aria-label="AI 패널 토글">⊕</button>
+    <button class="icon-btn" id="toggleTheme" title="테마 전환 (다크/라이트)" aria-label="테마 전환">◐</button>
+    <button class="icon-btn" title="설정" aria-label="설정">⚙</button>
+  </header>
+
+  <!-- ====================================================================
+       메인 3분할 (좌 트리 / 중 스테이지 / 우 패널) — §1.1
+       ==================================================================== -->
+  <main class="main" id="main">
+    <!-- ===== LeftSidebar (FR-102 회차 트리) ===== -->
+    <aside class="left-sidebar" aria-label="회차 트리">
+      <div class="tree-section-title">회차</div>
+      <ul class="tree-list">
+        <li>
+          <div class="tree-item tree-volume" data-vid="v1">
+            <span class="caret">▾</span>
+            <span>1권 · 운명의 시작</span>
+          </div>
+          <ul class="tree-children">
+            <li class="tree-item" data-cid="c1">
+              <span class="caret" style="visibility:hidden;">●</span>
+              <span>1화</span>
+              <span class="status-mark done"></span>
+            </li>
+            <li class="tree-item" data-cid="c2">
+              <span class="caret" style="visibility:hidden;">●</span>
+              <span>2화</span>
+              <span class="status-mark done"></span>
+            </li>
+            <li class="tree-item active" data-cid="c3">
+              <span class="caret" style="visibility:hidden;">●</span>
+              <span>3화 · 어둠 속의 만남</span>
+              <span class="status-mark revising"></span>
+            </li>
+            <li class="tree-item" data-cid="c4">
+              <span class="caret" style="visibility:hidden;">●</span>
+              <span>4화</span>
+              <span class="status-mark draft"></span>
+            </li>
+          </ul>
+        </li>
+        <li>
+          <div class="tree-item tree-volume" data-vid="v2">
+            <span class="caret">▸</span>
+            <span>2권 · 전쟁의 서막</span>
+          </div>
+        </li>
+      </ul>
+      <button class="tree-add" type="button">+ 회차 추가</button>
+
+      <div class="tree-section-title" style="margin-top:14px;">바로가기</div>
+      <ul class="tree-list">
+        <li class="tree-item" data-go="s2">
+          <span class="caret" style="visibility:hidden;">●</span>
+          <span>📖 에디터 (S2)</span>
+        </li>
+        <li class="tree-item" data-go="s5">
+          <span class="caret" style="visibility:hidden;">●</span>
+          <span>✨ AI 패널 (S5)</span>
+        </li>
+        <li class="tree-item" data-go="s6">
+          <span class="caret" style="visibility:hidden;">●</span>
+          <span>🔍 윤문 리포트 (S6)</span>
+        </li>
+        <li class="tree-item" data-go="s7">
+          <span class="caret" style="visibility:hidden;">●</span>
+          <span>⚙ 설정 (S7)</span>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- ===== CenterStage (S2/S5/S6/S7 탭) ===== -->
+    <section class="center" id="center">
+      <nav class="screen-tabs" role="tablist">
+        <button class="screen-tab active" data-screen="s2" role="tab">에디터 <span class="fr-tag">FR-103</span></button>
+        <button class="screen-tab" data-screen="s5" role="tab">AI 패널 <span class="fr-tag">FR-401~409</span></button>
+        <button class="screen-tab" data-screen="s6" role="tab">윤문 리포트 <span class="fr-tag">FR-501~507</span></button>
+        <button class="screen-tab" data-screen="s7" role="tab">설정 <span class="fr-tag">FR-401~407</span></button>
+      </nav>
+
+      <!-- ====================================================================
+           S2 — 회차 에디터 (FR-101~109 / NFR-101·204)
+           P2(글자 수), P3(저장 상태), P6(AI 패널 호출) 적용
+           ==================================================================== -->
+      <div class="screen active" id="screen-s2" role="tabpanel">
+
+        <div class="editor-shell">
+          <!-- 회차 메타 (FR-108 메모, FR-109 내보내기 메뉴) -->
+          <div class="editor-meta">
+            <input class="title-input" type="text" value="3화 · 어둠 속의 만남" aria-label="회차 제목">
+            <button class="memo-btn" type="button" title="회차 메모 (FR-108)" aria-label="회차 메모">📝</button>
+            <button class="menu-btn" type="button" id="editorMenuBtn" title="에디터 메뉴 (FR-109 내보내기)" aria-label="에디터 메뉴">⋯</button>
+          </div>
+
+          <!-- 에디터/미리보기 탭 (FR-103) -->
+          <div class="editor-tabs">
+            <button class="editor-tab active" data-editortab="edit">📝 편집</button>
+            <button class="editor-tab" data-editortab="preview">👁 미리보기</button>
+            <button class="editor-tab" data-editortab="settings">⚙ 설정</button>
+          </div>
+
+          <!-- 에디터 본문 (CodeMirror 자리 — 더미 원고 텍스트) -->
+          <div class="editor-body" id="editorBody">
+            <textarea class="editor-textarea" id="editorTextarea" spellcheck="false" aria-label="원고 에디터 (FR-103, NFR-101)"># 3화. 어둠 속의 만남
+
+## 1. 시작
+
+어둠 속에서 한 소년이 깨어났다. 차가운 돌바닥이 등을 눌렀고, 머리 위에는 깎아지지 않은 동굴 천장이 보였 다. 기억은 없었다. 그저 자신의 이름만이 머릿속을 맴돌았 다 — 카엘.
+
+"여기가 어디지."
+
+소년은 일어섰다. 아주 먼 곳에서 희미한 빛이 새어 들어오고 있었다. 그 빛을 따라 발을 내딛자, 동굴은 좁아졌 고, 끝에는 낡은 문이 하나 있었다. 문틈 사이로 비치는 것은 — 어둠과는 다른, 붉은색이었다.
+
+## 2. 붉은 문
+
+문이 열렸다. 그리고 그 안에는 한 소녀가 서 있었다. 붉은 망토를 두른 소녀는 미소를 지었다. 하지만 그것은, 마치 오래된 인형 같은 — 감정 없는 미소였다.
+
+"기다리고 있었어."
+
+소녀의 목소리는 동굴 안에 울렸다. 그리고 그 순간, 카엘은 깨달았다. 이건 꿈이 아니라는 것을. 자신의 손끝에서부터 천천히 피어오르는 — </textarea>
+          </div>
+
+          <!-- 미리보기 (FR-103 — markdown-it 자리, 더미 렌더) -->
+          <div class="editor-body hide" id="previewBody">
+            <div class="editor-preview">
+              <h1>3화. 어둠 속의 만남</h1>
+              <h2>1. 시작</h2>
+              <p>어둠 속에서 한 소년이 깨어났다. 차가운 돌바닥이 등을 눌렀고, 머리 위에는 깎아지지 않은 동굴 천장이 보였다. 기억은 없었다. 그저 자신의 이름만이 머릿속을 맴돌았다 — <strong>카엘</strong>.</p>
+              <p>"여기가 어디지."</p>
+              <p>소년은 일어섰다. 아주 먼 곳에서 희미한 빛이 새어 들어오고 있었다. 그 빛을 따라 발을 내딛자, 동굴은 좁아졌고, 끝에는 낡은 문이 하나 있었다. 문틈 사이로 비치는 것은 — 어둠과는 다른, 붉은색이었다.</p>
+              <h2>2. 붉은 문</h2>
+              <p>문이 열렸다. 그리고 그 안에는 한 소녀가 서 있었다. 붉은 망토를 두른 소녀는 미소를 지었다. 하지만 그것은, 마치 오래된 인형 같은 — 감정 없는 미소였다.</p>
+              <p>"기다리고 있었어."</p>
+              <p>소녀의 목소리는 동굴 안에 울렸다. 그리고 그 순간, 카엘은 깨달았다. 이건 꿈이 아니라는 것을. 자신의 손끝에서부터 천천히 피어오르는 — </p>
+            </div>
+          </div>
+
+          <!-- 에디터 footer: FR-104 글자 수(공백제외, 굵게·모노), FR-106 자동저장 인디케이터 -->
+          <div class="editor-footer">
+            <div class="word-count">
+              글자 <span id="wcTotal">0</span> ·
+              <strong>공백제외 <span id="wcNoSpace">0</span></strong>
+            </div>
+            <div class="auto-save-progress" title="FR-106 자동저장 (디바운스 1.5s)">
+              <div class="progress" id="autoSaveBar"><div class="bar" style="width:0%"></div></div>
+            </div>
+            <div class="right">
+              <span class="muted">회차 상태</span>
+              <span class="status-chip revising"><span class="dot"></span>수정중</span>
+              <span class="muted">· 다음 저장 12초</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- NFR-303 — AI 패널/윤문 FAB (Alt+A, Alt+R) -->
+        <div class="fab-rail" aria-label="빠른 액션">
+          <button class="fab ai-fab" id="fabAi" title="AI 패널 열기 (Alt+A)">AI</button>
+          <button class="fab refine-fab" id="fabRefine" title="윤문 실행 (Alt+R)">윤문</button>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           S5 — AI 패널 (전역 사이드 패널, FR-401~409)
+           P1(자동삽입 금지)·NFR-201(전송 고지)·NFR-102(스트리밍) 적용
+           ==================================================================== -->
+      <div class="screen" id="screen-s5" role="tabpanel" style="padding:20px 32px;">
+        <div class="settings-shell" style="padding:0; max-width:none;">
+          <h1>AI 어시스턴트 <span class="badge primary mono">FR-401~409</span></h1>
+          <p class="muted" style="margin-top:-8px; font-family:'Pretendard',sans-serif; font-size:13px;">S2/S3/S4 어디서든 호출되며, 결과는 본문/필드에 절대 자동 삽입되지 않습니다 (P1·FR-406).</p>
+
+          <!-- P1 Alert (FR-406) — 모든 AI 화면 상단 고정 -->
+          <div class="alert info" role="status">
+            <span class="icon" aria-hidden="true">🛡</span>
+            <div class="body">
+              <div class="title">AI 결과는 자동으로 본문에 들어가지 않습니다</div>
+              <div>"끼워넣기" 또는 "선택 교체"를 눌러야 반영됩니다 (P1 · FR-406).</div>
+            </div>
+          </div>
+
+          <!-- NFR-201 전송 고지 (M-2 · S5 고정) -->
+          <div class="alert info" role="status">
+            <span class="icon" aria-hidden="true">☁</span>
+            <div class="body">
+              <div class="title">선택한 회차·카드·로어북 내용은 지정한 LLM 엔드포인트로 전송됩니다</div>
+              <div>외부 서비스로 데이터가 송신되며, 전송 내역은 백엔드 로그에 기록됩니다 (NFR-201).</div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:14px;">
+            <!-- 좌: 호출 컨텍스트 + 프롬프트 + 포함 컨텍스트 -->
+            <div>
+              <div class="card">
+                <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">호출 컨텍스트 (FR-401·FR-407)</h4>
+                <div class="field">
+                  <label>엔드포인트</label>
+                  <select class="select">
+                    <option>● LM Studio (기본) — http://localhost:1234/v1</option>
+                    <option>Ollama (OpenAI 호환) — http://localhost:11434/v1</option>
+                    <option>외부 OpenAI 호환 (사용자 정의)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>모델</label>
+                  <select class="select">
+                    <option>qwen2.5-7b (기본)</option>
+                    <option>llama-3.1-8b</option>
+                    <option>mistral-nemo-12b</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <label>temperature <span class="mono muted" style="font-weight:400;">0.7</span></label>
+                    <input type="range" min="0" max="2" step="0.1" value="0.7" class="select" style="padding:0;">
+                  </div>
+                  <div class="field">
+                    <label>max_tokens <span class="mono muted" style="font-weight:400;">2048</span></label>
+                    <input type="range" min="256" max="8192" step="128" value="2048" class="select" style="padding:0;">
+                  </div>
+                </div>
+                <div class="row-flex" style="gap:6px;">
+                  <span class="badge" title="Ollama 네이티브 미지원 (FR-409)">Ollama는 OpenAI 호환 모드만</span>
+                </div>
+              </div>
+
+              <div class="card" style="margin-top:14px;">
+                <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">프롬프트 (FR-403)</h4>
+                <div class="field">
+                  <label>프리셋</label>
+                  <select class="select">
+                    <option>● 장면 생성 (빌트인)</option>
+                    <option>대사 보강 (빌트인)</option>
+                    <option>요약 (빌트인)</option>
+                    <option>이어쓰기 (빌트인)</option>
+                    <option>— 사용자 정의 —</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>프롬프트 직접 입력</label>
+                  <textarea class="textarea" rows="4" spellcheck="false">현재 회차의 톤(어둡고 긴장감 있는 1인칭 서술)을 유지한 채, 카엘이 붉은 문 너머 소녀와 처음 대면하는 장면을 1,000자 내로 이어서 작성해줘. {chapter_context}</textarea>
+                </div>
+                <div class="preset-list" style="margin-top:6px;">
+                  <div class="preset-item active">
+                    <div>장면 생성 — 어둠+긴장</div>
+                    <div class="meta">변수: chapter_context · max 2,048 tok</div>
+                  </div>
+                  <div class="preset-item">
+                    <div>이어쓰기 — 자연스러운 문체</div>
+                    <div class="meta">변수: last_para · style_hint</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="margin-top:14px;">
+                <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">포함 컨텍스트 (FR-404)</h4>
+                <label class="check"><input type="checkbox" checked> 현재 회차 <span class="muted">(3화 · 2,847자)</span></label>
+                <label class="check"><input type="checkbox"> 선택 캐릭터 <span class="muted">(0)</span></label>
+                <label class="check"><input type="checkbox"> 선택 로어북 <span class="muted">(1)</span></label>
+                <div class="chip-row">
+                  <span class="chip">마력석 <span class="x">×</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 우: 응답 스트리밍 + 액션 -->
+            <div>
+              <div class="card">
+                <div class="row-flex" style="margin-bottom:8px;">
+                  <h4 style="margin:0; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">응답 (스트리밍 · FR-405)</h4>
+                  <div style="margin-left:auto;"><span class="badge streaming" id="streamStatus">STREAMING</span></div>
+                </div>
+                <div class="ai-stream-box" id="streamBox">
+<span class="diff-unchanged">문이 열리고, 붉은 망토의 소녀가 들어왔다. 그녀의 눈동자는 칠흑처럼 어두웠지만, 입가에는 알 수 없는 미소가 걸려 있었다.
+
+"기대를 하고 있었어, </span><span class="diff-add">오랜 시간 동안</span><span class="diff-unchanged">."
+
+소년은 한 발 물러섰다. 손끝이 떨렸다. </span><span class="diag-mark diag-A" title="A 번역투">어둠 속</span><span class="diff-unchanged">에서 그와 마주친 것은 처음이었기에, 심장이 빠르게 뛰기 시작했다. </span><span class="diag-mark diag-H" title="H 접속사 남발">하지만,</span><span class="diff-unchanged"> 그것은 두려움 때문만은 아니었다. </span><span class="diag-mark diag-D" title="D 관용구">시간은 강물처럼 흘러갔고,</span><span class="diff-unchanged"> 두 사람은 한동안 말이 없었다.
+
+"이름이 뭐야?" 소녀가 물었다.
+"카엘."
+"그렇구나. </span><span class="diff-add">기다리고 있었어, 카엘</span><span class="diff-unchanged">."
+
+소년의 시선이 소녀의 손에 닿았다. 그녀의 손에는 — </span><span class="stream-caret"></span></div>
+
+                <div class="action-row">
+                  <button class="btn outline" id="btnInsert" title="에디터 본문 끝에 append (P1·FR-406)">↪ 끼워넣기</button>
+                  <button class="btn outline" id="btnReplace" title="에디터 선택 범위 교체 (P1·FR-406)">⤳ 선택 교체</button>
+                  <button class="btn outline" id="btnCopy" title="클립보드 복사 (P1·FR-406)">⧉ 복사</button>
+                </div>
+                <div class="stream-meta">
+                  <span>상태: <span id="metaStatus">STREAMING</span></span>
+                  <span>· 속도: <span class="mono">12.4 tok/s</span></span>
+                  <span>· 누적: <span class="mono" id="metaTokens">1,024 t</span></span>
+                </div>
+                <div class="row-flex" style="margin-top:6px; gap:6px;">
+                  <button class="btn sm" id="btnAbort" title="스트리밍 중단 (NFR-102)">⏹ 중단</button>
+                  <span class="muted" style="font-size:11px;">에디터는 활성 유지 (NFR-102 — 입력 막지 않음)</span>
+                </div>
+              </div>
+
+              <!-- NFR-301 단축키 안내 -->
+              <div class="card" style="margin-top:14px;">
+                <h4 style="margin:0 0 8px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">단축키 (NFR-301·NFR-303)</h4>
+                <div class="row-flex" style="font-size:12px; gap:14px; flex-wrap:wrap;">
+                  <span class="mono">Alt+A</span><span class="muted">AI 패널</span>
+                  <span class="mono">Alt+R</span><span class="muted">윤문 실행</span>
+                  <span class="mono">Ctrl/Cmd+S</span><span class="muted">수동 저장</span>
+                  <span class="mono">Ctrl/Cmd+/</span><span class="muted">도움말</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <button class="btn primary lg" id="btnStartGen" title="스트리밍 생성 시작 (FR-405)">✨ 생성 시작</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           S6 — 윤문 리포트 (FR-501~507 / NFR-401 / C-2 50% 차단)
+           P4(사용자 결정) + 30% 경고/50% 차단 게이트 시각화
+           ==================================================================== -->
+      <div class="screen" id="screen-s6" role="tabpanel" style="padding:20px 32px;">
+        <div class="settings-shell" style="padding:0; max-width:none;">
+
+          <div class="row-flex" style="margin-bottom:8px;">
+            <h1 style="margin:0;">윤문 리포트</h1>
+            <span class="badge primary mono">FR-501~507</span>
+            <span class="badge" style="margin-left:auto;">NFR-401 · 윤문 모듈 4대 철칙</span>
+          </div>
+
+          <!-- 상단 메타 -->
+          <div class="refine-summary">
+            <span><strong>회차</strong> <span class="mono">1권 3화</span></span>
+            <span class="muted">·</span>
+            <span><strong>강도</strong> <span class="mono">standard</span> <span class="muted">(자동)</span></span>
+            <span class="muted">·</span>
+            <span><strong>진단</strong> <span class="mono">23</span> <span class="muted">span</span></span>
+            <span class="muted">·</span>
+            <span><strong>변경률</strong> <span class="mono" id="ratioTop">27.4%</span></span>
+            <span class="gate-tag" id="gateTagTop">pass</span>
+          </div>
+
+          <!-- 변경률 게이지 (FR-505 · 30/50 임계선 시각화) -->
+          <div class="refine-progress-wrap">
+            <div class="progress" id="refineProgress">
+              <div class="bar" id="refineBar" style="width:27.4%"></div>
+              <div class="threshold" data-label="30% warn" style="left:30%"></div>
+              <div class="threshold" data-label="50% block" style="left:50%"></div>
+            </div>
+            <div class="refine-progress-labels">
+              <span>0%</span>
+              <span class="muted">30% 미만 — pass</span>
+              <span class="muted">30~50% — warn</span>
+              <span class="muted">50% 이상 — block</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <!-- FR-506 / NFR-401 — 탐지 회피가 아님을 명시 -->
+          <div class="alert info" role="status">
+            <span class="icon" aria-hidden="true">ℹ</span>
+            <div class="body">
+              <div class="title">본 결과는 "AI 티 다듬기" 목적입니다 (FR-506).</div>
+              <div>탐지 회피를 의미하지 않으며, 윤문 실행 시 원문은 항상 보존됩니다 (RefineRun 기록).</div>
+            </div>
+          </div>
+
+          <!-- 강도 선택 -->
+          <div class="row-flex" style="margin: 10px 0 14px;">
+            <span class="muted" style="font-size:12px;">윤문 강도:</span>
+            <label class="radio-row"><input type="radio" name="route"> light</label>
+            <label class="radio-row"><input type="radio" name="route" checked> standard</label>
+            <label class="radio-row"><input type="radio" name="route"> heavy</label>
+            <button class="btn sm outline" style="margin-left:auto;" id="btnRerun">🔄 다시 실행</button>
+          </div>
+
+          <!-- 진단 카테고리 범례 (FR-503 / M-4 — taxonomy ID A~J) -->
+          <div class="card" style="margin-bottom:12px;">
+            <div class="row-flex" style="margin-bottom:8px;">
+              <h4 style="margin:0; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground);">진단 카테고리 (taxonomy ID A~J · FR-503)</h4>
+              <span class="muted" style="margin-left:auto; font-size:11px;">§2.6 · 백엔드 §5 span.category와 1:1 매핑</span>
+            </div>
+            <div class="cat-legend">
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-A));"></span> A · 번역투 <span class="muted">(4)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-B));"></span> B · 영어인용 <span class="muted">(1)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-C));"></span> C · 구조적패턴 <span class="muted">(2)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-D));"></span> D · 관용구 <span class="muted">(3)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-E));"></span> E · 리듬 <span class="muted">(5)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-F));"></span> F · 수식중복 <span class="muted">(2)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-G));"></span> G · Hedging <span class="muted">(2)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-H));"></span> H · 접속사 <span class="muted">(3)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-I));"></span> I · 형식명사 <span class="muted">(1)</span></div>
+              <div class="row"><span class="swatch" style="background:hsl(var(--cat-J));"></span> J · 시각장식 <span class="muted">(0)</span></div>
+            </div>
+          </div>
+
+          <!-- 병렬 diff 뷰 (FR-504 · jsdiff 자리) -->
+          <div class="diff-grid">
+            <div class="diff-pane">
+              <h5>원문 <span class="char-count mono">2,847자</span></h5>
+              <p><span class="diff-unchanged">## 1. 시작
+
+어둠 속에서 한 소년이 깨어났다. 차가운 돌바닥이 등을 눌렀고, 머리 위에는 </span><span class="diag-mark diag-A" title="A 번역투 · line 4-6">깎아지지 않은</span><span class="diff-unchanged"> 동굴 천장이 </span><span class="diff-del">보였 다</span><span class="diff-unchanged">. 기억은 없었다. 그저 자신의 이름만이 머릿속을 </span><span class="diag-mark diag-H" title="H 접속사 남발">맴돌았 다</span><span class="diff-unchanged"> — 카엘.
+
+"여기가 어디지."
+
+소년은 일어섰다. 아주 먼 곳에서 </span><span class="diag-mark diag-D" title="D 관용구">희미한 빛이 새어 들어오고 있었다</span><span class="diff-unchanged">. 그 빛을 따라 발을 내딛자, 동굴은 좁아졌 고, 끝에는 낡은 문이 하나 있었다. </span><span class="diag-mark diag-C" title="C 구조적패턴">문틈 사이로 비치는 것은 — 어둠과는 다른, 붉은색이었다.</span></p>
+            </div>
+            <div class="diff-pane">
+              <h5>수정본 <span class="char-count mono">2,063자</span></h5>
+              <p><span class="diff-unchanged">## 1. 시작
+
+카엘은 어둠 속에서 깨어났다. 차가운 돌바닥이 등을 누르고 있었고, 머리 위 동굴 천장은 </span><span class="diag-mark diag-A" title="A 번역투 다듬기">낮고 거칠었다</span><span class="diff-unchanged">. 기억은 없었다. </span><span class="diff-add">이름만이 머릿속에 맴돌았다</span><span class="diff-unchanged">.
+
+"여기가 어디지."
+
+소년은 일어섰다. 먼 곳에서 </span><span class="diff-add">붉은 빛이</span><span class="diff-unchanged"> 새어 들어왔다. 그 빛을 따라 발을 옮기자, 동굴이 좁아졌다. 끝에 낡은 문이 있었다. </span><span class="diff-add">문 너머로 붉은빛이 새어 들었다.</span></p>
+            </div>
+          </div>
+
+          <!-- 게이트 액션 (P4) -->
+          <div class="gate-actions" id="gateActions">
+            <h5>변경률 <span class="mono" id="ratioAct">27.4%</span> · 게이트: <span class="gate-tag" id="gateTagAct">pass</span></h5>
+            <p class="help" style="margin: 0 0 8px;">수락 시 회차 본문이 수정본으로 교체됩니다. 자동 저장은 유지됩니다 (FR-504·FR-507).</p>
+            <div class="btn-row" id="acceptRow">
+              <button class="btn primary accept-btn" id="btnAccept">✓ 수락 (에디터에 반영)</button>
+              <button class="btn outline" id="btnReject">✗ 거절</button>
+            </div>
+            <p class="help">거절 시 기록만 남습니다 (RefineRun).</p>
+          </div>
+
+          <!-- 50% 초과 케이스 (C-2) — 강제 수락 차단 배지 -->
+          <div class="gate-actions" id="gateActionsBlock" style="margin-top:14px; border-left: 3px solid hsl(var(--destructive));">
+            <div class="row-flex" style="margin-bottom:6px;">
+              <h5 style="margin:0;">변경률 <span class="mono" style="color:hsl(var(--destructive));">62.1%</span> · 게이트: <span class="gate-tag block">block</span></h5>
+              <span class="badge danger" style="margin-left:auto;">⚠ 50% 초과 — 자동 수락 차단</span>
+            </div>
+            <div class="alert error" style="margin-bottom:8px;">
+              <span class="icon">⚠</span>
+              <div class="body">
+                <div class="title">50% 초과 — 자동 수락 차단 (FR-505 · C-2)</div>
+                <div>강제 수락 경로가 없습니다. <strong>윤문 재실행</strong>(강도 변경) 또는 <strong>폐기</strong>만 선택 가능합니다 (NFR-401 · im-not-ai 4대 철칙 #4).</div>
+              </div>
+            </div>
+            <div class="btn-row" style="opacity: 0.45;">
+              <button class="btn primary accept-btn" disabled>✓ 수락 (비활성)</button>
+              <button class="btn outline" disabled>✗ 거절</button>
+            </div>
+            <div class="btn-row" style="margin-top:6px;">
+              <button class="btn primary outline">🔄 윤문 재실행 (강도 변경)</button>
+              <button class="btn ghost">🗑 폐기</button>
+            </div>
+          </div>
+
+          <!-- 실행 이력 (FR-507) -->
+          <div class="card history" style="margin-top:14px;">
+            <h4 style="margin:0 0 6px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">실행 이력 (FR-507) — light(2) · standard(1) · heavy(0)</h4>
+            <div class="history-row">
+              <span class="ts mono">2026-08-25 14:22</span>
+              <span class="badge">standard</span>
+              <span class="mono">27.4%</span>
+              <span class="verdict reject">거절</span>
+            </div>
+            <div class="history-row">
+              <span class="ts mono">2026-08-25 13:10</span>
+              <span class="badge">light</span>
+              <span class="mono">8.1%</span>
+              <span class="verdict accept">수락</span>
+            </div>
+            <div class="history-row">
+              <span class="ts mono">2026-08-25 12:01</span>
+              <span class="badge">light</span>
+              <span class="mono">12.5%</span>
+              <span class="verdict accept">수락</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ====================================================================
+           S7 — 설정 (FR-401~407 / NFR-202·203·401·403·404)
+           C-1: api_key [표시] 버튼 완전 삭제, 마스킹만 노출
+           ==================================================================== -->
+      <div class="screen" id="screen-s7" role="tabpanel">
+        <div class="settings-shell">
+
+          <div class="row-flex" style="margin-bottom:14px;">
+            <h1 style="margin:0;">설정</h1>
+            <span class="badge primary mono">FR-401~407</span>
+          </div>
+
+          <nav class="settings-tabs" role="tablist">
+            <button class="settings-tab active" data-settab="ai">AI 엔드포인트</button>
+            <button class="settings-tab" data-settab="refine">윤문</button>
+            <button class="settings-tab" data-settab="theme">테마</button>
+            <button class="settings-tab" data-settab="policy">규정·현황</button>
+            <button class="settings-tab" data-settab="backup">백업·복원</button>
+            <button class="settings-tab" data-settab="advanced">고급</button>
+          </nav>
+
+          <!-- ===== AI 엔드포인트 탭 (C-1) ===== -->
+          <div class="settings-pane active" id="pane-ai">
+            <p class="muted" style="font-family:'Pretendard',sans-serif; font-size:13px; margin: 0 0 12px;">
+              OpenAI 호환 엔드포인트를 등록하고, 기본으로 사용할 모델을 선택합니다. Ollama는 OpenAI 호환 모드만 지원합니다 (FR-409).
+            </p>
+
+            <!-- LM Studio 기본 엔드포인트 -->
+            <div class="endpoint-card">
+              <div class="row">
+                <span class="default-mark">● LM Studio (기본)</span>
+                <span class="badge success" style="margin-left:8px;">연결됨</span>
+              </div>
+              <div class="row">
+                <span class="label">base_url</span>
+                <span class="val mono">http://localhost:1234/v1</span>
+              </div>
+              <div class="row">
+                <span class="label">api_key <span class="badge" style="font-size:9px; margin-left:4px;">FR-402</span></span>
+                <!-- C-1: 마스킹만 노출, [표시] 버튼 완전 삭제 -->
+                <span class="val mono masked" title="저장된 키는 보안 정책상 마스킹만 노출 (NFR-202)">••••••••••••••••••••••••</span>
+              </div>
+              <div class="row">
+                <span class="label">default_model</span>
+                <span class="val mono">qwen2.5-7b</span>
+              </div>
+              <div class="row">
+                <span class="label">temperature</span>
+                <span class="val mono">0.7</span>
+                <span class="muted">·</span>
+                <span class="label" style="width:auto;">max_tokens</span>
+                <span class="val mono">2048</span>
+              </div>
+              <div class="actions">
+                <button class="btn sm outline" id="btnChangeKey">🔑 키 변경</button>
+                <button class="btn sm outline">🔌 테스트 연결</button>
+                <button class="btn sm outline">🔄 모델 새로고침</button>
+                <button class="btn sm">기본으로 설정</button>
+              </div>
+            </div>
+
+            <button class="btn outline block" style="margin-bottom:14px;">+ 새 엔드포인트 추가</button>
+
+            <!-- 프롬프트 프리셋 (FR-403) -->
+            <div class="card">
+              <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">프롬프트 프리셋 (FR-403)</h4>
+              <div class="preset-list">
+                <div class="preset-item">
+                  <div>장면 생성 <span class="muted">— 어둠+긴장</span></div>
+                  <div class="meta">변수: chapter_context · max 2,048 tok</div>
+                </div>
+                <div class="preset-item">
+                  <div>대사 보강 <span class="muted">— 캐릭터 말투 강화</span></div>
+                  <div class="meta">변수: character_card · context</div>
+                </div>
+                <div class="preset-item">
+                  <div>요약 <span class="muted">— 회차 5줄 요약</span></div>
+                  <div class="meta">변수: chapter_text</div>
+                </div>
+                <div class="preset-item">
+                  <div>이어쓰기 <span class="muted">— 자연스러운 문체</span></div>
+                  <div class="meta">변수: last_para · style_hint</div>
+                </div>
+              </div>
+              <button class="btn outline sm" style="margin-top:8px;">+ 사용자 프리셋 추가</button>
+            </div>
+
+            <!-- NFR-202 안내 -->
+            <div class="alert info" style="margin-top:14px;">
+              <span class="icon">🔐</span>
+              <div class="body">
+                <div class="title">API 키 보안 정책 (NFR-202)</div>
+                <div>저장된 키는 마스킹만 노출됩니다. 재표시할 수 없으며, 변경하려면 새 값을 입력해야 합니다. <strong>[표시] 버튼은 제공되지 않습니다</strong> (C-1 · v1.1 정정).</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 윤문 탭 ===== -->
+          <div class="settings-pane" id="pane-refine">
+            <div class="card">
+              <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">윤문 기본값 (FR-502·505·506 / NFR-401)</h4>
+              <div class="field">
+                <label>기본 강도 (route_hint)</label>
+                <div class="row-flex">
+                  <label class="radio-row"><input type="radio" name="rdef" checked> 자동 (light/standard/heavy 자동 판정)</label>
+                </div>
+                <div class="row-flex">
+                  <label class="radio-row"><input type="radio" name="rdef"> light</label>
+                  <label class="radio-row"><input type="radio" name="rdef"> standard</label>
+                  <label class="radio-row"><input type="radio" name="rdef"> heavy</label>
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>30% 경고 임계값 (고정)</label>
+                  <input class="input mono" value="0.30" disabled>
+                </div>
+                <div class="field">
+                  <label>50% 차단 임계값 (고정)</label>
+                  <input class="input mono" value="0.50" disabled>
+                </div>
+              </div>
+            </div>
+
+            <div class="alert info" style="margin-top:14px;">
+              <span class="icon">ℹ</span>
+              <div class="body">
+                <div class="title">윤문 모듈 4대 철칙 (NFR-401)</div>
+                <div>① "AI 티 다듬기" 목적, 탐지 회피 아님 · ② 30/50% 게이트 · ③ 사용자 수락/거절 결정 · ④ 윤문 실행 시 원문 보존</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 테마 탭 ===== -->
+          <div class="settings-pane" id="pane-theme">
+            <div class="card">
+              <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">테마 (저채도·세리프)</h4>
+              <div class="field">
+                <label>모드</label>
+                <div class="row-flex">
+                  <label class="radio-row"><input type="radio" name="thm" checked> 다크 (기본)</label>
+                  <label class="radio-row"><input type="radio" name="thm"> 라이트</label>
+                  <label class="radio-row"><input type="radio" name="thm"> 시스템</label>
+                </div>
+              </div>
+              <div class="field">
+                <label>본문 폰트</label>
+                <select class="select">
+                  <option>Noto Serif KR (기본)</option>
+                  <option>본명조</option>
+                  <option>Pretendard (고딕)</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label>행간</label>
+                  <select class="select"><option>1.7</option><option selected>1.8</option><option>1.9</option></select>
+                </div>
+                <div class="field">
+                  <label>자간</label>
+                  <select class="select"><option>normal</option><option>wide</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 규정·현황 탭 (NFR-403·404) ===== -->
+          <div class="settings-pane" id="pane-policy">
+
+            <!-- NFR-404 — AI 공개/비공개 판단은 작가의 몫 (앱은 안내 의무만) -->
+            <div class="alert warning" role="status">
+              <span class="icon">⚠</span>
+              <div class="body">
+                <div class="title">AI 사용 여부의 공개/비공개 판단은 작가의 몫입니다 (NFR-404)</div>
+                <div>앱은 안내 의무만 부담하며, 권장 방침을 유도하지 않습니다. 플랫폼별 최신 규정은 아래 카드를 확인하세요.</div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-bottom:12px;">
+              <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">플랫폼 AI 규정 (FR-601 / NFR-403)</h4>
+              <div class="policy-list">
+                <div class="policy-item">
+                  <span class="platform">📄 노벨피아</span>
+                  <span class="muted">AI 결과 사용 시 "AI 활용" 표시 권장, 자동 삽입 금지</span>
+                  <span class="date">2026-08-25</span>
+                </div>
+                <div class="policy-item">
+                  <span class="platform">📄 문피아</span>
+                  <span class="muted">AI 사용 가능, 표지/작가란에 명시 의무</span>
+                  <span class="date">2026-08-25</span>
+                </div>
+                <div class="policy-item">
+                  <span class="platform">📄 조아라</span>
+                  <span class="muted">AI 사용 가능, 회차 말미 출처 표기</span>
+                  <span class="date">2026-08-25</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">노벨피아 PLUS 충족 현황 (FR-602)</h4>
+              <div class="plus-progress">
+                <span class="label">총 작품 수 <span class="mono">3</span> / 15편</span>
+                <div class="progress warn"><div class="bar" style="width:20%"></div></div>
+                <span class="badge warning">미충족</span>
+              </div>
+              <div class="plus-progress">
+                <span class="label">회차당 3,000자 <span class="mono">2,847자</span></span>
+                <div class="progress"><div class="bar" style="width:95%"></div></div>
+                <span class="badge success">충족</span>
+              </div>
+              <p class="muted" style="font-size:11px; margin-top:8px;">PLUS 충족 시 회차당 3,000자, 총 15편 이상 권장. 본 회차는 2,847자 — 충족.</p>
+            </div>
+          </div>
+
+          <!-- ===== 백업 탭 ===== -->
+          <div class="settings-pane" id="pane-backup">
+            <div class="card">
+              <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">백업·복원 (NFR-203)</h4>
+              <p class="muted" style="font-family:'Pretendard',sans-serif; font-size:13px;">SQLite DB + 설정을 .zip으로 묶어 내보내거나, 이전 백업에서 복원합니다.</p>
+              <div class="row-flex" style="margin-top:10px;">
+                <button class="btn primary">📦 백업 다운로드</button>
+                <button class="btn outline">📥 백업에서 복원</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== 고급 탭 (m-7 — 줄 번호 토글) ===== -->
+          <div class="settings-pane" id="pane-advanced">
+            <div class="card">
+              <h4 style="margin:0 0 10px; font-family:'Pretendard',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:hsl(var(--muted-foreground));">에디터 (고급 · m-7)</h4>
+              <div class="field">
+                <label>자동 저장 주기 (ms, 500~5000)</label>
+                <input type="range" min="500" max="5000" step="100" value="1500" class="select" style="padding:0;">
+                <span class="muted mono" style="font-size:11px;">현재: 1500ms (기본)</span>
+              </div>
+              <div class="field">
+                <label>에디터 줄 번호</label>
+                <label class="check"><input type="checkbox"> <span class="muted">기본 OFF(집중) — ON 시 CodeMirror `lineNumbers()` 활성화 (Compartment 토글)</span></label>
+              </div>
+              <div class="field">
+                <label>디버그 로그</label>
+                <label class="check"><input type="checkbox"> 콘솔에 SSE 청크/디버그 출력</label>
+              </div>
+              <div class="field">
+                <label>시드 리셋</label>
+                <button class="btn danger sm">⚠ 데모 데이터 초기화</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===== RightPanel (S5 AI 패널 — 우측에 띄울 때 사용) ===== -->
+    <aside class="right-panel" id="rightPanel" aria-label="AI 패널">
+      <div class="rp-header">
+        <span>✨ AI 어시스턴트</span>
+        <span class="badge streaming" id="rightStreamBadge">STREAMING</span>
+        <button class="close-btn" id="closeRightPanel" aria-label="패널 닫기" title="닫기 (Esc)">×</button>
+      </div>
+      <div class="rp-body">
+        <!-- P1 Alert -->
+        <div class="alert info">
+          <span class="icon">🛡</span>
+          <div class="body"><div class="title">AI 결과는 자동 삽입되지 않습니다 (P1)</div></div>
+        </div>
+        <!-- NFR-201 -->
+        <div class="alert info">
+          <span class="icon">☁</span>
+          <div class="body"><div class="title">선택한 회차·카드·로어북은 LLM 엔드포인트로 전송됩니다 (NFR-201)</div></div>
+        </div>
+
+        <div class="rp-section">
+          <h4>엔드포인트</h4>
+          <div class="field"><select class="select"><option>● LM Studio (기본)</option><option>Ollama (OpenAI 호환)</option></select></div>
+        </div>
+
+        <div class="rp-section">
+          <h4>프롬프트</h4>
+          <div class="field"><select class="select"><option>장면 생성</option><option>이어쓰기</option></select></div>
+        </div>
+
+        <div class="rp-section">
+          <h4>응답 (스트리밍)</h4>
+          <div class="ai-stream-box"><span class="diff-unchanged">문이 열리고, 붉은 망토의 소녀가 들어왔다. </span><span class="diff-add">오랜 시간 기다린 것처럼</span><span class="diff-unchanged">. </span><span class="stream-caret"></span></div>
+          <div class="action-row">
+            <button class="btn outline">↪ 끼워넣기</button>
+            <button class="btn outline">⤳ 선택 교체</button>
+            <button class="btn outline">⧉ 복사</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ====================================================================
+       StatusBar (FR-104·106, AI 상태)
+       ==================================================================== -->
+  <footer class="statusbar">
+    <span id="sbChapter">1권 3화 · 어둠 속의 만남</span>
+    <span class="sep"></span>
+    <span>단어 <span class="mono" id="sbWords">0</span></span>
+    <span class="sep"></span>
+    <span>공백제외 <span class="mono" id="sbNoSpace">0</span></span>
+    <span class="sep"></span>
+    <span id="sbSave">저장됨 · 방금 전</span>
+    <span class="sep"></span>
+    <span class="badge" id="sbAi" style="font-size:10px;">AI READY</span>
+    <span style="margin-left:auto;">⌘ 단축키 <span class="mono">Ctrl+/</span></span>
+  </footer>
+</div>
+
+<!-- 토스트 호스트 (끼워넣기 결과) -->
+<div class="toast-host" id="toastHost"></div>
+
+<!-- 디자인 가이드 콜아웃 -->
+<div class="fr-callout" id="frCallout">
+  <div><span class="fr-key">P1</span> AI 자동 삽입 금지 · <span class="fr-key">P2</span> 공백제외 글자수 · <span class="fr-key">P3</span> 저장 상태</div>
+  <div><span class="fr-key">P4</span> 30/50% 게이트 · <span class="fr-key">P5</span> 그리드+드로어 · <span class="fr-key">P6</span> 전역 AI 패널</div>
+  <div><span class="fr-key">P7</span> 저채도+세리프 · <span class="fr-key">P8</span> 이모지/애니메이션 절제</div>
+  <div style="margin-top:6px; color:hsl(var(--muted-foreground));">설계서 §0 (디자인_화면설계서_v1.md v1.1) — 본 프로토타입은 4개 화면(S2/S5/S6/S7) 시연용 정적 HTML.</div>
+</div>
+
+<script>
+/* ============================================================================
+   바닐라 JS — 화면 전환 / 우측 패널 / 더미 diff / 글자 수 / 토스트
+   ============================================================================ */
+
+/* --- 탭 전환 (S2 / S5 / S6 / S7) --- */
+const screenTabs = document.querySelectorAll('.screen-tab');
+const screens    = document.querySelectorAll('.screen');
+
+function activateScreen(name) {
+  screenTabs.forEach(t => t.classList.toggle('active', t.dataset.screen === name));
+  screens.forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
+  // 우측 패널은 S2 활성 시 기본 닫힘, 그 외엔 무관
+}
+screenTabs.forEach(t => {
+  t.addEventListener('click', () => activateScreen(t.dataset.screen));
+});
+
+/* --- 좌측 트리의 "바로가기" --- */
+document.querySelectorAll('[data-go]').forEach(el => {
+  el.addEventListener('click', () => activateScreen(el.dataset.go));
+});
+
+/* --- S2 에디터 탭 (편집/미리보기/설정) --- */
+const editorTabs = document.querySelectorAll('.editor-tab');
+editorTabs.forEach(t => {
+  t.addEventListener('click', () => {
+    editorTabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const which = t.dataset.editortab;
+    document.getElementById('editorBody').classList.toggle('hide', which !== 'edit');
+    document.getElementById('previewBody').classList.toggle('hide', which !== 'preview');
+  });
+});
+
+/* --- S7 설정 탭 --- */
+const settingsTabs = document.querySelectorAll('.settings-tab');
+const settingsPanes = document.querySelectorAll('.settings-pane');
+settingsTabs.forEach(t => {
+  t.addEventListener('click', () => {
+    settingsTabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const which = t.dataset.settab;
+    settingsPanes.forEach(p => p.classList.toggle('active', p.id === 'pane-' + which));
+  });
+});
+
+/* --- 테마 전환 (다크 ↔ 라이트) --- */
+const themeBtn = document.getElementById('toggleTheme');
+themeBtn.addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme;
+  document.documentElement.dataset.theme = (cur === 'dark' ? 'light' : 'dark');
+});
+
+/* --- 우측 패널 토글 (AI 패널 호출 — P6·NFR-303) --- */
+const main = document.getElementById('main');
+const toggleRightBtn = document.getElementById('toggleRightPanel');
+const closeRightBtn  = document.getElementById('closeRightPanel');
+
+function setRightPanel(open) {
+  main.classList.toggle('right-closed', !open);
+}
+toggleRightBtn.addEventListener('click', () => {
+  setRightPanel(main.classList.contains('right-closed'));
+});
+closeRightBtn.addEventListener('click', () => setRightPanel(false));
+
+/* --- 에디터 메뉴(FR-109 — 내보내기 .txt/.md) --- */
+const menuBtn = document.getElementById('editorMenuBtn');
+let menuPop = null;
+menuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (menuPop) { menuPop.remove(); menuPop = null; return; }
+  menuPop = document.createElement('div');
+  menuPop.className = 'menu-pop';
+  menuPop.style.top  = (menuBtn.getBoundingClientRect().bottom + 4) + 'px';
+  menuPop.style.right = (window.innerWidth - menuBtn.getBoundingClientRect().right) + 'px';
+  menuPop.innerHTML = `
+    <div class="mi">📤 회차 내보내기 (.txt) <span class="ext">FR-109</span></div>
+    <div class="mi">📤 회차 내보내기 (.md)  <span class="ext">FR-109</span></div>
+    <div class="sep"></div>
+    <div class="mi">📚 프로젝트 내보내기 (.zip) <span class="ext">FR-109</span></div>
+    <div class="sep"></div>
+    <div class="mi">📋 클립보드로 복사</div>
+  `;
+  document.body.appendChild(menuPop);
+});
+document.addEventListener('click', () => { if (menuPop) { menuPop.remove(); menuPop = null; } });
+
+/* ============================================================================
+   FR-104 — 글자 수 (공백제외) 실제 계산
+   ============================================================================ */
+const ta       = document.getElementById('editorTextarea');
+const wcTotal  = document.getElementById('wcTotal');
+const wcNoSpace= document.getElementById('wcNoSpace');
+const sbWords  = document.getElementById('sbWords');
+const sbNoSpace= document.getElementById('sbNoSpace');
+const saveBar  = document.querySelector('#autoSaveBar .bar');
+const saveInd  = document.getElementById('saveIndicator');
+const saveText = document.getElementById('saveText');
+
+function countText(t) {
+  return { total: t.length, noSpace: t.replace(/\s/g, '').length };
+}
+function refreshCounts() {
+  const { total, noSpace } = countText(ta.value);
+  wcTotal.textContent   = total.toLocaleString();
+  wcNoSpace.textContent = noSpace.toLocaleString();
+  sbWords.textContent   = total.toLocaleString();
+  sbNoSpace.textContent = noSpace.toLocaleString();
+}
+ta.addEventListener('input', () => {
+  refreshCounts();
+  scheduleAutoSave();
+});
+
+/* --- FR-106 — 자동 저장 시뮬레이션 (디바운스 1.5s) --- */
+let saveTimer = null;
+let nextSaveAt = 0;
+function scheduleAutoSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  const total = 1500;
+  nextSaveAt = Date.now() + total;
+  saveInd.classList.add('saving');
+  saveText.textContent = '저장 중…';
+  saveBar.style.width = '0%';
+  const start = Date.now();
+  const tick = setInterval(() => {
+    const elapsed = Date.now() - start;
+    saveBar.style.width = Math.min(100, (elapsed / total) * 100) + '%';
+    if (elapsed >= total) clearInterval(tick);
+  }, 30);
+  saveTimer = setTimeout(() => {
+    saveInd.classList.remove('saving');
+    saveText.textContent = '저장됨 · 방금 전';
+    saveBar.style.width = '100%';
+    setTimeout(() => { saveBar.style.width = '0%'; }, 800);
+  }, total);
+}
+refreshCounts();
+
+/* ============================================================================
+   S5 — 더미 스트리밍 (FR-405 / NFR-102)
+   ============================================================================ */
+const streamBox = document.getElementById('streamBox');
+const streamStatus = document.getElementById('streamStatus');
+const rightStreamBadge = document.getElementById('rightStreamBadge');
+const metaStatus = document.getElementById('metaStatus');
+const metaTokens = document.getElementById('metaTokens');
+const btnStartGen = document.getElementById('btnStartGen');
+const btnAbort    = document.getElementById('btnAbort');
+
+let streamingTimer = null;
+let tokens = 0;
+const dummyText = [
+  '문이 열리고, ',
+  '<span class="diff-add">오랜 시간 기다린 것처럼, </span>',
+  '붉은 망토의 소녀가 들어왔다. ',
+  '그녀의 눈동자는 칠흑처럼 어두웠지만, 입가에는 알 수 없는 미소가 걸려 있었다.\n\n',
+  '"기다리고 있었어, 카엘."\n\n',
+  '소년의 심장이 빠르게 뛰기 시작했다. ',
+  '<span class="diag-mark diag-A" title="A 번역투 다듬기">어둠 속</span>',
+  '에서 그와 마주친 것은 처음이었기에. ',
+  '<span class="diag-mark diag-H" title="H 접속사">하지만,</span> ',
+  '그것은 두려움 때문만은 아니었다. ',
+  '<span class="diag-mark diag-D" title="D 관용구">시간은 강물처럼 흘러갔고,</span> ',
+  '두 사람은 한동안 말이 없었다.\n\n',
+  '"이름이 뭐야?" 소녀가 물었다.\n',
+  '"카엘."\n',
+  '"그렇구나. ',
+  '<span class="diff-add">기다리고 있었어, 카엘.</span>"\n\n',
+  '소년의 시선이 소녀의 손에 닿았다. ',
+  '그녀의 손에는 — '
+];
+
+function startStreaming() {
+  if (streamingTimer) return;
+  streamBox.innerHTML = '';
+  tokens = 0;
+  streamStatus.textContent = 'STREAMING';
+  streamStatus.className   = 'badge streaming';
+  rightStreamBadge.textContent = 'STREAMING';
+  rightStreamBadge.className   = 'badge streaming';
+  metaStatus.textContent = 'STREAMING';
+  let i = 0;
+  streamingTimer = setInterval(() => {
+    if (i >= dummyText.length) {
+      finishStreaming();
+      return;
+    }
+    streamBox.innerHTML += dummyText[i] + '<span class="stream-caret"></span>';
+    // caret 위치 갱신 (마지막 caret만 남기기 위해)
+    const carets = streamBox.querySelectorAll('.stream-caret');
+    carets.forEach((c, idx) => { if (idx < carets.length - 1) c.remove(); });
+    streamBox.scrollTop = streamBox.scrollHeight;
+    tokens += Math.floor(Math.random() * 18) + 6;
+    metaTokens.textContent = tokens.toLocaleString() + ' t';
+    i++;
+  }, 220);
+}
+function finishStreaming() {
+  if (streamingTimer) { clearInterval(streamingTimer); streamingTimer = null; }
+  // caret 제거
+  streamBox.querySelectorAll('.stream-caret').forEach(c => c.remove());
+  streamStatus.textContent = 'DONE';
+  streamStatus.className   = 'badge success';
+  rightStreamBadge.textContent = 'DONE';
+  rightStreamBadge.className   = 'badge success';
+  metaStatus.textContent = 'DONE · ' + (tokens / 1.5).toFixed(1) + ' tok/s';
+}
+function abortStreaming() {
+  if (streamingTimer) { clearInterval(streamingTimer); streamingTimer = null; }
+  streamStatus.textContent = 'ABORTED';
+  streamStatus.className   = 'badge danger';
+  rightStreamBadge.textContent = 'ABORTED';
+  rightStreamBadge.className   = 'badge danger';
+  metaStatus.textContent = '중단됨';
+}
+btnStartGen.addEventListener('click', startStreaming);
+btnAbort.addEventListener('click', abortStreaming);
+
+/* ============================================================================
+   S5 액션 — 끼워넣기/교체/복사 (P1 · FR-406)
+   ============================================================================ */
+function pushToast(msg, kind) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (kind || '');
+  t.textContent = msg;
+  document.getElementById('toastHost').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 300ms'; }, 2200);
+  setTimeout(() => { t.remove(); }, 2700);
+}
+
+document.getElementById('btnInsert').addEventListener('click', () => {
+  const insertText = '\n\n' + (streamBox.textContent || '').trim().slice(0, 80) + ' …';
+  ta.value = ta.value.replace(/\s+$/, '') + insertText;
+  refreshCounts();
+  pushToast('에디터에 추가됨 · 자동 저장 유지 (P1·FR-406)', 'success');
+  // 1.5s 하이라이트 시뮬레이션
+  ta.classList.remove('flash'); void ta.offsetWidth; ta.classList.add('flash');
+});
+document.getElementById('btnReplace').addEventListener('click', () => {
+  pushToast('선택 영역이 교체되었습니다 (P1·FR-406)', 'success');
+});
+document.getElementById('btnCopy').addEventListener('click', async () => {
+  const text = streamBox.textContent || '';
+  try { await navigator.clipboard.writeText(text); } catch(e) {}
+  pushToast('클립보드에 복사됨', '');
+});
+
+/* --- FAB (NFR-303) — Alt+A / Alt+R --- */
+document.getElementById('fabAi').addEventListener('click', () => setRightPanel(true));
+document.getElementById('fabRefine').addEventListener('click', () => activateScreen('s6'));
+
+/* --- 단축키 (NFR-301) --- */
+document.addEventListener('keydown', (e) => {
+  if (e.altKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); setRightPanel(main.classList.contains('right-closed')); }
+  if (e.altKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); activateScreen('s6'); }
+  if (e.key === 'Escape') { setRightPanel(false); if (menuPop) { menuPop.remove(); menuPop = null; } }
+});
+
+/* ============================================================================
+   S6 — 변경률 게이트 (FR-505 / C-2 50% 차단) 시뮬레이션
+   ============================================================================ */
+const refineBar   = document.getElementById('refineBar');
+const refineProg  = document.getElementById('refineProgress');
+const ratioTop    = document.getElementById('ratioTop');
+const ratioAct    = document.getElementById('ratioAct');
+const gateTagTop  = document.getElementById('gateTagTop');
+const gateTagAct  = document.getElementById('gateTagAct');
+
+function setGate(ratio) {
+  ratioTop.textContent = ratio.toFixed(1) + '%';
+  ratioAct.textContent = ratio.toFixed(1) + '%';
+  refineBar.style.width = ratio + '%';
+  let gate;
+  if (ratio < 30) gate = 'pass';
+  else if (ratio < 50) gate = 'warn';
+  else gate = 'block';
+  refineProg.classList.remove('warn', 'block');
+  if (gate === 'warn')  refineProg.classList.add('warn');
+  if (gate === 'block') refineProg.classList.add('block');
+  gateTagTop.textContent = gate; gateTagTop.className = 'gate-tag ' + gate;
+  gateTagAct.textContent = gate; gateTagAct.className = 'gate-tag ' + gate;
+  // 50% 초과: 본문 수락 버튼 비활성
+  document.getElementById('btnAccept').disabled = (gate === 'block');
+  document.getElementById('btnAccept').textContent = (gate === 'block') ? '✓ 수락 (비활성 — 50% 초과)' : '✓ 수락 (에디터에 반영)';
+}
+document.getElementById('btnRerun').addEventListener('click', () => {
+  // 30/50/70% 중 랜덤으로 시뮬레이션
+  const choices = [12.4, 27.4, 41.0, 62.1, 73.5];
+  const pick = choices[Math.floor(Math.random() * choices.length)];
+  setGate(pick);
+  if (pick >= 50) {
+    pushToast('윤문 재실행 · 50% 초과 — 자동 수락 차단 (C-2)', 'success');
+  } else {
+    pushToast('윤문 재실행 완료 · ' + pick.toFixed(1) + '%', 'success');
+  }
+});
+document.getElementById('btnAccept').addEventListener('click', (e) => {
+  if (e.currentTarget.disabled) return;
+  pushToast('윤문 수락됨 · 회차 본문 교체 (FR-504·FR-507)', 'success');
+});
+document.getElementById('btnReject').addEventListener('click', () => {
+  pushToast('거절 처리됨 · RefineRun 기록만 유지', '');
+});
+setGate(27.4); // 초기 27.4% (pass)
+
+/* ============================================================================
+   초기 진입 — S2 활성, 우측 패널 닫힘
+   ============================================================================ */
+activateScreen('s2');
+setRightPanel(false);
+
+// 콘솔에 시그널 — 디자인팀 산출물임을 명시
+console.log('%c Jippeel · 디자인 프로토타입 v0.1 ', 'background:#2c3e5a;color:#fff;padding:2px 6px;border-radius:3px;');
+console.log('기준: 디자인_화면설계서_v1.md v1.1 · AGENTS.md §0 (디자인팀 4단계)');
+console.log('단축키: Alt+A(AI 패널) · Alt+R(윤문) · Esc(닫기)');
+</script>
+</body>
+</html>

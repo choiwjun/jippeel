@@ -1,0 +1,107 @@
+/**
+ * S5 AI 생성 SSE 클라이언트 (FR-405 / 설계서 §7.3 v1.2 R-2).
+ * EventSource 금지 — POST fetch + ReadableStream getReader()로 파싱한다.
+ * 백엔드(sse-starlette) 이벤트: start {model} / message {delta} / error {detail} / done [DONE]
+ */
+
+export interface StreamHandlers {
+  onStart?: (info: { model: string }) => void;
+  onChunk: (delta: string) => void;
+  onDone: () => void;
+  onError: (message: string) => void;
+}
+
+/** @returns abort 함수 — [중단] 버튼이 호출해 스트림을 끊는다 */
+export function streamGenerate(
+  body: unknown,
+  handlers: StreamHandlers,
+): () => void {
+  const ctrl = new AbortController();
+
+  void (async () => {
+    let res: Response;
+    try {
+      res = await fetch('/api/v1/ai/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return; // 사용자 중단은 에러 아님
+      handlers.onError('백엔드에 연결할 수 없습니다. 서버 실행 여부를 확인하세요.');
+      return;
+    }
+    if (!res.ok || !res.body) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const j = await res.json();
+        if (typeof j?.detail === 'string') msg = j.detail;
+      } catch { /* noop */ }
+      handlers.onError(msg);
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let finished = false;
+
+    const handleEvent = (eventName: string, data: string) => {
+      if (eventName === 'start') {
+        try { handlers.onStart?.({ model: JSON.parse(data).model ?? '' }); } catch { /* noop */ }
+      } else if (eventName === 'message') {
+        try {
+          const delta = JSON.parse(data).delta;
+          if (typeof delta === 'string' && delta.length > 0) handlers.onChunk(delta);
+        } catch { /* noop */ }
+      } else if (eventName === 'error') {
+        finished = true;
+        let detail = '스트리밍 중 오류가 발생했습니다.';
+        try { detail = JSON.parse(data).detail ?? detail; } catch { /* noop */ }
+        handlers.onError(detail);
+      } else if (eventName === 'done' || data.trim() === '[DONE]') {
+        finished = true;
+        handlers.onDone();
+      }
+    };
+
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        // SSE 프레임 구분: 빈 줄(\n\n). CRLF 대응.
+        const frames = buf.split(/\n\n|\r\n\r\n/);
+        buf = frames.pop() ?? '';
+        for (const frame of frames) {
+          let eventName = 'message';
+          const dataLines: string[] = [];
+          for (const line of frame.split(/\n|\r\n/)) {
+            if (line.startsWith('event:')) eventName = line.slice(6).trim();
+            else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+          }
+          handleEvent(eventName, dataLines.join('\n'));
+          if (finished) return;
+        }
+      }
+      // 남은 버퍼 처리
+      if (!finished && buf.trim()) {
+        let eventName = 'message';
+        const dataLines: string[] = [];
+        for (const line of buf.split(/\n|\r\n/)) {
+          if (line.startsWith('event:')) eventName = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+        }
+        handleEvent(eventName, dataLines.join('\n'));
+      }
+      if (!finished) handlers.onDone(); // 서버가 done 없이 종료한 경우
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') {
+        handlers.onError(`스트리밍 실패: ${(e as Error).message}`);
+      }
+    }
+  })();
+
+  return () => ctrl.abort();
+}
