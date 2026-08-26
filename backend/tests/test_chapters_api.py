@@ -63,6 +63,23 @@ def test_put_content_updates_word_count(client):
     assert body["word_count_cache"] == 12  # 공백 제외
 
 
+def test_post_content_beacon_alias_matches_put(client):
+    """sendBeacon(POST) 언로드 플러시 수용 — QA Minor #1 해소."""
+    pid = _mk_project(client)
+    cid = _mk_chapter(client, pid)["id"]
+
+    r = client.post(f"/api/v1/chapters/{cid}/content",
+                    json={"content_md": "언로드 직전 저장"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["content_md"] == "언로드 직전 저장"
+    assert body["word_count_cache"] > 0
+
+    # PUT과 동일하게 캐시가 갱신됐는지 재조회로 확인
+    got = client.get(f"/api/v1/chapters/{cid}").json()
+    assert got["word_count_cache"] == body["word_count_cache"]
+
+
 def test_patch_memo_and_title(client):
     pid = _mk_project(client)
     cid = _mk_chapter(client, pid)["id"]

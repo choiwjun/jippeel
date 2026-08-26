@@ -61,7 +61,26 @@
    - ⏭️ 다음: 6단계 QA — 백엔드 pytest 전수 + 프론트 빌드/E2E 점검 + 런타임 실측(sendBeacon 프록시 등)
    - [x] 6단계 QA ✅ `QA_개발검증_리포트.md` (2026-08-25) — **✅ 통과, MVP 출시 가능** (백엔드 97 테스트·프론트 빌드·런타임 스모크·Must 수용기준 대조 전부 통과, Critical 0건)
 
-**🎉 표준 파이프라인(AGENTS.md §0) 6단계 전체 완료 — 다음: 실사용 피드백 → 백로그(P1: SillyTavern 카드 연동, 로어북 자동 주입) 또는 Minor 후속**
+**✅ 외부 도구 흡수 적용 (2026-08-26, "필요한 모든걸 흡수해서 적용해")**
+- 대상: NarraLume(Apache-2.0)·goink(**AGPL — 코드 비복사, 개념만**)·oh-story-claudecode(MIT) → 상세 분석은 `부록06_외부도구_흡수_분석.md`
+- **로어북 자동 주입 v1 구현** (백로그 P1 달성): `services/injection.py` — 본문·지시문에 언급된 로어(title/keywords 점수 매칭) 상위 K개를 `/ai/generate`에 자동 주입. `context.auto_lore`·`auto_lore_limit` 파라미터, SSE start 이벤트 `injected_lore` 공개. P1 원칙 유지(원고 자동 삽입 아님)
+- **빌트인 프롬프트 프리셋 6종 시드**: `services/presets_seed.py`(이름 기준 멱등) — 이어쓰기/장 끝 후크/감정 기복 설계/대화 잠재의식/장면 확장/AI 티 제거 스타일 (oh-story 방법론 한국형 재해석)
+- 프론트 S5: "로어 자동 주입" 체크박스 + 주입된 로어 배지 표시 + 전송 고지 문구 보강 (aiPanelStore/aiStream/AiPanel)
+- QA Minor #3 해소: vite manualChunks(react-vendor/editor/markdown) 분리 — 빌드 경고 제거
+- 검증: 백엔드 **117 passed**(신규 12 포함) / 프론트 `npm run build` 통과(TS 0 오류·청크 경고 0)
+- 환경 정비: requirements.txt 누락 의존성 명시(openai·sse-starlette·cryptography), im-not-ai Windows 클론(`~/.agents/im-not-ai`)으로 네이티브 pytest 전수 가능
+- ⚠️ qwen CLI 인증 만료(BAILIAN_TOKEN_PLAN_API_KEY 403)로 프론트 위임 불가 → 원인 분석 후 직접 구현(전역 정책의 예외 허용 조건). 키 갱신 필요
+- 후속 로드맵(부록06 §2): 임베딩 시맨틱 검색 v2(sqlite-vec+한국어 ONNX), canon 충돌 게이트(NarraLume), Run Center, 복선 관리, 독자 인지 추적
+
+**✅ 잔여 과업 소화 (2026-08-26 2차 — "남은작업진행해")**
+- **QA Minor 3건 전건 해소**: ① sendBeacon 언로드 플러시가 POST라 PUT-only 백엔드에서 405 → `POST /chapters/{id}/content` 별칭 추가(실제 결함이었음) ② Py3.14 starlette 경고 재현 안 됨·종결 ③ vite 청크 분리 완료
+- **크로스플랫폼 결함 수정**: `humanize.run_subprocess`에 encoding="utf-8" 명시 — Windows cp949에서 verify_gates 크래시하던 버그(WSL 무증상)
+- **E2E 6/6 passed**: Windows 네이티브 환경 신규 구축(`scripts/fake_llm_server.py` 가짜 LLM :1234 + `scripts/e2e_refine_stub.py` 윤문 스텁 + venv python3.exe 심) 후 전 시나리오 통과. S1~S7 종단 + 정리 블록 포함
+- **플랫폼 규정 추적** ✅: `규정추적_2026-08.md` — 핵심 변화는 AI 기본법(2026-01-22) 생성물 표시 의무 + Claude 텍스트 워터마크(2026-08~). 노벨피아 약관 개정(08-06) 세부 확인은 다음 주기. 문피아 공모전 AI 금지 재확인, 조아라 무규정 유지
+- **노벨피아 PLUS 체크리스트** ✅: `노벨피아_PLUS_전환_체크리스트.md` — 조건 확정(15화+편당 공백제외 3,000자+정산정보), jippeel 워크플로 매핑, PLUS 진행률 표시 기능 아이디어 백로그 등재
+- 검증: 백엔드 **118 passed** (beacon 별칭 테스트 추가)
+
+**🎉 표준 파이프라인 6단계 + 흡수 적용 + 잔여 과업 완료 — 남은 것: 실사용 피드백 / qwen API 키 갱신(사용자) / P2 백로그(SillyTavern 카드 연동, 임베딩 로어 검색 v2)**
 
 **✅ 신규 기능: 작품 부트스트랩 (2026-08-25, "제목·목차·캐릭터 자동화" 요청)**
 - POST /api/v1/projects/bootstrap — 장르+프리미스(선택) 한 줄로 제목 후보 5·로그라인·권/회차 목차(시놉시스)·캐릭터 4~6+관계·로어북 8~12를 LLM 3콜로 생성해 단일 트랜잭션 저장(JSON 파싱 실패 시 재시도→규칙 기반 폴백)
@@ -114,8 +133,11 @@
       - AI 패널 (OpenAI 호환 엔드포인트 설정 UI — 모델 무관)
       - 윤문 모듈 (im-not-ai 연동 예정)
       - (나중 단계) SillyTavern / novelWriter API 연동
-- [ ] 5. 문피아·노벨피아·조아라 AI 규정 최신 공지 주기적 추적
-- [ ] 6. 노벨피아 PLUS 전환 체크리스트 작성 (15편+3,000자+정산정보 등록)
+- [x] 5. 로어북 자동 주입 — ✅ 완료(2026-08-26, 부록06 참조). 임베딩 v2는 백로그로 보류
+- [x] 6. 문피아·노벨피아·조아라 AI 규정 최신 공지 추적 — ✅ `규정추적_2026-08.md` (다음 주기: 노벨피아 08-06 약관 개정문 확인)
+- [x] 7. 노벨피아 PLUS 전환 체크리스트 작성 — ✅ `노벨피아_PLUS_전환_체크리스트.md`
+- [ ] 8. qwen CLI API 키 갱신 (BAILIAN_TOKEN_PLAN_API_KEY 403 — 프론트 위임 재개용, **사용자 조치 필요**)
+- [x] 9. E2E 정식 재실행 — ✅ Windows 네이티브 환경 구축 후 **6/6 passed**(2026-08-26)
 
 ---
 
@@ -137,6 +159,7 @@
 | `부록02_시장_검증.md` | 웹소설 시장 사실 확인 (수익 구조·트렌드·수치) |
 | `부록03_플랫폼_정책.md` | 문피아·노벨피아·조아라 AI 규정 + 신인 시작 유리한 곳 비교 |
 | `부록04_im-not-ai_평가.md` | Humanize KR 스킬 상세 평가 |
+| `부록06_외부도구_흡수_분석.md` | NarraLume·goink·oh-story 흡수 분석 — 채택/보류/거부 판정, 라이선스 준수, 임베딩 v2 설계 메모 (2026-08-26) |
 | `추천_병행연재_최적장르.md` | 병행 연재 최적 장르 추천 (확정) |
 | `진행중_리서치.md` | 병행 연재 조사 현황 |
 | `리서치_병행연재_규정_사례.md` | 병행 연재 규정·사례 상세 (리서처 원문) |

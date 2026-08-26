@@ -66,8 +66,14 @@ class GateResult:
 
 def run_subprocess(args, timeout: float = SUBPROCESS_TIMEOUT,
                    shell: bool = False) -> subprocess.CompletedProcess:
-    """모든 외부 호출(shim·게이트·진단/윤문 명령)은 이 함수를 경유한다 (테스트 모킹 지점)."""
-    return subprocess.run(args, capture_output=True, text=True, timeout=timeout, shell=shell)
+    """모든 외부 호출(shim·게이트·진단/윤문 명령)은 이 함수를 경유한다 (테스트 모킹 지점).
+
+    encoding을 utf-8로 고정한다 — 미지정 시 Windows는 시스템 로캘(cp949)로
+    디코딩해 한글 출력에서 UnicodeDecodeError가 난다(QA 재현: verify_gates).
+    """
+    return subprocess.run(args, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace",
+                          timeout=timeout, shell=shell)
 
 
 def _check_script(name: str) -> Path:

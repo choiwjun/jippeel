@@ -1,14 +1,29 @@
 /**
  * S5 AI 생성 SSE 클라이언트 (FR-405 / 설계서 §7.3 v1.2 R-2).
  * EventSource 금지 — POST fetch + ReadableStream getReader()로 파싱한다.
- * 백엔드(sse-starlette) 이벤트: start {model} / message {delta} / error {detail} / done [DONE]
+ * 백엔드(sse-starlette) 이벤트: start {model, injected_lore} / message {delta} / error {detail} / done [DONE]
  */
 
+export interface InjectedLore {
+  id: number;
+  title: string;
+}
+
 export interface StreamHandlers {
-  onStart?: (info: { model: string }) => void;
+  onStart?: (info: { model: string; injectedLore: InjectedLore[] }) => void;
   onChunk: (delta: string) => void;
   onDone: () => void;
   onError: (message: string) => void;
+}
+
+function parseInjectedLore(raw: unknown): InjectedLore[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (x): x is InjectedLore =>
+      typeof x === 'object' && x !== null &&
+      typeof (x as InjectedLore).id === 'number' &&
+      typeof (x as InjectedLore).title === 'string',
+  );
 }
 
 /** @returns abort 함수 — [중단] 버튼이 호출해 스트림을 끊는다 */
@@ -49,7 +64,13 @@ export function streamGenerate(
 
     const handleEvent = (eventName: string, data: string) => {
       if (eventName === 'start') {
-        try { handlers.onStart?.({ model: JSON.parse(data).model ?? '' }); } catch { /* noop */ }
+        try {
+          const parsed = JSON.parse(data);
+          handlers.onStart?.({
+            model: parsed.model ?? '',
+            injectedLore: parseInjectedLore(parsed.injected_lore),
+          });
+        } catch { /* noop */ }
       } else if (eventName === 'message') {
         try {
           const delta = JSON.parse(data).delta;

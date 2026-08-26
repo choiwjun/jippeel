@@ -187,6 +187,17 @@ def put_chapter_content(cid: int, payload: ChapterContentPut, db: Session = Depe
     return chapter
 
 
+@router.post("/chapters/{cid}/content", response_model=ChapterDetail,
+             status_code=status.HTTP_200_OK)
+def post_chapter_content(cid: int, payload: ChapterContentPut, db: Session = Depends(get_db)):
+    """PUT 별칭 — 언로드 플러시 전용(QA Minor #1).
+
+    프론트(EditorPage)의 navigator.sendBeacon은 메서드가 POST로 고정되어
+    PUT을 쓸 수 없다. 페이지 이탈 시 대기 중 변경의 best-effort 저장을 수용한다.
+    """
+    return put_chapter_content(cid, payload, db)
+
+
 @router.delete("/chapters/{cid}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_chapter(cid: int, db: Session = Depends(get_db)):
     chapter = _get_chapter_or_404(cid, db)

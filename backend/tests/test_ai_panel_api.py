@@ -59,6 +59,8 @@ def test_endpoint_404(client):
 
 # ---------- PromptPreset CRUD ----------
 def test_preset_crud(client):
+    # 빌트인 프리셋이 시드되어 있으므로 생성 전후 증분으로 검증한다
+    before = len(client.get("/api/v1/ai/presets").json())
     created = client.post("/api/v1/ai/presets", json={
         "name": "장면 생성",
         "template_text": "다음 컨텍스트로 장면을 써줘.",
@@ -70,8 +72,9 @@ def test_preset_crud(client):
                            json={"context_flags": ["lore"]}).json()
     assert updated["context_flags"] == ["lore"]
 
-    assert len(client.get("/api/v1/ai/presets").json()) == 1
+    assert len(client.get("/api/v1/ai/presets").json()) == before + 1
     assert client.delete(f"/api/v1/ai/presets/{created['id']}").status_code == 204
+    assert len(client.get("/api/v1/ai/presets").json()) == before
 
 
 def test_preset_invalid_context_flag_rejected(client):

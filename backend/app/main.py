@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import SessionLocal, init_db
 from app.routers import ai_panel, characters, lorebook, projects, refine
 from app.services.fts import ensure_fts_index
+from app.services.presets_seed import ensure_builtin_presets
 
 
 @asynccontextmanager
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI):
     session = SessionLocal()
     try:
         ensure_fts_index(session)
+        ensure_builtin_presets(session)  # 빌트인 프롬프트 프리셋 멱등 시드(FR-403)
         session.commit()
     finally:
         session.close()

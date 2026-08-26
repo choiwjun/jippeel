@@ -20,6 +20,12 @@ export interface AiPanelState {
   };
   setContext: (c: Partial<AiPanelState['contextSelection']>) => void;
 
+  // 로어 자동 주입 (백로그 P1) — 본문 언급 로어를 백엔드가 선정·주입
+  autoLore: boolean;
+  setAutoLore: (v: boolean) => void;
+  injectedLore: Array<{ id: number; title: string }>;
+  setInjectedLore: (items: Array<{ id: number; title: string }>) => void;
+
   // 호출 폼 (FR-401/403/407)
   endpointId: number | null;
   presetId: number | null;
@@ -74,6 +80,11 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   contextSelection: { chapterId: null, characterIds: [], loreIds: [] },
   setContext: (c) => set((s) => ({ contextSelection: { ...s.contextSelection, ...c } })),
 
+  autoLore: false,
+  setAutoLore: (v) => set({ autoLore: v }),
+  injectedLore: [],
+  setInjectedLore: (items) => set({ injectedLore: items }),
+
   endpointId: null,
   presetId: null,
   model: '',
@@ -92,13 +103,13 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   status: 'idle',
   streamingText: '',
   error: null,
-  startStream: () => set({ status: 'streaming', streamingText: '', error: null }),
+  startStream: () => set({ status: 'streaming', streamingText: '', error: null, injectedLore: [] }),
   appendChunk: (s) => set((st) => ({ streamingText: st.streamingText + s })),
   finishStream: () => set({ status: 'done' }),
   failStream: (e) => set({ status: 'error', error: e }),
   resetResult: () => {
     get().abortStream();
-    set({ status: 'idle', streamingText: '', error: null, pendingGenerate: false });
+    set({ status: 'idle', streamingText: '', error: null, injectedLore: [], pendingGenerate: false });
   },
 
   _abort: null,

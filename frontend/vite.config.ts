@@ -17,4 +17,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // QA Minor #3 — 청크 크기 경고 해소: vendor 분리
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          editor: ['@codemirror/state', '@codemirror/view', '@codemirror/language', '@codemirror/lang-markdown'],
+          markdown: ['markdown-it', 'dompurify', 'diff'],
+        },
+      },
+    },
+  },
 });

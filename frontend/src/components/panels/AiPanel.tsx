@@ -40,6 +40,9 @@ export function AiPanel() {
   // 컨텍스트 + 스트리밍
   const ctx = useAiPanelStore((s) => s.contextSelection);
   const setContext = useAiPanelStore((s) => s.setContext);
+  const autoLore = useAiPanelStore((s) => s.autoLore);
+  const setAutoLore = useAiPanelStore((s) => s.setAutoLore);
+  const injectedLore = useAiPanelStore((s) => s.injectedLore);
   const pendingGenerate = useAiPanelStore((s) => s.pendingGenerate);
   const status = useAiPanelStore((s) => s.status);
   const streamingText = useAiPanelStore((s) => s.streamingText);
@@ -111,6 +114,7 @@ export function AiPanel() {
           chapter_id: c.chapterId,
           character_ids: c.characterIds,
           lore_ids: c.loreIds,
+          auto_lore: store.autoLore,
         },
         params: {
           model: store.model || undefined,
@@ -119,6 +123,7 @@ export function AiPanel() {
         },
       },
       {
+        onStart: (info) => useAiPanelStore.getState().setInjectedLore(info.injectedLore),
         onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
         onDone: () => useAiPanelStore.getState().finishStream(),
         onError: (msg) => {
@@ -159,7 +164,7 @@ export function AiPanel() {
       <Alert variant="warning">
         <CloudUploadSlot />
         <AlertDescription>
-          선택한 회차·카드·로어북 내용은 지정한 LLM 엔드포인트로 전송됩니다.
+          선택한 회차·카드·로어북 내용은 지정한 LLM 엔드포인트로 전송됩니다. 로어 자동 주입 사용 시 본문에 언급된 로어 항목도 함께 전송됩니다.
         </AlertDescription>
       </Alert>
 
@@ -265,6 +270,16 @@ export function AiPanel() {
         )}
       </div>
 
+      {/* 자동 주입 내역 (투명성) — 주입은 입력 컨텍스트일 뿐, 반영은 3버튼뿐(P1) */}
+      {injectedLore.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+          <span>주입된 로어:</span>
+          {injectedLore.map((l) => (
+            <Badge key={l.id} variant="secondary">{l.title}</Badge>
+          ))}
+        </div>
+      )}
+
       {/* 응답 (FR-405) + P1 액션 3버튼 */}
       <ResultSection />
       {error ? (
@@ -297,6 +312,8 @@ function ContextSection({
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
     enabled: chapterId !== null,
   });
+  const autoLore = useAiPanelStore((s) => s.autoLore);
+  const setAutoLore = useAiPanelStore((s) => s.setAutoLore);
   const includeChapter = ctx.chapterId !== null;
   const charsCount = ctx.characterIds.length;
   const loreCount = ctx.loreIds.length;
@@ -324,6 +341,11 @@ function ContextSection({
           checked={loreCount > 0}
           disabled
           onChange={() => { /* S4 진입점에서 세팅 */ }}
+        />
+        <Checkbox
+          label="로어 자동 주입 (본문 언급 항목)"
+          checked={autoLore}
+          onChange={(e) => setAutoLore(e.target.checked)}
         />
       </div>
     </section>

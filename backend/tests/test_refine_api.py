@@ -29,13 +29,13 @@ def make_fake_subprocess(scenario, calls):
         calls.append({"shell": shell, "args": args})
         if shell:
             cmd = args
+            # shlex.quote가 감싼 따옴표 제거(POSIX/Windows 공통)
+            out_path = cmd.split(" > ")[-1].strip().strip("'\"")
             if cmd.startswith("diagnose"):
-                out_path = cmd.split(" > ")[-1].strip()
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(scenario["diagnosis_md"])
                 return sp.CompletedProcess(cmd, 0, stdout="", stderr="")
             if cmd.startswith("refine"):
-                out_path = cmd.split(" > ")[-1].strip()
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(FINAL_WITH_SUMMARY)
                 return sp.CompletedProcess(cmd, 0, stdout="", stderr="")

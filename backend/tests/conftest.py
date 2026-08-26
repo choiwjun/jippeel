@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, create_db_engine, get_db
 from app.main import app
+from app.services.presets_seed import ensure_builtin_presets
 
 
 @pytest.fixture()
@@ -14,6 +15,14 @@ def client(tmp_path):
     engine = create_db_engine(f"sqlite:///{db_path}")
     TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     Base.metadata.create_all(bind=engine)
+
+    # lifespan이 프로덕션 DB에 하는 것과 동일한 시드를 테스트 DB에도 적용
+    seed_session = TestingSessionLocal()
+    try:
+        ensure_builtin_presets(seed_session)
+        seed_session.commit()
+    finally:
+        seed_session.close()
 
     def override_get_db():
         db = TestingSessionLocal()

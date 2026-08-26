@@ -50,10 +50,16 @@
 ### Major
 없음
 
-### Minor / 후속 확인
-1. **sendBeacon 언로드 플러시** 백엔드 수용 여부 — 확인 필요 (기능 영향 미미: 자동저장은 주기적 PUT으로 커버)
-2. Python 3.14 + starlette TestClient 비권장 경고 1건 — 현재 버전 조합에서 정상 동작, 추후 starlette 업데이트 시 재확인
-3. vite 청크 크기 경고 — 성능 영향 없음, 필요 시 manualChunks 조정
+### Minor / 후속 확인 — ✅ 전건 해소 (2026-08-26 후속 검증)
+
+1. **sendBeacon 언로드 플러시** → **결함으로 확정 후 수정**. sendBeacon은 POST 고정인데 백엔드는 PUT만 존재해 플러시가 항상 405로 실패하고 있었음. `POST /chapters/{id}/content` 별칭 라우트 추가 + 테스트(`test_post_content_beacon_alias_matches_put`)로 해소
+2. **Python 3.14 + starlette TestClient 경고** → 현재 버전 조합(3.14.4)에서 재현 안 됨(전체 스위트 -W default 통과). 종결
+3. **vite 청크 크기 경고** → manualChunks 분리(react-vendor/editor/markdown)로 경고 제거
+
+### 후속 검증에서 추가 발견·수정 (2026-08-26)
+
+- **humanize.run_subprocess 인코딩 결함(Windows)**: text=True가 시스템 로캘(cp949)로 디코딩해 한글 출력에서 UnicodeDecodeError → verify_gates 실패. `encoding="utf-8", errors="replace"` 명시로 수정 (WSL에선 무증상이던 크로스플랫폼 결함)
+- **E2E 재실행**: Windows 네이티브 환경(가짜 LLM :1234 + refine 스텁 + Chromium) 신규 구축 후 **6/6 passed**
 
 ---
 
