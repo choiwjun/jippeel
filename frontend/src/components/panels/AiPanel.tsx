@@ -341,6 +341,15 @@ function ContextSection({
   const charsCount = ctx.characterIds.length;
   const loreCount = ctx.loreIds.length;
 
+  // G-047 — 현재 회차 본문에 언급된 복선(키워드·제목 매칭, 서버 계산)
+  const mentionedForeshadows = useQuery({
+    queryKey: ['foreshadow-match', chapterId],
+    queryFn: () => api.get<Array<{ id: number; title: string; status: string; audience_knows?: boolean; matched_terms: string[] }>>(
+      `/projects/${chapter.data?.project_id ?? 0}/foreshadows/match?chapter_id=${chapterId}`),
+    enabled: chapterId !== null,
+    staleTime: 30_000,
+  });
+
   return (
     <section className="rounded-md border border-border p-3">
       <h3 className="mb-2 flex items-center justify-between text-xs font-semibold text-muted-foreground">
@@ -406,6 +415,22 @@ function ContextSection({
           disabled={chapterId === null}
           onChange={(e) => setContext({ autoForeshadow: e.target.checked })}
         />
+        {/* G-047 — 본문에 언급된 복선 안내(알림용, 자동 조치 없음) */}
+        {(mentionedForeshadows.data ?? []).length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-[10px] text-muted-foreground">이 회차 본문에서 건드리는 복선:</span>
+            {(mentionedForeshadows.data ?? []).map((m) => (
+              <Badge
+                key={m.id}
+                variant={m.status === '회수' ? 'done' : 'revising'}
+                className="text-[10px]"
+                title={`상태: ${m.status}${m.audience_knows ? ' · 독자 인지' : ''} — 매칭: ${m.matched_terms.join(', ')}`}
+              >
+                {m.title}
+              </Badge>
+            ))}
+          </div>
+        )}
         <Checkbox
           label="문체 프로파일 적용 (기획 페이지에서 편집)"
           checked={ctx.styleProfile}

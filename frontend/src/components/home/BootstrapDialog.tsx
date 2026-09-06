@@ -311,6 +311,11 @@ export function BootstrapDialog({ open, onOpenChange }: {
                   <dd className="text-base font-semibold">{result.lore_count}건</dd>
                 </div>
               </dl>
+              {(result.volume_note_count ?? 0) > 0 && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  ✓ 권 개요 {result.volume_note_count}권도 함께 생성됐습니다 (기획 페이지에서 확인·편집)
+                </p>
+              )}
             </div>
 
             <DialogFooter>

@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models import AiUsage, Foreshadow, QualityCheck
 from tests.test_ai_generate_stream import (DEFAULT_CHUNKS, FakeAsyncOpenAI,
                                            _parse_sse)
-from tests.test_bootstrap_api import _Response
+from tests.test_bootstrap_api import _Response, fake_llm  # noqa: F401 — fixture 재노출
 
 
 @pytest.fixture()
@@ -250,3 +250,60 @@ def test_foreshadow_suggest(client, monkeypatch, project, chapter):
 def test_ai_usage_summary_shape(client):
     summary = client.get("/api/v1/ai/usage").json()
     assert isinstance(summary, list)
+
+
+# ---------- 부트스트랩 권 개요 동시 생성 ----------
+def test_bootstrap_fallback_creates_volume_notes(client, project):
+    """use_ai=false 폴백에서도 권 개요(개요·감정 곡선·고봉)가 함께 생성된다."""
+    r = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "판타지", "volume_count": 2, "chapters_per_volume": 3, "use_ai": False})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["volume_note_count"] == 2
+    notes = client.get(f"/api/v1/projects/{body['project_id']}/volume-notes").json()
+    assert len(notes) == 2
+    assert all(n["overview"] and n["emotion_curve"] and n["climax_note"] for n in notes)
+
+
+def test_bootstrap_ai_outline_volume_notes_persisted(client, fake_llm):
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "기본", "base_url": "http://x/v1", "default_model": "test-model",
+        "is_default": True}).json()
+    """콜 2(목차)가 권 개요 필드를 반환하면 volume_notes로 저장된다."""
+    from tests.test_bootstrap_api import (enqueue_success, fake_llm as _fl,  # noqa: F811
+                                          _good_outline)
+    outline = _good_outline()
+    outline["volumes"][0]["overview"] = "1권 개요 텍스트"
+    outline["volumes"][0]["emotion_curve"] = "3화 고조 4화 완충"
+    outline["volumes"][0]["climax_note"] = "결전"
+    enqueue_success(fake_llm, outline=outline)
+    r = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협", "volume_count": 2, "chapters_per_volume": 3})
+    assert r.status_code == 200
+    # 권마다 노트가 생성되고(2권), 콜 2가 준 개요 필드가 저장된다
+    assert r.json()["volume_note_count"] == 2
+    notes = client.get(
+        f"/api/v1/projects/{r.json()['project_id']}/volume-notes").json()
+    assert notes[0]["overview"] == "1권 개요 텍스트"
+
+
+# ---------- G-047 복선 키워드 본문 매칭 ----------
+def test_foreshadow_match_endpoint(client, project, chapter):
+    pid = project["id"]
+    f1 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
+        "title": "검의 진짜 주인", "keywords": ["검의 주인"], "status": "설치"}).json()
+    f2 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
+        "title": "예언의 조각", "keywords": ["예언"], "status": "설치"}).json()
+    client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
+        "content_md": "검이 그의 손에서 울렸다. 검의 주인은 아직 다른 곳에 있다."})
+
+    matched = client.get(f"/api/v1/projects/{pid}/foreshadows/match",
+                         params={"chapter_id": chapter["id"]}).json()
+    ids = {m["id"] for m in matched}
+    assert f1["id"] in ids and f2["id"] not in ids
+    hit = next(m for m in matched if m["id"] == f1["id"])
+    assert set(hit["matched_terms"]) == {"검의 주인"}  # 제목은 본문에 미등장
+
+    # 존재하지 않는 회차 → 404
+    assert client.get(f"/api/v1/projects/{pid}/foreshadows/match",
+                      params={"chapter_id": 99999}).status_code == 404

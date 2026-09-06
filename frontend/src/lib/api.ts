@@ -264,6 +264,7 @@ export interface BootstrapResponse {
   chapter_count: number;
   volume_count: number;
   relationship_count: number;
+  volume_note_count?: number;  // 권 개요 동시 생성 수 (G-050)
   title_candidates: string[];
   theme: string | null;
   used_ai: boolean;

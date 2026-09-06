@@ -14,7 +14,7 @@ from app.database import get_db
 from app.models import Chapter, Foreshadow, Project
 from app.schemas import (ForeshadowCreate, ForeshadowOut, ForeshadowSuggestRequest,
                          ForeshadowSuggestResponse, ForeshadowUpdate)
-from app.services import llm, usage as usage_service
+from app.services import injection, llm, usage as usage_service
 from app.services.bootstrap import (NoEndpointError, _extract_json,
                                     resolve_endpoint)
 
@@ -28,6 +28,40 @@ _SUGGEST_SYSTEM = (
     "반드시 단일 유효한 JSON 객체만 출력하고 코드펜스·설명은 절대 출력하지 않는다. "
     "떡밥이 없으면 빈 배열을 반환한다."
 )
+
+
+@router.get("/projects/{pid}/foreshadows/match")
+def match_foreshadows(pid: int, chapter_id: int, db: Session = Depends(get_db)):
+    """본문에 언급된 복선 매칭 (고도화 G-047).
+
+    title·keywords가 현재 회차 본문에 등장하는 복선(전체 상태)을
+    로어 자동 주입과 동일한 부분 일치 방식으로 선정해 반환한다.
+    AI 패널이 "이 화에서 건드리고 있는 복선" 배지를 표시하는 데 쓴다.
+    """
+    _get_project_or_404(pid, db)
+    chapter = db.get(Chapter, chapter_id)
+    if chapter is None or chapter.project_id != pid:
+        raise HTTPException(status_code=404, detail="chapter not found")
+    rows = db.scalars(
+        select(Foreshadow).where(Foreshadow.project_id == pid)).all()
+    text = chapter.content_md or ""
+    matched = []
+    for row in rows:
+        terms: list[str] = []
+        title = (row.title or "").strip()
+        if len(title) >= injection._MIN_TERM_LEN and injection._occurrences(text, title) > 0:
+            terms.append(title)
+        for kw in row.keywords or []:
+            if not isinstance(kw, str):
+                continue
+            kw = kw.strip()
+            if len(kw) >= injection._MIN_TERM_LEN and injection._occurrences(text, kw) > 0:
+                terms.append(kw)
+        if terms:
+            matched.append({"id": row.id, "title": row.title, "status": row.status,
+                            "audience_knows": row.audience_knows,
+                            "matched_terms": sorted(set(terms))[:4]})
+    return matched
 
 
 @router.post("/projects/{pid}/foreshadows/suggest", response_model=ForeshadowSuggestResponse)

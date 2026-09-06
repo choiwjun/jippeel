@@ -576,6 +576,7 @@ class BootstrapResponse(BaseModel):
     chapter_count: int
     volume_count: int
     relationship_count: int
+    volume_note_count: int = 0
     title_candidates: list[str]
     theme: str | None
     used_ai: bool

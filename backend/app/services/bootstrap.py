@@ -18,7 +18,8 @@ import openai
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AiEndpoint, Chapter, Character, LoreEntry, Project, Relationship
+from app.models import (AiEndpoint, Chapter, Character, Foreshadow, LoreEntry,
+                        Project, Relationship, VolumeNote)
 from app.services import llm, usage as usage_service
 
 logger = logging.getLogger(__name__)
@@ -132,8 +133,14 @@ def _outline_messages(genre: str, idea: dict, volume_count: int,
 {protagonist_line}
 권 {volume_count}권, 각 권당 회차 {chapters_per_volume}화 목차를 짜라.
 각 회차는 제목 + 2문단 시놉시스 + 핵심 사건 1개를 포함한다.
+각 권에는 서사 레이어(개요·감정 곡선·고봉)도 함께 설계한다:
+- overview: 권 전체 흐름 2~3문장(주인공이 어디서 시작해 어디로 가는가)
+- emotion_curve: 고조↔완충 배치(예: "3화 고조, 4화 완충, 7화 반전 고조")
+- climax_note: 권의 클라이맥스(언제·누구와·무엇이 걸리는가 1~2문장)
 다음 JSON 형식으로 출력하라:
-{{"volumes": [{{"volume": 1, "title": "권 제목", "chapters": [
+{{"volumes": [{{"volume": 1, "title": "권 제목",
+  "overview": "권 개요 2~3문장", "emotion_curve": "감정 곡선 배치",
+  "climax_note": "권 고봉 설계", "chapters": [
   {{"order": 1, "title": "회차 제목", "synopsis": "2문단 시놉시스", "key_event": "핵심 사건"}}]}}]}}"""
     return [{"role": "system", "content": _SYSTEM_JSON},
             {"role": "user", "content": user}]
@@ -418,7 +425,11 @@ def fallback_structure(genre: str, premise: str | None, volume_count: int,
                              f" 그림자 속 흑막은 다음 수를 준비하고 있다."),
                 "key_event": f"{arc} — 결정적 전환점 #{(v - 1) * cpv + i}",
             })
-        volumes.append({"volume": v, "title": f"{v}권. {arcs[(v - 1) % len(arcs)]}",
+        arc = arcs[(v - 1) % len(arcs)]
+        volumes.append({"volume": v, "title": f"{v}권. {arc}",
+                        "overview": f"{arc} 국면 — 주인공이 시련을 겪으며 성장하는 권.",
+                        "emotion_curve": f"{max(cpv - 2, 1)}화 고조 → {max(cpv - 1, 1)}화 완충 → {cpv}화 고봉",
+                        "climax_note": f"{cpv}화에서 {arc}의 결정적 대치가 벌어진다.",
                         "chapters": vol_chapters})
 
     characters = [dict(t) for t in _FALLBACK_CHAR_TEMPLATES]
@@ -536,6 +547,26 @@ def persist_structure(db: Session, genre: str, premise: str | None,
             keywords=item.keywords,
         ))
 
+    # 권 개요 — 부트스트랩과 동시 생성(G-050 확장: 목차 콜에서 함께 설계)
+    volume_note_count = 0
+    seen_volumes: set[int] = set()
+    for vol in _as_list(structure.get("volumes")):
+        if not isinstance(vol, dict):
+            continue
+        v_raw = vol.get("volume")
+        v = v_raw if isinstance(v_raw, int) and v_raw >= 1 else None
+        if v is None or v in seen_volumes:
+            continue
+        seen_volumes.add(v)
+        project.volume_notes.append(VolumeNote(
+            volume=v,
+            title=_as_str(vol.get("title"))[:255],
+            overview=_as_str(vol.get("overview")) or None,
+            emotion_curve=_as_str(vol.get("emotion_curve")) or None,
+            climax_note=_as_str(vol.get("climax_note")) or None,
+        ))
+        volume_note_count += 1
+
     db.add(project)
     db.flush()  # FK(id) 채움 — 아직 커밋 전, 동일 트랜잭션
     for r in relationships:
@@ -558,6 +589,7 @@ def persist_structure(db: Session, genre: str, premise: str | None,
         "chapter_count": len(outline),
         "volume_count": volume_count,
         "relationship_count": len(relationships),
+        "volume_note_count": volume_note_count,
         "title_candidates": titles[1:],
         "theme": theme,
         "used_ai": generated_by == "ai",
