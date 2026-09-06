@@ -295,4 +295,18 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - TC-037 백업 실측 **PASS**: db-info → 3파일 복사 → 데이터 동일성 (스크립트: scripts/backup_verify.py)
 - 게이트 갱신: gates.json G6/G7/G8·traceability R-043 implemented(Q5 방식) — QA_개발검증_리포트_v3.md 참조
 
-**잔여 pending-manual**: a11y/NVDA(TC-501~506)·성능 계측(TC-401~405)·Windows keyring(TC-302)·시니어 모드 — 실기기 필요. 백로그: 자동 백업·복원, 에디터 청크 추가 분할, UI 3단계(온보딩·단축키 안내), 릴리스 노트 갱신.
+**잔여 pending-manual**: NVDA(TC-503~505)·시니어 모드·성능 계측(TC-401~405)·Windows keyring(TC-302) — 실기기 필요. a11y 자동 스캔(TC-501 자동화분)은 도입 완료 — axe-core critical·serious 0건.
+
+---
+
+## 집필 프롬프트 고도화 + a11y 자동화 + 원격 병합 (2026-09-06 후반)
+
+**✅ 원격 병렬 커밋(baf4527) 리베이스 통합** — 8/26 병렬 세션의 로어 자동 주입 구현(injection.py 점수 기반·SSE start 주입 공개·limit/project_id)을 채택해 내 구현과 통합. humanize utf-8 고정(Windows cp949 수정)·requirements 핀·conftest 시드도 흡수. 통합 후 **137 passed·E2E 9/9**.
+
+**✅ 집필 프롬프트 고도화(백로그)** — ① /ai/generate에 웹소설 문체 system 프롬프트 기본 적용 ② `context.previous_chapter` 옵션: 직전 회차 끝부분 2,000자 자동 주입(이어쓰기 맥락) — AI 패널 체크박스에서 제어.
+
+**✅ a11y 자동 스캔 도입(TC-501 자동화분)** — @axe-core/playwright로 전 화면 스캔 E2E 추가(e2e/a11y.spec.ts), critical·serious 0건 달성. 수정: progressbar 접근명, destructive/status-draft 색 대비 보정, **Tailwind 색상 `<alpha-value>` 전환**(기존 /투명도 클래스 무작동 버그 수정). baseline 리포트는 e2e/a11y/baseline.json.
+
+**✅ 청크 재분할** — 908KB 단일 → react 162/editor 475/markdown 130/앱 144/data 47KB, 전 청크 500KB 미만(경고 소멸).
+
+**✅ 릴리스 노트 v1.1** 갱신(릴리스_노트_MVP_v1.0.md 하단). 잔여: NVDA·시니어 모드·성능 계측·Windows keyring 실기기 항목, 자동 백업·복원, SillyTavern 연동, UI 3단계.
