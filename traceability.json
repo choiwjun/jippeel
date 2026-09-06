@@ -1,0 +1,859 @@
+{
+  "project": "jippeel",
+  "updated": "2026-08-26",
+  "links": [
+    {
+      "id": "R-001",
+      "requirement": "요구사항_정의서.md#R-001",
+      "status": "implemented",
+      "prd": "F-001",
+      "design": "S-100, S-101, S-102",
+      "frontend": "src/pages/HomePage.tsx",
+      "backend_api": "A-002, A-003, A-004, A-005, A-006",
+      "db": "T-001",
+      "infra": null,
+      "tests": [
+        "TC-001",
+        "TC-101",
+        "TC-202"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-002",
+      "requirement": "요구사항_정의서.md#R-002",
+      "status": "implemented",
+      "prd": "F-002",
+      "design": "S-200, S-006",
+      "frontend": "src/pages/EditorPage.tsx, src/components/layout/LeftSidebar.tsx",
+      "backend_api": "A-007, A-008, A-012, A-013",
+      "db": "T-002",
+      "infra": null,
+      "tests": [
+        "TC-002",
+        "TC-003",
+        "TC-102",
+        "TC-103",
+        "TC-202"
+      ],
+      "note": "volume nullable 전환 필요(기술설계 §4.2-1)"
+    },
+    {
+      "id": "R-003",
+      "requirement": "요구사항_정의서.md#R-003",
+      "status": "implemented",
+      "prd": "F-003",
+      "design": "S-201, S-202",
+      "frontend": "src/components/editor/CodeMirrorEditor.tsx, src/components/editor/EditorPreview.tsx",
+      "backend_api": "A-009",
+      "db": "T-002",
+      "infra": null,
+      "tests": [
+        "TC-004"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-004",
+      "requirement": "요구사항_정의서.md#R-004",
+      "status": "implemented",
+      "prd": "F-004",
+      "design": "S-203, S-005",
+      "frontend": "src/lib/wordCount.ts, src/components/editor/WordCountFooter.tsx, src/components/layout/StatusBar.tsx",
+      "backend_api": "A-011",
+      "db": "T-002",
+      "infra": null,
+      "tests": [
+        "TC-005",
+        "TC-104",
+        "TC-403"
+      ],
+      "note": "word_count_cache — C8 검증 샘플은 G7"
+    },
+    {
+      "id": "R-005",
+      "requirement": "요구사항_정의서.md#R-005",
+      "status": "implemented",
+      "prd": "F-005",
+      "design": "S-200",
+      "frontend": "src/pages/EditorPage.tsx",
+      "backend_api": "A-010",
+      "db": "T-002",
+      "infra": null,
+      "tests": [
+        "TC-006",
+        "TC-105",
+        "TC-202"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-006",
+      "requirement": "요구사항_정의서.md#R-006",
+      "status": "implemented",
+      "prd": "F-006",
+      "design": "S-204, S-005",
+      "frontend": "src/pages/EditorPage.tsx, src/components/editor/SaveIndicator.tsx, src/stores/settingsStore.ts",
+      "backend_api": "A-010, A-011",
+      "db": "T-002",
+      "infra": null,
+      "tests": [
+        "TC-007",
+        "TC-008",
+        "TC-405",
+        "TC-202"
+      ],
+      "note": "WAL 프라그마(NFR-204)"
+    },
+    {
+      "id": "R-007",
+      "requirement": "요구사항_정의서.md#R-007",
+      "status": "implemented",
+      "prd": "F-003",
+      "design": "S-201, S-202",
+      "frontend": "src/components/editor/CodeMirrorEditor.tsx, src/components/editor/EditorPreview.tsx",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-401"
+      ],
+      "note": "프론트 CodeMirror 성능 요구"
+    },
+    {
+      "id": "R-008",
+      "requirement": "요구사항_정의서.md#R-008",
+      "status": "implemented",
+      "prd": "F-007",
+      "design": "S-206",
+      "frontend": "src/pages/EditorPage.tsx",
+      "backend_api": "A-009, A-010",
+      "db": "T-002",
+      "infra": null,
+      "tests": [
+        "TC-009"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-009",
+      "requirement": "요구사항_정의서.md#R-009",
+      "status": "implemented",
+      "prd": "F-008",
+      "design": "S-205",
+      "frontend": "src/lib/export.ts, src/pages/EditorPage.tsx",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-010"
+      ],
+      "note": "프론트 lib/export.ts 클라이언트 생성(F-008)"
+    },
+    {
+      "id": "R-010",
+      "requirement": "요구사항_정의서.md#R-010",
+      "status": "implemented",
+      "prd": "F-009",
+      "design": "S-300, S-301, S-302",
+      "frontend": "src/pages/CharactersPage.tsx",
+      "backend_api": "A-014, A-015, A-016, A-017, A-019",
+      "db": "T-003",
+      "infra": null,
+      "tests": [
+        "TC-011"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-011",
+      "requirement": "요구사항_정의서.md#R-011",
+      "status": "implemented",
+      "prd": "F-009",
+      "design": "S-302",
+      "frontend": "src/pages/CharactersPage.tsx",
+      "backend_api": "A-015, A-017",
+      "db": "T-003",
+      "infra": null,
+      "tests": [
+        "TC-012",
+        "TC-106"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-012",
+      "requirement": "요구사항_정의서.md#R-012",
+      "status": "implemented",
+      "prd": "F-010",
+      "design": "S-303",
+      "frontend": "src/pages/CharactersPage.tsx",
+      "backend_api": "A-020, A-021, A-022",
+      "db": "T-004",
+      "infra": null,
+      "tests": [
+        "TC-013",
+        "TC-107"
+      ],
+      "note": "Q2 텍스트 라벨 확정"
+    },
+    {
+      "id": "R-013",
+      "requirement": "요구사항_정의서.md#R-013",
+      "status": "planned",
+      "prd": "F-011",
+      "design": "S-302",
+      "frontend": null,
+      "backend_api": "A-018",
+      "db": "T-003",
+      "infra": null,
+      "tests": [
+        "TC-049",
+        "TC-106"
+      ],
+      "note": "card_json 병합 PATCH"
+    },
+    {
+      "id": "R-014",
+      "requirement": "요구사항_정의서.md#R-014",
+      "status": "implemented",
+      "prd": "F-009",
+      "design": "S-300, S-301",
+      "frontend": "src/pages/CharactersPage.tsx",
+      "backend_api": "A-014",
+      "db": "T-003",
+      "infra": null,
+      "tests": [
+        "TC-014"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-015",
+      "requirement": "요구사항_정의서.md#R-015",
+      "status": "implemented",
+      "prd": "F-012",
+      "design": "S-400, S-402",
+      "frontend": "src/pages/LorebookPage.tsx",
+      "backend_api": "A-023, A-024, A-026",
+      "db": "T-005",
+      "infra": null,
+      "tests": [
+        "TC-015",
+        "TC-108"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-016",
+      "requirement": "요구사항_정의서.md#R-016",
+      "status": "implemented",
+      "prd": "F-013",
+      "design": "S-401",
+      "frontend": "src/pages/LorebookPage.tsx",
+      "backend_api": "A-023",
+      "db": "T-005",
+      "infra": null,
+      "tests": [
+        "TC-016",
+        "TC-108"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-017",
+      "requirement": "요구사항_정의서.md#R-017",
+      "status": "implemented",
+      "prd": "F-014",
+      "design": "S-401, S-402",
+      "frontend": "src/pages/LorebookPage.tsx",
+      "backend_api": "A-027",
+      "db": "T-005",
+      "infra": null,
+      "tests": [
+        "TC-017",
+        "TC-108"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-018",
+      "requirement": "요구사항_정의서.md#R-018",
+      "status": "implemented",
+      "prd": "F-015",
+      "design": "S-401",
+      "frontend": "src/pages/LorebookPage.tsx, src/lib/api.ts",
+      "backend_api": "A-025",
+      "db": "T-005",
+      "infra": null,
+      "tests": [
+        "TC-109",
+        "TC-402"
+      ],
+      "note": "FTS5+LIKE 폴백(services/fts.py)"
+    },
+    {
+      "id": "R-019",
+      "requirement": "요구사항_정의서.md#R-019",
+      "status": "planned",
+      "prd": "F-016",
+      "design": "S-403",
+      "frontend": null,
+      "backend_api": "-",
+      "db": "T-005",
+      "infra": null,
+      "tests": [
+        "TC-018"
+      ],
+      "note": "참조 회차 조회는 선택 기능(검색 결과 기반)"
+    },
+    {
+      "id": "R-020",
+      "requirement": "요구사항_정의서.md#R-020",
+      "status": "implemented",
+      "prd": "F-017",
+      "design": "S-500, S-501, S-701",
+      "frontend": "src/components/panels/AiPanel.tsx, src/stores/aiPanelStore.ts",
+      "backend_api": "A-028, A-029, A-030, A-031",
+      "db": "T-006",
+      "infra": null,
+      "tests": [
+        "TC-019",
+        "TC-020"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-021",
+      "requirement": "요구사항_정의서.md#R-021",
+      "status": "implemented",
+      "prd": "F-018",
+      "design": "S-701",
+      "frontend": "src/pages/SettingsPage.tsx",
+      "backend_api": "A-029, A-030",
+      "db": "T-006",
+      "infra": null,
+      "tests": [
+        "TC-110",
+        "TC-301~TC-304"
+      ],
+      "note": "DPAPI(keyring)+Fernet 폴백(기술설계 §6)"
+    },
+    {
+      "id": "R-022",
+      "requirement": "요구사항_정의서.md#R-022",
+      "status": "implemented",
+      "prd": "F-019",
+      "design": "S-502",
+      "frontend": "src/components/panels/AiPanel.tsx, src/pages/SettingsPage.tsx",
+      "backend_api": "A-032",
+      "db": "T-007",
+      "infra": null,
+      "tests": [
+        "TC-021"
+      ],
+      "note": "초기 시드 5종(Q3)"
+    },
+    {
+      "id": "R-023",
+      "requirement": "요구사항_정의서.md#R-023",
+      "status": "implemented",
+      "prd": "F-020",
+      "design": "S-503",
+      "frontend": "src/components/panels/AiPanel.tsx",
+      "backend_api": "A-033",
+      "db": "T-007",
+      "infra": null,
+      "tests": [
+        "TC-022"
+      ],
+      "note": "context 조립"
+    },
+    {
+      "id": "R-024",
+      "requirement": "요구사항_정의서.md#R-024",
+      "status": "implemented",
+      "prd": "F-021",
+      "design": "S-504",
+      "frontend": "src/lib/aiStream.ts, src/components/panels/AiPanel.tsx",
+      "backend_api": "A-033",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-023",
+        "TC-404",
+        "TC-503"
+      ],
+      "note": "SSE 스트리밍 프록시(openai SDK)"
+    },
+    {
+      "id": "R-025",
+      "requirement": "요구사항_정의서.md#R-025",
+      "status": "implemented",
+      "prd": "F-022",
+      "design": "S-505",
+      "frontend": "src/components/panels/AiPanel.tsx",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-024",
+        "TC-203"
+      ],
+      "note": "삽입/교체/복사는 프론트 조작(F-022)"
+    },
+    {
+      "id": "R-026",
+      "requirement": "요구사항_정의서.md#R-026",
+      "status": "implemented",
+      "prd": "F-023",
+      "design": "S-501, S-701",
+      "frontend": "src/pages/SettingsPage.tsx",
+      "backend_api": "A-028, A-030",
+      "db": "T-006",
+      "infra": null,
+      "tests": [
+        "TC-025",
+        "TC-111",
+        "TC-047"
+      ],
+      "note": "is_default 플래그"
+    },
+    {
+      "id": "R-027",
+      "requirement": "요구사항_정의서.md#R-027",
+      "status": "implemented",
+      "prd": "F-024",
+      "design": "S-504, S-009",
+      "frontend": "src/components/panels/AiPanel.tsx, src/lib/api.ts",
+      "backend_api": "A-033",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-026",
+        "TC-503"
+      ],
+      "note": "오류 3종 한국어 매핑(기술설계 §7)"
+    },
+    {
+      "id": "R-028",
+      "requirement": "요구사항_정의서.md#R-028",
+      "status": "implemented",
+      "prd": "F-017",
+      "design": "S-500, S-701",
+      "frontend": "src/components/panels/AiPanel.tsx, src/stores/aiPanelStore.ts",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-112"
+      ],
+      "note": "제약 C3: OpenAI 호환 경유만, Ollama 네이티브 경로 없음"
+    },
+    {
+      "id": "R-029",
+      "requirement": "요구사항_정의서.md#R-029",
+      "status": "implemented",
+      "prd": "F-025",
+      "design": "S-600, S-606, S-207",
+      "frontend": "src/components/panels/RefineReport.tsx",
+      "backend_api": "A-034",
+      "db": "T-008",
+      "infra": null,
+      "tests": [
+        "TC-027",
+        "TC-113"
+      ],
+      "note": "im-not-ai subprocess 연동(기술설계 §0·§8) — A3 실측 성립"
+    },
+    {
+      "id": "R-030",
+      "requirement": "요구사항_정의서.md#R-030",
+      "status": "implemented",
+      "prd": "F-026",
+      "design": "S-600, S-604, S-702",
+      "frontend": "src/components/panels/RefineReport.tsx, src/pages/SettingsPage.tsx, src/stores/settingsStore.ts",
+      "backend_api": "A-034",
+      "db": "T-008",
+      "infra": null,
+      "tests": [
+        "TC-028"
+      ],
+      "note": "force_route > route_hint > standard"
+    },
+    {
+      "id": "R-031",
+      "requirement": "요구사항_정의서.md#R-031",
+      "status": "implemented",
+      "prd": "F-027",
+      "design": "S-603",
+      "frontend": "src/components/panels/RefineReport.tsx",
+      "backend_api": "A-034",
+      "db": "T-008",
+      "infra": null,
+      "tests": [
+        "TC-029",
+        "TC-504"
+      ],
+      "note": "spans taxonomy A~J 문자 오프셋"
+    },
+    {
+      "id": "R-032",
+      "requirement": "요구사항_정의서.md#R-032",
+      "status": "implemented",
+      "prd": "F-028",
+      "design": "S-602, S-604",
+      "frontend": "src/lib/diff.ts, src/components/panels/RefineReport.tsx",
+      "backend_api": "A-036, A-037",
+      "db": "T-008, T-002",
+      "infra": null,
+      "tests": [
+        "TC-030",
+        "TC-113",
+        "TC-204"
+      ],
+      "note": "accept=TX-06 원자 반영, 거절 시 원문 보존"
+    },
+    {
+      "id": "R-033",
+      "requirement": "요구사항_정의서.md#R-033",
+      "status": "implemented",
+      "prd": "F-029",
+      "design": "S-601",
+      "frontend": "src/components/panels/RefineReport.tsx",
+      "backend_api": "A-034, A-036",
+      "db": "T-008",
+      "infra": null,
+      "tests": [
+        "TC-031",
+        "TC-113",
+        "TC-204"
+      ],
+      "note": "WARN 0.30/BLOCK 0.50 이중 강제, block accept 409"
+    },
+    {
+      "id": "R-034",
+      "requirement": "요구사항_정의서.md#R-034",
+      "status": "planned",
+      "prd": "F-030",
+      "design": "S-600, S-702",
+      "frontend": null,
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-032",
+        "TC-048"
+      ],
+      "note": "UI 상시 문구(F-030)"
+    },
+    {
+      "id": "R-035",
+      "requirement": "요구사항_정의서.md#R-035",
+      "status": "implemented",
+      "prd": "F-031",
+      "design": "S-605",
+      "frontend": "src/components/panels/RefineReport.tsx",
+      "backend_api": "A-034, A-035",
+      "db": "T-008",
+      "infra": null,
+      "tests": [
+        "TC-033",
+        "TC-114"
+      ],
+      "note": ""
+    },
+    {
+      "id": "R-036",
+      "requirement": "요구사항_정의서.md#R-036",
+      "status": "implemented",
+      "prd": "F-032",
+      "design": "S-103, S-704",
+      "frontend": "src/pages/SettingsPage.tsx",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-034"
+      ],
+      "note": "정적 규정 요약(F-032)"
+    },
+    {
+      "id": "R-037",
+      "requirement": "요구사항_정의서.md#R-037",
+      "status": "implemented",
+      "prd": "F-033",
+      "design": "S-104, S-704",
+      "frontend": "src/components/home/PlusStatusWidget.tsx, src/pages/HomePage.tsx, src/pages/SettingsPage.tsx",
+      "backend_api": "A-038",
+      "db": "T-001, T-002",
+      "infra": null,
+      "tests": [
+        "TC-035",
+        "TC-115"
+      ],
+      "note": "plus-status 신규 구현 필요(기술설계 §3.6)"
+    },
+    {
+      "id": "R-038",
+      "requirement": "요구사항_정의서.md#R-038",
+      "status": "implemented",
+      "prd": "F-003",
+      "design": "S-201",
+      "frontend": "src/components/editor/CodeMirrorEditor.tsx, src/components/editor/EditorPreview.tsx",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-401"
+      ],
+      "note": "프론트 렌더 성능(NFR-101)"
+    },
+    {
+      "id": "R-039",
+      "requirement": "요구사항_정의서.md#R-039",
+      "status": "implemented",
+      "prd": "F-021",
+      "design": "S-504, S-004",
+      "frontend": "src/lib/aiStream.ts, src/components/panels/AiPanel.tsx",
+      "backend_api": "A-033",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-023",
+        "TC-404"
+      ],
+      "note": "스트리밍 중 편집 비차단(UI 비동기)"
+    },
+    {
+      "id": "R-040",
+      "requirement": "요구사항_정의서.md#R-040",
+      "status": "implemented",
+      "prd": "F-015",
+      "design": "S-401",
+      "frontend": "src/pages/LorebookPage.tsx, src/lib/api.ts",
+      "backend_api": "A-025",
+      "db": "T-005",
+      "infra": null,
+      "tests": [
+        "TC-402"
+      ],
+      "note": "FTS5 인덱스, <1s 목표"
+    },
+    {
+      "id": "R-041",
+      "requirement": "요구사항_정의서.md#R-041",
+      "status": "implemented",
+      "prd": "F-020,F-034",
+      "design": "S-503, S-705",
+      "frontend": "src/components/panels/AiPanel.tsx",
+      "backend_api": "-",
+      "db": "T-001",
+      "infra": null,
+      "tests": [
+        "TC-036"
+      ],
+      "note": "로컬 SQLite 단일 파일 + 전송 고지 Alert는 프론트"
+    },
+    {
+      "id": "R-042",
+      "requirement": "요구사항_정의서.md#R-042",
+      "status": "implemented",
+      "prd": "F-018",
+      "design": "S-701",
+      "frontend": "src/pages/SettingsPage.tsx",
+      "backend_api": "A-028, A-029, A-030",
+      "db": "T-006",
+      "infra": null,
+      "tests": [
+        "TC-110",
+        "TC-301~TC-306"
+      ],
+      "note": "암호문만 저장, 마스킹 응답 — 평문 0건"
+    },
+    {
+      "id": "R-043",
+      "requirement": "요구사항_정의서.md#R-043",
+      "status": "planned",
+      "prd": "F-034",
+      "design": "S-705",
+      "frontend": null,
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-037"
+      ],
+      "note": "파일 단위 수동 백업(Q5 결정안, A-039)"
+    },
+    {
+      "id": "R-044",
+      "requirement": "요구사항_정의서.md#R-044",
+      "status": "implemented",
+      "prd": "F-006",
+      "design": "S-204",
+      "frontend": "src/pages/EditorPage.tsx, src/components/editor/SaveIndicator.tsx, src/stores/settingsStore.ts",
+      "backend_api": "A-011",
+      "db": "T-002",
+      "infra": null,
+      "tests": [
+        "TC-038",
+        "TC-205"
+      ],
+      "note": "WAL 마지막 커밋 보존"
+    },
+    {
+      "id": "R-045",
+      "requirement": "요구사항_정의서.md#R-045",
+      "status": "implemented",
+      "prd": "F-035",
+      "design": "S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009",
+      "frontend": "src/stores/uiStore.ts, src/components/layout/AppShell.tsx, src/index.css",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-039"
+      ],
+      "note": "무문서 사용성(F-035)"
+    },
+    {
+      "id": "R-046",
+      "requirement": "요구사항_정의서.md#R-046",
+      "status": "implemented",
+      "prd": "F-035",
+      "design": "S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009",
+      "frontend": "src/stores/uiStore.ts, src/components/layout/AppShell.tsx, src/index.css",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-040"
+      ],
+      "note": "한국어 UI(detail 포함)"
+    },
+    {
+      "id": "R-047",
+      "requirement": "요구사항_정의서.md#R-047",
+      "status": "implemented",
+      "prd": "F-017",
+      "design": "S-500, S-207, S-004",
+      "frontend": "src/components/panels/AiPanel.tsx, src/stores/aiPanelStore.ts",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-041",
+        "TC-206"
+      ],
+      "note": "AI 패널 전역 호출은 프론트 레이아웃"
+    },
+    {
+      "id": "R-048",
+      "requirement": "요구사항_정의서.md#R-048",
+      "status": "planned",
+      "prd": "F-030",
+      "design": "S-600, S-702",
+      "frontend": null,
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-048"
+      ],
+      "note": "탐지 회피 문구 0건 감사 대상"
+    },
+    {
+      "id": "R-049",
+      "requirement": "요구사항_정의서.md#R-049",
+      "status": "implemented",
+      "prd": "F-036",
+      "design": "S-707",
+      "frontend": "S-704 (SettingsPage.tsx 라이선스 섹션) + LICENSES.md",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-042"
+      ],
+      "note": "라이선스 고지(About)"
+    },
+    {
+      "id": "R-050",
+      "requirement": "요구사항_정의서.md#R-050",
+      "status": "implemented",
+      "prd": "F-032",
+      "design": "S-103, S-704",
+      "frontend": "src/pages/SettingsPage.tsx",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-043"
+      ],
+      "note": "규정 확인 시점 표시"
+    },
+    {
+      "id": "R-051",
+      "requirement": "요구사항_정의서.md#R-051",
+      "status": "implemented",
+      "prd": "F-032",
+      "design": "S-704",
+      "frontend": "src/pages/SettingsPage.tsx",
+      "backend_api": "-",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-044"
+      ],
+      "note": "AI 공개 판단 주체 안내(NFR-404)"
+    },
+    {
+      "id": "R-052",
+      "requirement": "요구사항_정의서.md#R-052",
+      "status": "planned",
+      "prd": "F-034",
+      "design": "S-705, S-201",
+      "frontend": null,
+      "backend_api": "A-034",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-045",
+        "TC-307"
+      ],
+      "note": "외부 AI 차단 시 로컬 지표·게이트 동작(기술설계 §8)"
+    },
+    {
+      "id": "R-053",
+      "requirement": "요구사항_정의서.md#R-053",
+      "status": "implemented",
+      "prd": "F-035",
+      "design": "S-001",
+      "frontend": "src/stores/uiStore.ts, src/components/layout/AppShell.tsx, src/index.css",
+      "backend_api": "A-040",
+      "db": "",
+      "infra": null,
+      "tests": [
+        "TC-046"
+      ],
+      "note": "bat 더블클릭 → uvicorn 단일 프로세스(정적 서빙)"
+    },
+    {
+      "id": "R-054",
+      "requirement": "요구사항_정의서.md#R-054",
+      "status": "implemented",
+      "prd": "F-017",
+      "design": "S-501, S-701",
+      "frontend": "src/components/panels/AiPanel.tsx, src/stores/aiPanelStore.ts",
+      "backend_api": "A-028, A-029, A-030, A-031",
+      "db": "T-006",
+      "infra": null,
+      "tests": [
+        "TC-047"
+      ],
+      "note": "프로파일 교체만으로 모델 전환"
+    }
+  ],
+  "note": "G3 (2026-08-26): R-001~R-054 전수가 F-001~F-036(대시보드_MVP_사양.md v0.4 §9~§10)에 매핑됨. prd 필드 = 대응 F-xxx(복수는 쉼표 구분). status는 G6 이전까지 planned 유지. | G4 (2026-08-26): 기술설계_v1.md 기준 backend_api(A-001~A-040)·db(T-001~T-008) 확정. frontend 필드는 G5 이후 확정. 🔧 항목: T-002 volume nullable(Q1), A-038 plus-status(F-033), A-040 정적 서빙. v1.3(G5): design 필드를 디자인_화면설계서_v1.md §0-A의 S-### 화면·컴포넌트 ID로 채움(쉼표 구분 복수 허용). 기술설계 참조는 backend_api/db 필드와 각 링크 note로 유지."
+}

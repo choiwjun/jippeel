@@ -1,0 +1,65 @@
+{
+  "project": "jippeel",
+  "updated": "2026-08-26",
+  "gates": {
+    "G0": {
+      "status": "pass",
+      "artifact": "AGENTS.md",
+      "reviewed_by": "user",
+      "date": "2026-08-24"
+    },
+    "G1": {
+      "status": "pass",
+      "artifact": "부록01~05 리서치 보고서",
+      "reviewed_by": "리서치팀 self-review",
+      "date": "2026-08-24"
+    },
+    "G2": {
+      "status": "pass",
+      "artifact": "요구사항_정의서.md",
+      "reviewed_by": "requirements-reviewer",
+      "date": "2026-08-26",
+      "note": "R-001~R-054 고유번호 부여 + 전 행 수용기준 추가 + 모호 표현 정량화 완료 (규약 v1). Won't(FR-W1~W6)는 백로그로 ID 미부여."
+    },
+    "G3": {
+      "status": "pass",
+      "artifact": "대시보드_MVP_사양.md",
+      "reviewed_by": "product-cross-review",
+      "date": "2026-08-26",
+      "note": "F-001~F-036 부여, R-001~R-054 전수 매핑(누락 0건), MVP 범위 명시(§9~§10), Q1~Q5 결정안(§11), 리스크 C8/C9(§12), Success Metrics(§13). 사양 v0.4."
+    },
+    "G4": {
+      "status": "pass",
+      "artifact": "기술설계_v1.md",
+      "reviewed_by": "backend-architect-cross-review",
+      "date": "2026-08-26",
+      "note": "리스크 C9(가정 A3) 실측 검증 성립: im-not-ai metrics_v2 모듈 임포트 + prepare_monolith_input/verify_gates CLI 실행 성공(진단·윤문은 설계상 외부 LLM 명령 주입). 스택 HANDOFF 확정안 준수. T-001~T-008, A-001~A-040 부여. 변경 항목 3건(T-002 volume nullable, A-038, A-040)은 기술설계 §4.2."
+    },
+    "G5": {
+      "status": "pass",
+      "artifact": "디자인_화면설계서_v1.md (v1.3)",
+      "reviewed_by": "design-qa",
+      "date": "2026-08-26",
+      "note": "전 화면·컴포넌트 S-### 부여(53건, §0-A 레지스트리), 화면↔F-xxx↔A-### 매핑표 추가(F-001~F-036/A-001~A-040 커버리지 누락 0건 — A-039는 엔드포인트 미제공 결정으로 S-705 표기). traceability.json design 필드 S-### 채움(R-001~R-054 전 건). 결정사항_G4 Q1(S-702 명령 프리셋 UI)/Q3(S-104·S-704 문구)/Q4(S-606 진행 상태 UI) 반영. §6.3 시니어 배려 모드 접근성 보강. 기존 v1.1/v1.2 구조·이력 유지."
+    },
+    "G6": {
+      "status": "pass",
+      "artifact": "backend pytest 118 passed(기존 105 + 신규 13: T-002 volume nullable 6건·A-038 plus-status 7건) + frontend npm run build 통과(tsc -b && vite build) + 운영 모드 런타임 스모크(GET / 정적 서빙·/health·/api/v1/projects·/projects/{pid}/plus-status 실측). traceability.json frontend 필드 54행 채움(커버 47 / 미구현 null 7: F-011·F-016·F-030×2·F-034×2·F-036).",
+      "reviewed_by": "team-backend (G6 delta 구현·자체검증)",
+      "date": "2026-08-26"
+    },
+    "G7": {
+      "status": "pass",
+      "artifact": "QA_개발검증_리포트_v2.md",
+      "reviewed_by": "team-qa (v2 리포트)",
+      "date": "2026-08-26",
+      "note": "자동 실행 24건 FAIL 0(regression 118 passed·frontend build 통과·API 라이브 스모크 8/8·security 자동 4종 통과) → pass. 보류 목록: pending-manual 70건 — UI e2e/a11y/perf는 환경 블록(chromium 시스템 라이브러리 libnspr4/libnss3 부재, sudo 불가; Infra팀 install-deps 후 재실행), Windows 실기기(TC-302)·NVDA(TC-503~505) 실기기 필요. 단, F-036 im-not-ai(MIT) 라이선스 고지 미구현은 릴리스 차단으로 G8 진입 전 해소 필수."
+    },
+    "G8": {
+      "status": "pass",
+      "artifact": "릴리스_노트_MVP_v1.0.md + HANDOFF 완주 기록",
+      "reviewed_by": "MASTER_ORCHESTRATOR",
+      "date": "2026-08-26"
+    }
+  }
+}
