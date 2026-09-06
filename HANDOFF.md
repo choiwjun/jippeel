@@ -374,3 +374,5 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 **검증**: backend pytest **165 passed** / frontend build 통과 / **E2E 9/9**(app-flow 8 + a11y 1) / 실호출 스모크: 권 개요·문체 프로파일·품질 이력(해시 dedup)·canon(gpt-5.6-luna, run_id)·떡밥 추출·장면 조립·usage 집계·삭제 회귀 전부 200/204
 
 **다음 백로그 후보**: 품질 점수 추이 그래프 UI(이력 데이터는 있음), 부트스트랩 권 개요 동시 생성, 복선 키워드 자동 매칭 알림, 임베딩 로어 검색 v2, metrics_v2 연동, 실기기 수동 QA
+
+**✅ 품질 점수 추이 그래프 (G-061, 2026-09-06 커밋 78b9245)**: 품질 진단 Dialog에 SVG 스파크라인 — quality_checks 이력 시간순 라인 + 60/80 기준선 + 최근 변화량. 백로그에서 제거
