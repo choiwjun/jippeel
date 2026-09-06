@@ -391,3 +391,30 @@ def test_bootstrap_survives_sdk_str_response(client, raw_str_llm, default_endpoi
     assert body["title"] == GOOD_IDEA["titles"][0]
     assert len(raw_str_llm["calls"]) == 4
 
+
+def test_bootstrap_protagonist_name_enforced_across_calls(client, fake_llm, default_endpoint):
+    """고도화 G-002 — 콜 1에서 확정한 주인공 이름이 콜 2(목차)·콜 3(캐릭터)에
+    강제 전달되는지 검증한다(이름 교차 불일치 해소)."""
+    idea = dict(GOOD_IDEA, protagonist_name="강산협")
+    enqueue_success(fake_llm, idea=idea)
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협", "volume_count": 2, "chapters_per_volume": 3})
+    assert resp.status_code == 200, resp.text
+
+    calls = fake_llm["calls"]
+    assert len(calls) == 4
+    outline_user = calls[1]["messages"][-1]["content"]
+    characters_user = calls[2]["messages"][-1]["content"]
+    idea_user = calls[0]["messages"][-1]["content"]
+    # 콜 1에서 protagonist_name을 요구
+    assert "protagonist_name" in idea_user
+    # 콜 2·3에 강제 규칙 전달
+    assert "강산협" in outline_user and "다른 이름 금지" in outline_user
+    assert "반드시 \"강산협\"" in characters_user
+
+    # 프로젝트 memo에 주인공 이름 보관
+    body = resp.json()
+    db = _db(client)
+    project = db.get(Project, body["project_id"])
+    memo = json.loads(project.memo)["bootstrap"]
+    assert memo["protagonist_name"] == "강산협"

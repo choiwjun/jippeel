@@ -299,6 +299,13 @@ class GenerateContext(BaseModel):
     project_id: int | None = Field(default=None, description="chapter 없이 auto_lore 사용 시 프로젝트 지정")
     # 직전 회차 끝부분 자동 포함 (백로그 — 이어쓰기 맥락 유지)
     previous_chapter: bool = False
+    # 목차 자동 주입 (고도화 G-001) — 현재 회차 시놉시스·다음 회차 전개 방향 포함
+    auto_outline: bool = False
+    # 장면 단위 생성 (고도화 G-012) — chapter_id 대신(또는 함께) 지정 시 장면 본문 주입
+    scene_id: int | None = None
+    # 미회수 복선 자동 주입 (고도화 G-022)
+    auto_foreshadow: bool = False
+    auto_foreshadow_limit: int = Field(default=5, ge=1, le=10)
 
 
 class GenerateParams(BaseModel):
@@ -359,6 +366,104 @@ class RefineRunOut(BaseModel):
 
 class SimpleOk(BaseModel):
     ok: bool = True
+
+
+# ---- Scene (고도화 G-010 — 회차 → 장면 계층) ----
+class SceneCreate(BaseModel):
+    title: str = Field(default="", max_length=255)
+    sort_order: float = 0.0
+    content_md: str = ""
+
+
+class SceneUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+    sort_order: float | None = None
+    content_md: str | None = None
+
+
+class SceneOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    chapter_id: int
+    sort_order: float
+    title: str
+    content_md: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScenesReorderItem(BaseModel):
+    id: int
+    sort_order: float | None = None
+
+
+class ScenesReorder(BaseModel):
+    items: list[ScenesReorderItem] = Field(min_length=1)
+
+
+# ---- Foreshadow (고도화 G-020 — 복선 관리) ----
+ForeshadowStatus = Literal["설치", "회수", "보류"]
+
+
+class ForeshadowCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    content: str | None = None
+    keywords: list[str] | None = None
+    status: ForeshadowStatus = "설치"
+    planted_chapter_id: int | None = None
+    resolved_chapter_id: int | None = None
+
+
+class ForeshadowUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    content: str | None = None
+    keywords: list[str] | None = None
+    status: ForeshadowStatus | None = None
+    planted_chapter_id: int | None = None
+    resolved_chapter_id: int | None = None
+
+
+class ForeshadowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    title: str
+    content: str | None
+    keywords: list[str] | None
+    status: ForeshadowStatus
+    planted_chapter_id: int | None
+    resolved_chapter_id: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ---- CanonCheck (고도화 G-023 — 회차-설정 모순 검사) ----
+class CanonIssueOut(BaseModel):
+    quote: str
+    reason: str
+    severity: Literal["info", "warn", "error"] = "warn"
+
+
+class CanonCheckRequest(BaseModel):
+    chapter_id: int
+
+
+class CanonCheckResponse(BaseModel):
+    chapter_id: int
+    model: str | None
+    issues: list[CanonIssueOut]
+    checked_context: dict  # 주입된 컨텍스트 내역(투명성) — {"characters": n, "lore": n, "foreshadows": n}
+
+
+# ---- Chapter 품질 진단 (고도화 G-031 — 규칙 기반) ----
+class ChapterQualityOut(BaseModel):
+    chapter_id: int
+    score: int  # 0~100
+    metrics: dict
+    suggestions: list[str]
+    suggested_preset_names: list[str]
 
 
 # ---- Project Bootstrap (입력 하나로 작품 전체 구조 AI 생성) ----

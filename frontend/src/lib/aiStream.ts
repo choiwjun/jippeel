@@ -9,8 +9,20 @@ export interface InjectedLore {
   title: string;
 }
 
+/** G-001 — 목차 자동 주입 정보(start 이벤트 투명성) */
+export interface InjectedOutline {
+  current?: boolean;
+  next_chapter_id?: number;
+  next_title?: string;
+}
+
 export interface StreamHandlers {
-  onStart?: (info: { model: string; injectedLore: InjectedLore[] }) => void;
+  onStart?: (info: {
+    model: string;
+    injectedLore: InjectedLore[];
+    injectedForeshadows: InjectedLore[];
+    injectedOutline: InjectedOutline | null;
+  }) => void;
   onChunk: (delta: string) => void;
   onDone: () => void;
   onError: (message: string) => void;
@@ -69,6 +81,9 @@ export function streamGenerate(
           handlers.onStart?.({
             model: parsed.model ?? '',
             injectedLore: parseInjectedLore(parsed.injected_lore),
+            injectedForeshadows: parseInjectedLore(parsed.injected_foreshadows),
+            injectedOutline: typeof parsed.injected_outline === 'object'
+              && parsed.injected_outline !== null ? parsed.injected_outline : null,
           });
         } catch { /* noop */ }
       } else if (eventName === 'message') {

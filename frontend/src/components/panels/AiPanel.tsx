@@ -116,6 +116,9 @@ export function AiPanel() {
           character_ids: c.includeCharacters ? c.characterIds : [],
           lore_ids: c.includeLore ? c.loreIds : [],
           auto_lore: c.autoLore,
+          auto_outline: c.autoOutline,
+          auto_foreshadow: c.autoForeshadow,
+          scene_id: c.sceneId,
         },
         params: {
           model: store.model || undefined,
@@ -126,6 +129,12 @@ export function AiPanel() {
       },
       {
         onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
+        onStart: (info) => {
+          const st = useAiPanelStore.getState();
+          st.setInjectedLore(info.injectedLore);
+          st.setInjectedForeshadows(info.injectedForeshadows);
+          st.setInjectedOutline(info.injectedOutline);
+        },
         onDone: () => useAiPanelStore.getState().finishStream(),
         onError: (msg) => {
           useAiPanelStore.getState().failStream(msg);
@@ -299,8 +308,9 @@ export function AiPanel() {
   );
 }
 
-/** FR-404 포함 컨텍스트 — 현재 회차 / 선택 캐릭터 / 선택 로어북 */
+/** FR-404 포함 컨텍스트 — 현재 회차 / 선택 캐릭터 / 선택 로어북 / 현재 장면 */
 import { type AiPanelState } from '@/stores/aiPanelStore';
+import { SceneManager, type Scene } from '@/components/panels/SceneManager';
 
 type AiPanelStoreApi = {
   contextSelection: AiPanelState['contextSelection'];
@@ -320,14 +330,45 @@ function ContextSection({
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
     enabled: chapterId !== null,
   });
+  const scenesQuery = useQuery({
+    queryKey: ['scenes', chapterId],
+    queryFn: () => api.get<Scene[]>(`/chapters/${chapterId}/scenes`),
+    enabled: chapterId !== null,
+  });
+  const scenes = scenesQuery.data ?? [];
   const includeChapter = ctx.includeChapter && ctx.chapterId !== null;
   const charsCount = ctx.characterIds.length;
   const loreCount = ctx.loreIds.length;
 
   return (
     <section className="rounded-md border border-border p-3">
-      <h3 className="mb-2 text-xs font-semibold text-muted-foreground">포함 컨텍스트</h3>
+      <h3 className="mb-2 flex items-center justify-between text-xs font-semibold text-muted-foreground">
+        <span>포함 컨텍스트</span>
+        {chapterId !== null && (
+          <SceneManager
+            chapterId={chapterId}
+            sceneId={ctx.sceneId}
+            onPick={(id) => setContext({ sceneId: id })}
+          />
+        )}
+      </h3>
       <div className="flex flex-col gap-1.5">
+        {scenes.length > 0 && (
+          <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+            <Label htmlFor="ai-scene" className="text-xs">현재 장면</Label>
+            <Select
+              id="ai-scene"
+              value={ctx.sceneId ?? ''}
+              onChange={(e) =>
+                setContext({ sceneId: e.target.value === '' ? null : Number(e.target.value) })}
+            >
+              <option value="">사용 안 함 (회차 전체)</option>
+              {scenes.map((s) => (
+                <option key={s.id} value={s.id}>{s.title || '무제'}</option>
+              ))}
+            </Select>
+          </div>
+        )}
         <Checkbox
           label={`현재 회차${chapter.data ? ` (${chapter.data.title.trim() || `${volumeLabel(chapter.data.volume)} ${chapter.data.id}화`})` : ''}`}
           checked={includeChapter}
@@ -352,8 +393,42 @@ function ContextSection({
           disabled={chapterId === null}
           onChange={(e) => setContext({ autoLore: e.target.checked })}
         />
+        <Checkbox
+          label="목차 자동 포함 (시놉시스·다음 화 방향)"
+          checked={ctx.autoOutline}
+          disabled={chapterId === null}
+          onChange={(e) => setContext({ autoOutline: e.target.checked })}
+        />
+        <Checkbox
+          label="미회수 복선 자동 포함"
+          checked={ctx.autoForeshadow}
+          disabled={chapterId === null}
+          onChange={(e) => setContext({ autoForeshadow: e.target.checked })}
+        />
       </div>
+      <InjectedBadges ctx={ctx} />
     </section>
+  );
+}
+
+/** 주입 투명성 배지 — 자동으로 곁들여진 컨텍스트를 항상 공개한다 */
+function InjectedBadges({ ctx }: { ctx: AiPanelStoreApi['contextSelection'] }) {
+  const injectedLore = useAiPanelStore((s) => s.injectedLore);
+  const injectedForeshadows = useAiPanelStore((s) => s.injectedForeshadows);
+  const injectedOutline = useAiPanelStore((s) => s.injectedOutline);
+  const chips: string[] = [];
+  if (ctx.sceneId) chips.push('선택 장면');
+  if (injectedOutline?.current) chips.push('이번 화 목표');
+  if (injectedOutline?.next_title) chips.push(`다음 화: ${injectedOutline.next_title}`);
+  for (const l of injectedLore) chips.push(`세계관: ${l.title}`);
+  for (const f of injectedForeshadows) chips.push(`복선: ${f.title}`);
+  if (chips.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1" aria-label="자동 주입된 컨텍스트">
+      {chips.map((c, i) => (
+        <Badge key={`${c}-${i}`} variant="secondary" className="text-[10px]">{c}</Badge>
+      ))}
+    </div>
   );
 }
 

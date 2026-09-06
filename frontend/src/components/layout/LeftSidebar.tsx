@@ -54,6 +54,7 @@ function ProjectNavLinks({ pid, pathname }: { pid: string; pathname: string }) {
     { to: `${base}/write`, label: '✍ 회차 집필', active: pathname.endsWith('/write') },
     { to: `${base}/characters`, label: '👤 캐릭터', active: pathname.endsWith('/characters') },
     { to: `${base}/lore`, label: '🗺 로어북', active: pathname.endsWith('/lore') },
+    { to: `${base}/foreshadows`, label: '🧵 복선', active: pathname.endsWith('/foreshadows') },
   ];
   return (
     <nav className="mb-1 flex flex-col gap-0.5" aria-label="프로젝트 화면 전환">

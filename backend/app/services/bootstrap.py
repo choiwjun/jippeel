@@ -103,7 +103,8 @@ def _idea_messages(genre: str, premise: str | None, title_style: str) -> list[di
 제목 스타일: {title_style}
 
 다음 JSON 형식으로 출력하라:
-{{"titles": ["차별화된 제목 후보 정확히 5개"], "logline": "한 줄 로그라인", "theme": "주제의식"}}"""
+{{"titles": ["차별화된 제목 후보 정확히 5개"], "logline": "한 줄 로그라인", "theme": "주제의식",
+ "protagonist_name": "주인공 이름(한국식 2~3자, 웹소설파닫기 쉬운 이름)"}}"""
     return [{"role": "system", "content": _SYSTEM_JSON},
             {"role": "user", "content": user}]
 
@@ -112,11 +113,18 @@ def _outline_messages(genre: str, idea: dict, volume_count: int,
                       chapters_per_volume: int) -> list[dict]:
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
     title = titles[0] if titles else genre
+    protagonist = _as_str(idea.get("protagonist_name"))
+    protagonist_line = ""
+    if protagonist:
+        protagonist_line = f"""주인공 이름: {protagonist}
+- 목차의 모든 시놉시스에서 주인공은 반드시 "{protagonist}"로 지칭한다(다른 이름 금지)
+
+"""
     user = f"""작품: {title}
 장르: {genre}
 로그라인: {_as_str(idea.get('logline'))}
 주제의식: {_as_str(idea.get('theme'))}
-
+{protagonist_line}
 권 {volume_count}권, 각 권당 회차 {chapters_per_volume}화 목차를 짜라.
 각 회차는 제목 + 2문단 시놉시스 + 핵심 사건 1개를 포함한다.
 다음 JSON 형식으로 출력하라:
@@ -130,6 +138,10 @@ def _characters_messages(genre: str, idea: dict, outline_summary: str) -> list[d
     """콜 3 — 등장인물 심층 설계. 서사 기능(목표·결핍·비밀·변화)을 강제한다."""
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
     title = titles[0] if titles else genre
+    protagonist = _as_str(idea.get("protagonist_name"))
+    protagonist_rule = ""
+    if protagonist:
+        protagonist_rule = f'- 주연 1명의 name은 반드시 "{protagonist}"를 그대로 사용한다(변형·변경 금지)\n'
     user = f"""작품: {title}
 장르: {genre}
 로그라인: {_as_str(idea.get('logline'))}
@@ -139,7 +151,7 @@ def _characters_messages(genre: str, idea: dict, outline_summary: str) -> list[d
 
 위 목차를 관통하는 등장인물 6~8명을 심층 설계하라.
 - 구성: 주인공 1명, 핵심 조연 2~3명, 대립자 1~2명, 주변인 1~2명
-- 주인공은 표면 목표와 내면 결핍이 충돌하고, 1권 내내 숨길 비밀이 하나 있어야 한다
+{protagonist_rule}- 주인공은 표면 목표와 내면 결핍이 충돌하고, 1권 내내 숨길 비밀이 하나 있어야 한다
 - 대립자는 단순 악인이 아니라 '그 나름의 정의'로 움직이는 이유가 있어야 한다
 - background는 배경 2문장 + 목표 + 숨긴 비밀까지 3문장 이상
 - speech_style은 실제 대사로 바로 쓸 수 있을 만큼 구체적으로(어투·호칭 포함)
@@ -475,6 +487,7 @@ def persist_structure(db: Session, genre: str, premise: str | None,
             "generated_by": generated_by,
             "premise": premise,
             "theme": theme,
+            "protagonist_name": _as_str(structure.get("protagonist_name")) or None,
             "outline_summary": outline_summary,
             "title_candidates": titles[1:],
         }
@@ -607,6 +620,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         "titles": [_as_str(t) for t in _as_list(idea.get("titles"))][:5],
         "logline": _as_str(idea.get("logline")),
         "theme": _as_str(idea.get("theme")),
+        "protagonist_name": _as_str(idea.get("protagonist_name")),
         "characters": characters_data.get("characters"),
         "relationships": rellore_data.get("relationships"),
         "lore_entries": rellore_data.get("lore_entries"),

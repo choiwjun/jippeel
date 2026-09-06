@@ -37,6 +37,9 @@ class Project(TimestampMixin, Base):
     lore_entries: Mapped[list["LoreEntry"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    foreshadows: Mapped[list["Foreshadow"]] = relationship(
+        cascade="all, delete-orphan"
+    )
 
 
 class Chapter(TimestampMixin, Base):
@@ -57,8 +60,54 @@ class Chapter(TimestampMixin, Base):
     refine_runs: Mapped[list["RefineRun"]] = relationship(
         back_populates="chapter", cascade="all, delete-orphan"
     )
+    scenes: Mapped[list["Scene"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan",
+        order_by="Scene.sort_order"
+    )
 
     __table_args__ = (CheckConstraint("status IN ('초고','수정중','완료')", name="ck_chapter_status"),)
+
+
+class Scene(TimestampMixin, Base):
+    """장면 — 회차 → 장면 계층 (고도화 G-010, 백로그 P2).
+
+    회차 본문(content_md)은 통짜로 유지하되, 작가가 장면 단위로
+    AI 생성·재작성을 할 수 있게 병행 저장한다.
+    """
+
+    __tablename__ = "scenes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id"), index=True, nullable=False)
+    sort_order: Mapped[float] = mapped_column(Float, default=0.0)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    content_md: Mapped[str] = mapped_column(Text, default="")
+
+    chapter: Mapped["Chapter"] = relationship(back_populates="scenes")
+
+
+class Foreshadow(TimestampMixin, Base):
+    """복선 — 설치/회수 상태 관리 (고도화 G-020).
+
+    status: 설치(아직 회수 안 됨) | 회수(해결됨) | 보류(의도적으로 유예)
+    미회수(설치) 복선은 AI 생성 시 [복선 경고] 블록으로 주입된다(G-022).
+    """
+
+    __tablename__ = "foreshadows"
+    __table_args__ = (
+        CheckConstraint("status IN ('설치','회수','보류')", name="ck_foreshadow_status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text)
+    keywords: Mapped[list | None] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(20), default="설치")
+    planted_chapter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chapters.id"), nullable=True)
+    resolved_chapter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chapters.id"), nullable=True)
 
 
 class Character(TimestampMixin, Base):

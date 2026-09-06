@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import SessionLocal, init_db
-from app.routers import ai_panel, characters, lorebook, projects, refine, system
+from app.routers import ai_panel, characters, foreshadows, lorebook, projects, quality, refine, scenes, system
 from app.services.fts import ensure_fts_index
 from app.services.presets import seed_presets
 
@@ -43,6 +43,9 @@ app.include_router(characters.router, prefix="/api/v1")
 app.include_router(lorebook.router, prefix="/api/v1")
 app.include_router(ai_panel.router, prefix="/api/v1")
 app.include_router(refine.router, prefix="/api/v1")
+app.include_router(scenes.router, prefix="/api/v1")
+app.include_router(foreshadows.router, prefix="/api/v1")
+app.include_router(quality.router, prefix="/api/v1")
 app.include_router(system.router, prefix="/api/v1")
 
 

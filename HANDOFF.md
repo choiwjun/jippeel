@@ -310,3 +310,32 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 **✅ 청크 재분할** — 908KB 단일 → react 162/editor 475/markdown 130/앱 144/data 47KB, 전 청크 500KB 미만(경고 소멸).
 
 **✅ 릴리스 노트 v1.1** 갱신(릴리스_노트_MVP_v1.0.md 하단). 잔여: NVDA·시니어 모드·성능 계측·Windows keyring 실기기 항목, 자동 백업·복원, SillyTavern 연동, UI 3단계.
+
+---
+
+## 완성도 고도화 v1 (1~4단계) — 2026-09-06 최종
+
+> 사양: `고도화_사양_완성도_v1.md` (G-001~G-032). 목표: "이 화 단위 보조" → "장편 연재 서사 일관성 + 회차 품질 루프"
+
+**P1 — 맥락 주입 고도화**
+- G-001 목차 자동 주입: `GenerateContext.auto_outline` — 현재 회차 memo(부트스트랩 시놉시스·핵심 사건) + 다음 회차 전개 방향(600자)을 `[이번 회차 목표(목차)]`·`[다음 회차 예고]` 블록으로 주입. SSE start `injected_outline` 공개. AI 패널 "목차 자동 포함" 체크박스(기본 ON)
+- G-002 부트스트랩 이름 일관성: 콜 1(idea)에서 `protagonist_name` 확정 → 콜 2(목차, "다른 이름 금지")·콜 3(캐릭터, "주연 name 강제") 전달. 프로젝트 memo에도 보관. 3콜 이름 교차 불일치 해소
+
+**P2 — 장면(Scene) 구조화**
+- `scenes` 테이블(Alembic e8f0a1b2c3d4) + CRUD·reorder(422 원자성) — `routers/scenes.py`
+- G-012: `GenerateContext.scene_id` — `[현재 장면]` 블록으로 장면 단위 집필. AI 패널 "현재 장면" 셀렉트 + 장면 관리 Dialog(`SceneManager.tsx`)
+
+**P3 — 복선 + canon 게이트**
+- `foreshadows` 테이블(같은 마이그레이션) + CRUD·상태(설치|회수|보류) — `routers/foreshadows.py`, `pages/ForeshadowsPage.tsx`(사이드바 "🧵 복선")
+- G-022: `GenerateContext.auto_foreshadow` — 미회수(설치) 복선 상위 5개 `[미회수 복선]` 블록 주입 + SSE 투명성 + 패널 체크박스(기본 ON)
+- G-023 canon 검사: `POST /canon-check` — 회차 본문+캐릭터+로어+미회수 복선을 LLM 1콜(JSON, repair 재시도)로 모순 후보 반환. `services/canon.py`. 응답만 반환(원고 자동 수정 없음)
+
+**P4 — 회차 품질 진단(로컬 규칙 기반, LLM 불필요)**
+- `services/quality.py` — 대사 비율·초단문 리듬·어미 반복·접속사 남발·문단 첫머리 다양성·후크(끝 300자)·노벨피아 글자 수 → 0~100점 + 한국어 제안 + 제안 프리셋(장 끝 후크·AI 티 제거·이어쓰기)
+- `GET /chapters/{id}/quality` + 에디터 FAB "품질 진단" Dialog(제안 프리셋 클릭 → AI 패널 프리셋 선택, 자동 실행 없음)
+
+**결함 수정(발견 즉시)**: 프로젝트 삭제 시 foreshadows FK 오류(Relationship 사례 동일) — `Project.foreshadows` cascade 추가 + 회귀 테스트
+
+**검증**: backend pytest **155 passed** / frontend `npm run build` 통과 / **E2E 8/8**·a11y axe 1/1(critical·serious 0) / 실호출 스모크: 목차·복선·장면 주입 SSE 확인 + gpt-5.6-luna(OAuth) 실모델 스트리밍·canon-check 200 OK
+
+**잔여(백로그)**: canon-check 결과 이력 저장, 임베딩 로어 검색 v2, 장면 → 회차 본문 조립(G-013), 복선 키워드 기반 자동 등록, 품질 지표 metrics_v2(im-not-ai) 정량 엔진 연동, 시니어 모드·성능 계측(기존 잔여)

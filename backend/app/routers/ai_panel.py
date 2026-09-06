@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
 from app.database import get_db
-from app.models import AiEndpoint, Chapter, Character, LoreEntry, PromptPreset
+from app.models import AiEndpoint, Chapter, Character, Foreshadow, LoreEntry, PromptPreset, Scene
 from app.schemas import (
     AiEndpointCreate,
     AiEndpointOut,
@@ -97,18 +97,30 @@ def _resolve_model(endpoint: AiEndpoint, requested: str | None) -> str:
     return model
 
 
-def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict]]:
+def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict], dict]:
     """FR-404 — 요청된 컨텍스트(회차/캐릭터/로어북)를 프롬프트 블록으로 조립.
 
     자동 주입(auto_lore, 백로그 P1)이 켜지면 본문·지시문에 언급된 로어 항목을
-    점수순으로 추가한다. 주입은 입력 컨텍스트일 뿐이며 원고에 자동 삽입되지
-    않는다(P1·FR-406). 반환: (블록 목록, 자동 주입된 항목 [{id,title}])
+    점수순으로 추가한다. auto_outline(고도화 G-001)이 켜지면 현재 회차의
+    목차 메모(시놉시스·핵심 사건)와 다음 회차 전개 방향을 추가한다.
+    주입은 입력 컨텍스트일 뿐이며 원고에 자동 삽입되지
+    않는다(P1·FR-406). 반환: (블록 목록, 자동 주입 로어 [{id,title}], 목차 주입 정보)
     """
     blocks: list[str] = []
     injected: list[dict] = []
+    injected_foreshadows: list[dict] = []
+    outline_info: dict = {}
     ctx = payload.context
     source_parts: list[str] = []
     project_id = ctx.project_id
+    if ctx.scene_id is not None:
+        scene = db.get(Scene, ctx.scene_id)
+        if scene is None:
+            raise HTTPException(status_code=404, detail="scene not found")
+        blocks.append(f"[현재 장면: {scene.title or '무제'} — 이 장면 안에서만 집필]\n{scene.content_md}")
+        source_parts.append(scene.content_md or "")
+        if chapter_ref := db.get(Chapter, scene.chapter_id):
+            project_id = project_id or chapter_ref.project_id
     if ctx.chapter_id is not None:
         chapter = db.get(Chapter, ctx.chapter_id)
         if chapter is None:
@@ -116,6 +128,9 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
         blocks.append(f"[현재 회차: {chapter.title}]\n{chapter.content_md}")
         source_parts.append(chapter.content_md or "")
         project_id = project_id or chapter.project_id
+        if ctx.auto_outline and (chapter.memo or "").strip():
+            blocks.append(f"[이번 회차 목표(목차) — 이 화에서 반드시 다뤄야 할 내용]\n{chapter.memo}")
+            outline_info["current"] = True
         if ctx.previous_chapter:
             prev = db.scalars(
                 select(Chapter).where(
@@ -126,6 +141,21 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
             if prev and (prev.content_md or "").strip():
                 tail = prev.content_md[-PREVIOUS_CHAPTER_TAIL_CHARS:]
                 blocks.append(f"[직전 회차: {prev.title} 끝부분]\n…{tail}")
+        if ctx.auto_outline:
+            nxt = db.scalars(
+                select(Chapter).where(
+                    Chapter.project_id == chapter.project_id,
+                    Chapter.sort_order > chapter.sort_order,
+                ).order_by(Chapter.sort_order.asc())
+            ).first()
+            if nxt is not None:
+                direction = (nxt.memo or "").strip()
+                blocks.append(f"[다음 회차 예고: {nxt.title}]")
+                if direction:
+                    # 다음 회차를 다 쓰지 않도록 요약 수준만 전달
+                    blocks[-1] += f"\n{direction[:600]}"
+                outline_info["next_chapter_id"] = nxt.id
+                outline_info["next_title"] = nxt.title
     if ctx.character_ids:
         chars = db.scalars(
             select(Character).where(Character.id.in_(ctx.character_ids))
@@ -152,15 +182,30 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
                 continue  # 명시 선택분과 중복 주입 방지
             blocks.append(f"[세계관(자동): {entry.title}]\n{entry.content or ''}")
             injected.append({"id": entry.id, "title": entry.title})
-    return blocks, injected
+    if ctx.auto_foreshadow and project_id is not None:
+        rows = db.scalars(
+            select(Foreshadow).where(
+                Foreshadow.project_id == project_id,
+                Foreshadow.status == "설치",
+            ).order_by(Foreshadow.created_at.desc(), Foreshadow.id.desc())
+        ).all()
+        for row in rows[:ctx.auto_foreshadow_limit]:
+            content = (row.content or "").strip()
+            block = f"[미회수 복선: {row.title}]"
+            if content:
+                block += f"\n{content[:400]}"
+            block += "\n→ 이 복선은 아직 회수 전이다. 이 화에서 건드릴 거면 자연스럽게, 건드리지 않으면 결론을 미리 풀지 마라."
+            blocks.append(block)
+            injected_foreshadows.append({"id": row.id, "title": row.title})
+    return blocks, injected, outline_info, injected_foreshadows
 
 
 def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[dict]]:
     """프리셋 템플릿 + 컨텍스트 + override → chat messages.
 
-    반환: (model_hint, messages, 자동 주입된 로어 목록)
+    반환: (model_hint, messages, 자동 주입된 로어 목록, 목차 주입 정보, 복선 주입 목록)
     """
-    context_blocks, injected = _build_context_blocks(payload, db)
+    context_blocks, injected, outline_info, injected_foreshadows = _build_context_blocks(payload, db)
     sections = ["다음 컨텍스트를 참고해 작성하세요.", *context_blocks]
     context_text = "\n\n".join(p for p in sections if p)
 
@@ -175,7 +220,7 @@ def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[di
     user_content = f"{context_text}\n\n---\n\n지시:\n{instruction}"
     messages = [{"role": "system", "content": NOVEL_SYSTEM_PROMPT},
                 {"role": "user", "content": user_content}]
-    return "default", messages, injected
+    return "default", messages, injected, outline_info, injected_foreshadows
 
 
 def _friendly_api_error(exc: openai.APIError) -> str:
@@ -299,7 +344,7 @@ def delete_preset(pid: int, db: Session = Depends(get_db)):
 @router.post("/ai/generate")
 async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
     endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
-    _, messages, injected_lore = _build_messages(payload, db)
+    _, messages, injected_lore, injected_outline, injected_foreshadows = _build_messages(payload, db)
     model = _resolve_model(endpoint, payload.params.model)
     temperature = payload.params.temperature
     if temperature is None:
@@ -312,7 +357,9 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
         # 시작 이벤트 — 프론트가 스트림 개시를 확정하고, 자동 주입된 로어 목록을
         # 투명하게 표시할 수 있다(주입 내역 공개)
         yield {"event": "start",
-               "data": json.dumps({"model": model, "injected_lore": injected_lore},
+               "data": json.dumps({"model": model, "injected_lore": injected_lore,
+                                   "injected_outline": injected_outline,
+                                   "injected_foreshadows": injected_foreshadows},
                                   ensure_ascii=False)}
         try:
             async for delta in llm.stream_chat(client, model, messages,

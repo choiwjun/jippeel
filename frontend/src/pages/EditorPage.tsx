@@ -11,6 +11,7 @@ import { CodeMirrorEditor } from '@/components/editor/CodeMirrorEditor';
 import { EditorPreview } from '@/components/editor/EditorPreview';
 import { SaveIndicator } from '@/components/editor/SaveIndicator';
 import { WordCountFooter } from '@/components/editor/WordCountFooter';
+import { QualityDialog } from '@/components/editor/QualityDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, StatusBadge } from '@/components/ui/badge';
@@ -105,6 +106,8 @@ export function EditorPage() {
         >
           윤문 실행
         </Button>
+        {/* 고도화 G-031 — 규칙 기반 회차 품질 진단 */}
+        <QualityDialog chapterId={chapterId} />
       </div>
     </div>
   );

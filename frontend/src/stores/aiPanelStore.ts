@@ -23,6 +23,12 @@ export interface AiPanelState {
     includeLore: boolean;
     /** 본문 키워드와 일치하는 로어 자동 포함 (백로그 P1) */
     autoLore: boolean;
+    /** 목차 자동 포함 (G-001) — 현재 회차 시놉시스·다음 회차 방향 */
+    autoOutline: boolean;
+    /** 미회수 복선 자동 포함 (G-022) */
+    autoForeshadow: boolean;
+    /** 장면 단위 생성 (G-012) — 선택 장면 본문만 주입 */
+    sceneId: number | null;
   };
   setContext: (c: Partial<AiPanelState['contextSelection']>) => void;
 
@@ -31,6 +37,12 @@ export interface AiPanelState {
   setAutoLore: (v: boolean) => void;
   injectedLore: Array<{ id: number; title: string }>;
   setInjectedLore: (items: Array<{ id: number; title: string }>) => void;
+
+  // 주입 투명성 (고도화 G-001/G-022) — start 이벤트에서 수신
+  injectedForeshadows: Array<{ id: number; title: string }>;
+  setInjectedForeshadows: (items: Array<{ id: number; title: string }>) => void;
+  injectedOutline: { current?: boolean; next_title?: string } | null;
+  setInjectedOutline: (info: { current?: boolean; next_title?: string } | null) => void;
 
   // 호출 폼 (FR-401/403/407)
   endpointId: number | null;
@@ -91,6 +103,9 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     includeCharacters: false,
     includeLore: false,
     autoLore: true,
+    autoOutline: true,
+    autoForeshadow: true,
+    sceneId: null,
   },
   setContext: (c) =>
     set((s) => ({
@@ -108,6 +123,11 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   setAutoLore: (v) => set({ autoLore: v }),
   injectedLore: [],
   setInjectedLore: (items) => set({ injectedLore: items }),
+
+  injectedForeshadows: [],
+  setInjectedForeshadows: (items) => set({ injectedForeshadows: items }),
+  injectedOutline: null,
+  setInjectedOutline: (info) => set({ injectedOutline: info }),
 
   endpointId: null,
   presetId: null,
@@ -127,13 +147,13 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   status: 'idle',
   streamingText: '',
   error: null,
-  startStream: () => set({ status: 'streaming', streamingText: '', error: null, injectedLore: [] }),
+  startStream: () => set({ status: 'streaming', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null }),
   appendChunk: (s) => set((st) => ({ streamingText: st.streamingText + s })),
   finishStream: () => set({ status: 'done' }),
   failStream: (e) => set({ status: 'error', error: e }),
   resetResult: () => {
     get().abortStream();
-    set({ status: 'idle', streamingText: '', error: null, injectedLore: [], pendingGenerate: false });
+    set({ status: 'idle', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null, pendingGenerate: false });
   },
 
   _abort: null,
