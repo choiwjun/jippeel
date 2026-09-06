@@ -293,8 +293,10 @@ class GenerateContext(BaseModel):
     chapter_id: int | None = None
     character_ids: list[int] | None = None
     lore_ids: list[int] | None = None
-    # 본문 키워드와 일치하는 로어 항목을 자동 포함 (백로그 P1 — 로어북 자동 주입)
+    # 로어북 자동 주입 (백로그 P1) — chapter가 없으면 project_id로 프로젝트 판별
     auto_lore: bool = False
+    auto_lore_limit: int = Field(default=6, ge=1, le=20)
+    project_id: int | None = Field(default=None, description="chapter 없이 auto_lore 사용 시 프로젝트 지정")
 
 
 class GenerateParams(BaseModel):

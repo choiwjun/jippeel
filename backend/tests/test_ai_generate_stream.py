@@ -251,7 +251,7 @@ def test_auto_lore_injects_matched_entries_only(client, fake_llm):
 
     messages = fake_llm["client"].last_kwargs["messages"]
     user_text = messages[-1]["content"]
-    assert "[세계관: 흑요 검]" in user_text
+    assert "[세계관(자동): 흑요 검]" in user_text
     assert "무한의 탑" not in user_text
 
     # auto_lore=False면 자동 포함 없음

@@ -24,7 +24,7 @@ from app.schemas import (
     PromptPresetOut,
     PromptPresetUpdate,
 )
-from app.services import llm
+from app.services import injection, llm
 
 router = APIRouter()
 
@@ -75,43 +75,25 @@ def _resolve_model(endpoint: AiEndpoint, requested: str | None) -> str:
     return model
 
 
-AUTO_LORE_MAX = 12  # 자동 매칭 상한 — 프롬프트 과다 팽창 방지
-AUTO_LORE_MIN_KEYWORD = 2  # 1글자 키워드는 오탐이 많아 제외
+def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict]]:
+    """FR-404 — 요청된 컨텍스트(회차/캐릭터/로어북)를 프롬프트 블록으로 조립.
 
-
-def _auto_match_lore(db: Session, chapter: Chapter) -> list[LoreEntry]:
-    """본문에 키워드·제목이 등장하는 로어 항목을 자동 선별한다(백로그 P1).
-
-    키워드·제목의 부분일치(casefold) 기준이며 2글자 미만 키워드는 오탐을
-    줄이기 위해 무시한다. 정밀 검색은 FTS를 쓸 수 있지만 소규모 항목 수에서는
-    순회가 더 단순하고 충분하다.
+    자동 주입(auto_lore, 백로그 P1)이 켜지면 본문·지시문에 언급된 로어 항목을
+    점수순으로 추가한다. 주입은 입력 컨텍스트일 뿐이며 원고에 자동 삽입되지
+    않는다(P1·FR-406). 반환: (블록 목록, 자동 주입된 항목 [{id,title}])
     """
-    content = (chapter.content_md or "").casefold()
-    if not content.strip():
-        return []
-    entries = db.scalars(
-        select(LoreEntry).where(LoreEntry.project_id == chapter.project_id)
-    ).all()
-    matched: list[LoreEntry] = []
-    for entry in entries:
-        needles = [entry.title.casefold()] if entry.title else []
-        for kw in entry.keywords or []:
-            if isinstance(kw, str) and len(kw) >= AUTO_LORE_MIN_KEYWORD:
-                needles.append(kw.casefold())
-        if any(n and n in content for n in needles):
-            matched.append(entry)
-    return matched[:AUTO_LORE_MAX]
-
-
-def _build_context_blocks(payload: GenerateRequest, db: Session) -> list[str]:
-    """FR-404 — 요청된 컨텍스트(회차/캐릭터/로어북)를 프롬프트 블록으로 조립."""
     blocks: list[str] = []
+    injected: list[dict] = []
     ctx = payload.context
+    source_parts: list[str] = []
+    project_id = ctx.project_id
     if ctx.chapter_id is not None:
         chapter = db.get(Chapter, ctx.chapter_id)
         if chapter is None:
             raise HTTPException(status_code=404, detail="chapter not found")
         blocks.append(f"[현재 회차: {chapter.title}]\n{chapter.content_md}")
+        source_parts.append(chapter.content_md or "")
+        project_id = project_id or chapter.project_id
     if ctx.character_ids:
         chars = db.scalars(
             select(Character).where(Character.id.in_(ctx.character_ids))
@@ -123,30 +105,31 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> list[str]:
                 if value:
                     parts.append(f"{field}: {value}")
             blocks.append("\n".join(parts))
-    lore_ids = list(ctx.lore_ids or [])
-    if ctx.auto_lore and ctx.chapter_id is not None:
-        chapter = db.get(Chapter, ctx.chapter_id)
-        if chapter is not None:
-            explicit = (
-                db.scalars(select(LoreEntry).where(LoreEntry.id.in_(lore_ids))).all()
-                if lore_ids
-                else []
-            )
-            known = {e.id for e in explicit}
-            for entry in _auto_match_lore(db, chapter):
-                if entry.id not in known:
-                    lore_ids.append(entry.id)
-                    known.add(entry.id)
-    if lore_ids:
-        entries = db.scalars(select(LoreEntry).where(LoreEntry.id.in_(lore_ids))).all()
+    if ctx.lore_ids:
+        entries = db.scalars(select(LoreEntry).where(LoreEntry.id.in_(ctx.lore_ids))).all()
         for entry in entries:
             blocks.append(f"[세계관: {entry.title}]\n{entry.content or ''}")
-    return blocks
+    if ctx.auto_lore and project_id is not None:
+        if payload.prompt_override:
+            source_parts.append(payload.prompt_override)
+        selected = injection.select_lore_for_text(
+            db, project_id, "\n".join(source_parts), limit=ctx.auto_lore_limit)
+        exclude = set(ctx.lore_ids or [])
+        for entry in selected:
+            if entry.id in exclude:
+                continue  # 명시 선택분과 중복 주입 방지
+            blocks.append(f"[세계관(자동): {entry.title}]\n{entry.content or ''}")
+            injected.append({"id": entry.id, "title": entry.title})
+    return blocks, injected
 
 
 def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[dict]]:
-    """프리셋 템플릿 + 컨텍스트 + override → chat messages. 반환: (model_hint, messages)"""
-    sections = ["다음 컨텍스트를 참고해 작성하세요.", *_build_context_blocks(payload, db)]
+    """프리셋 템플릿 + 컨텍스트 + override → chat messages.
+
+    반환: (model_hint, messages, 자동 주입된 로어 목록)
+    """
+    context_blocks, injected = _build_context_blocks(payload, db)
+    sections = ["다음 컨텍스트를 참고해 작성하세요.", *context_blocks]
     context_text = "\n\n".join(p for p in sections if p)
 
     instruction = payload.prompt_override
@@ -158,7 +141,7 @@ def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[di
                             detail="preset_id 또는 prompt_override 중 하나는 필요합니다.")
 
     user_content = f"{context_text}\n\n---\n\n지시:\n{instruction}"
-    return "default", [{"role": "user", "content": user_content}]
+    return "default", [{"role": "user", "content": user_content}], injected
 
 
 def _friendly_api_error(exc: openai.APIError) -> str:
@@ -282,7 +265,7 @@ def delete_preset(pid: int, db: Session = Depends(get_db)):
 @router.post("/ai/generate")
 async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
     endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
-    _, messages = _build_messages(payload, db)
+    _, messages, injected_lore = _build_messages(payload, db)
     model = _resolve_model(endpoint, payload.params.model)
     temperature = payload.params.temperature
     if temperature is None:
@@ -292,7 +275,11 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
 
     async def event_stream():
         # 시작 이벤트 — 프론트가 스트림 개시를 확정할 수 있다
-        yield {"event": "start", "data": json.dumps({"model": model}, ensure_ascii=False)}
+        # 시작 이벤트 — 프론트가 스트림 개시를 확정하고, 자동 주입된 로어 목록을
+        # 투명하게 표시할 수 있다(주입 내역 공개)
+        yield {"event": "start",
+               "data": json.dumps({"model": model, "injected_lore": injected_lore},
+                                  ensure_ascii=False)}
         try:
             async for delta in llm.stream_chat(client, model, messages,
                                                temperature=temperature,
