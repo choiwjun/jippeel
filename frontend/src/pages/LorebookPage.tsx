@@ -88,7 +88,7 @@ export function LorebookPage() {
           <div className="ml-auto flex items-center gap-2">
             <Input
               type="search"
-              aria-label="로어북 키워드 검색 (FR-304)"
+              aria-label="로어북 키워드 검색"
               placeholder="키워드·제목·본문 검색…"
               className="h-8 w-56"
               value={q}

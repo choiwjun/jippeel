@@ -100,7 +100,7 @@ export function EditorPage() {
           size="sm"
           variant="outline"
           onClick={() => { setAiMode('refine'); openAiPanel(); }}
-          aria-label="윤문 리포트 (Sprint 4b)"
+          aria-label="윤문 리포트"
         >
           윤문 실행
         </Button>
@@ -166,7 +166,7 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
       />
       <StatusBadge status={chapter.status} />
       <select
-        aria-label="회차 상태 변경 (FR-105)"
+        aria-label="회차 상태 변경"
         className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={chapter.status}
         onChange={(e) => patchMeta.mutate({ status: e.target.value as ChapterStatus })}
@@ -183,12 +183,12 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
         <DropdownMenu>
           <DropdownMenuTrigger
             className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted"
-            aria-label="메모 편집 (FR-108)"
+            aria-label="메모 편집"
           >
             메모{chapter.memo ? ' ●' : ''}
           </DropdownMenuTrigger>
           <DropdownMenuContent className="p-2">
-            <DropdownMenuLabel>빠른 메모 (FR-108)</DropdownMenuLabel>
+            <DropdownMenuLabel>빠른 메모</DropdownMenuLabel>
             <textarea
               className="mt-1 min-h-24 w-64 rounded-sm border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={memoDraft}
@@ -245,7 +245,7 @@ function ExportMenu({ pid, chapter }: { pid: number; chapter: ChapterDetail }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted"
-        aria-label="내보내기 메뉴 (FR-109)"
+        aria-label="내보내기 메뉴"
       >
         내보내기 ▾
       </DropdownMenuTrigger>

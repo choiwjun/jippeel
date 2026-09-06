@@ -15,6 +15,7 @@ import {
   type AiEndpointUpdate,
   type PromptPreset,
 } from '@/lib/api';
+import { PlusStatusWidget } from '@/components/home/PlusStatusWidget';
 import { useSettingsStore, type RefineRoute } from '@/stores/settingsStore';
 import { useUiStore } from '@/stores/uiStore';
 import { toast } from '@/components/ui/toast';
@@ -96,7 +97,7 @@ function AiEndpointsTab() {
       <Alert variant="warning">
         <CloudUploadIcon className="mr-1 inline-block align-text-bottom text-warning" />
         <AlertDescription>
-          Ollama 네이티브는 미지원입니다. OpenAI 호환 API(base_url …/v1)만 사용하세요. (FR-409)
+          Ollama 전용 방식은 지원하지 않습니다. OpenAI 호환 API(base_url이 /v1로 끝나는 주소)만 사용하세요.
         </AlertDescription>
       </Alert>
 
@@ -119,11 +120,11 @@ function AiEndpointsTab() {
         <NewEndpointForm onDone={() => { setCreating(false); invalidate(); }} onCancel={() => setCreating(false)} />
       )}
 
-      {/* 프롬프트 프리셋 (FR-403) */}
+      {/* 프롬프트 프리셋 */}
       <section className="mt-2 rounded-md border border-border p-4">
-        <h2 className="mb-1 text-sm font-semibold">프롬프트 프리셋 (FR-403)</h2>
+        <h2 className="mb-1 text-sm font-semibold">프롬프트 프리셋</h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          빌트인 프리셋은 백엔드 시드에서 관리되며, 아래 사용자 정의 프리셋을 추가할 수 있습니다.
+          기본 제공 프리셋을 고르거나, 자주 쓰는 지시를 프리셋으로 저장해 두고 AI 패널에서 바로 사용하세요.
         </p>
         <ul className="mb-3 flex flex-col gap-1.5">
           {(presetsQuery.data ?? []).map((p) => (
@@ -162,7 +163,8 @@ function EndpointCard({ endpoint, onSetDefault, onDelete }: {
   const [name, setName] = useState(endpoint.name);
   const [baseUrl, setBaseUrl] = useState(endpoint.base_url);
   const [defaultModel, setDefaultModel] = useState(endpoint.default_model ?? '');
-  const [temperature, setTemperature] = useState(String(endpoint.temperature));
+  const [temperature, setTemperature] = useState(endpoint.temperature?.toString() ?? '');
+  const [reasoningEffort, setReasoningEffort] = useState(endpoint.reasoning_effort ?? '');
 
   // 모델 목록 조회 == 테스트 연결 겸용
   const modelsQuery = useQuery({
@@ -178,7 +180,9 @@ function EndpointCard({ endpoint, onSetDefault, onDelete }: {
         name: name.trim(),
         base_url: baseUrl.trim(),
         default_model: defaultModel.trim() || null,
-        temperature: Number(temperature) || 0.7,
+        // 빈 값 = 미설정(null) — Codex 계열 모델은 temperature 전송 시 거부된다
+        temperature: temperature.trim() === '' ? null : Number(temperature),
+        reasoning_effort: reasoningEffort.trim() === '' ? null : reasoningEffort,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-endpoints'] });
@@ -204,23 +208,49 @@ function EndpointCard({ endpoint, onSetDefault, onDelete }: {
       </header>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div>
-          <Label htmlFor={`base-${endpoint.id}`}>base_url</Label>
+          <Label htmlFor={`base-${endpoint.id}`}>서버 주소 (base_url)</Label>
           <Input id={`base-${endpoint.id}`} className="h-8" placeholder="http://localhost:1234/v1"
                  value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            OpenAI 호환 서버 주소 — 끝이 /v1으로 끝나야 합니다.
+          </p>
         </div>
         <div>
-          <Label htmlFor={`model-${endpoint.id}`}>default_model</Label>
-          <Input id={`model-${endpoint.id}`} className="h-8" placeholder="예: qwen2.5-7b-instruct"
+          <Label htmlFor={`model-${endpoint.id}`}>기본 모델 (default_model)</Label>
+          <Input id={`model-${endpoint.id}`} className="h-8" placeholder="예: gpt-5.6-luna, qwen2.5-7b-instruct"
                  value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} />
         </div>
         <div>
-          <Label htmlFor={`temp-${endpoint.id}`}>temperature</Label>
+          <Label htmlFor={`temp-${endpoint.id}`}>온도 (temperature)</Label>
           <Input id={`temp-${endpoint.id}`} className="h-8 w-24" type="number" min={0} max={2} step={0.1}
+                 placeholder="미설정"
                  value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            비워 두면 전송하지 않습니다 — GPT 계열(추론 모델)은 미설정을 권장합니다.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor={`effort-${endpoint.id}`}>추론 강도 (reasoning_effort)</Label>
+          <select
+            id={`effort-${endpoint.id}`}
+            className="h-8 w-40 rounded-md border border-input bg-background px-2 text-sm"
+            value={reasoningEffort}
+            onChange={(e) => setReasoningEffort(e.target.value)}
+          >
+            <option value="">미설정</option>
+            <option value="minimal">minimal (최소)</option>
+            <option value="low">low (낮음)</option>
+            <option value="medium">medium (중간)</option>
+            <option value="high">high (높음)</option>
+            <option value="xhigh">xhigh (최고)</option>
+          </select>
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            GPT 모델의 생각 깊이 — 집필 품질이 중요하면 high 이상을 권장합니다.
+          </p>
         </div>
         {/* C-1/NFR-202 — api_key 마스킹만 노출, [표시] 버튼 없음 */}
         <div>
-          <Label htmlFor={`key-${endpoint.id}`}>api_key</Label>
+          <Label htmlFor={`key-${endpoint.id}`}>API 키 (api_key)</Label>
           <div className="flex items-center gap-2">
             <Input
               id={`key-${endpoint.id}`}
@@ -413,7 +443,7 @@ function RefineTab() {
 
   return (
     <section className="rounded-md border border-border p-4">
-      <h2 className="mb-1 text-sm font-semibold">윤문 기본 강도 (FR-502)</h2>
+      <h2 className="mb-1 text-sm font-semibold">윤문 기본 강도</h2>
       <fieldset className="mt-2 flex flex-col gap-1.5">
         <legend className="sr-only">윤문 기본 강도 선택</legend>
         {ROUTES.map((r) => (
@@ -432,9 +462,12 @@ function RefineTab() {
 
       <Alert variant="info" className="mt-4">
         <AlertDescription>
-          윤문은 "품질 다듬기" 목적입니다. AI 탐지 회피를 의미하지 않습니다. (NFR-401 · im-not-ai 4대 철칙)
-          <br />변경률 게이트는 고정값입니다: <strong>30% 경고 / 50% 차단</strong> (FR-505).
+          윤문은 글을 다듬기 위한 기능입니다. AI 탐지 회피를 의미하지 않습니다.
+          <br />변경률이 30%를 넘으면 경고, 50%를 넘으면 차단합니다(고정 기준).
           차단 시에는 윤문 재실행 또는 폐지만 가능합니다.
+          <br />
+          본 기능에 사용된 im-not-ai 스킬은 MIT 라이선스로 제공됩니다.
+          라이선스·출처 전문은 아래 &ldquo;라이선스 및 출처&rdquo; 섹션 및 프로젝트 루트의 LICENSES.md를 참고하세요.
         </AlertDescription>
       </Alert>
     </section>
@@ -500,7 +533,7 @@ function PolicyTab() {
       </Alert>
 
       <section className="rounded-md border border-border p-4">
-        <h2 className="mb-3 text-sm font-semibold">플랫폼 AI 규정 요약 (FR-601)</h2>
+        <h2 className="mb-3 text-sm font-semibold">플랫폼 AI 규정 요약</h2>
         <ul className="flex flex-col gap-2 text-sm">
           {['노벨피아', '문피아', '조아라'].map((platform) => (
             <li key={platform} className="flex items-center gap-2 rounded-sm bg-background px-3 py-2">
@@ -514,16 +547,79 @@ function PolicyTab() {
         </p>
       </section>
 
+      {/* S-704 규정·현황 — F-033/A-038 서버 계산 값 표시 */}
+      <PlusStatusWidget />
+
+      {/* F-036 오픈소스 라이선스 고지 (S-704 근처) */}
       <section className="rounded-md border border-border p-4">
-        <h2 className="mb-2 text-sm font-semibold">노벨피아 PLUS 충족 현황 (FR-602)</h2>
-        <ul className="list-inside list-disc text-sm text-muted-foreground">
-          <li>작품 수 15편 이상 — 홈 화면에서 총 작품 수로 확인</li>
-          <li>회차당 3,000자(공백 제외) — 에디터 푸터의 "공백제외" 글자 수로 확인</li>
+        <h2 className="mb-1 text-sm font-semibold">라이선스 및 출처</h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          본 애플리케이션은 아래 오픈소스를 사용합니다. 정본과 라이선스 전문은 프로젝트 루트의
+          <code className="mx-1 rounded-sm bg-background px-1 py-0.5">LICENSES.md</code>
+          에서 확인할 수 있습니다.
+        </p>
+
+        <div className="rounded-sm bg-background px-3 py-2">
+          <p className="text-sm">
+            <span className="font-medium">im-not-ai (Humanize KR) 스킬</span>
+            <Badge variant="secondary" className="ml-2">MIT</Badge>
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            출처: <a
+              href="https://github.com/epoko77-ai/im-not-ai"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="underline hover:text-foreground"
+            >
+              github.com/epoko77-ai/im-not-ai
+            </a>{' '}
+            (imnotai.kr)
+          </p>
+        </div>
+
+        <h3 className="mt-4 mb-2 text-xs font-semibold text-muted-foreground">주요 의존성 라이선스 요약</h3>
+        <ul className="flex flex-col gap-1.5 text-sm">
+          {DEPENDENCY_LICENSES.map((d) => (
+            <li key={d.name} className="flex items-center gap-2 rounded-sm bg-background px-3 py-1.5">
+              <span className={d.kind === 'frontend' ? '' : 'text-muted-foreground'}>{d.name}</span>
+              <span aria-hidden="true" className="text-[10px] text-muted-foreground">
+                {d.kind === 'frontend' ? '(frontend)' : '(backend)'}
+              </span>
+              <Badge variant="secondary" className="ml-auto">{d.license}</Badge>
+            </li>
+          ))}
         </ul>
+        <p className="mt-2 text-xs text-muted-foreground">
+          각 패키지 버전은 frontend/package.json 및 backend/requirements.txt(설치된 dist-info 기준 검증)를 따릅니다.
+        </p>
       </section>
     </div>
   );
 }
+
+// F-036 — 실측 기반 의존성 라이선스 요약 (frontend/package.json · backend requirements + .venv dist-info)
+const DEPENDENCY_LICENSES: Array<{ name: string; license: string; kind: 'frontend' | 'backend' }> = [
+  // frontend (package.json dependencies)
+  { name: 'React / React DOM', license: 'MIT', kind: 'frontend' },
+  { name: 'react-router-dom', license: 'MIT', kind: 'frontend' },
+  { name: 'TanStack Query', license: 'MIT', kind: 'frontend' },
+  { name: 'Zustand', license: 'MIT', kind: 'frontend' },
+  { name: 'CodeMirror (@codemirror/*)', license: 'MIT', kind: 'frontend' },
+  { name: 'markdown-it', license: 'MIT', kind: 'frontend' },
+  { name: 'diff (jsdiff)', license: 'BSD-3-Clause', kind: 'frontend' },
+  { name: 'DOMPurify', license: 'MPL-2.0 OR Apache-2.0', kind: 'frontend' },
+  { name: 'Vite', license: 'MIT', kind: 'frontend' },
+  { name: 'TypeScript', license: 'Apache-2.0', kind: 'frontend' },
+  { name: 'Tailwind CSS', license: 'MIT', kind: 'frontend' },
+  // backend (requirements.txt 직접 의존성)
+  { name: 'FastAPI', license: 'MIT', kind: 'backend' },
+  { name: 'SQLAlchemy', license: 'MIT', kind: 'backend' },
+  { name: 'Alembic', license: 'MIT', kind: 'backend' },
+  { name: 'Pydantic / pydantic-settings', license: 'MIT', kind: 'backend' },
+  { name: 'Uvicorn', license: 'BSD-3-Clause', kind: 'backend' },
+  { name: 'HTTPX', license: 'BSD-3-Clause', kind: 'backend' },
+  { name: 'cryptography (전이 의존성)', license: 'Apache-2.0 OR BSD-3-Clause', kind: 'backend' },
+];
 
 // ---------------- 고급 탭 ----------------
 function AdvancedTab() {
@@ -550,13 +646,13 @@ function AdvancedTab() {
       </label>
 
       <div className="max-w-sm">
-        <Label htmlFor="adv-autosave">자동 저장 주기 — 현재 {(intervalMs / 1000).toFixed(1)}초 (FR-106)</Label>
+        <Label htmlFor="adv-autosave">자동 저장 주기 — 현재 {(intervalMs / 1000).toFixed(1)}초</Label>
         <Slider id="adv-autosave" className="mt-2" min={500} max={5000} step={250} value={intervalMs}
                 onChange={(e) => setAutoSaveInterval(Number(e.target.value))} />
       </div>
 
       <p className="text-xs text-muted-foreground">
-        설정은 이 브라우저(localStorage)에 저장됩니다. 백업·복원(SQLite 파일 단위, NFR-203)은 백로그입니다.
+        설정은 이 브라우저(localStorage)에 저장됩니다. 작품 데이터 백업·복원 기능은 추후 제공 예정입니다.
       </p>
     </section>
   );

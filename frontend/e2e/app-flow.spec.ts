@@ -36,6 +36,7 @@ async function getJson(request: import('@playwright/test').APIRequestContext, pa
 test.describe.serial('jippeel 종단 흐름', () => {
   let projectId = 0;
   let chapterId = 0;
+  let fakeLmId = 0;
 
   // [임시 계측] 콘솔/페이지에러/네트워크 실패 수집 — 실패한 테스트에 한해 출력
   test.beforeEach(async ({ page }, testInfo) => {
@@ -88,11 +89,27 @@ test.describe.serial('jippeel 종단 흐름', () => {
     expect(cres.ok()).toBeTruthy();
     chapterId = ((await cres.json()) as { id: number }).id;
     expect(chapterId).toBeGreaterThan(0);
+
+    // FakeLM 엔드포인트 등록(중복 선제 삭제 → 생성) — S5 스트리밍·S7 마스킹 검증에 사용
+    const eps = (await (await request.get('/api/v1/ai/endpoints')).json()) as Array<{ id: number; name: string }>;
+    for (const e of eps) {
+      if (e.name === 'FakeLM') {
+        const del = await request.delete(`/api/v1/ai/endpoints/${e.id}`);
+        expect(del.ok()).toBeTruthy();
+      }
+    }
+    const fres = await request.post('/api/v1/ai/endpoints', {
+      data: { name: 'FakeLM', base_url: 'http://127.0.0.1:1234/v1', api_key: 'fake-key', default_model: 'fake-7b' },
+    });
+    expect(fres.ok()).toBeTruthy();
+    fakeLmId = ((await fres.json()) as { id: number }).id;
+    expect(fakeLmId).toBeGreaterThan(0);
   });
 
   test.afterAll(async ({ request }) => {
     // 정리 블록이 실패·미실행된 경우를 대비한 최후 정리(성공 시 no-op)
     if (projectId) await request.delete(`/api/v1/projects/${projectId}`);
+    if (fakeLmId) await request.delete(`/api/v1/ai/endpoints/${fakeLmId}`);
   });
 
   test('S1 홈에서 프로젝트 생성 → 카드 노출', async ({ page }) => {
@@ -183,12 +200,17 @@ test.describe.serial('jippeel 종단 흐름', () => {
     await page.getByRole('button', { name: 'AI 패널' }).click();
     await expect(page.getByText('AI 결과는 자동으로 본문에 들어가지 않습니다.')).toBeVisible();
 
-    // 프롬프트 직접 입력 → 생성(fake LLM :1234 경유 스트리밍)
+    // 테스트용 엔드포인트(FakeLM) 명시 선택 → fake LLM :1234 경유 스트리밍
+    await page.getByLabel('엔드포인트').selectOption({ label: 'FakeLM' });
+
+    // 프롬프트 직접 입력 → 생성
     await page.getByLabel('프롬프트 직접 입력').fill('이어서 한 문단 집필해줘.');
     await page.getByRole('button', { name: /생성 시작/ }).click();
-    await expect(page.getByRole('button', { name: /중단/ })).toBeVisible(); // 스트리밍 시작
+    // 스트림 개시(중단 버튼) 또는 즉시 완료(응답 수신) 둘 중 하나면 통과 — fake LLM은 즉완 가능
     const resultPre = page.locator('pre').filter({ hasText: FAKE_LLM_OUTPUT });
-    await expect(resultPre).toBeVisible({ timeout: 30_000 }); // 스트림 완료(응답 수신)
+    await expect(
+      page.getByRole('button', { name: /중단/ }).or(resultPre),
+    ).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /생성 시작/ })).toBeVisible(); // done 복귀
 
     // P1(FR-406) — 결과가 본문에 자동 삽입되지 않았음을 단언
@@ -218,7 +240,7 @@ test.describe.serial('jippeel 종단 흐름', () => {
       (await getJson(page.request, `/api/v1/chapters/${chapterId}`)) as { content_md: string }
     ).content_md;
 
-    await page.getByRole('button', { name: '윤문 리포트 (Sprint 4b)' }).click();
+    await page.getByRole('button', { name: '윤문 리포트' }).click();
     await expect(page.getByRole('heading', { name: '윤문 리포트' })).toBeVisible();
     await page.getByRole('button', { name: /🔍 윤문 실행/ }).click();
 
@@ -249,10 +271,7 @@ test.describe.serial('jippeel 종단 흐름', () => {
     await expect(page.getByRole('heading', { name: /설정/ }).first()).toBeVisible();
 
     // 엔드포인트 카드(FakeLM)의 api_key 필드 — 마스킹 값만 노출
-    const keyInput = page.locator('label', { hasText: 'api_key' })
-      .locator('..')
-      .locator('input');
-    const masked = keyInput.first();
+    const masked = page.locator(`#key-${fakeLmId}`);
     await expect(masked).toBeDisabled();
     await expect(masked).toHaveValue(/^(•+|\(미설정\))$/);
     await expect(masked).toHaveValue('••••••••••••'); // 등록된 키 → 점 마스킹

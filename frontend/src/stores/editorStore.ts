@@ -29,8 +29,8 @@ interface EditorState {
   toggleVolume: (v: number) => void;
 
   // 글자 수 캐시 (FR-104)
-  wordCount: { total: number; noSpace: number };
-  setWordCount: (w: { total: number; noSpace: number }) => void;
+  wordCount: { total: number; noSpace: number; novelpia: number };
+  setWordCount: (w: { total: number; noSpace: number; novelpia: number }) => void;
 
   reset: () => void;
 }
@@ -41,7 +41,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setContext: (projectId, chapterId) => {
     // 회차 전환 시 에디터 상태 초기화
     if (chapterId !== get().chapterId) {
-      set({ projectId, chapterId, saveState: 'saved', wordCount: { total: 0, noSpace: 0 } });
+      set({ projectId, chapterId, saveState: 'saved', wordCount: { total: 0, noSpace: 0, novelpia: 0 } });
     } else {
       set({ projectId });
     }
@@ -66,7 +66,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ expandedVolumes: next });
   },
 
-  wordCount: { total: 0, noSpace: 0 },
+  wordCount: { total: 0, noSpace: 0, novelpia: 0 },
   setWordCount: (w) => set({ wordCount: w }),
 
   reset: () =>
@@ -77,6 +77,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       saveState: 'saved',
       lastSavedAt: null,
       mode: 'edit',
-      wordCount: { total: 0, noSpace: 0 },
+      wordCount: { total: 0, noSpace: 0, novelpia: 0 },
     }),
 }));

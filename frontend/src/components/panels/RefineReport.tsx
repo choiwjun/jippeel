@@ -86,7 +86,7 @@ export function RefineReport() {
     <div className="flex flex-col gap-3">
       <Alert variant="info">
         <AlertDescription>
-          본 결과는 "AI 티 다듬기" 목적입니다. 탐지 회피를 의미하지 않습니다. (FR-506 · NFR-401)
+          본 결과는 글을 다듬기 위한 제안입니다. AI 탐지 회피를 의미하지 않습니다.
         </AlertDescription>
       </Alert>
 

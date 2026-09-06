@@ -59,6 +59,10 @@ export function AiPanel() {
   });
 
   const endpoints = useMemo(() => endpointsQuery.data ?? [], [endpointsQuery.data]);
+  const selectedPreset = useMemo(
+    () => (presetsQuery.data ?? []).find((p) => p.id === presetId) ?? null,
+    [presetsQuery.data, presetId],
+  );
   const activeEndpoint = endpoints.find((e) => e.id === endpointId)
     ?? endpoints.find((e) => e.is_default)
     ?? endpoints[0];
@@ -118,7 +122,8 @@ export function AiPanel() {
         },
         params: {
           model: store.model || undefined,
-          temperature: store.temperature,
+          // 엔드포인트 온도가 미설정(null)이면 이 엔드포인트는 온도 미지원 — 전송하지 않는다
+          temperature: activeEndpoint?.temperature == null ? undefined : store.temperature,
           max_tokens: store.maxTokens,
         },
       },
@@ -201,15 +206,26 @@ export function AiPanel() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="ai-temp">temperature {temperature.toFixed(1)}</Label>
-            <Slider
-              id="ai-temp"
-              min={0}
-              max={2}
-              step={0.1}
-              value={temperature}
-              onChange={(e) => setParams({ temperature: Number(e.target.value) })}
-            />
+            {activeEndpoint?.temperature == null ? (
+              <>
+                <Label htmlFor="ai-temp">temperature 미지원</Label>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  이 엔드포인트는 온도를 설정하지 않습니다(설정에서 미설정 상태).
+                </p>
+              </>
+            ) : (
+              <>
+                <Label htmlFor="ai-temp">temperature {temperature.toFixed(1)}</Label>
+                <Slider
+                  id="ai-temp"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  value={temperature}
+                  onChange={(e) => setParams({ temperature: Number(e.target.value) })}
+                />
+              </>
+            )}
           </div>
           <div>
             <Label htmlFor="ai-maxtok">max_tokens {maxTokens.toLocaleString()}</Label>
@@ -240,6 +256,12 @@ export function AiPanel() {
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </Select>
+        {selectedPreset && (
+          <p className="mb-2 rounded-sm bg-muted px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+            <span className="font-medium text-foreground">{selectedPreset.name}: </span>
+            {selectedPreset.template_text}
+          </p>
+        )}
         <Textarea
           aria-label="프롬프트 직접 입력"
           placeholder="무엇을 쓸지 지시하세요…"
@@ -249,7 +271,7 @@ export function AiPanel() {
         />
       </section>
 
-      {/* 포함 컨텍스트 (FR-404) */}
+      {/* 포함 컨텍스트 */}
       <ContextSection ctx={ctx} setContext={setContext} />
 
       <div className="flex items-center gap-2">
@@ -320,7 +342,7 @@ function ContextSection({
 
   return (
     <section className="rounded-md border border-border p-3">
-      <h3 className="mb-2 text-xs font-semibold text-muted-foreground">포함 컨텍스트 (FR-404)</h3>
+      <h3 className="mb-2 text-xs font-semibold text-muted-foreground">포함 컨텍스트</h3>
       <div className="flex flex-col gap-1.5">
         <Checkbox
           label={`현재 회차${chapter.data ? ` (${chapter.data.title.trim() || `${chapter.data.volume}권 ${chapter.data.id}화`})` : ''}`}

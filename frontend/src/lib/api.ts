@@ -60,6 +60,9 @@ export interface Project {
   platform_note: string | null;
   created_at: string;
   updated_at: string;
+  /** 목록 카드용 집계 — 상세 조회에는 없을 수 있음 */
+  chapter_count?: number;
+  total_chars?: number;
 }
 
 export interface ProjectCreate {
@@ -176,7 +179,10 @@ export interface AiEndpoint {
   name: string;
   base_url: string;
   default_model: string | null;
-  temperature: number;
+  /** null이면 요청에 temperature를 전송하지 않음 — Codex 계열 모델이 거부 */
+  temperature: number | null;
+  /** 미설정(null)이면 전송하지 않음 — minimal|low|medium|high|xhigh */
+  reasoning_effort: string | null;
   is_default: boolean;
   has_api_key: boolean;
 }
@@ -186,7 +192,8 @@ export interface AiEndpointCreate {
   base_url: string;
   api_key?: string | null;
   default_model?: string | null;
-  temperature?: number;
+  temperature?: number | null;
+  reasoning_effort?: string | null;
   is_default?: boolean;
 }
 
@@ -195,7 +202,8 @@ export interface AiEndpointUpdate {
   base_url?: string;
   api_key?: string | null;
   default_model?: string | null;
-  temperature?: number;
+  temperature?: number | null;
+  reasoning_effort?: string | null;
   is_default?: boolean;
 }
 
@@ -215,6 +223,16 @@ export interface PromptPresetCreate {
 }
 
 // ---- Project Bootstrap (입력 하나로 작품 전체 구조 AI 생성) ----
+/** A-038 GET /projects/{pid}/plus-status — 노벨피아 PLUS 충족 현황 (F-033) */
+export interface PlusStatus {
+  chapter_count: number;
+  chapter_count_met: boolean;
+  done_chapter_count: number;
+  done_chapters_3000: number;
+  done_chars_met: boolean;
+  eligible: boolean;
+}
+
 export interface BootstrapRequest {
   genre: string;
   premise?: string | null;

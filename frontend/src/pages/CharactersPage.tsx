@@ -359,7 +359,7 @@ function RelationsSection({ pid, characterId }: { pid: number; characterId: numb
 
   return (
     <section className="rounded-md border border-border p-3">
-      <h3 className="mb-2 text-xs font-semibold text-muted-foreground">관계 (FR-203)</h3>
+      <h3 className="mb-2 text-xs font-semibold text-muted-foreground">관계</h3>
       <ul className="mb-2 flex flex-col gap-1">
         {(relationsQuery.data ?? []).map((rel) => {
           const otherId = rel.from_character_id === characterId ? rel.to_character_id : rel.from_character_id;

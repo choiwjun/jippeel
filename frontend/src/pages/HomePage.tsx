@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { BootstrapDialog } from '@/components/home/BootstrapDialog';
+import { PlusStatusWidget } from '@/components/home/PlusStatusWidget';
 
 /**
  * S1 홈 / 프로젝트 목록 (`/`) — FR-101 프로젝트 CRUD 카드 그리드.
@@ -86,7 +87,13 @@ export function HomePage() {
               <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
                 {project.synopsis || '시놉시스 없음'}
               </p>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs font-medium text-foreground/80">
+                회차 {project.chapter_count ?? 0}편
+                {project.total_chars != null && project.total_chars > 0
+                  ? ` · 글자 ${project.total_chars.toLocaleString()}`
+                  : ''}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 최근 수정: {new Date(project.updated_at).toLocaleString('ko-KR')}
               </p>
               <div className="mt-4 flex items-center gap-2">
@@ -178,6 +185,11 @@ export function HomePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* S-104 노벨피아 PLUS 충족 현황 위젯 (F-033 / A-038) */}
+      <div className="mt-8">
+        <PlusStatusWidget />
+      </div>
     </div>
   );
 }

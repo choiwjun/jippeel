@@ -8,25 +8,25 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 /**
- * §1.1 LeftSidebar 240px — S2에서는 회차 트리(권/화), S1에서는 필터 스텁.
+ * LeftSidebar 240px — 에디터에서는 회차 트리(권/화), 그 외 프로젝트 화면에서는
+ * 화면 전환 네비만 노출. 홈·설정에서는 홈/설정 링크만 (§1.1 3분할 셸).
  * FR-102 회차 계층(권 단위 묶음) + FR-105 상태 칩.
  */
 export function LeftSidebar() {
   const { pathname } = useLocation();
   const isProjectRoute = /^\/projects\/\d+/.test(pathname);
+  const isEditorRoute = /^\/projects\/\d+\/write/.test(pathname);
   const pid = Number(pathname.match(/^\/projects\/(\d+)/)?.[1]);
 
   return (
     <aside className="hidden w-60 shrink-0 border-r border-border bg-background md:flex md:flex-col">
       <ScrollArea className="min-h-0 flex-1 p-2">
-        {isProjectRoute ? <ChapterTree pid={pid} /> : <HomeFilters />}
+        {isProjectRoute && (
+          <ProjectNavLinks pid={pathname.match(/^\/projects\/(\d+)/)?.[1] ?? ''} pathname={pathname} />
+        )}
+        {isEditorRoute && <ChapterTree pid={pid} />}
       </ScrollArea>
       <div className="flex flex-col border-t border-border p-2">
-        {isProjectRoute && (
-          <>
-            <ProjectNavLinks pid={pathname.match(/^\/projects\/(\d+)/)?.[1] ?? ''} pathname={pathname} />
-          </>
-        )}
         <Link
           to="/"
           className="block rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground"
@@ -40,14 +40,14 @@ export function LeftSidebar() {
             pathname === '/settings' && 'text-foreground',
           )}
         >
-          ⚙ 설정 (S7)
+          ⚙ 설정
         </Link>
       </div>
     </aside>
   );
 }
 
-/** 프로젝트 컨텍스트 네비 — S2 회차집필 / S3 캐릭터 / S4 로어북 전환 */
+/** 프로젝트 컨텍스트 네비 — 회차집필 / 캐릭터 / 로어북 전환 */
 function ProjectNavLinks({ pid, pathname }: { pid: string; pathname: string }) {
   const base = `/projects/${pid}`;
   const links = [
@@ -71,17 +71,6 @@ function ProjectNavLinks({ pid, pathname }: { pid: string; pathname: string }) {
           {l.label}
         </Link>
       ))}
-    </nav>
-  );
-}
-
-function HomeFilters() {
-  return (
-    <nav className="flex flex-col gap-1 px-2 py-1 text-sm text-muted-foreground">
-      <p className="px-2 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide">필터</p>
-      <span className="rounded-md px-2 py-1.5">전체</span>
-      <span className="cursor-default rounded-md px-2 py-1.5">장르별 — Sprint 4b</span>
-      <span className="cursor-default rounded-md px-2 py-1.5">최근 작업 — Sprint 4b</span>
     </nav>
   );
 }
