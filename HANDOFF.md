@@ -214,3 +214,58 @@
 - [ ] 5단계 개발팀(ox-alpha-free)에 본 프로토타입 + 설계서 핸드오프 → `App.tsx` 셸 + 3분할 레이아웃 + 토큰 부트스트랩부터 착수
 - [ ] 6단계 QA — 본 프로토타입을 시각 회귀 테스트 기준선으로 활용 (Chromatic 등)
 
+
+---
+
+## 게이트 파이프라인 완주 (2026-08-26 추가)
+
+G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 원본.
+요구사항 R-054 → 기능 F-036 → 화면 S-053 → API A-040 → DB T-008 → 테스트 TC-094 추적 완결.
+릴리스 노트: 릴리스_노트_MVP_v1.0.md. 다음 세션은 Known Issues와 백로그부터.
+
+---
+
+## GPT OAuth 연결 완료 + 전수 재검증 (2026-09-05 추가)
+
+**✅ ChatGPT 구독(OAuth)으로 실모델 집필 가능 — 설계·구현·실측 완료** (`기술설계_GPT_OAuth_브릿지_v1.md`)
+- 방식: `npx openai-oauth`(Apache-2.0) 프록시 사이드카(:10531) → 앱 코드 수정 최소화, OpenAI 호환 엔드포인트로 등록
+- 토큰: `~/.codex/auth.json` 재사용(자동 갱신), 브라우저 로그인 불필요
+- 현재 설정: 엔드포인트 id=2 "ChatGPT 구독(OAuth)" = **gpt-5.6-luna + reasoning_effort xhigh** (기본 엔드포인트)
+- 앱 패치(2건): ① ai_endpoints.temperature nullable(None→미전송, Codex 거부 대응, 마이그레이션 c5d6e7f8a9b0)
+  ② reasoning_effort 컬럼+전달(d7e8f9a0b1c2) — pytest **118 passed** 회귀 없음
+- 실측: S5 스트리밍(gpt-5.6-luna xhigh, 98 델타 정상)·부트스트랩(200 OK 100초, 제목/목차/캐릭터5/관계6/로어11) 품질 양호
+- 부트스트랩 품질: 이전 fake 모델 대비 실사용 수준 — 다만 3콜 간 캐릭터 이름 교차 불일치 가능(백로그: 주인공 이름 강제 전달)
+
+**✅ 전수 재검증 (이 머신에서 직접 실측)**
+- backend pytest **118 passed**(초기 9 failed → 원인은 `~/.agents/im-not-ai` 스킬 유실, 재클론으로 복원)
+- 프론트 빌드 통과(tsc+vite) — **Windows에서는 node_modules가 WSL용이라 WSL에서 실행할 것**
+- E2E **6/6 passed**(45s) — 이전 QA v2의 환경 블록 E-1 해소: chromium 라이브러리는 `~/.local/pwlibs` + `LD_LIBRARY_PATH` 방식
+- F-036 라이선스 고지 구현 확인(SettingsPage + LICENSES.md) — 릴리스 블로커 해소 상태 유지
+
+**운영 메모**
+- AI 스택 기동: 백엔드(:8000) + `npx openai-oauth --detach`(:10531) + vite(:5173) — `scripts/dev.sh`가 :10531 미감지(미등록 시 S7에서 수동 등록 필요)
+- 모델 변경: S7 설정 또는 `PATCH /api/v1/ai/endpoints/2 {"default_model": "...", "reasoning_effort": "..."}` (temperature는 null 유지)
+- 미커밋 변경분 다수(PLUS 위젯·volume nullable·F-036·OAuth 패치) — 커밋 필요
+
+---
+
+## UI/UX 1단계 개선 + 삭제 버그 수정 (2026-09-06 추가)
+
+**버그 수정: 프로젝트 삭제 FK 오류** — 관계(relationships)가 있는 프로젝트 삭제 시 500
+(SQLAlchemy cascade가 Relationship을 못 닿음). delete 라우트에서 관계 행 선삭제 처리,
+회귀 테스트 추가 → **pytest 119 passed**
+
+**UI 1단계 개선 (사용자 혼란 제거 — 진단: 개발 잔재 노출이 핵심 원인)**
+- 내부 용어 전면 제거: UI 노출 문자열에서 Sprint 4b / FR-xxx / NFR-xxx / (S7) / F-036 / 부록04·06 / 결정사항_G4 삭제 (개발 주석은 유지)
+- 사이드바 맥락화: 회차 트리는 에디터(/write)에서만, 캐릭터·로어북은 전환 네비만, 홈의 미구현 필터 스텁 삭제, "⚙ 설정 (S7)"→"⚙ 설정"
+- 상태바(회차·글자수·저장·AI)는 에디터에서만 표시
+- 기본 프롬프트 프리셋 6종 시드(이어쓰기·새 장면·대사 다듬기·묘사 살리기·내용 요약·다음 화 훅) — `app/services/presets.py`, 빈 테이블에서만 삽입(멱등)
+- E2E 자기완결화: FakeLM 엔드포인트를 beforeAll에서 등록→S5 명시 선택→afterAll 정리(기본 엔드포인트가 실모델이어도 독립 실행), 스트림 즉완 레이스는 or() 로케이터로 완화 → **E2E 6/6 passed**
+
+**UI 2단계 개선 (2026-09-06 완료) — pytest 120 passed·E2E 6/6**
+- 설정 카드 한글화(서버 주소/기본 모델/온도/추론 강도/API 키) + **reasoning_effort UI 선택 추가**
+- 버그 수정: 설정 저장 시 temperature 빈 값이 0.7로 강제되던 문제(null 보존) — OAuth 엔드포인트 저장 시 다시 깨지던 원인
+- AI 패널: 엔드포인트 온도 미설정이면 슬라이더 대신 "온도 미지원" 표시 + 요청에 temperature 미전송, 선택 프리셋 지시 내용 미리보기
+- 홈 카드: 회차 수·누적 글자 수 표시(백엔드 /projects 목록에 chapter_count·total_chars 집계 추가)
+- 전체 변경분 커밋 완료(4개 단위): 4df245b 문서·인프라 / cd14119 백엔드 / 828d9d2 프론트 / 6f3d561 세션 문서
+- 참고: movestudio dev_server(:8000 충돌) — 두 프로젝트 동시 구동 시 포트 충돌 있음
