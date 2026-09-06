@@ -3,8 +3,8 @@
  * 규칙 기반(로컬, LLM 호출 없음) 지표 + 개선 제안 + 제안 프리셋 바로가기.
  * 제안 프리셋 클릭 시 AI 패널 프리셋을 선택해 열어준다(자동 실행 아님).
  */
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { Button } from '@/components/ui/button';
@@ -32,11 +32,61 @@ export interface ChapterQuality {
   suggested_preset_names: string[];
 }
 
+/** G-061 — 품질 점수 추이(quality_checks 이력, 최신순 → 시간순 변환) */
+export interface QualityHistoryEntry {
+  id: number;
+  chapter_id: number;
+  score: number;
+  created_at: string;
+}
+
+function ScoreSparkline({ entries }: { entries: QualityHistoryEntry[] }) {
+  const pts = [...entries].reverse(); // 시간순
+  if (pts.length < 2) return null;
+  const W = 240;
+  const H = 56;
+  const maxScore = 100;
+  const step = W / (pts.length - 1);
+  const points = pts
+    .map((e, i) => `${(i * step).toFixed(1)},${(H - 4 - (e.score / maxScore) * (H - 10)).toFixed(1)}`)
+    .join(' ');
+  const last = pts[pts.length - 1];
+  const prev = pts[pts.length - 2];
+  const delta = last.score - prev.score;
+  return (
+    <div className="flex items-center gap-3">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="h-14 w-full flex-1"
+        role="img"
+        aria-label={`품질 점수 추이 — ${pts.length}회 기록, 최근 ${last.score}점`}
+      >
+        {/* 60/80 기준선 */}
+        <line x1="0" x2={W} y1={H - 4 - 0.6 * (H - 10)} y2={H - 4 - 0.6 * (H - 10)}
+          className="stroke-border" strokeDasharray="3 3" strokeWidth="1" />
+        <line x1="0" x2={W} y1={H - 4 - 0.8 * (H - 10)} y2={H - 4 - 0.8 * (H - 10)}
+          className="stroke-border" strokeDasharray="3 3" strokeWidth="1" />
+        <polyline points={points} fill="none" className="stroke-primary" strokeWidth="2" />
+        <circle
+          cx={(pts.length - 1) * step} cy={H - 4 - (last.score / maxScore) * (H - 10)}
+          r="3" className="fill-primary"
+        />
+      </svg>
+      <span className={
+        `shrink-0 text-xs font-semibold ${delta >= 0 ? 'text-success' : 'text-destructive'}`
+      }>
+        {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}점
+      </span>
+    </div>
+  );
+}
+
 export function QualityDialog({ chapterId }: { chapterId: number | null }) {
   const [open, setOpen] = useState(false);
   const setPreset = useAiPanelStore((s) => s.setPreset);
   const presets = useAiPanelStore((s) => s.presetId);
   const openAiPanel = useAiPanelStore((s) => s.open);
+  const queryClient = useQueryClient();
   void presets;
 
   const qualityQuery = useQuery({
@@ -45,6 +95,20 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
     enabled: chapterId !== null && open,
   });
   const q = qualityQuery.data;
+
+  // 진단 GET이 이력 기록을 동반하므로(해시 변화 시) 조회 후 추이를 갱신한다
+  useEffect(() => {
+    if (open && qualityQuery.isSuccess) {
+      void queryClient.invalidateQueries({ queryKey: ['quality-history', chapterId] });
+    }
+  }, [open, qualityQuery.isSuccess, chapterId, queryClient]);
+
+  const historyQuery = useQuery({
+    queryKey: ['quality-history', chapterId],
+    queryFn: () => api.get<QualityHistoryEntry[]>(`/chapters/${chapterId}/quality/history`),
+    enabled: chapterId !== null && open,
+  });
+  const history = historyQuery.data ?? [];
 
   /** 제안 프리셋을 AI 패널 프리셋 셀렉트에 반영(실행은 작가가 직접) */
   const usePreset = async (name: string) => {
@@ -104,6 +168,19 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
               <div className="flex justify-between"><dt className="text-muted-foreground">후크(끝 300자)</dt><dd>{q.metrics.hook_present ? '있음' : '없음'}</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">공백제외 글자</dt><dd>{q.metrics.chars_novelpia.toLocaleString()}자</dd></div>
             </dl>
+            {/* G-061 점수 추이 */}
+            {history.length >= 2 ? (
+              <div className="rounded-md border border-border p-2">
+                <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
+                  점수 추이 (본문이 바뀔 때마다 기록 · {history.length}회)
+                </p>
+                <ScoreSparkline entries={history} />
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                본문을 수정하면 품질 점수가 기록되고 추이 그래프가 표시됩니다.
+              </p>
+            )}
             {q.suggestions.length > 0 && (
               <ul className="flex flex-col gap-1.5 rounded-md border border-border p-2">
                 {q.suggestions.map((s, i) => (
