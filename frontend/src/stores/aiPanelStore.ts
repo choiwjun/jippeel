@@ -21,6 +21,8 @@ export interface AiPanelState {
     includeChapter: boolean;
     includeCharacters: boolean;
     includeLore: boolean;
+    /** 본문 키워드와 일치하는 로어 자동 포함 (백로그 P1) */
+    autoLore: boolean;
   };
   setContext: (c: Partial<AiPanelState['contextSelection']>) => void;
 
@@ -88,6 +90,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     includeChapter: false,
     includeCharacters: false,
     includeLore: false,
+    autoLore: true,
   },
   setContext: (c) =>
     set((s) => ({

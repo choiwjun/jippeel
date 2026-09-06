@@ -283,6 +283,69 @@ test.describe.serial('jippeel 종단 흐름', () => {
     await page.screenshot({ path: `${SHOT_DIR}/05-settings-masked-key.png`, fullPage: true });
   });
 
+  test('TC-038 근사 — 입력 직후 이탈 시 keepalive PUT 플러시로 원고 보존', async ({ page }) => {
+    // 시나리오: 자동저장 디바운스(1.5초)가 끝나기 전에 페이지를 떠나면
+    // 언로드 플러시(fetch keepalive PUT)가 남은 변경을 저장해야 한다.
+    await page.goto(`/projects/${projectId}/write`);
+    const editor = page.locator('.cm-content');
+    await expect(editor).toBeVisible();
+
+    const before = (
+      (await getJson(page.request, `/api/v1/chapters/${chapterId}`)) as { content_md: string }
+    ).content_md;
+
+    const EXTRA = ' 이탈 플러시 검증 문장.';
+    // fill로 변경(키보드 입력과 동일하게 onChange → dirty 트리거) 후
+    // 1.5초 자동저장 대기 없이 즉시 이탈 — 언로드 플러시가 저장을 담당해야 한다
+    await editor.fill(before + EXTRA);
+    await page.goto('/');
+
+    await expect
+      .poll(
+        async () =>
+          ((await getJson(page.request, `/api/v1/chapters/${chapterId}`)) as { content_md: string })
+            .content_md,
+        { timeout: 10_000 },
+      )
+      .toContain(EXTRA.trim());
+    // 이탈 전 본문이 유실되지 않았는지도 확인
+    const after = (
+      (await getJson(page.request, `/api/v1/chapters/${chapterId}`)) as { content_md: string }
+    ).content_md;
+    expect(after.startsWith(before)).toBeTruthy();
+  });
+
+  test('TC-308 — 미리보기 XSS 차단(script 실행·onerror 속성 없음)', async ({ page }) => {
+    // 전용 검증 회차를 만들어 원본 본문과 분리한다
+    const xres = await page.request.post(`/api/v1/projects/${projectId}/chapters`, {
+      data: { volume: 1, title: 'XSS검증', sort_order: 999 },
+    });
+    const xssChapterId = ((await xres.json()) as { id: number }).id;
+    const PAYLOAD = '<script>window.__xss=1</script><img src=x onerror="window.__xss=2">**굵게**';
+    // 본문을 먼저 저장해두어야 에디터가 XSS 내용을 로드한 상태로 미리보기에 들어간다
+    await page.request.put(`/api/v1/chapters/${xssChapterId}/content`, {
+      data: { content_md: PAYLOAD },
+    });
+
+    await page.goto(`/projects/${projectId}/write`);
+    const xssBtn = page.locator('aside button').filter({ hasText: 'XSS검증' });
+    await expect(xssBtn).toBeVisible({ timeout: 15_000 });
+    await xssBtn.click();
+    const editor = page.locator('.cm-content');
+    await expect(editor).toContainText('굵게', { timeout: 15_000 });
+    await page.getByRole('tab', { name: '미리보기' }).click();
+
+    const preview = page.locator('main');
+    // 스크립트 요소가 실제로 생성되지 않고, onerror 속성도 살아있지 않아야 한다
+    expect(await preview.locator('script').count()).toBe(0);
+    expect(await preview.locator('img[onerror]').count()).toBe(0);
+    expect(await page.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined();
+    // 마크다운 렌더링은 정상 동작
+    await expect(preview.getByText('굵게')).toBeVisible();
+
+    await page.request.delete(`/api/v1/chapters/${xssChapterId}`);
+  });
+
   test('정리 — 테스트 프로젝트 API 삭제', async ({ request }) => {
     test.skip(!projectId, '생성된 프로젝트 없음');
     const res = await request.delete(`/api/v1/projects/${projectId}`);

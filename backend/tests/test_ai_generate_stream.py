@@ -229,3 +229,35 @@ def test_generate_model_resolution(client, fake_llm, endpoint_with_preset):
     r = client.post("/api/v1/ai/generate", json=payload2)
     assert r.status_code == 400
 
+
+
+def test_auto_lore_injects_matched_entries_only(client, fake_llm):
+    """auto_lore=True — 본문 키워드와 일치한 로어만 자동 포함(백로그 P1)."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    pid = client.post("/api/v1/projects", json={"title": "p"}).json()["id"]
+    ch = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
+    client.put(f"/api/v1/chapters/{ch['id']}/content", json={
+        "content_md": "검은 강가의 마을에서 이야기가 시작된다. 흑요 검이 빛난다."})
+    client.post(f"/api/v1/projects/{pid}/lore", json={
+        "category": "용어", "title": "흑요 검", "keywords": ["흑요 검"], "content": "검의 설정"})
+    client.post(f"/api/v1/projects/{pid}/lore", json={
+        "category": "장소", "title": "무한의 탑", "keywords": ["무한의 탑"], "content": "탑의 설정"})
+
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "context": {"chapter_id": ch["id"], "auto_lore": True}})
+    assert resp.status_code == 200
+
+    messages = fake_llm["client"].last_kwargs["messages"]
+    user_text = messages[-1]["content"]
+    assert "[세계관: 흑요 검]" in user_text
+    assert "무한의 탑" not in user_text
+
+    # auto_lore=False면 자동 포함 없음
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "context": {"chapter_id": ch["id"], "auto_lore": False}})
+    assert resp.status_code == 200
+    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+    assert "[세계관: 흑요 검]" not in user_text

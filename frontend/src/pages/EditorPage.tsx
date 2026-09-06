@@ -312,22 +312,28 @@ function EditorBody({ pid, chapterId }: { pid: number; chapterId: number }) {
     saveTimerRef.current = window.setTimeout(() => void saveNow(), autoSaveMs);
   }, [saveNow, setSaveState, setWordCount]);
 
-  // 회차 언로드 시 대기 중인 저장 플러시
+  // 대기 중인 저장 플러시 — 두 경로 모두 커버해야 한다 (NFR-204):
+  //  1) 클라이언트 라우팅 이탈(홈 이동 등) → React 언마운트 클린업
+  //  2) 탭 닫기·새로고침·전체 이동 → 언마운트 클린업이 실행되지 않으므로 pagehide
+  // sendBeacon은 POST만 가능해 PUT 계약과 맞지 않으므로 keepalive fetch로 전송한다.
   useEffect(() => {
-    return () => {
+    const flushPendingSave = () => {
       window.clearTimeout(saveTimerRef.current);
-      window.clearTimeout(countTimerRef.current);
       const text = latestTextRef.current;
-      if (text !== null && useEditorStore.getState().saveState === 'dirty') {
-        // best-effort 저장 플러시 — 페이지 이탈 잔여 변경 방지(NFR-204).
-        // sendBeacon은 POST만 가능해 PUT 계약과 맞지 않으므로 keepalive fetch로 전송한다.
-        void fetch(`/api/v1/chapters/${chapterId}/content`, {
-          method: 'PUT',
-          keepalive: true,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content_md: text }),
-        }).catch(() => {});
-      }
+      if (text === null || chapterId === null) return;
+      if (useEditorStore.getState().saveState !== 'dirty') return;
+      void fetch(`/api/v1/chapters/${chapterId}/content`, {
+        method: 'PUT',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_md: text }),
+      }).catch(() => {});
+    };
+    const onPageHide = () => flushPendingSave();
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      flushPendingSave();
     };
   }, [chapterId]);
 
