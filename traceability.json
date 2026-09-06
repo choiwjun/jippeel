@@ -1,6 +1,6 @@
 {
   "project": "jippeel",
-  "updated": "2026-08-26",
+  "updated": "2026-09-06",
   "links": [
     {
       "id": "R-001",
@@ -674,17 +674,17 @@
     {
       "id": "R-043",
       "requirement": "요구사항_정의서.md#R-043",
-      "status": "planned",
+      "status": "implemented",
       "prd": "F-034",
       "design": "S-705",
-      "frontend": null,
-      "backend_api": "-",
+      "frontend": "src/pages/SettingsPage.tsx (고급 탭 BackupGuide — 경로·복사/복원 가이드)",
+      "backend_api": "GET /api/v1/system/db-info (A-039 신규)",
       "db": "",
       "infra": null,
       "tests": [
         "TC-037"
       ],
-      "note": "파일 단위 수동 백업(Q5 결정안, A-039)"
+      "note": "Q5 결정안(파일 단위 수동 복사) 구현: S7에 DB 경로·-wal/-shm 동반 파일·백업/복원 절차 표시. 자동 백업·복원은 백로그. TC-037 실측 PASS(2026-09-06: 3파일 복사→데이터 동일성 확인)."
     },
     {
       "id": "R-044",
@@ -855,5 +855,5 @@
       "note": "프로파일 교체만으로 모델 전환"
     }
   ],
-  "note": "G3 (2026-08-26): R-001~R-054 전수가 F-001~F-036(대시보드_MVP_사양.md v0.4 §9~§10)에 매핑됨. prd 필드 = 대응 F-xxx(복수는 쉼표 구분). status는 G6 이전까지 planned 유지. | G4 (2026-08-26): 기술설계_v1.md 기준 backend_api(A-001~A-040)·db(T-001~T-008) 확정. frontend 필드는 G5 이후 확정. 🔧 항목: T-002 volume nullable(Q1), A-038 plus-status(F-033), A-040 정적 서빙. v1.3(G5): design 필드를 디자인_화면설계서_v1.md §0-A의 S-### 화면·컴포넌트 ID로 채움(쉼표 구분 복수 허용). 기술설계 참조는 backend_api/db 필드와 각 링크 note로 유지."
+  "note": "G3 (2026-08-26): R-001~R-054 전수가 F-001~F-036(대시보드_MVP_사양.md v0.4 §9~§10)에 매핑됨. prd 필드 = 대응 F-xxx(복수는 쉼표 구분). status는 G6 이전까지 planned 유지. | G4 (2026-08-26): 기술설계_v1.md 기준 backend_api(A-001~A-040)·db(T-001~T-008) 확정. frontend 필드는 G5 이후 확정. 🔧 항목: T-002 volume nullable(Q1), A-038 plus-status(F-033), A-040 정적 서빙. v1.3(G5): design 필드를 디자인_화면설계서_v1.md §0-A의 S-### 화면·컴포넌트 ID로 채움(쉼표 구분 복수 허용). 기술설계 참조는 backend_api/db 필드와 각 링크 note로 유지. | 2026-09-06: 요구사항 외 추가 구현 — GPT OAuth 구독 브릿지(기술설계_GPT_OAuth_브릿지_v1), reasoning_effort 엔드포인트 설정, 기본 프리셋 시드 6종, 로어북 자동 주입(context.auto_lore), 프로젝트 목록 집계(chapter_count·total_chars)는 대응 R-xxx가 없어 links에 미매핑되며 기술설계·HANDOFF로 추적함."
 }

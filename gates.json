@@ -1,6 +1,6 @@
 {
   "project": "jippeel",
-  "updated": "2026-08-26",
+  "updated": "2026-09-06",
   "gates": {
     "G0": {
       "status": "pass",
@@ -46,20 +46,22 @@
       "status": "pass",
       "artifact": "backend pytest 118 passed(기존 105 + 신규 13: T-002 volume nullable 6건·A-038 plus-status 7건) + frontend npm run build 통과(tsc -b && vite build) + 운영 모드 런타임 스모크(GET / 정적 서빙·/health·/api/v1/projects·/projects/{pid}/plus-status 실측). traceability.json frontend 필드 54행 채움(커버 47 / 미구현 null 7: F-011·F-016·F-030×2·F-034×2·F-036).",
       "reviewed_by": "team-backend (G6 delta 구현·자체검증)",
-      "date": "2026-08-26"
+      "date": "2026-09-06",
+      "note": "2026-09-06 재검증: backend pytest 122 passed(120 + auto-lore 1 + db-info 1). frontend npm run build 통과 + 벤더 청크 분할(vendor-editor 576KB·react 162KB·앱 126KB·data 47KB). GPT OAuth 구독 연결(temperature/reasoning_effort 대응)·노벨피아 글자 수 기준 통일·로어북 자동 주입 추가."
     },
     "G7": {
       "status": "pass",
-      "artifact": "QA_개발검증_리포트_v2.md",
-      "reviewed_by": "team-qa (v2 리포트)",
-      "date": "2026-08-26",
-      "note": "자동 실행 24건 FAIL 0(regression 118 passed·frontend build 통과·API 라이브 스모크 8/8·security 자동 4종 통과) → pass. 보류 목록: pending-manual 70건 — UI e2e/a11y/perf는 환경 블록(chromium 시스템 라이브러리 libnspr4/libnss3 부재, sudo 불가; Infra팀 install-deps 후 재실행), Windows 실기기(TC-302)·NVDA(TC-503~505) 실기기 필요. 단, F-036 im-not-ai(MIT) 라이선스 고지 미구현은 릴리스 차단으로 G8 진입 전 해소 필수."
+      "artifact": "QA_개발검증_리포트_v2.md → v3(2026-09-06)",
+      "reviewed_by": "team-qa (v2) + 세션 재판정 (2026-09-06)",
+      "date": "2026-09-06",
+      "note": "2026-09-06 재판정 → pass. 자동 실행: backend pytest 122 passed·frontend build 통과·E2E 8/8 (기존 6 + TC-038 이탈 플러시 keepalive PUT + TC-308 미리보기 XSS 차단)·TC-037 백업 실측 PASS(db-info 경로→3파일 복사→데이터 동일성). 이탈 저장 플러시는 pagehide 병행으로 탭 닫기까지 커버하도록 개선. 잔여 pending-manual: a11y(axe/NVDA·TC-501~506)·성능 계측(TC-401~405)·Windows 실기기 keyring(TC-302)·시니어 모드 실측. F-036 라이선스 고지는 구현 완료(2026-09-05 확인)로 차단 해소."
     },
     "G8": {
       "status": "pass",
       "artifact": "릴리스_노트_MVP_v1.0.md + HANDOFF 완주 기록",
       "reviewed_by": "MASTER_ORCHESTRATOR",
-      "date": "2026-08-26"
+      "date": "2026-08-26",
+      "note": "2026-09-06: MVP v1.0 이후 개선분(OAuth 연결·UI 1·2단계·분석 지적 5건 수정) 커밋 완료. 릴리스 노트 최신화는 다음 판 시점에 수행 권장."
     }
   }
 }

@@ -269,3 +269,30 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - 홈 카드: 회차 수·누적 글자 수 표시(백엔드 /projects 목록에 chapter_count·total_chars 집계 추가)
 - 전체 변경분 커밋 완료(4개 단위): 4df245b 문서·인프라 / cd14119 백엔드 / 828d9d2 프론트 / 6f3d561 세션 문서
 - 참고: movestudio dev_server(:8000 충돌) — 두 프로젝트 동시 구동 시 포트 충돌 있음
+
+---
+
+## 출시 재판정 사이클 + 로어북 자동 주입 (2026-09-06 추가)
+
+**✅ 요구사항_분석.md 지적사항 전수 검증·수정 완료** — 7건 중 5건 사실(수정), 1건 환경 한정(WSL에서 pytest 정상), 1건 선행 구현됨(reasoning_effort UI). 상세 판정은 세션 보고 참조.
+
+**발견·수정된 핵심 결함 (F-Q3-1, P0)**
+- 이탈 저장 플러시가 React 언마운트 클린업에만 존재 → **탭 닫기·새로고침에서 변경분 유실**
+- 수정: `pagehide` 이벤트 병행 + sendBeacon(POST, 계약 불일치) → **keepalive fetch PUT** 전환
+- E2E TC-038 시나리오로 자동 검증됨
+
+**글자 수 기준 통일 (F-Q3-3)**
+- word_count_cache를 노벨피아 모드(공백·문장부호·특수문자 제외, 문자·숫자만)로 통일 — 푸터·위젯·PLUS 판정 동일 기준(부록06)
+- 기존 데이터 캐시는 다음 저장 시 갱신됨(즉시 재계산 필요 시 PUT content 재호출)
+
+**로어북 자동 주입 (백로그 P1 → 구현)**
+- `POST /ai/generate`에 `context.auto_lore` — 본문에 로어 제목·키워드(2글자+) 등장 시 자동 포함(상한 12건, 명시 선택과 중복 제외)
+- AI 패널에 "세계관 자동 포함" 체크박스(기본 ON, 회차 있을 때만 활성)
+
+**검증 결과**
+- backend pytest **122 passed** / frontend build 통과(청크 분할: 908KB→4개) / **E2E 8/8 × 2회 연속**
+- 신규 E2E: TC-038(이탈 플러시 보존)·TC-308(미리보기 XSS 차단 — script 미실행·onerror 제거)
+- TC-037 백업 실측 **PASS**: db-info → 3파일 복사 → 데이터 동일성 (스크립트: scripts/backup_verify.py)
+- 게이트 갱신: gates.json G6/G7/G8·traceability R-043 implemented(Q5 방식) — QA_개발검증_리포트_v3.md 참조
+
+**잔여 pending-manual**: a11y/NVDA(TC-501~506)·성능 계측(TC-401~405)·Windows keyring(TC-302)·시니어 모드 — 실기기 필요. 백로그: 자동 백업·복원, 에디터 청크 추가 분할, UI 3단계(온보딩·단축키 안내), 릴리스 노트 갱신.
