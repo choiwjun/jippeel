@@ -52,6 +52,7 @@ def _to_out(endpoint: AiEndpoint) -> AiEndpointOut:
         base_url=endpoint.base_url,
         default_model=endpoint.default_model,
         temperature=endpoint.temperature,
+        reasoning_effort=endpoint.reasoning_effort,
         is_default=endpoint.is_default,
         has_api_key=bool(endpoint.api_key_encrypted),
     )
@@ -281,7 +282,8 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
         try:
             async for delta in llm.stream_chat(client, model, messages,
                                                temperature=temperature,
-                                               max_tokens=payload.params.max_tokens):
+                                               max_tokens=payload.params.max_tokens,
+                                               reasoning_effort=endpoint.reasoning_effort):
                 yield {"event": "message", "data": json.dumps({"delta": delta}, ensure_ascii=False)}
         except openai.APIError as exc:
             yield {"event": "error",

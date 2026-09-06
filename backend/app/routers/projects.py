@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Chapter, Project
-from app.schemas import BootstrapRequest, BootstrapResponse
+from app.models import Chapter, Character, Project, Relationship
+from app.schemas import BootstrapRequest, BootstrapResponse, PlusStatusOut, PLUS_MIN_CHAPTERS, PLUS_MIN_CHARS_DONE
 from app.services import bootstrap as bootstrap_service
 from app.schemas import (
     ChaptersReorder,
@@ -60,7 +60,8 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
             structure = await bootstrap_service.generate_structure(
                 payload.genre, payload.premise, payload.title_style,
                 payload.volume_count, payload.chapters_per_volume,
-                client, model)
+                client, model, temperature=endpoint.temperature,
+                reasoning_effort=endpoint.reasoning_effort)
             body = bootstrap_service.persist_structure(
                 db, payload.genre, payload.premise, structure,
                 generated_by="ai",
@@ -93,7 +94,26 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
 # ---------- projects ----------
 @router.get("/projects", response_model=list[ProjectOut])
 def list_projects(db: Session = Depends(get_db)):
-    return db.scalars(select(Project).order_by(Project.updated_at.desc())).all()
+    """작품 목록 + 카드용 집계(회차 수·누적 글자 수)를 함께 반환한다."""
+    from sqlalchemy import func
+
+    rows = db.execute(
+        select(
+            Project,
+            func.count(Chapter.id),
+            func.coalesce(func.sum(Chapter.word_count_cache), 0),
+        )
+        .outerjoin(Chapter, Chapter.project_id == Project.id)
+        .group_by(Project.id)
+        .order_by(Project.updated_at.desc())
+    ).all()
+    out: list[ProjectOut] = []
+    for project, chapter_count, total_chars in rows:
+        item = ProjectOut.model_validate(project)
+        item.chapter_count = chapter_count
+        item.total_chars = total_chars
+        out.append(item)
+    return out
 
 
 @router.post("/projects", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
@@ -123,6 +143,12 @@ def update_project(pid: int, payload: ProjectUpdate, db: Session = Depends(get_d
 @router.delete("/projects/{pid}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(pid: int, db: Session = Depends(get_db)):
     project = _get_project_or_404(pid, db)
+    # Relationship은 characters FK를 참조하지만 소유 계층이 없어 ORM cascade가
+    # 닿지 않는다. 캐릭터 삭제 전에 이 프로젝트의 관계 행을 먼저 제거한다.
+    char_ids = select(Character.id).where(Character.project_id == pid)
+    db.query(Relationship).filter(
+        Relationship.from_character_id.in_(char_ids)
+    ).delete(synchronize_session=False)
     db.delete(project)
     db.commit()
 
@@ -138,7 +164,7 @@ def list_chapters(
     stmt = (
         select(Chapter)
         .where(Chapter.project_id == pid)
-        .order_by(Chapter.volume, Chapter.sort_order)
+        .order_by(Chapter.volume.asc().nulls_last(), Chapter.sort_order)  # Q1: 권 NULL은 목록 끝으로
     )
     if volume is not None:
         stmt = stmt.where(Chapter.volume == volume)
@@ -231,5 +257,35 @@ def reorder_chapters(pid: int, payload: ChaptersReorder, db: Session = Depends(g
 
     db.commit()
 
-    ordered = sorted(chapters.values(), key=lambda c: (c.volume, c.sort_order))
+    ordered = sorted(
+        chapters.values(),
+        key=lambda c: (c.volume is None, c.volume if c.volume is not None else 0, c.sort_order),
+    )  # Q1: volume None(평면 회차)은 항상 마지막에 정렬
     return list(ordered)
+
+
+# ---------- 노벨피아 PLUS 충족 현황 (A-038 / F-033) ----------
+@router.get("/projects/{pid}/plus-status", response_model=PlusStatusOut)
+def get_plus_status(pid: int, db: Session = Depends(get_db)):
+    """노벨피아 PLUS 충족 현황을 서버 계산으로 반환한다.
+
+    - 회차 수 기준: 프로젝트 내 회차 수 ≥ 15회 (결정사항_G4 Q3 확정)
+    - 글자 수 기준: '완료' 회차가 1개 이상이고, 그 모든 회차의
+      word_count_cache(공백 제외) ≥ 3,000. 완료 회차가 없으면 미충족.
+      (부록06: 노벨피아 실제 집계는 공백+특수문자 제외 — 최종 확정은 G7 실측,
+       본 API는 설계서 기준인 공백제외 캐시로 판정)
+    """
+    _get_project_or_404(pid, db)
+    chapters = db.scalars(select(Chapter).where(Chapter.project_id == pid)).all()
+    done = [c for c in chapters if c.status == "완료"]
+    done_over_3000 = sum(1 for c in done if c.word_count_cache >= PLUS_MIN_CHARS_DONE)
+    chapter_count_met = len(chapters) >= PLUS_MIN_CHAPTERS
+    done_chars_met = bool(done) and done_over_3000 == len(done)
+    return PlusStatusOut(
+        chapter_count=len(chapters),
+        chapter_count_met=chapter_count_met,
+        done_chapter_count=len(done),
+        done_chapters_3000=done_over_3000,
+        done_chars_met=done_chars_met,
+        eligible=chapter_count_met and done_chars_met,
+    )

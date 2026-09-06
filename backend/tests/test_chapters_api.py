@@ -12,7 +12,8 @@ def _mk_chapter(client, pid: int, **kwargs) -> dict:
 def test_create_chapter_defaults(client):
     pid = _mk_project(client)
     body = _mk_chapter(client, pid, title="프롤로그")
-    assert body["volume"] == 1
+    # Q1 결정안: volume 생략 시 NULL(권 없는 평면 회차)
+    assert body["volume"] is None
     assert body["status"] == "초고"
     assert body["content_md"] == ""
     assert body["word_count_cache"] == 0

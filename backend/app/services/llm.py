@@ -27,17 +27,22 @@ def make_client(base_url: str, api_key_encrypted: str | None) -> openai.AsyncOpe
 
 async def stream_chat(client: openai.AsyncOpenAI, model: str, messages: list[dict],
                       temperature: float | None = None,
-                      max_tokens: int | None = None):
+                      max_tokens: int | None = None,
+                      reasoning_effort: str | None = None):
     """chat.completions 스트리밍 — content delta만 yield한다.
 
     타임아웃·연결실패 등 openai.APIError 계열은 그대로 전파하고
     라우터에서 FR-408 사용자 안내 메시지로 변환한다.
+    temperature/reasoning_effort는 None일 때 파라미터를 전송하지 않는다
+    (Codex 계열 reasoning 모델은 temperature를 거부한다).
     """
     kwargs: dict = {"model": model, "messages": messages, "stream": True}
     if temperature is not None:
         kwargs["temperature"] = temperature
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
+    if reasoning_effort is not None:
+        kwargs["reasoning_effort"] = reasoning_effort
     response = await client.chat.completions.create(**kwargs)
     async for chunk in response:
         if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
@@ -46,7 +51,8 @@ async def stream_chat(client: openai.AsyncOpenAI, model: str, messages: list[dic
 
 async def complete_chat(client: openai.AsyncOpenAI, model: str, messages: list[dict],
                         temperature: float | None = None,
-                        max_tokens: int | None = None) -> str:
+                        max_tokens: int | None = None,
+                        reasoning_effort: str | None = None) -> str:
     """비(非)스트리밍 chat.completions — JSON 등 구조화 출력용.
 
     스트리밍이 필요 없는 내부 파이프라인(부트스트랩 등)에서 stream_chat과
@@ -57,6 +63,8 @@ async def complete_chat(client: openai.AsyncOpenAI, model: str, messages: list[d
         kwargs["temperature"] = temperature
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
+    if reasoning_effort is not None:
+        kwargs["reasoning_effort"] = reasoning_effort
     response = await client.chat.completions.create(**kwargs)
     # 반환 계약은 "항상 str"로 고정한다. openai SDK 3.x는 호환 서버가
     # 표준 chat.completion JSON이 아닌 원문(SSE·일반 텍스트)을 돌려주면

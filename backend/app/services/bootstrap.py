@@ -25,10 +25,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TITLE_STYLE = "웹소설식 긴 제목"
 
-# LLM 호출 온도 — 발상은 넉넉히, 목차/설정은 약간 더 안정적으로
-TEMPERATURE_IDEA = 0.9
-TEMPERATURE_OUTLINE = 0.8
-TEMPERATURE_WORLD = 0.8
+# LLM 호출 온도 — 엔드포인트 설정 값을 그대로 사용한다.
+# None이면 temperature 파라미터를 전송하지 않는다(Codex 계열 모델은 거부함).
 
 LORE_CATEGORIES = ("용어", "장소", "세력", "기타")
 
@@ -62,11 +60,13 @@ def _extract_json(text: str) -> dict:
 
 
 async def _call_json(client, model: str, messages: list[dict],
-                     temperature: float) -> dict:
+                     temperature: float | None,
+                     reasoning_effort: str | None = None) -> dict:
     """1회 호출 + 파싱. 실패 시 repair prompt로 1회 재시도."""
     raw = ""
     try:
-        raw = await llm.complete_chat(client, model, messages, temperature=temperature)
+        raw = await llm.complete_chat(client, model, messages, temperature=temperature,
+                                      reasoning_effort=reasoning_effort)
         return _extract_json(raw)
     except (openai.APIError, ValueError, json.JSONDecodeError) as first_err:
         logger.warning("bootstrap JSON 1차 시도 실패: %s", first_err)
@@ -78,7 +78,8 @@ async def _call_json(client, model: str, messages: list[dict],
         ]
         try:
             raw = await llm.complete_chat(
-                client, model, repaired_messages, temperature=temperature)
+                client, model, repaired_messages, temperature=temperature,
+                reasoning_effort=reasoning_effort)
             return _extract_json(raw)
         except (openai.APIError, ValueError, json.JSONDecodeError) as second_err:
             raise BootstrapAIError(f"JSON 재시도 실패: {second_err}") from second_err
@@ -520,14 +521,22 @@ def resolve_endpoint(db: Session) -> tuple[AiEndpoint, str]:
 
 async def generate_structure(genre: str, premise: str | None, title_style: str,
                              volume_count: int, chapters_per_volume: int,
-                             client, model: str) -> dict:
-    """LLM 3회 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError."""
+                             client, model: str,
+                             temperature: float | None = None,
+                             reasoning_effort: str | None = None) -> dict:
+    """LLM 3회 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
+
+    temperature/reasoning_effort가 None이면 파라미터를 전송하지 않는다
+    (Codex 계열 reasoning 모델은 temperature를 거부한다).
+    """
     idea = await _call_json(
         client, model,
-        _idea_messages(genre, premise, title_style), TEMPERATURE_IDEA)
+        _idea_messages(genre, premise, title_style), temperature,
+        reasoning_effort=reasoning_effort)
 
     outline_msgs = _outline_messages(genre, idea, volume_count, chapters_per_volume)
-    outline_data = await _call_json(client, model, outline_msgs, TEMPERATURE_OUTLINE)
+    outline_data = await _call_json(client, model, outline_msgs, temperature,
+                                    reasoning_effort=reasoning_effort)
     preview = _coerce_outline(outline_data, volume_count, chapters_per_volume)
     summary = _summarize_outline(preview, {
         v.get("volume"): _as_str(v.get("title"))
@@ -536,7 +545,8 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
 
     world = await _call_json(
         client, model,
-        _world_messages(genre, idea, summary), TEMPERATURE_WORLD)
+        _world_messages(genre, idea, summary), temperature,
+        reasoning_effort=reasoning_effort)
 
     return {
         "titles": [_as_str(t) for t in _as_list(idea.get("titles"))][:5],

@@ -32,12 +32,15 @@ class ProjectOut(BaseModel):
     platform_note: str | None
     created_at: datetime
     updated_at: datetime
+    # 목록 카드용 집계 — 상세 조회에서는 채워지지 않는다
+    chapter_count: int = 0
+    total_chars: int = 0
 
 
 # ---- Chapter ----
 class ChapterCreate(BaseModel):
     title: str = Field(default="", max_length=255)
-    volume: int = Field(default=1, ge=1)
+    volume: int | None = Field(default=None, ge=1)  # Q1: 생략 시 권 없는(NULL) 평면 회차
     sort_order: float = Field(default=0.0)
 
 
@@ -62,7 +65,7 @@ class ChapterOut(BaseModel):
 
     id: int
     project_id: int
-    volume: int
+    volume: int | None  # Q1: NULL = 권 없는 평면 회차
     sort_order: float
     title: str
     status: ChapterStatus
@@ -76,6 +79,27 @@ class ChapterDetail(ChapterOut):
     """본문 포함."""
 
     content_md: str
+
+
+# ---- 노벨피아 PLUS 충족 현황 (A-038 / F-033, 결정사항_G4 Q3) ----
+PLUS_MIN_CHAPTERS = 15        # 프로젝트 내 회차 수 기준
+PLUS_MIN_CHARS_DONE = 3000    # 완료 회차 공백제외 글자 수 기준
+
+
+class PlusStatusOut(BaseModel):
+    """노벨피아 PLUS 충족 현황 (F-033).
+
+    - chapter_count_met: 프로젝트 내 회차 수 ≥ 15회 (Q3 확정 해석)
+    - done_chars_met: '완료' 회차가 1개 이상이고 그 모든 회차의
+      공백제외 글자 수 캐시 ≥ 3,000 (완료 회차 0개면 미충족)
+    """
+
+    chapter_count: int
+    chapter_count_met: bool
+    done_chapter_count: int
+    done_chapters_3000: int
+    done_chars_met: bool
+    eligible: bool
 
 
 # ---- Character (M2, Sprint 2) ----
@@ -209,7 +233,8 @@ class AiEndpointCreate(BaseModel):
     base_url: str = Field(min_length=1, max_length=512)
     api_key: str | None = Field(default=None, max_length=4096)
     default_model: str | None = Field(default=None, max_length=255)
-    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    temperature: float | None = Field(default=0.7, ge=0.0, le=2.0)
+    reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh"] | None = None
     is_default: bool = False
 
 
@@ -219,6 +244,7 @@ class AiEndpointUpdate(BaseModel):
     api_key: str | None = Field(default=None, max_length=4096)  # 전달 시 재암호화
     default_model: str | None = Field(default=None, max_length=255)
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh"] | None = None
     is_default: bool | None = None
 
 
@@ -231,7 +257,8 @@ class AiEndpointOut(BaseModel):
     name: str
     base_url: str
     default_model: str | None
-    temperature: float
+    temperature: float | None
+    reasoning_effort: str | None
     is_default: bool
     has_api_key: bool
 

@@ -1,13 +1,15 @@
 """FastAPI 엔트리 (사양 §2.2)."""
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import SessionLocal, init_db
 from app.routers import ai_panel, characters, lorebook, projects, refine
 from app.services.fts import ensure_fts_index
-from app.services.presets_seed import ensure_builtin_presets
+from app.services.presets import seed_presets
 
 
 @asynccontextmanager
@@ -18,7 +20,7 @@ async def lifespan(app: FastAPI):
     session = SessionLocal()
     try:
         ensure_fts_index(session)
-        ensure_builtin_presets(session)  # 빌트인 프롬프트 프리셋 멱등 시드(FR-403)
+        seed_presets(session)  # 기본 프롬프트 프리셋 — 비어 있을 때만
         session.commit()
     finally:
         session.close()
@@ -46,3 +48,12 @@ app.include_router(refine.router, prefix="/api/v1")
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# ---------- 운영 모드 정적 서빙 (A-040, 기술설계 §4.2 변경 3) ----------
+# frontend/dist가 있으면 uvicorn 단일 프로세스가 API + 프론트를 함께 서빙한다.
+# dist는 프론트 빌드 산출물(npm run build)이며, dev 모드(vite :5173)에서는 미마운트로
+# CORS 프록시 동작에 영향을 주지 않는다. 마운트는 API 라우터 등록 이후라 /api·/health 우선.
+_DIST_DIR = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if _DIST_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=_DIST_DIR, html=True), name="frontend")

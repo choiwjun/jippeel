@@ -44,7 +44,7 @@ class Chapter(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True, nullable=False)
-    volume: Mapped[int] = mapped_column(Integer, default=1)   # 권
+    volume: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)  # 권 (Q1 결정안: 권 없는 평면 회차 — NULL 허용)
     sort_order: Mapped[float] = mapped_column(Float, default=0.0)  # 정렬 순서
     title: Mapped[str] = mapped_column(String(255), default="")
     content_md: Mapped[str] = mapped_column(Text, default="")
@@ -122,7 +122,8 @@ class AiEndpoint(TimestampMixin, Base):
     base_url: Mapped[str] = mapped_column(String(512))
     api_key_encrypted: Mapped[str | None] = mapped_column(Text)
     default_model: Mapped[str | None] = mapped_column(String(255))
-    temperature: Mapped[float] = mapped_column(Float, default=0.7)
+    temperature: Mapped[float | None] = mapped_column(Float, default=0.7)  # None → 파라미터 미전송(Codex 계열 거부)
+    reasoning_effort: Mapped[str | None] = mapped_column(String(32))  # minimal|low|medium|high|xhigh — None → 미전송
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
