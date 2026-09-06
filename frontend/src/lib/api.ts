@@ -58,6 +58,7 @@ export interface Project {
   genre: string | null;
   synopsis: string | null;
   platform_note: string | null;
+  style_profile?: string | null;  // 문체 프로파일 (G-040)
   created_at: string;
   updated_at: string;
   /** 목록 카드용 집계 — 상세 조회에는 없을 수 있음 */

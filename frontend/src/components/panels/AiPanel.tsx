@@ -119,6 +119,7 @@ export function AiPanel() {
           auto_outline: c.autoOutline,
           auto_foreshadow: c.autoForeshadow,
           scene_id: c.sceneId,
+          style_profile: c.styleProfile,
         },
         params: {
           model: store.model || undefined,
@@ -404,6 +405,11 @@ function ContextSection({
           checked={ctx.autoForeshadow}
           disabled={chapterId === null}
           onChange={(e) => setContext({ autoForeshadow: e.target.checked })}
+        />
+        <Checkbox
+          label="문체 프로파일 적용 (기획 페이지에서 편집)"
+          checked={ctx.styleProfile}
+          onChange={(e) => setContext({ styleProfile: e.target.checked })}
         />
       </div>
       <InjectedBadges ctx={ctx} />

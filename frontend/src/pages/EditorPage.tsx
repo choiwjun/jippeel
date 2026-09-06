@@ -12,9 +12,11 @@ import { EditorPreview } from '@/components/editor/EditorPreview';
 import { SaveIndicator } from '@/components/editor/SaveIndicator';
 import { WordCountFooter } from '@/components/editor/WordCountFooter';
 import { QualityDialog } from '@/components/editor/QualityDialog';
+import { CanonDialog } from '@/components/editor/CanonDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, StatusBadge } from '@/components/ui/badge';
+import { toast } from '@/components/ui/toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
@@ -108,6 +110,8 @@ export function EditorPage() {
         </Button>
         {/* 고도화 G-031 — 규칙 기반 회차 품질 진단 */}
         <QualityDialog chapterId={chapterId} />
+        {/* 고도화 G-023 — canon 모순 검사 */}
+        <CanonDialog chapterId={chapterId} />
       </div>
     </div>
   );
@@ -173,7 +177,22 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
         aria-label="회차 상태 변경"
         className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         value={chapter.status}
-        onChange={(e) => patchMeta.mutate({ status: e.target.value as ChapterStatus })}
+        onChange={(e) => {
+          const next = e.target.value as ChapterStatus;
+          patchMeta.mutate({ status: next });
+          // 고도화 G-042 — '완료' 전환 시 후크 자동 점검(차단 없음, 제안만)
+          if (next === '완료') {
+            void (async () => {
+              try {
+                const q = await api.get<{ hook_present: boolean; suggested_preset_names: string[] }>(
+                  `/chapters/${chapterId}/quality?record=false`);
+                if (!q.hook_present) {
+                  toast('후크 없이 완료 처리됩니다 — 마지막 문장을 "장 끝 후크" 프리셋으로 다듬으면 다음 화 클릭률이 올라갑니다.', 'warning');
+                }
+              } catch { /* 점검 실패는 침묵 */ }
+            })();
+          }
+        }}
       >
         {STATUSES.map((s) => (
           <option key={s} value={s}>{s}</option>

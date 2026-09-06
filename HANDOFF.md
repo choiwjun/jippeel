@@ -339,3 +339,38 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 **검증**: backend pytest **155 passed** / frontend `npm run build` 통과 / **E2E 8/8**·a11y axe 1/1(critical·serious 0) / 실호출 스모크: 목차·복선·장면 주입 SSE 확인 + gpt-5.6-luna(OAuth) 실모델 스트리밍·canon-check 200 OK
 
 **잔여(백로그)**: canon-check 결과 이력 저장, 임베딩 로어 검색 v2, 장면 → 회차 본문 조립(G-013), 복선 키워드 기반 자동 등록, 품질 지표 metrics_v2(im-not-ai) 정량 엔진 연동, 시니어 모드·성능 계측(기존 잔여)
+
+---
+
+## 고도화 v2 (잔여 소화 + 품질 도약) — 2026-09-06 후반
+
+> 커밋 18c6181(고도화 v1) 이어서. 사양 문서: `고도화_사양_완성도_v1.md` + 본 섹션
+
+**1. 뒷마무리**
+- G-041 canon 이력: `canon_runs` 테이블 — POST /canon-check가 run_id 반환, `GET /canon-check/runs?chapter_id=` 재조회
+- G-041 품질 이력: `quality_checks` 테이블 — GET /quality 시 본문 해시가 바뀐 경우만 기록, `GET /chapters/{id}/quality/history` 추이
+- G-042 후크 자동 점검: 회차 상태 '완료' 전환 시 품질 진단(기록 없이) → 후크 없으면 토스트 경고(차단 없음)
+- G-013 장면→본문 조립: `PUT /chapters/{cid}/content_from_scenes` + 장면 관리 Dialog "⤓ 본문으로 합치기"(명시 클릭 전용)
+- G-046 복선 자동 추출: `POST /projects/{pid}/foreshadows/suggest` — 회차 본문에서 떡밥 후보 LLM 추출(기존 복선 제외) → 복선 페이지 후보 카드에서 선택 등록(자동 등록 없음)
+
+**2. 기존 잔여**
+- 커밋 2건 완료(18c6181 고도화 v1 / 본 세션 v2). canon-check UI ✅(에디터 FAB "모순 검사" Dialog — 모순 목록+severity+이력)
+- NVDA·시니어 모드·성능 계측·Windows keyring: 실기기 수동 항목(변동 없음). 임베딩 v2: 여전히 백로그
+
+**3. 품질 도약**
+- G-045 독자 인지 추적: `foreshadows.audience_knows` — 복선 페이지 토글("독자 인지"). canon 검사가 "독자가 이미 아는 사실을 처음 밝히는 것처럼 쓴 케이스"도 지적
+- G-050 권 개요 레이어: `volume_notes` 테이블(개요·감정 곡선·고봉 노트) + "📐 기획" 페이지 + auto_outline 시 권 개요 자동 주입
+- G-051 canon 검사 확장: 직전 회차 끝부분(1,000자) + 시간축·위치·독자 인지 검사 지침을 프롬프트에 명시
+- G-040 문체 프로파일: `projects.style_profile` + 기획 페이지 편집(1.5초 디바운스 저장) + AI 패널 "문체 프로파일 적용" 체크 → system 프롬프트 결합
+
+**4. 기술 부채**
+- G-060 AI 사용량: `ai_usage` 테이블(문자량 기반 — 토큰 집계 신뢰 낮음) — generate/canon/bootstrap/foreshadow_suggest 자동 기록, S7 AI 탭 상단 "AI 사용량(최근 30일)" 카드, `GET /ai/usage`
+- dev.sh: :8000 점유 중 /health 실패 시 movestudio 충돌 경고 추가. rsync 동기화 절차는 기존 문서 유지
+
+**운영 DB 마이그레이션 주의**: dev DB는 create_all이 테이블을 먼저 만들어 alembic과 어긋난 케이스 발생 → 컬럼 수동 추가(foreshadows.audience_knows, projects.style_profile) 후 `alembic stamp f9a1b2c3d4e5` 처리. 신규 환경은 `alembic upgrade head` 한 번이면 됨
+
+**결함 수정(발견 즉시)**: 프로젝트 삭제 시 canon_runs·quality_checks FK 캐스케이드 누락(3번째 동일 패턴) — Chapter 관계 cascade 추가 + 회귀 테스트
+
+**검증**: backend pytest **165 passed** / frontend build 통과 / **E2E 9/9**(app-flow 8 + a11y 1) / 실호출 스모크: 권 개요·문체 프로파일·품질 이력(해시 dedup)·canon(gpt-5.6-luna, run_id)·떡밥 추출·장면 조립·usage 집계·삭제 회귀 전부 200/204
+
+**다음 백로그 후보**: 품질 점수 추이 그래프 UI(이력 데이터는 있음), 부트스트랩 권 개요 동시 생성, 복선 키워드 자동 매칭 알림, 임베딩 로어 검색 v2, metrics_v2 연동, 실기기 수동 QA

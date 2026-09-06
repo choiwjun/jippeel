@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AiEndpoint, Chapter, Character, LoreEntry, Project, Relationship
-from app.services import llm
+from app.services import llm, usage as usage_service
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,11 @@ async def _call_json(client, model: str, messages: list[dict],
             return _extract_json(raw)
         except (openai.APIError, ValueError, json.JSONDecodeError) as second_err:
             raise BootstrapAIError(f"JSON 재시도 실패: {second_err}") from second_err
+    finally:
+        usage_service.record(
+            kind="bootstrap", model=model, endpoint_name=None,
+            prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
+            completion_chars=len(raw) if isinstance(raw, str) else 0)
 
 
 # --------------------------------------------------------------------------

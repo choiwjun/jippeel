@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
 from app.database import get_db
-from app.models import AiEndpoint, Chapter, Character, Foreshadow, LoreEntry, PromptPreset, Scene
+from app.models import AiEndpoint, Chapter, Character, Foreshadow, LoreEntry, Project, PromptPreset, Scene
 from app.schemas import (
     AiEndpointCreate,
     AiEndpointOut,
@@ -24,7 +24,7 @@ from app.schemas import (
     PromptPresetOut,
     PromptPresetUpdate,
 )
-from app.services import injection, llm
+from app.services import injection, llm, usage as usage_service
 
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영
 NOVEL_SYSTEM_PROMPT = (
@@ -131,6 +131,20 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
         if ctx.auto_outline and (chapter.memo or "").strip():
             blocks.append(f"[이번 회차 목표(목차) — 이 화에서 반드시 다뤄야 할 내용]\n{chapter.memo}")
             outline_info["current"] = True
+        if ctx.auto_outline and chapter.volume is not None:
+            from app.models import VolumeNote
+            vnote = db.scalars(
+                select(VolumeNote).where(
+                    VolumeNote.project_id == chapter.project_id,
+                    VolumeNote.volume == chapter.volume)).first()
+            if vnote is not None:
+                parts = [f"[{chapter.volume}권 개요 — 권 전체 방향, 이 화가 어긋나지 않게]"]
+                for field in ("overview", "emotion_curve", "climax_note"):
+                    value = getattr(vnote, field, None)
+                    if value and value.strip():
+                        parts.append(value.strip()[:400])
+                blocks.append("\n".join(parts))
+                outline_info["volume_note"] = vnote.volume
         if ctx.previous_chapter:
             prev = db.scalars(
                 select(Chapter).where(
@@ -204,6 +218,8 @@ def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[di
     """프리셋 템플릿 + 컨텍스트 + override → chat messages.
 
     반환: (model_hint, messages, 자동 주입된 로어 목록, 목차 주입 정보, 복선 주입 목록)
+    context.style_profile(G-040)이면 해당 프로젝트의 문체 프로파일을
+    system 프롬프트 뒤에 결합한다(작품별 문체 유지).
     """
     context_blocks, injected, outline_info, injected_foreshadows = _build_context_blocks(payload, db)
     sections = ["다음 컨텍스트를 참고해 작성하세요.", *context_blocks]
@@ -218,7 +234,22 @@ def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[di
                             detail="preset_id 또는 prompt_override 중 하나는 필요합니다.")
 
     user_content = f"{context_text}\n\n---\n\n지시:\n{instruction}"
-    messages = [{"role": "system", "content": NOVEL_SYSTEM_PROMPT},
+    system_prompt = NOVEL_SYSTEM_PROMPT
+    if payload.context.style_profile:
+        # project_id 복원 — context에 명시 없으면 회차/장면 소속 프로젝트로 판별
+        style_project_id = payload.context.project_id
+        if style_project_id is None and payload.context.chapter_id is not None:
+            ch_row = db.get(Chapter, payload.context.chapter_id)
+            style_project_id = ch_row.project_id if ch_row else None
+        if style_project_id is None and payload.context.scene_id is not None:
+            scene_row = db.get(Scene, payload.context.scene_id)
+            ch_row = db.get(Chapter, scene_row.chapter_id) if scene_row else None
+            style_project_id = ch_row.project_id if ch_row else None
+        project = db.get(Project, style_project_id) if style_project_id else None
+        if project is not None and (project.style_profile or "").strip():
+            system_prompt = (f"{NOVEL_SYSTEM_PROMPT}\n\n[작품 문체 프로파일 — 반드시 따른다]\n"
+                             f"{project.style_profile.strip()}")
+    messages = [{"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}]
     return "default", messages, injected, outline_info, injected_foreshadows
 
@@ -340,6 +371,15 @@ def delete_preset(pid: int, db: Session = Depends(get_db)):
     db.commit()
 
 
+# ---------- AI 사용량 (고도화 G-060) ----------
+@router.get("/ai/usage")
+def ai_usage(days: int = 30):
+    """문자량 기반 AI 사용 통계 — kind+model 그룹 집계."""
+    from app.schemas import AiUsageSummaryOut
+    return [AiUsageSummaryOut(**row).model_dump()
+            for row in usage_service.summary(limit_days=max(min(days, 365), 1))]
+
+
 # ---------- AI 생성 스트리밍 ----------
 @router.post("/ai/generate")
 async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
@@ -361,11 +401,13 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                                    "injected_outline": injected_outline,
                                    "injected_foreshadows": injected_foreshadows},
                                   ensure_ascii=False)}
+        completion_chars = 0
         try:
             async for delta in llm.stream_chat(client, model, messages,
                                                temperature=temperature,
                                                max_tokens=payload.params.max_tokens,
                                                reasoning_effort=endpoint.reasoning_effort):
+                completion_chars += len(delta)
                 yield {"event": "message", "data": json.dumps({"delta": delta}, ensure_ascii=False)}
         except openai.APIError as exc:
             yield {"event": "error",
@@ -376,6 +418,11 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                    "data": json.dumps({"detail": f"스트리밍 실패: {type(exc).__name__}"},
                                       ensure_ascii=False)}
             return
+        # G-060 사용량 기록 (best-effort)
+        usage_service.record(
+            kind="generate", model=model, endpoint_name=endpoint.name,
+            prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
+            completion_chars=completion_chars)
         yield {"event": "done", "data": "[DONE]"}
 
     return EventSourceResponse(event_stream())

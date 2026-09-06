@@ -29,6 +29,8 @@ export interface AiPanelState {
     autoForeshadow: boolean;
     /** 장면 단위 생성 (G-012) — 선택 장면 본문만 주입 */
     sceneId: number | null;
+    /** 작품 문체 프로파일 적용 (G-040) */
+    styleProfile: boolean;
   };
   setContext: (c: Partial<AiPanelState['contextSelection']>) => void;
 
@@ -106,6 +108,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     autoOutline: true,
     autoForeshadow: true,
     sceneId: null,
+    styleProfile: false,
   },
   setContext: (c) =>
     set((s) => ({

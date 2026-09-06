@@ -6,6 +6,7 @@ import { EditorPage } from '@/pages/EditorPage';
 import { CharactersPage } from '@/pages/CharactersPage';
 import { LorebookPage } from '@/pages/LorebookPage';
 import { ForeshadowsPage } from '@/pages/ForeshadowsPage';
+import { PlanPage } from '@/pages/PlanPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 
 /**
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/projects/:pid/characters" element={<CharactersPage />} />
             <Route path="/projects/:pid/lore" element={<LorebookPage />} />
             <Route path="/projects/:pid/foreshadows" element={<ForeshadowsPage />} />
+            <Route path="/projects/:pid/plan" element={<PlanPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<HomePage />} />
           </Routes>

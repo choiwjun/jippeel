@@ -49,13 +49,77 @@ export function SettingsPage() {
           <TabsTrigger value="policy">규정·현황</TabsTrigger>
           <TabsTrigger value="advanced">고급</TabsTrigger>
         </TabsList>
-        <TabsContent value="ai" className="pt-3"><AiEndpointsTab /></TabsContent>
+        <TabsContent value="ai" className="pt-3">
+          <AiUsageCard />
+          <AiEndpointsTab />
+        </TabsContent>
         <TabsContent value="refine" className="pt-3"><RefineTab /></TabsContent>
         <TabsContent value="theme" className="pt-3"><ThemeTab /></TabsContent>
         <TabsContent value="policy" className="pt-3"><PolicyTab /></TabsContent>
         <TabsContent value="advanced" className="pt-3"><AdvancedTab /></TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// ---------------- AI 사용량 카드 (고도화 G-060 — 문자량 기반 집계) ----------------
+interface AiUsageSummary {
+  kind: string;
+  model: string | null;
+  calls: number;
+  prompt_chars: number;
+  completion_chars: number;
+  last_at: string;
+}
+
+const kindLabel: Record<string, string> = {
+  generate: '집필', canon: '모순 검사', bootstrap: '작품 자동 생성',
+  foreshadow_suggest: '떡밥 추출',
+};
+
+function AiUsageCard() {
+  const usageQuery = useQuery({
+    queryKey: ['ai-usage'],
+    queryFn: () => api.get<AiUsageSummary[]>('/ai/usage?days=30'),
+    staleTime: 60_000,
+  });
+  const rows = usageQuery.data ?? [];
+  if (rows.length === 0) return null;
+
+  const totalCompletion = rows.reduce((acc, r) => acc + r.completion_chars, 0);
+
+  return (
+    <section className="mb-3 rounded-md border border-border p-4">
+      <h2 className="mb-2 text-sm font-semibold">AI 사용량 (최근 30일)</h2>
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        생성 문자량 합계: {totalCompletion.toLocaleString()}자 — 엔드포인트 요금제별
+        사용량 대비 참고용입니다.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="py-1 pr-3 font-medium">용도</th>
+              <th className="py-1 pr-3 font-medium">모델</th>
+              <th className="py-1 pr-3 font-medium">호출</th>
+              <th className="py-1 pr-3 font-medium">입력 문자</th>
+              <th className="py-1 font-medium">출력 문자</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={`${r.kind}-${r.model}-${i}`} className="border-t border-border">
+                <td className="py-1 pr-3">{kindLabel[r.kind] ?? r.kind}</td>
+                <td className="py-1 pr-3">{r.model ?? '-'}</td>
+                <td className="py-1 pr-3">{r.calls.toLocaleString()}회</td>
+                <td className="py-1 pr-3">{r.prompt_chars.toLocaleString()}</td>
+                <td className="py-1">{r.completion_chars.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

@@ -123,7 +123,13 @@ def test_canon_check_success(client, monkeypatch, chapter):
     body = resp.json()
     assert len(body["issues"]) == 1  # 빈 quote 필터링
     assert body["issues"][0]["severity"] == "error"
-    assert body["checked_context"] == {"characters": 0, "lore": 0, "foreshadows": 0}
+    assert body["checked_context"] == {"characters": 0, "lore": 0,
+                                       "foreshadows": 0, "audience_known": 0}
+    # G-041 — 검사 이력 저장·재조회
+    assert body["run_id"] > 0
+    runs = client.get("/api/v1/canon-check/runs",
+                      params={"chapter_id": chapter["id"]}).json()
+    assert len(runs) == 1 and runs[0]["id"] == body["run_id"]
 
 
 def test_canon_check_requires_default_endpoint(client, chapter):
@@ -139,3 +145,14 @@ def test_project_delete_cascades_foreshadows(client, chapter):
     assert r.status_code in (204, 200)
     db = next(iter(client.app.dependency_overrides[get_db]()))
     assert db.scalars(select(Foreshadow).where(Foreshadow.project_id == pid)).all() == []
+
+
+def test_project_delete_cascades_canon_and_quality_runs(client, chapter, monkeypatch):
+    """canon/quality 이력이 있어도 프로젝트 삭제가 FK 오류 없이 성공(회귀)."""
+    from app.models import CanonRun, QualityCheck
+    db = next(iter(client.app.dependency_overrides[get_db]()))
+    db.add(CanonRun(chapter_id=chapter["id"], model="m", issues_json=[]))
+    db.add(QualityCheck(chapter_id=chapter["id"], score=80, content_hash="h"))
+    db.commit()
+    r = client.delete(f"/api/v1/projects/{chapter['project_id']}")
+    assert r.status_code in (204, 200)

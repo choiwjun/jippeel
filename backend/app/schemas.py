@@ -20,6 +20,7 @@ class ProjectUpdate(BaseModel):
     genre: str | None = Field(default=None, max_length=100)
     synopsis: str | None = None
     platform_note: str | None = None
+    style_profile: str | None = None  # 문체 프로파일 (G-040)
 
 
 class ProjectOut(BaseModel):
@@ -30,6 +31,7 @@ class ProjectOut(BaseModel):
     genre: str | None
     synopsis: str | None
     platform_note: str | None
+    style_profile: str | None
     created_at: datetime
     updated_at: datetime
     # 목록 카드용 집계 — 상세 조회에서는 채워지지 않는다
@@ -306,6 +308,8 @@ class GenerateContext(BaseModel):
     # 미회수 복선 자동 주입 (고도화 G-022)
     auto_foreshadow: bool = False
     auto_foreshadow_limit: int = Field(default=5, ge=1, le=10)
+    # 작품 문체 프로파일 적용 (고도화 G-040) — Project.style_profile을 system 프롬프트에 결합
+    style_profile: bool = False
 
 
 class GenerateParams(BaseModel):
@@ -411,6 +415,7 @@ class ForeshadowCreate(BaseModel):
     content: str | None = None
     keywords: list[str] | None = None
     status: ForeshadowStatus = "설치"
+    audience_knows: bool = False  # 독자가 이미 알게 된 사실인지 (G-045)
     planted_chapter_id: int | None = None
     resolved_chapter_id: int | None = None
 
@@ -420,6 +425,7 @@ class ForeshadowUpdate(BaseModel):
     content: str | None = None
     keywords: list[str] | None = None
     status: ForeshadowStatus | None = None
+    audience_knows: bool | None = None
     planted_chapter_id: int | None = None
     resolved_chapter_id: int | None = None
 
@@ -433,10 +439,28 @@ class ForeshadowOut(BaseModel):
     content: str | None
     keywords: list[str] | None
     status: ForeshadowStatus
+    audience_knows: bool
     planted_chapter_id: int | None
     resolved_chapter_id: int | None
     created_at: datetime
     updated_at: datetime
+
+
+# ---- 복선 자동 추출 (G-046) ----
+class ForeshadowSuggestRequest(BaseModel):
+    chapter_id: int
+
+
+class ForeshadowSuggestCandidate(BaseModel):
+    title: str
+    content: str | None = None
+    keywords: list[str] | None = None
+
+
+class ForeshadowSuggestResponse(BaseModel):
+    chapter_id: int
+    model: str | None
+    candidates: list[ForeshadowSuggestCandidate]
 
 
 # ---- CanonCheck (고도화 G-023 — 회차-설정 모순 검사) ----
@@ -451,10 +475,22 @@ class CanonCheckRequest(BaseModel):
 
 
 class CanonCheckResponse(BaseModel):
+    run_id: int
     chapter_id: int
     model: str | None
     issues: list[CanonIssueOut]
     checked_context: dict  # 주입된 컨텍스트 내역(투명성) — {"characters": n, "lore": n, "foreshadows": n}
+
+
+class CanonRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    chapter_id: int
+    model: str | None
+    issues_json: list | None
+    context_json: dict | None
+    created_at: datetime
 
 
 # ---- Chapter 품질 진단 (고도화 G-031 — 규칙 기반) ----
@@ -464,6 +500,59 @@ class ChapterQualityOut(BaseModel):
     metrics: dict
     suggestions: list[str]
     suggested_preset_names: list[str]
+    recorded: bool = False  # 이력 기록 여부(같은 본문이면 스킵)
+
+
+class QualityCheckOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    chapter_id: int
+    score: int
+    metrics_json: dict | None
+    suggestions_json: list | None
+    presets_json: list | None
+    created_at: datetime
+
+
+# ---- 권 개요 (고도화 G-050) ----
+class VolumeNoteCreate(BaseModel):
+    volume: int = Field(ge=1)
+    title: str = Field(default="", max_length=255)
+    overview: str | None = None
+    emotion_curve: str | None = None
+    climax_note: str | None = None
+
+
+class VolumeNoteUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+    overview: str | None = None
+    emotion_curve: str | None = None
+    climax_note: str | None = None
+
+
+class VolumeNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    volume: int
+    title: str
+    overview: str | None
+    emotion_curve: str | None
+    climax_note: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ---- AI 사용량 (고도화 G-060 — 문자량 기반 집계) ----
+class AiUsageSummaryOut(BaseModel):
+    kind: str
+    model: str | None
+    calls: int
+    prompt_chars: int
+    completion_chars: int
+    last_at: datetime
 
 
 # ---- Project Bootstrap (입력 하나로 작품 전체 구조 AI 생성) ----

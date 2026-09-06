@@ -11,7 +11,13 @@ port_up() { ss -tln 2>/dev/null | grep -q ":$1 "; }
 
 # 1) 백엔드
 if port_up 8000; then
-  echo "[backend] 이미 실행 중 (:8000)"
+  if curl -sf http://localhost:8000/health >/dev/null 2>&1; then
+    echo "[backend] 이미 실행 중 (:8000)"
+  else
+    echo "[경고] :8000을 다른 프로세스가 점유 중이고 /health 응답이 없습니다."
+    echo "       movestudio 등 다른 프로젝트의 서버일 수 있으니 확인 후 정리하세요:"
+    echo "       ss -tlnp | grep :8000"
+  fi
 else
   echo "[backend] uvicorn 기동..."
   (cd "$PROJ/backend" && setsid nohup env \

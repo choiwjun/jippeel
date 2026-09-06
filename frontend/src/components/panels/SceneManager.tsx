@@ -86,6 +86,16 @@ export function SceneManager({
     onError: (e) => toast(`장면 삭제 실패: ${(e as Error).message}`, 'error'),
   });
 
+  /** G-013 — 장면들을 sort_order 순으로 합쳐 회차 본문을 교체(명시 클릭 전용) */
+  const mergeToContent = useMutation({
+    mutationFn: () => api.put(`/chapters/${chapterId}/content_from_scenes`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chapter', chapterId] });
+      toast('장면을 회차 본문으로 합쳤습니다. (기존 본문이 장면들로 교체됨)', 'success');
+    },
+    onError: (e) => toast(`조립 실패: ${(e as Error).message}`, 'error'),
+  });
+
   const startEdit = (s: Scene) => {
     setEditing(s);
     setDraftTitle(s.title);
@@ -184,9 +194,25 @@ export function SceneManager({
               </div>
             ))}
           </div>
-          <Label className="text-[11px] text-muted-foreground">
-            장면 선택은 AI 패널의 "현재 장면" 드롭다운에서 합니다.
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px] text-muted-foreground">
+              장면 선택은 AI 패널의 "현재 장면" 드롭다운에서 합니다.
+            </Label>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[11px]"
+              disabled={mergeToContent.isPending || scenes.length === 0}
+              title="장면들을 순서대로 합쳐 현재 회차 본문을 교체합니다 (기존 본문은 장면들로 대체)"
+              onClick={() => {
+                if (window.confirm('장면들을 합쳐 현재 회차 본문을 교체할까요? 기존 본문은 장면들로 대체됩니다.')) {
+                  mergeToContent.mutate();
+                }
+              }}
+            >
+              ⤓ 본문으로 합치기
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

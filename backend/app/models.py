@@ -27,9 +27,13 @@ class Project(TimestampMixin, Base):
     synopsis: Mapped[str | None] = mapped_column(Text)
     platform_note: Mapped[str | None] = mapped_column(Text)  # 플랫폼 메모
     memo: Mapped[str | None] = mapped_column(Text)  # 부트스트랩 메타(후보 제목·주제의식 등)
+    style_profile: Mapped[str | None] = mapped_column(Text)  # 작품 문체 프로파일(G-040)
 
     chapters: Mapped[list["Chapter"]] = relationship(
         back_populates="project", cascade="all, delete-orphan", order_by="Chapter.sort_order"
+    )
+    volume_notes: Mapped[list["VolumeNote"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
     )
     characters: Mapped[list["Character"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
@@ -64,6 +68,10 @@ class Chapter(TimestampMixin, Base):
         back_populates="chapter", cascade="all, delete-orphan",
         order_by="Scene.sort_order"
     )
+    canon_runs: Mapped[list["CanonRun"]] = relationship(
+        cascade="all, delete-orphan")
+    quality_checks: Mapped[list["QualityCheck"]] = relationship(
+        cascade="all, delete-orphan")
 
     __table_args__ = (CheckConstraint("status IN ('초고','수정중','완료')", name="ck_chapter_status"),)
 
@@ -104,10 +112,79 @@ class Foreshadow(TimestampMixin, Base):
     content: Mapped[str | None] = mapped_column(Text)
     keywords: Mapped[list | None] = mapped_column(JSON, default=list)
     status: Mapped[str] = mapped_column(String(20), default="설치")
+    audience_knows: Mapped[bool] = mapped_column(Boolean, default=False)  # 독자가 이미 알게 됨(G-045)
     planted_chapter_id: Mapped[int | None] = mapped_column(
         ForeignKey("chapters.id"), nullable=True)
     resolved_chapter_id: Mapped[int | None] = mapped_column(
         ForeignKey("chapters.id"), nullable=True)
+
+
+class VolumeNote(TimestampMixin, Base):
+    """권 개요 — 1권 단위 감정 곡선·고봉 설계 레이어 (고도화 G-050).
+
+    부트스트랩 목차(회차 memo)와 회차 본문 사이의 중간 서사 레이어.
+    """
+
+    __tablename__ = "volume_notes"
+    __table_args__ = (
+        CheckConstraint("volume >= 1", name="ck_volume_note_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True, nullable=False)
+    volume: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    overview: Mapped[str | None] = mapped_column(Text)       # 권 전체 개요
+    emotion_curve: Mapped[str | None] = mapped_column(Text)  # 감정 곡선 설계
+    climax_note: Mapped[str | None] = mapped_column(Text)    # 권 고봉(클라이맥스) 노트
+
+    project: Mapped["Project"] = relationship(back_populates="volume_notes")
+
+
+class CanonRun(TimestampMixin, Base):
+    """canon 충돌 검사 이력 — 고도화 G-023 후속(응답만 반환 → 이력 보존)."""
+
+    __tablename__ = "canon_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id"), index=True, nullable=False)
+    model: Mapped[str | None] = mapped_column(String(255))
+    issues_json: Mapped[list | None] = mapped_column(JSON, default=list)
+    context_json: Mapped[dict | None] = mapped_column(JSON)
+
+
+class QualityCheck(TimestampMixin, Base):
+    """회차 품질 진단 이력 — 고도화 G-030 후속(점수 추이 그래프용).
+
+    content_hash가 직전 기록과 같으면 재기록하지 않는다(중복 방지).
+    """
+
+    __tablename__ = "quality_checks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id"), index=True, nullable=False)
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    metrics_json: Mapped[dict | None] = mapped_column(JSON)
+    suggestions_json: Mapped[list | None] = mapped_column(JSON, default=list)
+    presets_json: Mapped[list | None] = mapped_column(JSON, default=list)
+
+
+class AiUsage(Base):
+    """AI 사용량 기록 — 고도화 G-060 (문자량 기반, 엔드포인트별 집계).
+
+    토큰 수는 엔드포인트별 편차가 커서 집계 신뢰가 낮아 문자량으로 기록한다.
+    """
+
+    __tablename__ = "ai_usage"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # generate|canon|bootstrap|foreshadow_suggest
+    model: Mapped[str | None] = mapped_column(String(255))
+    endpoint_name: Mapped[str | None] = mapped_column(String(255))
+    prompt_chars: Mapped[int] = mapped_column(Integer, default=0)
+    completion_chars: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now(), index=True)
 
 
 class Character(TimestampMixin, Base):

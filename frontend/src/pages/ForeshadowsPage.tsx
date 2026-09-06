@@ -22,8 +22,20 @@ export interface Foreshadow {
   content: string | null;
   keywords: string[] | null;
   status: '설치' | '회수' | '보류';
+  audience_knows?: boolean;
   planted_chapter_id: number | null;
   resolved_chapter_id: number | null;
+}
+
+interface ChapterMeta {
+  id: number;
+  title: string;
+}
+
+interface SuggestCandidate {
+  title: string;
+  content: string | null;
+  keywords: string[] | null;
 }
 
 const STATUSES: Foreshadow['status'][] = ['설치', '회수', '보류'];
@@ -41,11 +53,17 @@ export function ForeshadowsPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [keywords, setKeywords] = useState('');
+  const [audienceKnows, setAudienceKnows] = useState(false);
   const [filter, setFilter] = useState<Foreshadow['status'] | null>(null);
+  const [candidates, setCandidates] = useState<SuggestCandidate[] | null>(null);
 
   const foreshadowsQuery = useQuery({
     queryKey: ['foreshadows', pid],
     queryFn: () => api.get<Foreshadow[]>(`/projects/${pid}/foreshadows`),
+  });
+  const chaptersQuery = useQuery({
+    queryKey: ['chapters', pid],
+    queryFn: () => api.get<ChapterMeta[]>(`/projects/${pid}/chapters`),
   });
   const all = foreshadowsQuery.data ?? [];
   const rows = useMemo(
@@ -54,20 +72,31 @@ export function ForeshadowsPage() {
   );
   const installedCount = all.filter((f) => f.status === '설치').length;
 
-  const create = useMutation({
-    mutationFn: () =>
+  const createPayload = useMutation({
+    mutationFn: (payload: { title: string; content: string | null; keywords: string[] }) =>
       api.post<Foreshadow>(`/projects/${pid}/foreshadows`, {
-        title: title.trim(),
-        content: content.trim() || null,
-        keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean),
+        title: payload.title,
+        content: payload.content,
+        keywords: payload.keywords,
         status: '설치',
+        audience_knows: audienceKnows,
       }),
     onSuccess: () => {
-      setTitle(''); setContent(''); setKeywords('');
       queryClient.invalidateQueries({ queryKey: ['foreshadows', pid] });
       toast('복선을 등록했습니다.', 'success');
     },
     onError: (e) => toast(`복선 등록 실패: ${(e as Error).message}`, 'error'),
+  });
+  const create = useMutation({
+    mutationFn: () =>
+      createPayload.mutateAsync({
+        title: title.trim(),
+        content: content.trim() || null,
+        keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean),
+      }),
+    onSuccess: () => {
+      setTitle(''); setContent(''); setKeywords(''); setAudienceKnows(false);
+    },
   });
 
   const setStatus = useMutation({
@@ -77,10 +106,31 @@ export function ForeshadowsPage() {
     onError: (e) => toast(`상태 변경 실패: ${(e as Error).message}`, 'error'),
   });
 
+  const toggleAudience = useMutation({
+    mutationFn: ({ id, audience_knows }: { id: number; audience_knows: boolean }) =>
+      api.patch<Foreshadow>(`/foreshadows/${id}`, { audience_knows }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['foreshadows', pid] }),
+    onError: (e) => toast(`변경 실패: ${(e as Error).message}`, 'error'),
+  });
+
   const remove = useMutation({
     mutationFn: (id: number) => api.del(`/foreshadows/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['foreshadows', pid] }),
     onError: (e) => toast(`삭제 실패: ${(e as Error).message}`, 'error'),
+  });
+
+  /** G-046 — 복선 후보 자동 추출(후보만 반환, 등록은 명시 클릭) */
+  const suggest = useMutation({
+    mutationFn: (chapterId: number) =>
+      api.post<{ chapter_id: number; candidates: SuggestCandidate[] }>(
+        `/projects/${pid}/foreshadows/suggest`, { chapter_id: chapterId }),
+    onSuccess: (body) => {
+      setCandidates(body.candidates);
+      toast(body.candidates.length === 0
+        ? '새로운 떡밥 후보가 없습니다.'
+        : `후보 ${body.candidates.length}건을 추출했습니다 — 확인 후 등록하세요.`, 'info');
+    },
+    onError: (e) => toast(`떡밥 추출 실패: ${(e as Error).message}`, 'error'),
   });
 
   return (
@@ -138,6 +188,66 @@ export function ForeshadowsPage() {
           value={keywords}
           onChange={(e) => setKeywords(e.target.value)}
         />
+        <div className="mt-2 flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              aria-label="독자가 이미 알게 된 사실"
+              checked={audienceKnows}
+              onChange={(e) => setAudienceKnows(e.target.checked)}
+            />
+            독자가 이미 알게 된 사실 (G-045 — 모순 검사 시 인지 중복 확인용)
+          </label>
+        </div>
+
+        {/* G-046 — AI 떡밥 추출 */}
+        <div className="mt-2 flex items-center gap-2">
+          <select
+            aria-label="떡밥 추출 대상 회차"
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            defaultValue=""
+            onChange={(e) => {
+              const cid = Number(e.target.value);
+              if (cid) suggest.mutate(cid);
+              e.target.value = '';
+            }}
+          >
+            <option value="">🪝 AI로 떡밥 추출할 회차 선택…</option>
+            {(chaptersQuery.data ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title.trim() || `${c.id}화`}
+              </option>
+            ))}
+          </select>
+          {suggest.isPending && <span className="text-xs text-muted-foreground">추출 중…</span>}
+        </div>
+        {candidates && candidates.length > 0 && (
+          <div className="mt-2 rounded-md border border-border p-2">
+            <p className="mb-1 text-xs font-semibold">떡밥 후보 — 확인 후 등록하세요</p>
+            {candidates.map((c, i) => (
+              <div key={i} className="flex items-start gap-2 border-b border-border py-1.5 last:border-b-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium">{c.title}</p>
+                  {c.content && <p className="text-[11px] text-muted-foreground">{c.content}</p>}
+                </div>
+                <Button
+                  size="sm" variant="outline" className="h-6 px-2 text-[11px]"
+                  disabled={createPayload.isPending}
+                  onClick={() => {
+                    createPayload.mutate({
+                      title: c.title,
+                      content: c.content,
+                      keywords: c.keywords ?? [],
+                    });
+                    setCandidates((prev) => (prev ?? []).filter((_, j) => j !== i));
+                  }}
+                >
+                  등록
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 목록 */}
@@ -162,6 +272,18 @@ export function ForeshadowsPage() {
                 <span className={cn('text-xs font-semibold', statusVariant[f.status])}>
                   {f.status}
                 </span>
+                {f.audience_knows !== undefined && (
+                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      aria-label={`독자 인지: ${f.title}`}
+                      checked={f.audience_knows}
+                      onChange={(e) => toggleAudience.mutate({
+                        id: f.id, audience_knows: e.target.checked })}
+                    />
+                    독자 인지
+                  </label>
+                )}
               </div>
               {f.content && (
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{f.content}</p>
