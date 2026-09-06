@@ -373,6 +373,6 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 
 **검증**: backend pytest **165 passed** / frontend build 통과 / **E2E 9/9**(app-flow 8 + a11y 1) / 실호출 스모크: 권 개요·문체 프로파일·품질 이력(해시 dedup)·canon(gpt-5.6-luna, run_id)·떡밥 추출·장면 조립·usage 집계·삭제 회귀 전부 200/204
 
-**다음 백로그 후보**: 품질 점수 추이 그래프 UI(이력 데이터는 있음), 부트스트랩 권 개요 동시 생성, 복선 키워드 자동 매칭 알림, 임베딩 로어 검색 v2, metrics_v2 연동, 실기기 수동 QA
+**✅ 부트스트랩 권 개요 동시 생성 + 복선 본문 매칭 (G-050 확장·G-047, 커밋 26855d2)**: ① 부트스트랩 콜 2가 권 개요·감정 곡선·고봉을 함께 생성해 volume_notes 저장(폴백 포함, 결과 Dialog에 안내) ② `GET /projects/{pid}/foreshadows/match` — 본문에 언급된 복선 배지를 AI 패널에 표시(로어 주입과 동일 매칭 방식). 백로그 2건 제거. 검증: pytest 168 / E2E 9/9 / 실호출 스모크
 
-**✅ 품질 점수 추이 그래프 (G-061, 2026-09-06 커밋 78b9245)**: 품질 진단 Dialog에 SVG 스파크라인 — quality_checks 이력 시간순 라인 + 60/80 기준선 + 최근 변화량. 백로그에서 제거
+**다음 백로그 후보**: 미등장 복선 회수 리마인드(매칭 확장), 임베딩 로어 검색 v2, metrics_v2 연동, 실기기 수동 QA(NVDA·성능 계측·Windows keyring), qwen 키 갱신(사용자)
