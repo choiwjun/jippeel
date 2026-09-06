@@ -383,3 +383,23 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - 검증: pytest **171 passed** / build / E2E 9/9 / 실호출 스모크(reminder stale 판정·v2 risk_band 병합) 통과
 
 **다음 백로그 후보**: ONNX 임베딩 교체(semantic_score 인터페이스 — 모델 파일 다운로드 필요), 실기기 수동 QA 실행(가이드 준비 완료 — 사용자 실행), qwen 키 갱신(사용자)
+
+---
+
+## 감수 패스 — 생성 직후 자동 감수·수정본 (2026-09-06 추가)
+
+**✅ 감수 패스(G-0xx 후보) 구현 완료** — `/ai/generate`에 `review` 옵션 추가. 초안 스트림이 정상 종료되면 **같은 SSE 스트림에서** 감수 1콜을 이어 실행한다(별도 요청 없음).
+
+- **백엔드** (`routers/ai_panel.py`·`schemas.py`):
+  - `GenerateReviewOptions` — endpoint_id(미지정 시 생성 엔드포인트 재사용)·model·reasoning_effort(미지정 시 감수 엔드포인트 설정값)·max_tokens
+  - 감수 system 프롬프트(감수자 페르소나, `[감수]` 3~7개 지적 + `[수정본]` 수정 원고 전문 형식 강제)
+  - `_split_review_stream()` 상태 기계 — 스트림을 `[수정본]` 마커 기준으로 review/refined 이벤트로 분리. 마커가 청크 경계에서 잘려도 말미 버퍼로 처리
+  - SSE 이벤트: `review_start`(모델·엔드포인트·추론강도) / `review`(지적) / `refined`(수정본) / `review_error`. start 이벤트에 `review_enabled` 공개
+  - 감수만 실패해도 초안은 이미 수신 완료 → `review_error` 통보 후 스트림 정상 종료. 사용량 기록 kind=`review` 추가
+- **프론트** (AiPanel·aiStream·aiPanelStore):
+  - "감수 패스" 섹션 — 자동 감수 체크박스 + 감수 추론 강도 선택(엔드포인트 설정값/low~xhigh)
+  - 결과 영역 **초안 / 감수 의견 / 수정본 3탭** — 감수 시작 시 감수 탭, 수정본 시작 시 수정본 탭 자동 전환. 감수 의견 탭은 본문 반영(끼워넣기·선택 교체) 비활성, 복사만 허용(P1 원칙 유지). 헤더에 감수 모델 정보 표시
+- **결함 수정(발견 즉시)**: 엔드포인트 **생성 시 `reasoning_effort`가 저장되지 않던 버그**(PATCH만 반영됨) — create 라우트에 추가
+- **검증**: backend pytest **175 passed**(신규 4: 마커 청크 경계 분할·추론 강도 오버라이드·감수 실패 시 초안 보존·review 미사용 시 회귀 없음) / frontend `npm run build` 통과(TS 0 오류)
+
+**다음 백로그 후보**: 감수 결과 채택 시 본문 반영 플로우 UX 개선, ONNX 임베딩 교체(semantic_score 인터페이스 — 모델 파일 다운로드 필요), 실기기 수동 QA 실행(가이드 준비 완료 — 사용자 실행), qwen 키 갱신(사용자)
