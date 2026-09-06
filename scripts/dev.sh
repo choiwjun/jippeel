@@ -37,11 +37,16 @@ fi
 # 3) LM Studio 자동 감지 → 미등록 시 기본 엔드포인트 생성 (로컬 무료, 키 불필요)
 if ! port_up 1234; then
   echo "[llm] LM Studio(:1234) 미감지 — S7 설정에서 나중에 등록 가능"
+else
+  curl -sf http://localhost:8000/api/v1/ai/endpoints 2>/dev/null | grep -q "1234" || {
+    # 실제 로드된 모델명을 조회해 default_model로 등록 (스키마 계약 필드: default_model)
+    MODEL=$(curl -sf http://localhost:1234/v1/models 2>/dev/null \
+      | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['data'][0]['id'] if d.get('data') else '')" 2>/dev/null || true)
+    curl -s -X POST http://localhost:8000/api/v1/ai/endpoints -H 'Content-Type: application/json' \
+      -d "{\"name\":\"Local LM Studio\",\"base_url\":\"http://localhost:1234/v1\",\"api_key\":\"lm-studio\",\"default_model\":\"${MODEL}\"}" >/dev/null 2>&1 \
+      && echo "[llm] LM Studio 엔드포인트 등록 (기본 모델: ${MODEL:-미지정 — S7에서 선택})"
+  }
 fi
-curl -sf http://localhost:8000/api/v1/ai/endpoints 2>/dev/null | grep -q "1234" || \
-curl -s -X POST http://localhost:8000/api/v1/ai/endpoints -H 'Content-Type: application/json' \
-  -d '{"name":"Local LM Studio","base_url":"http://localhost:1234/v1","api_key":"lm-studio","model":"auto"}' >/dev/null 2>&1 \
-  && echo "[llm] LM Studio 엔드포인트 사전 등록 시도"
 
 echo "[done] http://localhost:5173"
 command -v cmd.exe >/dev/null && cmd.exe /c start "" "http://localhost:5173" 2>/dev/null
