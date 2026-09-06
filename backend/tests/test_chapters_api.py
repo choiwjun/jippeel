@@ -61,7 +61,7 @@ def test_put_content_updates_word_count(client):
     assert r.status_code == 200
     body = r.json()
     assert body["content_md"] == content
-    assert body["word_count_cache"] == 12  # 공백 제외
+    assert body["word_count_cache"] == 10  # 노벨피아 모드(문자·숫자만 — 마침표·느낌표 제외)
 
 
 def test_post_content_beacon_alias_matches_put(client):

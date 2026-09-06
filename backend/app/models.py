@@ -50,7 +50,7 @@ class Chapter(TimestampMixin, Base):
     content_md: Mapped[str] = mapped_column(Text, default="")
     # 초고|수정중|완료 (사양 S2 상태 칩)
     status: Mapped[str] = mapped_column(String(20), default="초고")
-    word_count_cache: Mapped[int] = mapped_column(Integer, default=0)  # 공백 제외 글자 수
+    word_count_cache: Mapped[int] = mapped_column(Integer, default=0)  # 노벨피아 모드 글자 수(공백·문장부호·특수문자 제외)
     memo: Mapped[str | None] = mapped_column(Text)  # 빠른 메모 (FR-108, v0.3)
 
     project: Mapped["Project"] = relationship(back_populates="chapters")

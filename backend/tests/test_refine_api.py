@@ -171,8 +171,8 @@ def test_accept_replaces_chapter_content(client, mock_pipeline, chapter):
     after = client.get(f"/api/v1/chapters/{chapter['id']}").json()
     assert after["content_md"] == "수정된 본문입니다."
     # 자동저장 흐름 유지 — PUT content와 동일하게 word_count_cache 재계산(공백 제외)
-    from app.services.wordcount import count_chars_excluding_whitespace
-    assert after["word_count_cache"] == count_chars_excluding_whitespace(after["content_md"])
+    from app.services.wordcount import count_novelpia_chars
+    assert after["word_count_cache"] == count_novelpia_chars(after["content_md"])
 
     run = client.get(f"/api/v1/refine/runs/{body['run_id']}").json()
     assert run["accepted"] is True

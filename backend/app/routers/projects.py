@@ -19,7 +19,7 @@ from app.schemas import (
     ProjectOut,
     ProjectUpdate,
 )
-from app.services.wordcount import count_chars_excluding_whitespace
+from app.services.wordcount import count_novelpia_chars
 
 router = APIRouter()
 
@@ -207,7 +207,7 @@ def put_chapter_content(cid: int, payload: ChapterContentPut, db: Session = Depe
     """본문(content_md) 저장 + 공백 제외 글자 수 캐시 갱신."""
     chapter = _get_chapter_or_404(cid, db)
     chapter.content_md = payload.content_md
-    chapter.word_count_cache = count_chars_excluding_whitespace(payload.content_md)
+    chapter.word_count_cache = count_novelpia_chars(payload.content_md)
     db.commit()
     db.refresh(chapter)
     return chapter
@@ -271,7 +271,7 @@ def get_plus_status(pid: int, db: Session = Depends(get_db)):
 
     - 회차 수 기준: 프로젝트 내 회차 수 ≥ 15회 (결정사항_G4 Q3 확정)
     - 글자 수 기준: '완료' 회차가 1개 이상이고, 그 모든 회차의
-      word_count_cache(공백 제외) ≥ 3,000. 완료 회차가 없으면 미충족.
+      word_count_cache(노벨피아 모드: 공백·문장부호·특수문자 제외) ≥ 3,000. 완료 회차가 없으면 미충족.
       (부록06: 노벨피아 실제 집계는 공백+특수문자 제외 — 최종 확정은 G7 실측,
        본 API는 설계서 기준인 공백제외 캐시로 판정)
     """

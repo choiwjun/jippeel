@@ -19,7 +19,7 @@ from app.schemas import (
     SpanOut,
 )
 from app.services import humanize
-from app.services.wordcount import count_chars_excluding_whitespace
+from app.services.wordcount import count_novelpia_chars
 
 router = APIRouter()
 
@@ -110,7 +110,7 @@ def accept_refine_run(run_id: int, db: Session = Depends(get_db)):
     chapter = _get_chapter_or_404(run.chapter_id, db)
     # 자동저장 흐름 유지 — PUT content와 동일한 필드 갱신
     chapter.content_md = run.result_text
-    chapter.word_count_cache = count_chars_excluding_whitespace(run.result_text)
+    chapter.word_count_cache = count_novelpia_chars(run.result_text)
     run.accepted = True
     db.commit()
     return SimpleOk()
