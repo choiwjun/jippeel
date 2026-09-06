@@ -71,6 +71,22 @@ export interface AiPanelState {
   failStream: (e: string) => void;
   resetResult: () => void;
 
+  // 감수 패스 — 초안 스트림 완료 후 자동 감수(지적) + 수정본 (같은 SSE 체이닝)
+  reviewPass: boolean;
+  setReviewPass: (v: boolean) => void;
+  /** '' = 엔드포인트 설정값 사용 */
+  reviewEffort: '' | 'low' | 'medium' | 'high' | 'xhigh';
+  setReviewEffort: (v: AiPanelState['reviewEffort']) => void;
+  reviewInfo: { model: string; endpoint: string } | null;
+  reviewText: string;
+  refinedText: string;
+  /** 감수 의견 스트림 시작 시 review 탭, 수정본 시작 시 refined 탭으로 자동 전환 */
+  resultTab: 'draft' | 'review' | 'refined';
+  setReviewInfo: (info: { model: string; endpoint: string } | null) => void;
+  appendReviewChunk: (s: string) => void;
+  appendRefinedChunk: (s: string) => void;
+  setResultTab: (t: AiPanelState['resultTab']) => void;
+
   /**
    * S5 레이스 수정 — 스트림 생명주기를 모듈 스코프(store)에서 관리한다.
    * 뷰 컴포넌트(AiPanel)가 쿼리 settle로 재마운트돼도 스트림은 유지되고,
@@ -153,14 +169,27 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   status: 'idle',
   streamingText: '',
   error: null,
-  startStream: () => set({ status: 'streaming', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null }),
+  startStream: () => set({ status: 'streaming', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null, reviewInfo: null, reviewText: '', refinedText: '', resultTab: 'draft' }),
   appendChunk: (s) => set((st) => ({ streamingText: st.streamingText + s })),
   finishStream: () => set({ status: 'done' }),
   failStream: (e) => set({ status: 'error', error: e }),
   resetResult: () => {
     get().abortStream();
-    set({ status: 'idle', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null, pendingGenerate: false });
+    set({ status: 'idle', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null, pendingGenerate: false, reviewInfo: null, reviewText: '', refinedText: '', resultTab: 'draft' });
   },
+
+  reviewPass: false,
+  setReviewPass: (v) => set({ reviewPass: v }),
+  reviewEffort: '',
+  setReviewEffort: (v) => set({ reviewEffort: v }),
+  reviewInfo: null,
+  reviewText: '',
+  refinedText: '',
+  resultTab: 'draft',
+  setReviewInfo: (info) => set({ reviewInfo: info }),
+  appendReviewChunk: (s) => set((st) => ({ reviewText: st.reviewText + s })),
+  appendRefinedChunk: (s) => set((st) => ({ refinedText: st.refinedText + s })),
+  setResultTab: (t) => set({ resultTab: t }),
 
   _abort: null,
   setAbort: (fn) => set({ _abort: fn }),

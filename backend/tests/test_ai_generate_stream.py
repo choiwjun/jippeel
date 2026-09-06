@@ -303,3 +303,113 @@ def test_previous_chapter_tail_injected(client, fake_llm):
     assert resp.status_code == 200
     user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
     assert "[직전 회차:" not in user_text
+
+
+def test_review_pass_streams_review_and_refined(client, fake_llm):
+    """감수 패스 — 초안 스트림 종료 후 같은 SSE에서 review/refined가 이어진다.
+
+    마커 '[수정본]'이 청크 경계('[수정' | '본]...')에서 잘리는 케이스도 함께 검증.
+    """
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m",
+        "reasoning_effort": "high"}).json()
+    fake_llm["client"].set_chunks([
+        "[감수]\n- 서두 전개가 급하다\n",
+        "[수정", "본]\n수정된 원고 전문",
+    ])
+
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "review": {}})
+    assert resp.status_code == 200
+    events = _parse_sse(resp.text)
+    kinds = [e for e, _ in events]
+    assert kinds[-1] == "done"
+
+    # start에 review_enabled 공개
+    start = json.loads(dict(events)["start"])
+    assert start["review_enabled"] is True
+
+    review_start = [(e, d) for e, d in events if e == "review_start"]
+    assert len(review_start) == 1
+    info = json.loads(review_start[0][1])
+    assert info["model"] == "m"
+    assert info["endpoint"] == "e"
+    assert info["reasoning_effort"] == "high"
+
+    review = "".join(json.loads(d)["delta"] for e, d in events if e == "review")
+    assert review == "[감수]\n- 서두 전개가 급하다"  # 마커 직전 개행은 전환 시 제거된다
+    refined = "".join(json.loads(d)["delta"] for e, d in events if e == "refined")
+    assert refined == "수정된 원고 전문"
+
+    # 초안 delta는 그대로 message 이벤트로 유지된다
+    draft = "".join(json.loads(d)["delta"] for e, d in events if e == "message")
+    assert draft == "[감수]\n- 서두 전개가 급하다\n[수정본]\n수정된 원고 전문"
+
+    # 감수 호출 프롬프트 — system 프롬프트 + 초안 원고 전달
+    sent = fake_llm["client"].last_kwargs
+    assert sent["messages"][0]["role"] == "system"
+    assert "감수자" in sent["messages"][0]["content"]
+    assert "[초안 원고]" in sent["messages"][-1]["content"]
+    assert draft in sent["messages"][-1]["content"]
+    assert sent["reasoning_effort"] == "high"
+
+
+def test_review_pass_explicit_effort_overrides(client, fake_llm):
+    """review.reasoning_effort가 엔드포인트 설정값보다 우선한다."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    fake_llm["client"].set_chunks(["본문", "[수정본]", "고침"])
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "review": {"reasoning_effort": "medium"}})
+    assert resp.status_code == 200
+    assert fake_llm["client"].last_kwargs["reasoning_effort"] == "medium"
+
+
+def test_review_pass_failure_keeps_draft(client, fake_llm, monkeypatch):
+    """감수 1콜 실패 — review_error 이벤트 후 스트림은 done으로 정상 종료, 초안 보존."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    ep2 = client.post("/api/v1/ai/endpoints", json={
+        "name": "감수용", "base_url": "http://reviewer/v1",
+        "default_model": "rv"}).json()
+
+    # 감수 전용 엔드포인트로 만들어지는 클라이언트만 실패시킨다
+    base_make = ai_panel.llm.make_client
+
+    def _make(base_url, api_key_encrypted):
+        c = base_make(base_url, api_key_encrypted)
+        if "reviewer" in base_url:
+            c.set_exc(openai.APITimeoutError(request=httpx.Request(
+                "POST", "http://reviewer/v1/chat/completions")))
+        return c
+
+    monkeypatch.setattr(ai_panel.llm, "make_client", _make)
+
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "review": {"endpoint_id": ep2["id"]}})
+    assert resp.status_code == 200
+    events = _parse_sse(resp.text)
+    kinds = [e for e, _ in events]
+    assert kinds[-1] == "done"
+
+    draft = "".join(json.loads(d)["delta"] for e, d in events if e == "message")
+    assert draft == "안녕하세요반갑습니다"  # 초안은 정상 수신
+    errors = [(e, d) for e, d in events if e == "review_error"]
+    assert len(errors) == 1
+    assert "시간 초과" in json.loads(errors[0][1])["detail"]
+    assert not [e for e, _ in events if e == "error"]  # 본 스트림 error는 아님
+
+
+def test_review_absent_no_review_events(client, fake_llm):
+    """review 필드가 없으면 기존 동작 유지 — review 이벤트 계열이 전혀 나오지 않는다."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘"})
+    kinds = [e for e, _ in _parse_sse(resp.text)]
+    assert kinds[0] == "start"
+    assert kinds[-1] == "done"
+    assert not any(k.startswith("review") or k == "refined" for k in kinds)

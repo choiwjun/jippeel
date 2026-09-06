@@ -179,7 +179,7 @@ class AiUsage(Base):
     __tablename__ = "ai_usage"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # generate|canon|bootstrap|foreshadow_suggest
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # generate|review|canon|bootstrap|foreshadow_suggest
     model: Mapped[str | None] = mapped_column(String(255))
     endpoint_name: Mapped[str | None] = mapped_column(String(255))
     prompt_chars: Mapped[int] = mapped_column(Integer, default=0)

@@ -36,6 +36,10 @@ export function AiPanel() {
   const temperature = useAiPanelStore((s) => s.temperature);
   const maxTokens = useAiPanelStore((s) => s.maxTokens);
   const setParams = useAiPanelStore((s) => s.setParams);
+  const reviewPass = useAiPanelStore((s) => s.reviewPass);
+  const setReviewPass = useAiPanelStore((s) => s.setReviewPass);
+  const reviewEffort = useAiPanelStore((s) => s.reviewEffort);
+  const setReviewEffort = useAiPanelStore((s) => s.setReviewEffort);
 
   // 컨텍스트 + 스트리밍
   const ctx = useAiPanelStore((s) => s.contextSelection);
@@ -128,6 +132,9 @@ export function AiPanel() {
           temperature: activeEndpoint?.temperature == null ? undefined : store.temperature,
           max_tokens: store.maxTokens,
         },
+        review: store.reviewPass
+          ? { reasoning_effort: store.reviewEffort || undefined }
+          : null,
       },
       {
         onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
@@ -136,6 +143,20 @@ export function AiPanel() {
           st.setInjectedLore(info.injectedLore);
           st.setInjectedForeshadows(info.injectedForeshadows);
           st.setInjectedOutline(info.injectedOutline);
+        },
+        onReviewStart: (info) => {
+          const st = useAiPanelStore.getState();
+          st.setReviewInfo({ model: info.model, endpoint: info.endpoint });
+          if (st.resultTab !== 'review') st.setResultTab('review');
+        },
+        onReviewChunk: (d) => useAiPanelStore.getState().appendReviewChunk(d),
+        onRefinedChunk: (d) => {
+          const st = useAiPanelStore.getState();
+          if (st.resultTab !== 'refined') st.setResultTab('refined');
+          st.appendRefinedChunk(d);
+        },
+        onReviewError: (msg) => {
+          toast(msg, 'warning');
         },
         onDone: () => useAiPanelStore.getState().finishStream(),
         onError: (msg) => {
@@ -276,6 +297,35 @@ export function AiPanel() {
           value={promptOverride}
           onChange={(e) => setPrompt(e.target.value)}
         />
+      </section>
+
+      {/* 감수 패스 — 초안 생성 후 같은 스트림에서 감수·수정본을 이어받는다 */}
+      <section className="rounded-md border border-border p-3">
+        <h3 className="mb-2 text-xs font-semibold text-muted-foreground">감수 패스</h3>
+        <Checkbox
+          label="생성 후 자동 감수 (지적 + 수정본)"
+          checked={reviewPass}
+          onChange={(e) => setReviewPass(e.target.checked)}
+        />
+        {reviewPass && (
+          <div className="mt-2">
+            <Label htmlFor="ai-review-effort">감수 추론 강도</Label>
+            <Select
+              id="ai-review-effort"
+              value={reviewEffort}
+              onChange={(e) => setReviewEffort(e.target.value as AiPanelState['reviewEffort'])}
+            >
+              <option value="">엔드포인트 설정값 사용</option>
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+              <option value="xhigh">xhigh</option>
+            </Select>
+            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+              초안 응답이 끝나면 같은 스트림에서 감수 의견과 수정 원고를 이어 생성합니다. 감수만 실패해도 초안은 보존됩니다.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* 포함 컨텍스트 */}
@@ -470,17 +520,27 @@ function InjectedBadges({ ctx }: { ctx: AiPanelStoreApi['contextSelection'] }) {
   );
 }
 
-/** 응답 영역 + [끼워넣기][선택 교체][복사] — FR-406의 유일한 반영 경로 */
+/** 응답 영역(초안/감수 의견/수정본 탭) + [끼워넣기][선택 교체][복사] — FR-406의 유일한 반영 경로 */
+type ResultTab = AiPanelState['resultTab'];
+
 function ResultSection() {
   const status = useAiPanelStore((s) => s.status);
   const streamingText = useAiPanelStore((s) => s.streamingText);
+  const reviewText = useAiPanelStore((s) => s.reviewText);
+  const refinedText = useAiPanelStore((s) => s.refinedText);
+  const resultTab = useAiPanelStore((s) => s.resultTab);
+  const setResultTab = useAiPanelStore((s) => s.setResultTab);
+  const reviewInfo = useAiPanelStore((s) => s.reviewInfo);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const hasReview = reviewText.length > 0 || refinedText.length > 0 || reviewInfo !== null;
+  const activeText = resultTab === 'draft' ? streamingText : resultTab === 'review' ? reviewText : refinedText;
 
   // 자동 스크롤(sticky bottom)
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [streamingText]);
+  }, [streamingText, reviewText, refinedText, resultTab]);
 
   /** 끼워넣기 — 현재 회차 본문 끝 append (P1 명시 클릭) */
   const insertAtEnd = useCallback(() => {
@@ -489,11 +549,11 @@ function ResultSection() {
       toast('현재 회차 에디터가 없습니다.', 'warning');
       return;
     }
-    const text = useAiPanelStore.getState().streamingText;
+    const text = activeText;
     view.dispatch({ changes: { from: view.state.doc.length, insert: '\n\n' + text } });
     view.focus();
     toast('본문 끝에 끼워넣었습니다.', 'success');
-  }, []);
+  }, [activeText]);
 
   /** 선택 교체 — 에디터 선택 범위만 교체, 선택 없으면 끝에 추가 */
   const replaceSelection = useCallback(() => {
@@ -502,7 +562,7 @@ function ResultSection() {
       toast('현재 회차 에디터가 없습니다.', 'warning');
       return;
     }
-    const text = useAiPanelStore.getState().streamingText;
+    const text = activeText;
     const sel = view.state.selection.main;
     const changes = sel.empty
       ? { from: view.state.doc.length, insert: '\n\n' + text }
@@ -510,39 +570,75 @@ function ResultSection() {
     view.dispatch({ changes });
     view.focus();
     toast(sel.empty ? '선택 범위가 없어 본문 끝에 추가했습니다.' : '선택 범위를 교체했습니다.', 'success');
-  }, []);
+  }, [activeText]);
 
   const copyResult = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(useAiPanelStore.getState().streamingText);
+      await navigator.clipboard.writeText(activeText);
       toast('클립보드에 복사했습니다.', 'success');
     } catch {
       toast('클립보드 접근이 거부되었습니다.', 'error');
     }
-  }, []);
+  }, [activeText]);
 
   const busy = status === 'streaming';
-  const hasText = streamingText.length > 0;
+  const hasText = activeText.length > 0;
+  // 감수 의견 탭은 본문 반영 대상이 아니다 — 복사만 허용
+  const readOnlyTab = resultTab === 'review';
+
+  const tabs: Array<{ key: ResultTab; label: string; count: number }> = [
+    { key: 'draft', label: '초안', count: streamingText.length },
+    { key: 'review', label: '감수 의견', count: reviewText.length },
+    { key: 'refined', label: '수정본', count: refinedText.length },
+  ];
 
   return (
     <section className="flex min-h-0 flex-col rounded-md border border-border">
-      <h3 className="border-b border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
-        응답 {busy ? '(스트리밍)' : ''}
-      </h3>
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <h3 className="text-xs font-semibold text-muted-foreground">
+          응답 {busy ? '(스트리밍)' : ''}
+        </h3>
+        {reviewInfo && (
+          <span className="text-[10px] text-muted-foreground" title="감수 패스 모델">
+            감수: {reviewInfo.endpoint} · {reviewInfo.model}
+          </span>
+        )}
+      </div>
+      {hasReview && (
+        <div className="flex gap-1 border-b border-border px-2 py-1.5" role="tablist" aria-label="응답 탭">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={resultTab === t.key}
+              disabled={t.count === 0 && t.key !== 'draft'}
+              onClick={() => setResultTab(t.key)}
+              className={
+                'rounded-sm px-2 py-1 text-xs transition-colors ' +
+                (resultTab === t.key
+                  ? 'bg-muted font-semibold text-foreground'
+                  : 'text-muted-foreground hover:text-foreground disabled:opacity-40')
+              }
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div ref={scrollRef} className="thin-scroll max-h-64 min-h-24 overflow-y-auto p-3">
         {hasText ? (
           <pre className="whitespace-pre-wrap break-words font-serif text-sm leading-relaxed">
-            {streamingText}
+            {activeText}
           </pre>
         ) : (
           <p className="text-sm text-muted-foreground">아직 응답이 없습니다.</p>
         )}
       </div>
       <div className="grid grid-cols-3 gap-1.5 border-t border-border p-2" title="결과 도착 후 활성화됩니다 (P1)">
-        <Button size="sm" variant="outline" disabled={!hasText || busy} onClick={insertAtEnd}>
+        <Button size="sm" variant="outline" disabled={!hasText || busy || readOnlyTab} onClick={insertAtEnd}>
           ↪ 끼워넣기
         </Button>
-        <Button size="sm" variant="outline" disabled={!hasText || busy} onClick={replaceSelection}>
+        <Button size="sm" variant="outline" disabled={!hasText || busy || readOnlyTab} onClick={replaceSelection}>
           ⤳ 선택 교체
         </Button>
         <Button size="sm" variant="ghost" disabled={!hasText || busy} onClick={() => void copyResult()}>

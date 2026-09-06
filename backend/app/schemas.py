@@ -320,12 +320,27 @@ class GenerateParams(BaseModel):
     max_tokens: int | None = Field(default=None, ge=1)
 
 
+class GenerateReviewOptions(BaseModel):
+    """생성 직후 자동 감수 패스 — 초안 완성 즉시 같은 SSE 스트림에서 감수·수정본을 이어받는다.
+
+    endpoint_id 미지정 시 생성 엔드포인트를 재사용하고, reasoning_effort 미지정 시
+    감수 엔드포인트의 설정값을 따른다. 감수만 실패해도 초안은 이미 수신 완료된
+    상태이므로 review_error 이벤트로 통보하고 스트림은 정상 종료한다.
+    """
+
+    endpoint_id: int | None = None
+    model: str | None = Field(default=None, max_length=255)
+    reasoning_effort: str | None = Field(default=None, max_length=20)
+    max_tokens: int | None = Field(default=None, ge=1)
+
+
 class GenerateRequest(BaseModel):
     endpoint_id: int
     preset_id: int | None = None
     prompt_override: str | None = None
     context: GenerateContext = Field(default_factory=GenerateContext)
     params: GenerateParams = Field(default_factory=GenerateParams)
+    review: GenerateReviewOptions | None = None
 
 
 # ---- Refine (M5, Sprint 3) — 부록05 §⑤-5 span 규격 / 사양 §5 윤문 API ----

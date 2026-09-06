@@ -22,8 +22,17 @@ export interface StreamHandlers {
     injectedLore: InjectedLore[];
     injectedForeshadows: InjectedLore[];
     injectedOutline: InjectedOutline | null;
+    reviewEnabled: boolean;
   }) => void;
   onChunk: (delta: string) => void;
+  /** 감수 패스 개시 — 초안 스트림이 정상 종료된 직후 발화 */
+  onReviewStart?: (info: { model: string; endpoint: string; reasoningEffort: string | null }) => void;
+  /** 감수 의견(지적 사항) delta */
+  onReviewChunk?: (delta: string) => void;
+  /** 감수 반영 수정본 delta */
+  onRefinedChunk?: (delta: string) => void;
+  /** 감수 실패 — 초안은 이미 수신 완료, 스트림은 계속 진행 */
+  onReviewError?: (message: string) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -84,6 +93,7 @@ export function streamGenerate(
             injectedForeshadows: parseInjectedLore(parsed.injected_foreshadows),
             injectedOutline: typeof parsed.injected_outline === 'object'
               && parsed.injected_outline !== null ? parsed.injected_outline : null,
+            reviewEnabled: parsed.review_enabled === true,
           });
         } catch { /* noop */ }
       } else if (eventName === 'message') {
@@ -91,6 +101,29 @@ export function streamGenerate(
           const delta = JSON.parse(data).delta;
           if (typeof delta === 'string' && delta.length > 0) handlers.onChunk(delta);
         } catch { /* noop */ }
+      } else if (eventName === 'review_start') {
+        try {
+          const parsed = JSON.parse(data);
+          handlers.onReviewStart?.({
+            model: parsed.model ?? '',
+            endpoint: parsed.endpoint ?? '',
+            reasoningEffort: parsed.reasoning_effort ?? null,
+          });
+        } catch { /* noop */ }
+      } else if (eventName === 'review') {
+        try {
+          const delta = JSON.parse(data).delta;
+          if (typeof delta === 'string' && delta.length > 0) handlers.onReviewChunk?.(delta);
+        } catch { /* noop */ }
+      } else if (eventName === 'refined') {
+        try {
+          const delta = JSON.parse(data).delta;
+          if (typeof delta === 'string' && delta.length > 0) handlers.onRefinedChunk?.(delta);
+        } catch { /* noop */ }
+      } else if (eventName === 'review_error') {
+        let detail = '감수 패스 실패 (초안은 보존됩니다).';
+        try { detail = JSON.parse(data).detail ?? detail; } catch { /* noop */ }
+        handlers.onReviewError?.(detail);
       } else if (eventName === 'error') {
         finished = true;
         let detail = '스트리밍 중 오류가 발생했습니다.';

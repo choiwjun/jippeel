@@ -48,6 +48,23 @@ NOVEL_SYSTEM_PROMPT = (
 )
 PREVIOUS_CHAPTER_TAIL_CHARS = 2_000  # 직전 회차는 끝부분(클리프행어) 위주로 주입
 
+# 감수 패스 시스템 프롬프트 — 초안을 검수하고 지적 + 수정본을 내놓는다
+REVIEW_SYSTEM_PROMPT = (
+    "너는 웹소설 플랫폼의 감수자(편집장)다. 초안 원고를 검수하고, 아래 형식 그대로 출력한다.\n"
+    "[감수 항목]\n"
+    "- 설정·논리 오류, 시간표·동선 모순, 인과가 끊긴 전개\n"
+    "- 캐릭터 말투·행동·지위의 일관성 위반\n"
+    "- 지시(목차·시놉시스)에서 요구한 내용의 누락·불일치\n"
+    "- 문장 중복·군더더기, 리듬 붕괴, 전개 속도 저하\n"
+    "[출력 형식 — 절대 어긋나지 않는다]\n"
+    "[감수]\n"
+    "- 중요한 지적만 3~7개. 각 줄은 '- '으로 시작하고, 원문 위치와 이유를 한 줄로 짧게 쓴다.\n"
+    "[수정본]\n"
+    "지적을 모두 반영해 초안 전체를 수정한 원고를 그대로 쓴다. 설명·메타 코멘트 금지.\n"
+    "분량은 초안과 비슷하게 유지하고, 좋은 부분은 함부로 바꾸지 않는다."
+)
+REVIEW_MARKER = "[수정본]"  # 감수 의견 → 수정본 전환 지점 (라인 단위 매칭)
+
 router = APIRouter()
 
 
@@ -292,6 +309,7 @@ def create_endpoint(payload: AiEndpointCreate, db: Session = Depends(get_db)):
         api_key_encrypted=get_cipher().encrypt(payload.api_key) if payload.api_key else None,
         default_model=payload.default_model,
         temperature=payload.temperature,
+        reasoning_effort=payload.reasoning_effort,
         is_default=False,
     )
     if payload.is_default:
@@ -385,6 +403,45 @@ def ai_usage(days: int = 30):
             for row in usage_service.summary(limit_days=max(min(days, 365), 1))]
 
 
+def _split_review_stream():
+    """감수 스트림을 '[감수]'/'[수정본]' 구간으로 분리하는 상태 기계.
+
+    마커가 청크 경계에서 잘리는 것을 대비해 review 페이즈에서는
+    항상 마커 길이만큼의 말미를 버퍼에 남긴다. 반환: feed(delta) →
+    ("review"|"refined", 청크)을 yield하는 async generator.
+    """
+    phase = "review"
+    carry = ""
+
+    async def feed(delta: str):
+        nonlocal carry, phase
+        if phase == "refined":
+            if delta:
+                yield "refined", delta
+            return
+        buf = carry + delta
+        idx = buf.find(REVIEW_MARKER)
+        if idx == -1:
+            # 마커가 다음 청크에 걸칠 수 있으므로 말미를 보존
+            keep = max(0, len(buf) - (len(REVIEW_MARKER) - 1))
+            carry = buf[keep:]
+            if keep > 0:
+                yield "review", buf[:keep]
+            return
+        head = buf[:idx].rstrip("\n")
+        if head:
+            yield "review", head
+        rest = buf[idx + len(REVIEW_MARKER):]
+        # 마커 뒤의 ':' 및 줄바꿈 제거 후 수정본 페이즈 진입
+        rest = rest.lstrip(":\n\r ")
+        phase = "refined"
+        if rest:
+            yield "refined", rest
+        carry = ""
+
+    return feed
+
+
 # ---------- AI 생성 스트리밍 ----------
 @router.post("/ai/generate")
 async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
@@ -397,6 +454,22 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
 
     client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
 
+    # 감수 패스 사전 검증 — 초안 스트리밍 시작 전에 설정 오류를 잡는다
+    review_cfg = None
+    if payload.review is not None:
+        rid = payload.review.endpoint_id or endpoint.id
+        reviewer = _get_endpoint_or_404(rid, db)
+        review_cfg = {
+            "client": llm.make_client(reviewer.base_url, reviewer.api_key_encrypted)
+            if reviewer.id != endpoint.id else client,
+            "endpoint_name": reviewer.name,
+            "model": _resolve_model(reviewer, payload.review.model),
+            "reasoning_effort": payload.review.reasoning_effort if payload.review.reasoning_effort
+            else reviewer.reasoning_effort,
+            "max_tokens": payload.review.max_tokens if payload.review.max_tokens is not None
+            else payload.params.max_tokens,
+        }
+
     async def event_stream():
         # 시작 이벤트 — 프론트가 스트림 개시를 확정할 수 있다
         # 시작 이벤트 — 프론트가 스트림 개시를 확정하고, 자동 주입된 로어 목록을
@@ -404,15 +477,18 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
         yield {"event": "start",
                "data": json.dumps({"model": model, "injected_lore": injected_lore,
                                    "injected_outline": injected_outline,
-                                   "injected_foreshadows": injected_foreshadows},
+                                   "injected_foreshadows": injected_foreshadows,
+                                   "review_enabled": review_cfg is not None},
                                   ensure_ascii=False)}
         completion_chars = 0
+        draft_parts: list[str] = []
         try:
             async for delta in llm.stream_chat(client, model, messages,
                                                temperature=temperature,
                                                max_tokens=payload.params.max_tokens,
                                                reasoning_effort=endpoint.reasoning_effort):
                 completion_chars += len(delta)
+                draft_parts.append(delta)
                 yield {"event": "message", "data": json.dumps({"delta": delta}, ensure_ascii=False)}
         except openai.APIError as exc:
             yield {"event": "error",
@@ -428,6 +504,44 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
             kind="generate", model=model, endpoint_name=endpoint.name,
             prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
             completion_chars=completion_chars)
+
+        # 감수 패스 — 초안 스트림이 정상 종료된 직후 같은 SSE에서 이어 실행
+        if review_cfg is not None:
+            yield {"event": "review_start",
+                   "data": json.dumps({"model": review_cfg["model"],
+                                       "endpoint": review_cfg["endpoint_name"],
+                                       "reasoning_effort": review_cfg["reasoning_effort"]},
+                                      ensure_ascii=False)}
+            review_messages = [
+                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                {"role": "user",
+                 "content": f"{messages[-1]['content']}\n\n---\n\n[초안 원고]\n{''.join(draft_parts)}"},
+            ]
+            review_chars = 0
+            try:
+                feed = _split_review_stream()
+                async for delta in llm.stream_chat(
+                        review_cfg["client"], review_cfg["model"], review_messages,
+                        max_tokens=review_cfg["max_tokens"],
+                        reasoning_effort=review_cfg["reasoning_effort"]):
+                    review_chars += len(delta)
+                    async for event_name, chunk in feed(delta):
+                        yield {"event": event_name,
+                               "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+            except openai.APIError as exc:
+                yield {"event": "review_error",
+                       "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}
+            except Exception as exc:  # noqa: BLE001
+                yield {"event": "review_error",
+                       "data": json.dumps({"detail": f"감수 실패: {type(exc).__name__}"},
+                                          ensure_ascii=False)}
+            else:
+                if review_chars:
+                    usage_service.record(
+                        kind="review", model=review_cfg["model"],
+                        endpoint_name=review_cfg["endpoint_name"],
+                        prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
+                        completion_chars=review_chars)
         yield {"event": "done", "data": "[DONE]"}
 
     return EventSourceResponse(event_stream())
