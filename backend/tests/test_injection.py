@@ -122,7 +122,7 @@ def test_auto_inject_adds_matching_lore_only(client, fake_llm, ep_with_world):
         {"id": ep_with_world["tower"]["id"], "title": "무한의 탑"}]
 
     sent = fake_llm["client"].last_kwargs
-    user_msg = sent["messages"][0]["content"]
+    user_msg = sent["messages"][-1]["content"]
     assert "[세계관(자동): 무한의 탑]" in user_msg
     assert "하늘까지 닿는 탑." in user_msg
     assert "붉은 협곡" not in user_msg
@@ -138,7 +138,7 @@ def test_auto_inject_excludes_explicit_selection(client, fake_llm, ep_with_world
     injected = json.loads(next(d for e, d in events if e == "start"))["injected_lore"]
     assert injected == []  # 명시 선택분은 자동 주입 목록에 없다(중복 방지)
 
-    user_msg = fake_llm["client"].last_kwargs["messages"][0]["content"]
+    user_msg = fake_llm["client"].last_kwargs["messages"][-1]["content"]
     assert "[세계관: 무한의 탑]" in user_msg      # 명시 블록
     assert "[세계관(자동):" not in user_msg        # 중복 주입 없음
 
@@ -151,7 +151,7 @@ def test_auto_inject_no_match_keeps_clean_prompt(client, fake_llm, ep_with_world
     injected = json.loads(
         next(d for e, d in _parse_sse(resp.text) if e == "start"))["injected_lore"]
     assert injected == []
-    assert "(자동)" not in fake_llm["client"].last_kwargs["messages"][0]["content"]
+    assert "(자동)" not in fake_llm["client"].last_kwargs["messages"][-1]["content"]
 
 
 def test_auto_inject_without_project_context_silent_skip(client, fake_llm, ep_with_world):

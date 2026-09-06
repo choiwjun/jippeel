@@ -167,7 +167,7 @@ def test_generate_streams_deltas(client, fake_llm, endpoint_with_preset):
     assert sent["stream"] is True
     assert sent["model"] == "m-1"
     assert abs(sent["temperature"] - 0.5) < 1e-9
-    user_msg = sent["messages"][0]["content"]
+    user_msg = sent["messages"][-1]["content"]
     assert "제1장 본문" in user_msg and "요약해줘" in user_msg
     # 모킹 클라이언트가 복호화된 키로 만들어졌는지(base_url 전달) 확인
     assert fake_llm["client"].base_url == "http://localhost:1234/v1"
@@ -261,3 +261,45 @@ def test_auto_lore_injects_matched_entries_only(client, fake_llm):
     assert resp.status_code == 200
     user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
     assert "[세계관: 흑요 검]" not in user_text
+
+
+def test_system_prompt_prepended(client, fake_llm):
+    """집필 기본 system 프롬프트가 user 메시지 앞에 붙는다(백로그: 프롬프트 고도화)."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘"})
+    assert resp.status_code == 200
+    messages = fake_llm["client"].last_kwargs["messages"]
+    assert messages[0]["role"] == "system"
+    assert "웹소설 연재 작가" in messages[0]["content"]
+    assert messages[-1]["role"] == "user"
+
+
+def test_previous_chapter_tail_injected(client, fake_llm):
+    """previous_chapter=True — 직전 회차 끝부분이 컨텍스트로 주입된다(이어쓰기 맥락)."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    pid = client.post("/api/v1/projects", json={"title": "p"}).json()["id"]
+    ch1 = client.post(f"/api/v1/projects/{pid}/chapters",
+                      json={"title": "1화", "sort_order": 0}).json()
+    ch2 = client.post(f"/api/v1/projects/{pid}/chapters",
+                      json={"title": "2화", "sort_order": 1}).json()
+    client.put(f"/api/v1/chapters/{ch1['id']}/content", json={
+        "content_md": "첫 화 도입부. " * 20 + "마지막 문장은 문이 열리는 순간이었다."})
+
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "context": {"chapter_id": ch2["id"], "previous_chapter": True}})
+    assert resp.status_code == 200
+    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+    assert "[직전 회차: 1화 끝부분]" in user_text
+    assert "문이 열리는 순간이었다." in user_text  # 끝부분 위주 주입
+
+    # 플래그 끄면 주입 없음
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "context": {"chapter_id": ch2["id"], "previous_chapter": False}})
+    assert resp.status_code == 200
+    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+    assert "[직전 회차:" not in user_text

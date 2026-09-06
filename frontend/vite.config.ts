@@ -14,14 +14,13 @@ export default defineConfig({
         // 벤더 청크 분리 — 단일 번들 비대화 완화 + 배포 캐시 효율
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-editor': [
+          'vendor-cm': [
             '@codemirror/state',
             '@codemirror/view',
             '@codemirror/language',
             '@codemirror/lang-markdown',
-            'markdown-it',
-            'diff',
           ],
+          'vendor-md': ['markdown-it', 'diff', 'dompurify'],
           'vendor-data': ['@tanstack/react-query', 'zustand'],
         },
       },

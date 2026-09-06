@@ -31,6 +31,7 @@ function PlusStatusRow({ project, status }: { project: Project; status?: PlusSta
           value={(Math.min(status.chapter_count, 15) / 15) * 100}
           className="h-1.5"
           barClassName={status.eligible ? 'bg-status-done' : undefined}
+          aria-label={`노벨피아 PLUS 충족 현황 진행률`}
         />
       </div>
     </li>

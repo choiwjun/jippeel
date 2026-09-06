@@ -26,6 +26,16 @@ from app.schemas import (
 )
 from app.services import injection, llm
 
+# 집필 기본 시스템 프롬프트 — 웹소설 문체·전개 관례 (백로그: 집필 프롬프트 고도화)
+NOVEL_SYSTEM_PROMPT = (
+    "너는 한국 웹소설 연재 작가의 집필 파트너다. 아래 컨텍스트와 지시에 따라 원고를 집필한다.\n"
+    "- 문장은 짧은 호흡으로 유지하고 2~3문장마다 단락을 나누며, 대사와 심리 묘사를 섞어 리듬을 살린다.\n"
+    "- 캐릭터의 말투·성격과 세계관 설정을 절대 어기지 않는다.\n"
+    "- 설명하지 말고 장면으로 보여준다. 접속어 나열과 과한 수식어는 피한다.\n"
+    "- 원고 본문만 출력한다. 안내·설명·메타 코멘트를 붙이지 않는다."
+)
+PREVIOUS_CHAPTER_TAIL_CHARS = 2_000  # 직전 회차는 끝부분(클리프행어) 위주로 주입
+
 router = APIRouter()
 
 
@@ -94,6 +104,16 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
         blocks.append(f"[현재 회차: {chapter.title}]\n{chapter.content_md}")
         source_parts.append(chapter.content_md or "")
         project_id = project_id or chapter.project_id
+        if ctx.previous_chapter:
+            prev = db.scalars(
+                select(Chapter).where(
+                    Chapter.project_id == chapter.project_id,
+                    Chapter.sort_order < chapter.sort_order,
+                ).order_by(Chapter.sort_order.desc())
+            ).first()
+            if prev and (prev.content_md or "").strip():
+                tail = prev.content_md[-PREVIOUS_CHAPTER_TAIL_CHARS:]
+                blocks.append(f"[직전 회차: {prev.title} 끝부분]\n…{tail}")
     if ctx.character_ids:
         chars = db.scalars(
             select(Character).where(Character.id.in_(ctx.character_ids))
@@ -141,7 +161,9 @@ def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[di
                             detail="preset_id 또는 prompt_override 중 하나는 필요합니다.")
 
     user_content = f"{context_text}\n\n---\n\n지시:\n{instruction}"
-    return "default", [{"role": "user", "content": user_content}], injected
+    messages = [{"role": "system", "content": NOVEL_SYSTEM_PROMPT},
+                {"role": "user", "content": user_content}]
+    return "default", messages, injected
 
 
 def _friendly_api_error(exc: openai.APIError) -> str:

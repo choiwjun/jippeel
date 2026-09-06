@@ -297,6 +297,8 @@ class GenerateContext(BaseModel):
     auto_lore: bool = False
     auto_lore_limit: int = Field(default=6, ge=1, le=20)
     project_id: int | None = Field(default=None, description="chapter 없이 auto_lore 사용 시 프로젝트 지정")
+    # 직전 회차 끝부분 자동 포함 (백로그 — 이어쓰기 맥락 유지)
+    previous_chapter: bool = False
 
 
 class GenerateParams(BaseModel):

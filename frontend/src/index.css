@@ -25,7 +25,7 @@
   --muted-foreground:  36 10% 64%;
   --accent:            28 32% 58%;
   --accent-foreground: 30 8% 12%;
-  --destructive:       4 50% 56%;
+  --destructive:       4 68% 63%;
   --destructive-foreground:30 8% 12%;
   --warning:           30 56% 58%;
   --warning-foreground:30 8% 12%;
@@ -37,7 +37,7 @@
   --ring:              215 38% 64%;
 
   /* 상태 칩 (FR-105) */
-  --status-draft:      30 8% 56%;
+  --status-draft:      30 14% 78%;
   --status-revising:   30 56% 58%;
   --status-done:       150 32% 52%;
 
@@ -78,7 +78,7 @@
   --muted-foreground:  30 8% 42%;
   --accent:            28 28% 46%;
   --accent-foreground: 36 24% 96%;
-  --destructive:       4 42% 42%;
+  --destructive:       4 55% 38%;
   --destructive-foreground:36 24% 96%;
   --warning:           30 50% 42%;
   --warning-foreground:30 14% 14%;
@@ -89,7 +89,7 @@
   --input:             30 12% 80%;
   --ring:              215 32% 38%;
 
-  --status-draft:      30 8% 56%;
+  --status-draft:      30 10% 34%;
   --status-revising:   30 50% 46%;
   --status-done:       150 28% 36%;
 
