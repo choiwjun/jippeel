@@ -272,7 +272,7 @@ def test_system_prompt_prepended(client, fake_llm):
     assert resp.status_code == 200
     messages = fake_llm["client"].last_kwargs["messages"]
     assert messages[0]["role"] == "system"
-    assert "웹소설 연재 작가" in messages[0]["content"]
+    assert "현역 한국 웹소설 작가" in messages[0]["content"]
     assert messages[-1]["role"] == "user"
 
 

@@ -126,21 +126,65 @@ def _outline_messages(genre: str, idea: dict, volume_count: int,
             {"role": "user", "content": user}]
 
 
-def _world_messages(genre: str, idea: dict, outline_summary: str) -> list[dict]:
+def _characters_messages(genre: str, idea: dict, outline_summary: str) -> list[dict]:
+    """콜 3 — 등장인물 심층 설계. 서사 기능(목표·결핍·비밀·변화)을 강제한다."""
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
     title = titles[0] if titles else genre
     user = f"""작품: {title}
 장르: {genre}
 로그라인: {_as_str(idea.get('logline'))}
-줄거리 요약: {outline_summary}
+주제의식: {_as_str(idea.get('theme'))}
+1권 목차:
+{outline_summary}
 
-캐릭터 4~6명(주연 최소 1명), 캐릭터 간 관계 쌍, 세계관 로어북 항목 8~12개를 만들어라.
+위 목차를 관통하는 등장인물 6~8명을 심층 설계하라.
+- 구성: 주인공 1명, 핵심 조연 2~3명, 대립자 1~2명, 주변인 1~2명
+- 주인공은 표면 목표와 내면 결핍이 충돌하고, 1권 내내 숨길 비밀이 하나 있어야 한다
+- 대립자는 단순 악인이 아니라 '그 나름의 정의'로 움직이는 이유가 있어야 한다
+- background는 배경 2문장 + 목표 + 숨긴 비밀까지 3문장 이상
+- speech_style은 실제 대사로 바로 쓸 수 있을 만큼 구체적으로(어투·호칭 포함)
+- personality는 성격과 함께 1권에서 변해갈 방향을 포함
+
 다음 JSON 형식으로 출력하라:
-{{"characters": [{{"name": "이름", "alias": "별칭", "role": "주연|조연|단역",
-  "appearance": "외형", "personality": "성격", "speech_style": "말투", "background": "배경"}}],
- "relationships": [{{"from": "캐릭터 이름", "to": "캐릭터 이름", "label": "예: 주군-가신", "note": "관계 설명"}}],
- "lore_entries": [{{"category": "용어|장소|세력|기타", "title": "항목 제목",
-  "content": "설명", "keywords": ["본문 자동 주입용 키워드"]}}]}}"""
+{{"characters": [{{"name": "이름", "alias": "별칭", "role": "주연|조연|단역|기타",
+  "appearance": "외형 1문장", "personality": "성격+1권 변화 방향 2문장",
+  "speech_style": "구체적 말투", "background": "배경+목표+비밀 3문장 이상"}}]}}"""
+    return [{"role": "system", "content": _SYSTEM_JSON},
+            {"role": "user", "content": user}]
+
+
+def _relations_lore_messages(genre: str, idea: dict, outline_summary: str,
+                             character_names: list[str]) -> list[dict]:
+    """콜 4 — 관계망(긴장·변화 포함)과 상호 연결된 세계관 설계."""
+    titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
+    title = titles[0] if titles else genre
+    names = ", ".join(character_names) or "(없음)"
+    user = f"""작품: {title}
+장르: {genre}
+줄거리 요약:
+{outline_summary}
+
+등장인물: {names}
+
+이 인물들을 기준으로 관계망과 세계관을 설계하라.
+
+[관계] 정확히 8쌍 이상
+- label은 2~6자(예: 주군-가신, 계약자-감시자)
+- note는 "현재 관계 + 1권에서 어떻게 변하는지" 2문장
+- 동맹만 쓰지 말 것 — 대립·오해·서로 모르는 숨은 과거를 포함
+- 주인공 관계뿐 아니라 조연 사이의 관계도 최소 2쌍
+- from·to는 위 등장인물 이름만 사용
+
+[세계관 로어북] 12~18개
+- category는 용어|장소|세력|기타
+- content는 2~3문장: 설정이 무엇인지 + 누구에게 유리하고 누구를 억눌렀는지 + 1권 목차의 어느 사건과 맞물리는지
+- keywords는 본문 자동 매칭용 — 인물 이름·호칭·약칭·장소 약칭을 반드시 포함
+- 인물 이름과 직결되는 항목 3개 이상, 서로 대립하는 진영의 시점 항목 2개 이상
+
+다음 JSON 형식으로 출력하라:
+{{"relationships": [{{"from": "이름", "to": "이름", "label": "2~6자", "note": "2문장"}}],
+ "lore_entries": [{{"category": "용어", "title": "항목 제목", "content": "2~3문장",
+  "keywords": ["키워드1", "키워드2"]}}]}}"""
     return [{"role": "system", "content": _SYSTEM_JSON},
             {"role": "user", "content": user}]
 
@@ -231,7 +275,7 @@ def _summarize_outline(chapters: list[OutlineChapter], volumes_index: dict) -> s
 def _coerce_characters(data: dict) -> list[OutlineCharacter]:
     chars: list[OutlineCharacter] = []
     seen: set[str] = set()
-    for c in _as_list(data.get("characters"))[:6]:
+    for c in _as_list(data.get("characters"))[:8]:
         if not isinstance(c, dict):
             continue
         name = _as_str(c.get("name"))
@@ -276,6 +320,8 @@ _FALLBACK_LORE_TEMPLATES = [
     ("용어", "고대의 각성"), ("용어", "금단의 문양"), ("장소", "시작의 마을"),
     ("장소", "무한의 탑"), ("세력", "정파 연합"), ("세력", "적대 세력"),
     ("기타", "세계 규칙: 대가의 법칙"), ("기타", "미회수 복선: 예언의 조각"),
+    ("용어", "금문(禁紋)의 계약"), ("장소", "경계의 협곡"),
+    ("세력", "정보를 파는 그림자 조합"), ("기타", "실패한 전승자의 유품"),
 ]
 
 _FALLBACK_CHAR_TEMPLATES = [
@@ -297,7 +343,7 @@ _FALLBACK_CHAR_TEMPLATES = [
 def _coerce_lore(data: dict) -> list[OutlineLore]:
     lore: list[OutlineLore] = []
     seen: set[str] = set()
-    for item in _as_list(data.get("lore_entries"))[:12]:
+    for item in _as_list(data.get("lore_entries"))[:18]:
         if not isinstance(item, dict):
             continue
         title = _as_str(item.get("title"))
@@ -543,18 +589,27 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         for v in _as_list(outline_data.get("volumes")) if isinstance(v, dict)
     })
 
-    world = await _call_json(
+    # 콜 3 — 캐릭터 심층 설계
+    characters_data = await _call_json(
         client, model,
-        _world_messages(genre, idea, summary), temperature,
+        _characters_messages(genre, idea, summary), temperature,
+        reasoning_effort=reasoning_effort)
+
+    # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
+    names = [c.get("name") for c in _as_list(characters_data.get("characters"))
+             if isinstance(c, dict) and _as_str(c.get("name"))]
+    rellore_data = await _call_json(
+        client, model,
+        _relations_lore_messages(genre, idea, summary, names), temperature,
         reasoning_effort=reasoning_effort)
 
     return {
         "titles": [_as_str(t) for t in _as_list(idea.get("titles"))][:5],
         "logline": _as_str(idea.get("logline")),
         "theme": _as_str(idea.get("theme")),
-        "characters": world.get("characters"),
-        "relationships": world.get("relationships"),
-        "lore_entries": world.get("lore_entries"),
+        "characters": characters_data.get("characters"),
+        "relationships": rellore_data.get("relationships"),
+        "lore_entries": rellore_data.get("lore_entries"),
         "volumes": outline_data.get("volumes"),
         "_outline_preview_summary": summary,
     }
