@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ShieldCheckIcon, CloudUploadIcon } from '@/components/ui/icons';
 import { useQuery } from '@tanstack/react-query';
-import { api, type AiEndpoint, type ChapterDetail, type PromptPreset } from '@/lib/api';
+import { api, type AiEndpoint, type ChapterDetail, type PromptPreset, volumeLabel } from '@/lib/api';
 import { streamGenerate } from '@/lib/aiStream';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useEditorStore } from '@/stores/editorStore';
@@ -115,10 +115,10 @@ export function AiPanel() {
         preset_id: store.presetId,
         prompt_override: store.promptOverride.trim() || null,
         context: {
-          chapter_id: c.chapterId,
-          character_ids: c.characterIds,
-          lore_ids: c.loreIds,
-          auto_lore: store.autoLore,
+          chapter_id: c.includeChapter ? c.chapterId : null,
+          character_ids: c.includeCharacters ? c.characterIds : [],
+          lore_ids: c.includeLore ? c.loreIds : [],
+          auto_lore: c.autoLore,
         },
         params: {
           model: store.model || undefined,
@@ -334,9 +334,7 @@ function ContextSection({
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
     enabled: chapterId !== null,
   });
-  const autoLore = useAiPanelStore((s) => s.autoLore);
-  const setAutoLore = useAiPanelStore((s) => s.setAutoLore);
-  const includeChapter = ctx.chapterId !== null;
+  const includeChapter = ctx.includeChapter && ctx.chapterId !== null;
   const charsCount = ctx.characterIds.length;
   const loreCount = ctx.loreIds.length;
 
@@ -345,24 +343,22 @@ function ContextSection({
       <h3 className="mb-2 text-xs font-semibold text-muted-foreground">포함 컨텍스트</h3>
       <div className="flex flex-col gap-1.5">
         <Checkbox
-          label={`현재 회차${chapter.data ? ` (${chapter.data.title.trim() || `${chapter.data.volume}권 ${chapter.data.id}화`})` : ''}`}
+          label={`현재 회차${chapter.data ? ` (${chapter.data.title.trim() || `${volumeLabel(chapter.data.volume)} ${chapter.data.id}화`})` : ''}`}
           checked={includeChapter}
           disabled={chapterId === null}
-          onChange={(e) =>
-            setContext({ chapterId: e.target.checked ? chapterId : null })
-          }
+          onChange={(e) => setContext({ includeChapter: e.target.checked })}
         />
         <Checkbox
           label={`선택 캐릭터 (${charsCount})`}
-          checked={charsCount > 0}
-          disabled
-          onChange={() => { /* S3 진입점에서 세팅 */ }}
+          checked={ctx.includeCharacters && charsCount > 0}
+          disabled={charsCount === 0}
+          onChange={(e) => setContext({ includeCharacters: e.target.checked })}
         />
         <Checkbox
           label={`선택 로어북 (${loreCount})`}
-          checked={loreCount > 0}
-          disabled
-          onChange={() => { /* S4 진입점에서 세팅 */ }}
+          checked={ctx.includeLore && loreCount > 0}
+          disabled={loreCount === 0}
+          onChange={(e) => setContext({ includeLore: e.target.checked })}
         />
         <Checkbox
           label="로어 자동 주입 (본문 언급 항목)"

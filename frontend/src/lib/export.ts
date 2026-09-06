@@ -5,7 +5,7 @@
  */
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
-import type { ChapterDetail } from './api';
+import { volumeSortKey, type ChapterDetail } from './api';
 
 const md = new MarkdownIt({ html: false, breaks: true });
 
@@ -46,10 +46,11 @@ export function exportProjectBundle(
   ext: 'txt' | 'md',
 ) {
   const sorted = [...chapters].sort(
-    (a, b) => a.volume - b.volume || a.sort_order - b.sort_order,
+    (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
   );
   const parts = sorted.map((ch) => {
-    const heading = `${ch.volume}권 ${ch.sort_order !== undefined ? '' : ''}${ch.title.trim() || `${ch.id}화`}`;
+    const volumePrefix = ch.volume != null ? `${ch.volume}권 ` : '';
+    const heading = `${volumePrefix}${ch.title.trim() || `${ch.id}화`}`;
     const body = ext === 'txt' ? mdToPlainText(ch.content_md) : ch.content_md;
     return ext === 'md'
       ? `# ${heading}\n\n${body}\n\n---\n\n`

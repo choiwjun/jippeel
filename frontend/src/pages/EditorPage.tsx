@@ -5,6 +5,7 @@ import { api, type Chapter, type ChapterDetail, type ChapterStatus } from '@/lib
 import { useEditorStore } from '@/stores/editorStore';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { countChars } from '@/lib/wordCount';
+import { volumeLabel, volumeSortKey } from '@/lib/api';
 import { exportChapter, exportProjectBundle } from '@/lib/export';
 import { CodeMirrorEditor } from '@/components/editor/CodeMirrorEditor';
 import { EditorPreview } from '@/components/editor/EditorPreview';
@@ -48,7 +49,7 @@ export function EditorPage() {
   useEffect(() => {
     if (chapterId === null && chaptersQuery.data && chaptersQuery.data.length > 0) {
       const first = [...chaptersQuery.data].sort(
-        (a, b) => a.volume - b.volume || a.sort_order - b.sort_order,
+        (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
       )[0];
       setContext(pid, first.id);
     }
@@ -208,7 +209,7 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
         {/* M-1 / FR-109 내보내기 (.txt/.md) — 현재 회차. 프로젝트 zip 묶음(JSZip)은 Sprint 4b */}
         <ExportMenu pid={pid} chapter={chapter} />
 
-        <Badge variant="secondary">{chapter.volume}권</Badge>
+        <Badge variant="secondary">{volumeLabel(chapter.volume)}</Badge>
       </div>
     </header>
   );
@@ -289,7 +290,7 @@ function EditorBody({ pid, chapterId }: { pid: number; chapterId: number }) {
       // 트리의 word_count_cache 갱신 (전체 invalidate로 포커스 뺏김 방지)
       queryClient.setQueryData<Chapter[]>(['chapters', pid], (old) =>
         old?.map((c) =>
-          c.id === chapterId ? { ...c, word_count_cache: countChars(text).noSpace } : c,
+          c.id === chapterId ? { ...c, word_count_cache: countChars(text).novelpia } : c,
         ),
       );
     } catch {
@@ -318,11 +319,14 @@ function EditorBody({ pid, chapterId }: { pid: number; chapterId: number }) {
       window.clearTimeout(countTimerRef.current);
       const text = latestTextRef.current;
       if (text !== null && useEditorStore.getState().saveState === 'dirty') {
-        // best-effort 동기 저장 — 페이지 이탈 잔여 변경 방지(NFR-204)
-        navigator.sendBeacon?.(
-          `/api/v1/chapters/${chapterId}/content`,
-          new Blob([JSON.stringify({ content_md: text })], { type: 'application/json' }),
-        );
+        // best-effort 저장 플러시 — 페이지 이탈 잔여 변경 방지(NFR-204).
+        // sendBeacon은 POST만 가능해 PUT 계약과 맞지 않으므로 keepalive fetch로 전송한다.
+        void fetch(`/api/v1/chapters/${chapterId}/content`, {
+          method: 'PUT',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content_md: text }),
+        }).catch(() => {});
       }
     };
   }, [chapterId]);

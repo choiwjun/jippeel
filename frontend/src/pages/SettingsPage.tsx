@@ -651,8 +651,46 @@ function AdvancedTab() {
                 onChange={(e) => setAutoSaveInterval(Number(e.target.value))} />
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        설정은 이 브라우저(localStorage)에 저장됩니다. 작품 데이터 백업·복원 기능은 추후 제공 예정입니다.
+      <BackupGuide />
+    </section>
+  );
+}
+
+
+// ---------------- 백업 안내 (A-039 — Q5 결정안: 파일 단위 수동 복사) ----------------
+interface DbInfo {
+  path: string;
+  exists: boolean;
+  size_bytes: number;
+  companion_files: string[];
+}
+
+function BackupGuide() {
+  const info = useQuery({
+    queryKey: ['db-info'],
+    queryFn: () => api.get<DbInfo>('/system/db-info'),
+  });
+
+  return (
+    <section className="rounded-md border border-border p-4">
+      <h2 className="mb-1 text-sm font-semibold">작품 데이터 백업·복원 (파일 단위)</h2>
+      <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+        모든 창작 데이터는 아래 SQLite 파일 하나에 저장됩니다. 안전한 백업을 위해
+        <strong className="mx-1 text-foreground">앱을 종료한 뒤</strong> 아래 파일들을 같은 폴더에 함께 복사하세요.
+        복원은 같은 위치에 파일을 넣고 앱을 다시 시작하면 됩니다.
+      </p>
+      {info.data ? (
+        <ul className="flex flex-col gap-1 text-xs">
+          <li className="break-all rounded-sm bg-background px-2 py-1 font-mono">{info.data.path}</li>
+          {info.data.companion_files.map((f) => (
+            <li key={f} className="break-all rounded-sm bg-background px-2 py-1 font-mono text-muted-foreground">{f}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">저장 위치를 불러오는 중…</p>
+      )}
+      <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+        ※ 앱 실행 중 파일을 복사하면 최신 변경분이 누락될 수 있습니다(-wal에 대기 중인 변경 보관).
       </p>
     </section>
   );

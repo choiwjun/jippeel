@@ -1,6 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Chapter } from '@/lib/api';
+import { api, type Chapter, volumeLabel, volumeSortKey } from '@/lib/api';
 import { useEditorStore } from '@/stores/editorStore';
 import { StatusBadge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -94,7 +94,7 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
   const toggleVolume = useEditorStore((s) => s.toggleVolume);
 
   const createChapter = useMutation({
-    mutationFn: (volume: number) =>
+    mutationFn: (volume: number | null) =>
       api.post<Chapter>(`/projects/${pid}/chapters`, {
         volume,
         title: '',
@@ -114,16 +114,18 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
   }
 
   // 권(volume) 단위 그룹핑 — FR-102
+  // null(권 없음) 회차는 0 키 그룹으로 모아 마지막에 표시한다
   const byVolume = new Map<number, Chapter[]>();
   for (const ch of [...chapters.data].sort(
-    (a, b) => a.volume - b.volume || a.sort_order - b.sort_order,
+    (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
   )) {
-    const list = byVolume.get(ch.volume) ?? [];
+    const key = ch.volume ?? 0;
+    const list = byVolume.get(key) ?? [];
     list.push(ch);
-    byVolume.set(ch.volume, list);
+    byVolume.set(key, list);
   }
 
-  const volumes = [...byVolume.keys()].sort((a, b) => a - b);
+  const volumes = [...byVolume.keys()].sort((a, b) => Number(a === 0) - Number(b === 0) || a - b);
 
   return (
     <div className="flex flex-col gap-0.5 px-1">
@@ -138,7 +140,7 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
               className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-muted"
             >
               <span className="inline-block w-3 text-muted-foreground">{expanded ? '▾' : '▸'}</span>
-              {volume}권
+              {volume === 0 ? '권 없음' : `${volume}권`}
             </button>
             {expanded &&
               byVolume.get(volume)!.map((ch) => (
@@ -165,7 +167,12 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
         size="sm"
         className="mt-2 justify-start"
         disabled={createChapter.isPending}
-        onClick={() => createChapter.mutate(volumes[volumes.length - 1] ?? 1)}
+        onClick={() =>
+        createChapter.mutate(
+          // 평면 구조(권 없음만 존재)면 새 회차도 권 없이 생성
+          chapters.data.some((c) => c.volume != null) ? (volumes[volumes.length - 1] || 1) : null,
+        )
+      }
       >
         + 회차 추가
       </Button>

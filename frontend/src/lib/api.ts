@@ -72,11 +72,22 @@ export interface ProjectCreate {
   platform_note?: string | null;
 }
 
+/** 권 표시 텍스트 — null(권 없음) 폴백 포함 */
+export function volumeLabel(volume: number | null | undefined): string {
+  return volume != null ? `${volume}권` : '권 없음';
+}
+
+/** 권 정렬 키 — null(권 없음)은 마지막에 배치 */
+export function volumeSortKey(volume: number | null | undefined): number {
+  return volume ?? Number.MAX_SAFE_INTEGER;
+}
+
 /** 회차 목록/트리용 (본문 제외) */
 export interface Chapter {
   id: number;
   project_id: number;
-  volume: number;
+  /** null = 권 없는 평면 회차 */
+  volume: number | null;
   sort_order: number;
   title: string;
   status: ChapterStatus;

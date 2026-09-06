@@ -17,6 +17,10 @@ export interface AiPanelState {
     chapterId: number | null;
     characterIds: number[];
     loreIds: number[];
+    /** 선택값을 실제 요청에 포함할지 — 패널 체크박스에서 토글 (R-023) */
+    includeChapter: boolean;
+    includeCharacters: boolean;
+    includeLore: boolean;
   };
   setContext: (c: Partial<AiPanelState['contextSelection']>) => void;
 
@@ -77,8 +81,25 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   mode: 'ai',
   setMode: (m) => set({ mode: m }),
 
-  contextSelection: { chapterId: null, characterIds: [], loreIds: [] },
-  setContext: (c) => set((s) => ({ contextSelection: { ...s.contextSelection, ...c } })),
+  contextSelection: {
+    chapterId: null,
+    characterIds: [],
+    loreIds: [],
+    includeChapter: false,
+    includeCharacters: false,
+    includeLore: false,
+  },
+  setContext: (c) =>
+    set((s) => ({
+      contextSelection: {
+        ...s.contextSelection,
+        ...c,
+        // S3/S4 등에서 새 선택을 주입하면 자동 포함 — 패널에서 끈 상태는 유지
+        includeChapter: c.chapterId !== undefined && c.chapterId !== null ? true : s.contextSelection.includeChapter,
+        includeCharacters: c.characterIds !== undefined && c.characterIds.length > 0 ? true : s.contextSelection.includeCharacters,
+        includeLore: c.loreIds !== undefined && c.loreIds.length > 0 ? true : s.contextSelection.includeLore,
+      },
+    })),
 
   autoLore: false,
   setAutoLore: (v) => set({ autoLore: v }),
