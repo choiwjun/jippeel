@@ -307,3 +307,96 @@ def test_foreshadow_match_endpoint(client, project, chapter):
     # 존재하지 않는 회차 → 404
     assert client.get(f"/api/v1/projects/{pid}/foreshadows/match",
                       params={"chapter_id": 99999}).status_code == 404
+
+
+# ---------- G-070 시맨틱 로어 하이브리드 ----------
+def test_semantic_hybrid_catches_morphological_variant(client, monkeypatch, project, chapter):
+    """키워드 미등장 + 2-gram 유사도만으로 매칭되는 케이스 — v1은 놓치고 v2는 잡는다."""
+    from app.services import semantic
+    # 단위: 순수 함수 검증
+    assert semantic.semantic_score("그 펜던트가 빛났다", "은빛 펜던트의 비밀") > \
+           semantic.semantic_score("완전히 다른 이야기다", "은빛 펜던트의 비밀")
+
+    from app.routers import ai_panel
+    holder = {"client": None}
+    spec = {"chunks": list(DEFAULT_CHUNKS), "exc": None}
+
+    def _make_client(base_url, api_key_encrypted):
+        holder["client"] = FakeAsyncOpenAI(base_url=base_url, api_key="x", spec=spec)
+        return holder["client"]
+
+    monkeypatch.setattr(ai_panel.llm, "make_client", _make_client)
+    _make_client("http://x/v1", None)
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+
+    pid = project["id"]
+    # v1 매칭 실패 케이스: 키워드 "흑염술"이 본문에 없고, 본문은 "흑염의 술식"을 언급
+    client.post(f"/api/v1/projects/{pid}/lore", json={
+        "category": "용어", "title": "흑염술", "keywords": ["흑염술"],
+        "content": "검은 불꽃을 다루는 술식"})
+    client.post(f"/api/v1/projects/{pid}/lore", json={
+        "category": "장소", "title": "남쪽 바다", "keywords": ["남쪽 바다"],
+        "content": "바다의 끝"})
+    client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
+        "content_md": "그는 흑염의 술식을 손끝으로 모았다."})
+
+    # v1(키워드만) — 미매칭
+    client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "써줘",
+        "context": {"chapter_id": chapter["id"], "auto_lore": True}})
+    user_text = holder["client"].last_kwargs["messages"][-1]["content"]
+    assert "흑염술" not in user_text
+
+    # v2(하이브리드) — 2-gram 유사도로 매칭
+    client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "써줘",
+        "context": {"chapter_id": chapter["id"], "auto_lore": True,
+                    "auto_lore_semantic": True}})
+    user_text = holder["client"].last_kwargs["messages"][-1]["content"]
+    assert "[세계관(자동): 흑염술]" in user_text
+
+
+# ---------- G-048 복선 회수 리마인드 ----------
+def test_foreshadow_reminder(client, project):
+    pid = project["id"]
+    f1 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
+        "title": "오래 잊힌 복선", "keywords": ["잊힌 복선"]}).json()
+    f2 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
+        "title": "방금 복선", "keywords": ["방금 복선"]}).json()
+    chapters = []
+    for i in range(7):
+        ch = client.post(f"/api/v1/projects/{pid}/chapters",
+                         json={"title": f"{i + 1}화", "sort_order": float(i)}).json()
+        content = "방금 복선이 등장한다." if i == 6 else f"{i + 1}화 본문"
+        client.put(f"/api/v1/chapters/{ch['id']}/content",
+                   json={"content_md": content})
+        chapters.append(ch)
+
+    body = client.get(f"/api/v1/projects/{pid}/foreshadows/reminder?window=5").json()
+    assert body["latest_chapter"]["title"] == "7화"
+    by_id = {r["id"]: r for r in body["items"]}
+    assert by_id[f1["id"]]["stale"] is True
+    assert by_id[f1["id"]]["chapters_since_mentioned"] is None  # 한 번도 미언급
+    assert by_id[f2["id"]]["stale"] is False                    # 직전 화에 언급
+    assert by_id[f2["id"]]["chapters_since_mentioned"] == 0
+
+    # 회수 상태는 리마인드 대상 제외
+    client.patch(f"/api/v1/foreshadows/{f1['id']}", json={"status": "회수"})
+    body = client.get(f"/api/v1/projects/{pid}/foreshadows/reminder").json()
+    assert all(r["id"] != f1["id"] for r in body["items"])
+
+
+# ---------- G-071 metrics_v2 연동 ----------
+def test_quality_merges_metrics_v2_when_available(client, project, chapter):
+    """im-not-ai 스킬이 있는 환경에서 metrics.v2가 병합된다(없으면 생략 — 둘 다 허용)."""
+    from app.services import quality as quality_service
+    quality_service._metrics_v2_loaded = False  # 모듈 캐시 리셋
+    client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
+        "content_md": "「비켜라.」\n\n칼이 번개처럼 빠졌다. 그러나 그는 조용했다."})
+    r = client.get(f"/api/v1/chapters/{chapter['id']}/quality?record=false").json()
+    if quality_service._metrics_v2_module is not None:
+        assert "v2" in r["metrics"]
+        assert "risk_band" in r["metrics"]["v2"]
+    else:
+        assert "v2" not in r["metrics"]  # 스킬 미설치 환경 — 폴백 동작

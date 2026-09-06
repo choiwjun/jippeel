@@ -12,9 +12,16 @@
 외부 의존 0(순수 규칙)이므로 결정적·테스트 가능하다.
 metrics_v2(im-not-ai) 정량 엔진 재사용은 후속 경로.
 """
+import importlib.util
+import logging
+import os
 import re
+import sys
+from pathlib import Path
 
 from app.services.wordcount import count_novelpia_chars
+
+logger = logging.getLogger(__name__)
 
 _DIALOGUE_RE = re.compile(r'[“"『「]([^”"』」]{1,200}?)[”"』」]')
 CONNECTORS = ("그러나", "하지만", "한편", "그리고", "그래서", "그런데")
@@ -129,8 +136,66 @@ def score_and_suggest(metrics: dict) -> tuple[int, list[str], list[str]]:
 
 
 def analyze_chapter(text: str) -> dict:
-    """라우터용 편의 함수 — analyze_text + score_and_suggest 통합."""
+    """라우터용 편의 함수 — analyze_text + score_and_suggest 통합 (+metrics_v2)."""
     metrics = analyze_text(text)
     score, suggestions, presets = score_and_suggest(metrics)
+    v2 = try_metrics_v2(text)
+    if v2:
+        metrics["v2"] = v2
     return {"score": score, "metrics": metrics,
             "suggestions": suggestions, "suggested_preset_names": presets}
+
+
+# --------------------------------------------------------------------------
+# im-not-ai metrics_v2 연동 (고도화 G-071 — "선택 적용" 패턴, 부록05 §⑤-4와 동일)
+#
+# ~/.agents/im-not-ai 스킬이 있으면 정량 엔진(v1 8지표+이질성)을 병합한다.
+# 표준 라이브러리 전용 모듈이므로 venv 오염 없음(기술설계 A3 실측 참조).
+# 없으면 조용히 스킵 — 로컬 규칙 지표만으로 동작한다.
+# --------------------------------------------------------------------------
+
+_METRICS_DIR = Path(os.environ.get(
+    "IM_NOT_AI_METRICS_DIR",
+    str(Path.home() / ".agents" / "im-not-ai" / "skills" / "humanize-korean" / "references"),
+))
+_metrics_v2_module = None
+_metrics_v2_loaded = False
+
+
+def try_metrics_v2(text: str) -> dict | None:
+    """metrics_v2.compute_all_v2 결과를 반환. 스킬 미설치/실패 시 None."""
+    global _metrics_v2_module, _metrics_v2_loaded
+    if not _metrics_v2_loaded:
+        _metrics_v2_loaded = True
+        module_path = _METRICS_DIR / "metrics_v2.py"
+        if not module_path.is_file():
+            logger.info("metrics_v2 미설치 — 로컬 규칙 지표만 사용 (%s)", module_path)
+        else:
+            try:
+                if str(_METRICS_DIR) not in sys.path:
+                    sys.path.insert(0, str(_METRICS_DIR))
+                spec = importlib.util.spec_from_file_location(
+                    "jippeel_metrics_v2", module_path)
+                mod = importlib.util.module_from_spec(spec)
+                assert spec.loader is not None
+                spec.loader.exec_module(mod)
+                _metrics_v2_module = mod
+                logger.info("metrics_v2 로드 완료 — 품질 진단에 정량 엔진 병합")
+            except Exception as exc:  # noqa: BLE001 — 폴백 보장
+                logger.warning("metrics_v2 로드 실패(폴백): %s", exc)
+    if _metrics_v2_module is None:
+        return None
+    try:
+        result = _metrics_v2_module.compute_all_v2(text or "", genre="essay")
+        if isinstance(result, dict):
+            return result
+        # 반환은 dataclass/namedtuple — dict로 정규화해 JSON 직렬화 가능하게
+        if hasattr(result, "_asdict"):
+            return result._asdict()
+        if hasattr(result, "__dict__"):
+            return {k: v for k, v in vars(result).items()
+                    if isinstance(v, (int, float, str, bool, list, dict, type(None)))}
+        return None
+    except Exception as exc:  # noqa: BLE001 — 진단은 절대 크래시하지 않는다
+        logger.warning("metrics_v2 계산 실패(폴백): %s", exc)
+        return None

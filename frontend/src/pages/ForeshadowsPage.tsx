@@ -38,6 +38,22 @@ interface SuggestCandidate {
   keywords: string[] | null;
 }
 
+/** G-048 회수 리마인드 응답 */
+interface ReminderItem {
+  id: number;
+  title: string;
+  content: string | null;
+  chapters_since_mentioned: number | null;
+  last_mentioned_chapter_title: string | null;
+  stale: boolean;
+}
+
+interface ReminderResponse {
+  window: number;
+  latest_chapter: { id: number; title: string } | null;
+  items: ReminderItem[];
+}
+
 const STATUSES: Foreshadow['status'][] = ['설치', '회수', '보류'];
 const statusVariant: Record<Foreshadow['status'], string> = {
   설치: 'text-warning',
@@ -65,6 +81,13 @@ export function ForeshadowsPage() {
     queryKey: ['chapters', pid],
     queryFn: () => api.get<ChapterMeta[]>(`/projects/${pid}/chapters`),
   });
+  // G-048 — 미회수 복선 회수 리마인드 (최근 5화 기준)
+  const reminderQuery = useQuery({
+    queryKey: ['foreshadow-reminder', pid],
+    queryFn: () => api.get<ReminderResponse>(`/projects/${pid}/foreshadows/reminder?window=5`),
+    enabled: foreshadowsQuery.isSuccess,
+  });
+  const staleItems = (reminderQuery.data?.items ?? []).filter((r) => r.stale);
   const all = foreshadowsQuery.data ?? [];
   const rows = useMemo(
     () => (filter ? all.filter((f) => f.status === filter) : all),
@@ -156,6 +179,28 @@ export function ForeshadowsPage() {
           ))}
         </div>
       </header>
+
+      {/* G-048 회수 리마인드 */}
+      {staleItems.length > 0 && (
+        <section className="rounded-md border border-warning/40 bg-warning/5 p-3">
+          <h2 className="mb-1 text-sm font-semibold">⏳ 회수 리마인드 — 최근 {(reminderQuery.data?.window ?? 5)}화 동안 언급 없음</h2>
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            설치 상태인데 오래 잊힌 복선입니다. 회수할지·유예할지(상태를 '보류'로)는 작가가 판단하세요.
+          </p>
+          <ul className="flex flex-col gap-1">
+            {staleItems.map((r) => (
+              <li key={r.id} className="text-xs">
+                · <span className="font-medium">{r.title}</span>
+                <span className="text-muted-foreground">
+                  {r.chapters_since_mentioned === null
+                    ? ' — 본문에 한 번도 언급되지 않음'
+                    : ` — 마지막 언급: ${r.last_mentioned_chapter_title ?? '?'}(${r.chapters_since_mentioned}화 전)`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* 등록 폼 */}
       <section className="rounded-md border border-border p-3">

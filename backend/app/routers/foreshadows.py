@@ -30,6 +30,62 @@ _SUGGEST_SYSTEM = (
 )
 
 
+@router.get("/projects/{pid}/foreshadows/reminder")
+def foreshadow_reminder(pid: int, window: int = 5, db: Session = Depends(get_db)):
+    """미회수 복선 회수 리마인드 (고도화 G-048).
+
+    '설치' 상태 복선 각각에 대해 본문 마지막 언급 회차를 스캔해,
+    최근 window화 동안 언급이 없으면(또는 한 번도 언급 없으면) stale=true로
+    반환한다. "뒤로 갈수록 복선을 잊는" 장편 연재의 최대 리스크에 대한 알림 —
+    조치는 작가가 판단한다(자동 회수·수정 없음).
+    """
+    _get_project_or_404(pid, db)
+    window = max(min(window, 50), 1)
+    foreshadows = db.scalars(
+        select(Foreshadow).where(Foreshadow.project_id == pid,
+                                 Foreshadow.status == "설치")
+        .order_by(Foreshadow.created_at)).all()
+    chapters = db.scalars(
+        select(Chapter).where(Chapter.project_id == pid)
+        .order_by(Chapter.sort_order)).all()
+    if not foreshadows:
+        return {"window": window, "latest_chapter": None, "items": []}
+
+    latest = chapters[-1]
+    latest_pos = len(chapters) - 1
+
+    def last_mentioned_pos(row: Foreshadow) -> int | None:
+        terms = [(row.title or "").strip()] + [
+            k.strip() for k in (row.keywords or [])
+            if isinstance(k, str) and len(k.strip()) >= injection._MIN_TERM_LEN]
+        terms = [t for t in terms if t]
+        for pos in range(len(chapters) - 1, -1, -1):  # 최신부터 스캔
+            content = chapters[pos].content_md or ""
+            if any(injection._occurrences(content, t) > 0 for t in terms):
+                return pos
+        return None
+
+    items = []
+    for row in foreshadows:
+        pos = last_mentioned_pos(row)
+        if pos is None:
+            since = None  # 한 번도 언급 없음
+        else:
+            since = latest_pos - pos
+        items.append({
+            "id": row.id,
+            "title": row.title,
+            "content": row.content,
+            "planted_chapter_id": row.planted_chapter_id,
+            "last_mentioned_chapter_id": chapters[pos].id if pos is not None else None,
+            "last_mentioned_chapter_title": chapters[pos].title if pos is not None else None,
+            "chapters_since_mentioned": since,
+            "stale": since is None or since > window,
+        })
+    return {"window": window,
+            "latest_chapter": {"id": latest.id, "title": latest.title}, "items": items}
+
+
 @router.get("/projects/{pid}/foreshadows/match")
 def match_foreshadows(pid: int, chapter_id: int, db: Session = Depends(get_db)):
     """본문에 언급된 복선 매칭 (고도화 G-047).

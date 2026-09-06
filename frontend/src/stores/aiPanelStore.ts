@@ -23,6 +23,8 @@ export interface AiPanelState {
     includeLore: boolean;
     /** 본문 키워드와 일치하는 로어 자동 포함 (백로그 P1) */
     autoLore: boolean;
+    /** 시맨틱 매칭 강화 (G-070) — 2-gram 코사인 하이브리드 랭킹 */
+    autoLoreSemantic: boolean;
     /** 목차 자동 포함 (G-001) — 현재 회차 시놉시스·다음 회차 방향 */
     autoOutline: boolean;
     /** 미회수 복선 자동 포함 (G-022) */
@@ -105,6 +107,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     includeCharacters: false,
     includeLore: false,
     autoLore: true,
+    autoLoreSemantic: false,
     autoOutline: true,
     autoForeshadow: true,
     sceneId: null,

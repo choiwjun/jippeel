@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import LoreEntry
+from app.services.semantic import hybrid_score
 
 _TITLE_WEIGHT = 3
 _KEYWORD_WEIGHT = 2
@@ -54,3 +55,34 @@ def select_lore_for_text(db: Session, project_id: int, text: str,
     ).all()
     scored = score_entries(entries, text)
     return [entry for entry, _score in scored[:max(limit, 0)]]
+
+
+def select_lore_for_text_hybrid(db: Session, project_id: int, text: str,
+                                limit: int = 6,
+                                semantic_weight: float = 0.5) -> list[LoreEntry]:
+    """시맨틱 강화 로어 선정 (고도화 G-070 — 부록06 §4 하이브리드 설계).
+
+    v1 키워드 점수(정규화) + 문자 2-gram 코사인 점수를 합산해 상위 limit개.
+    v1만으로는 못 잡는 형태소 변형·부분 지칭("그 펜던트")을 보강한다.
+    ONNX 임베딩 도입 시 semantic.semantic_score만 교체하면 된다.
+    """
+    text = text or ""
+    if not text.strip():
+        return []
+    entries = db.scalars(
+        select(LoreEntry).where(LoreEntry.project_id == project_id)
+    ).all()
+    scored = score_entries(entries, text)
+    score_map = {entry.id: s for entry, s in scored}
+    keyword_norm = max((s for _e, s in scored), default=0)
+    hybrid = []
+    for entry in entries:
+        doc = " ".join(x for x in [entry.title, entry.content or "",
+                                   " ".join(entry.keywords or [])] if x)
+        hs = hybrid_score(score_map.get(entry.id, 0), text, doc,
+                          keyword_norm, semantic_weight)
+        # v1에서 점수가 있었거나 시맨틱 유사도가 의미 있는 항목만
+        if hs > 0.05:
+            hybrid.append((entry, hs))
+    hybrid.sort(key=lambda pair: (-pair[1], pair[0].id))
+    return [entry for entry, _s in hybrid[:max(limit, 0)]]

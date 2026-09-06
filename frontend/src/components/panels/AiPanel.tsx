@@ -116,6 +116,7 @@ export function AiPanel() {
           character_ids: c.includeCharacters ? c.characterIds : [],
           lore_ids: c.includeLore ? c.loreIds : [],
           auto_lore: c.autoLore,
+          auto_lore_semantic: c.autoLoreSemantic,
           auto_outline: c.autoOutline,
           auto_foreshadow: c.autoForeshadow,
           scene_id: c.sceneId,
@@ -402,6 +403,12 @@ function ContextSection({
           checked={ctx.autoLore}
           disabled={chapterId === null}
           onChange={(e) => setContext({ autoLore: e.target.checked })}
+        />
+        <Checkbox
+          label="시맨틱 매칭 강화 (형태소 변형·대명사 지칭 보완)"
+          checked={ctx.autoLoreSemantic}
+          disabled={chapterId === null || !ctx.autoLore}
+          onChange={(e) => setContext({ autoLoreSemantic: e.target.checked })}
         />
         <Checkbox
           label="목차 자동 포함 (시놉시스·다음 화 방향)"

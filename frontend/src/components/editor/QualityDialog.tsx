@@ -22,6 +22,8 @@ export interface QualityMetrics {
   para_opener_variety: number;
   hook_present: boolean;
   para_count: number;
+  /** im-not-ai 정량 엔진 병합분 (G-071) — 스킬 미설치 시 없음 */
+  v2?: { risk_band?: string; risk_score?: number };
 }
 
 export interface ChapterQuality {
@@ -168,6 +170,13 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
               <div className="flex justify-between"><dt className="text-muted-foreground">후크(끝 300자)</dt><dd>{q.metrics.hook_present ? '있음' : '없음'}</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">공백제외 글자</dt><dd>{q.metrics.chars_novelpia.toLocaleString()}자</dd></div>
             </dl>
+            {q.metrics.v2?.risk_band && (
+              <p className="text-[11px] text-muted-foreground">
+                정량 엔진(metrics_v2) 리스크 밴드: <span className="font-semibold">{q.metrics.v2.risk_band}</span>
+                {q.metrics.v2.risk_score !== undefined ? ` · 점수 ${q.metrics.v2.risk_score}` : ''}
+                <span className="ml-1">(comma·어휘 다양성·수동태 등)</span>
+              </p>
+            )}
             {/* G-061 점수 추이 */}
             {history.length >= 2 ? (
               <div className="rounded-md border border-border p-2">

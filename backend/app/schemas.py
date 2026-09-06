@@ -298,6 +298,8 @@ class GenerateContext(BaseModel):
     # 로어북 자동 주입 (백로그 P1) — chapter가 없으면 project_id로 프로젝트 판별
     auto_lore: bool = False
     auto_lore_limit: int = Field(default=6, ge=1, le=20)
+    # 시맨틱 매칭 강화 (고도화 G-070) — 2-gram 코사인 하이브리드 랭킹
+    auto_lore_semantic: bool = False
     project_id: int | None = Field(default=None, description="chapter 없이 auto_lore 사용 시 프로젝트 지정")
     # 직전 회차 끝부분 자동 포함 (백로그 — 이어쓰기 맥락 유지)
     previous_chapter: bool = False

@@ -188,8 +188,13 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
     if ctx.auto_lore and project_id is not None:
         if payload.prompt_override:
             source_parts.append(payload.prompt_override)
-        selected = injection.select_lore_for_text(
-            db, project_id, "\n".join(source_parts), limit=ctx.auto_lore_limit)
+        if ctx.auto_lore_semantic:
+            # G-070 시맨틱 하이브리드 — v1 점수 + 2-gram 코사인 랭킹
+            selected = injection.select_lore_for_text_hybrid(
+                db, project_id, "\n".join(source_parts), limit=ctx.auto_lore_limit)
+        else:
+            selected = injection.select_lore_for_text(
+                db, project_id, "\n".join(source_parts), limit=ctx.auto_lore_limit)
         exclude = set(ctx.lore_ids or [])
         for entry in selected:
             if entry.id in exclude:
