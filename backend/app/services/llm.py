@@ -9,7 +9,7 @@ import openai
 
 from app.services.crypto import get_cipher
 
-REQUEST_TIMEOUT = 120.0  # 초 — 로컬 LLM 첫 토큰 지연 감안
+REQUEST_TIMEOUT = 600.0  # 초 — 로컬 LLM 첫 토큰 지연·추론 모델(xhigh 등)의 사고 시간 감안
 
 
 def make_client(base_url: str, api_key_encrypted: str | None) -> openai.AsyncOpenAI:
