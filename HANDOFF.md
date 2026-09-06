@@ -375,4 +375,11 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 
 **✅ 부트스트랩 권 개요 동시 생성 + 복선 본문 매칭 (G-050 확장·G-047, 커밋 26855d2)**: ① 부트스트랩 콜 2가 권 개요·감정 곡선·고봉을 함께 생성해 volume_notes 저장(폴백 포함, 결과 Dialog에 안내) ② `GET /projects/{pid}/foreshadows/match` — 본문에 언급된 복선 배지를 AI 패널에 표시(로어 주입과 동일 매칭 방식). 백로그 2건 제거. 검증: pytest 168 / E2E 9/9 / 실호출 스모크
 
-**다음 백로그 후보**: 미등장 복선 회수 리마인드(매칭 확장), 임베딩 로어 검색 v2, metrics_v2 연동, 실기기 수동 QA(NVDA·성능 계측·Windows keyring), qwen 키 갱신(사용자)
+**✅ 고도화 v3 (커밋 3960300, 2026-09-06): 시맨틱 로어 v2·metrics_v2·복선 리마인드·수동 QA 가이드**
+- G-070 시맨틱 로어 v2: `services/semantic.py`(문자 2-gram 코사인, 제로디펜던시) — 부록06 §4 하이브리드 설계의 근사 구현. `auto_lore_semantic` 플래그(AI 패널 체크박스)로 형태소 변형·대명사 지칭 보완. ONNX 임베딩 교체 지점: `semantic.semantic_score` 인터페이스만 유지하면 됨
+- G-071 metrics_v2 연동: 품질 진단에 im-not-ai 정량 엔진 병합 — "선택 적용" 패턴(스킬 `~/.agents/im-not-ai` 있으면 metrics.v2 병합+risk_band 표시, 없으면 폴백). IM_NOT_AI_METRICS_DIR 환경변수로 경로 오버라이드
+- G-048 복선 회수 리마인드: `GET /foreshadows/reminder?window=5` — 설치 복선의 마지막 언급 회차 전수 스캔 → 최근 window화 미언급/무언급 = stale. 복선 페이지 상단 리마인드 카드
+- `QA_수동검증_가이드.md` 신설 — TC-302(DPAPI PowerShell 원라이너)·TC-401~405(성능 계측 절차)·TC-503~505(NVDA 체크리스트)·시니어 모드 판정 자료. 실기기에서 표 채우기만 하면 pending-manual 전량 소화
+- 검증: pytest **171 passed** / build / E2E 9/9 / 실호출 스모크(reminder stale 판정·v2 risk_band 병합) 통과
+
+**다음 백로그 후보**: ONNX 임베딩 교체(semantic_score 인터페이스 — 모델 파일 다운로드 필요), 실기기 수동 QA 실행(가이드 준비 완료 — 사용자 실행), qwen 키 갱신(사용자)
