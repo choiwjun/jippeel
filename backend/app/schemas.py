@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 ChapterStatus = Literal["초고", "수정중", "완료"]
 
@@ -356,6 +356,44 @@ class GenerateReviewOptions(BaseModel):
     model: str | None = Field(default=None, max_length=255)
     reasoning_effort: str | None = Field(default=None, max_length=20)
     max_tokens: int | None = Field(default=None, ge=1)
+
+
+class ParallelScenePlan(BaseModel):
+    """Medium planner가 반환하는 한 장면의 집필 계약."""
+
+    order: int = Field(ge=1, le=4)
+    title: BriefText
+    purpose: BriefText
+    required_beats: list[BriefText] = Field(min_length=1, max_length=5)
+    characters: list[BriefText] = Field(min_length=1, max_length=8)
+    opening_state: BriefText
+    closing_hook: BriefText
+
+
+class ParallelPlan(BaseModel):
+    """병렬 집필 planner 결과 — 2~4개 연속 장면."""
+
+    scenes: list[ParallelScenePlan] = Field(min_length=2, max_length=4)
+
+    @model_validator(mode="after")
+    def validate_contiguous_orders(self):
+        orders = [scene.order for scene in self.scenes]
+        if orders != list(range(1, len(orders) + 1)):
+            raise ValueError("scene orders must be contiguous from 1")
+        return self
+
+
+class ParallelGenerateRequest(BaseModel):
+    """Medium 장면 병렬 집필 + xhigh 전체 감수 요청."""
+
+    endpoint_id: int
+    prompt_override: str | None = None
+    context: GenerateContext = Field(default_factory=GenerateContext)
+    params: GenerateParams = Field(default_factory=GenerateParams)
+    worker_limit: int = Field(default=3, ge=2, le=4)
+    generation_reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh"] = "medium"
+    review: GenerateReviewOptions = Field(
+        default_factory=lambda: GenerateReviewOptions(reasoning_effort="xhigh"))
 
 
 class GenerateRequest(BaseModel):
