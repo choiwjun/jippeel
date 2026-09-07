@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from app.schemas import ParallelScenePlan
+from app.schemas import ParallelPlan, ParallelScenePlan
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,25 @@ class SceneResult:
 SceneWorker = Callable[[ParallelScenePlan], Awaitable[SceneResult]]
 
 
+
+
+def parse_parallel_plan(raw: str) -> ParallelPlan:
+    """planner의 JSON 응답을 코드펜스 허용 방식으로 검증한다."""
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        first_nl = text.find("\n")
+        if first_nl >= 0:
+            text = text[first_nl + 1:]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[:-3].strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError("parallel planner JSON object not found")
+    try:
+        data = json.loads(text[start:end + 1])
+    except json.JSONDecodeError as exc:
+        raise ValueError("parallel planner JSON is invalid") from exc
+    return ParallelPlan.model_validate(data)
 def assemble_scene_results(results: list[SceneResult]) -> str:
     """worker 완료 순서와 무관하게 장면 번호 순서로 조립한다."""
     if not results:

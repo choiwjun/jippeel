@@ -4,6 +4,7 @@
 - PromptPreset CRUD
 - POST /ai/generate — openai SDK(base_url 오버라이드) SSE 스트리밍 (FR-405)
 """
+import asyncio
 import inspect
 import json
 
@@ -21,11 +22,12 @@ from app.schemas import (
     AiEndpointUpdate,
     EpisodeBrief,
     GenerateRequest,
+    ParallelGenerateRequest,
     PromptPresetCreate,
     PromptPresetOut,
     PromptPresetUpdate,
 )
-from app.services import injection, llm, usage as usage_service
+from app.services import injection, llm, parallel_writer, usage as usage_service
 
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
 # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
@@ -76,6 +78,15 @@ REVIEW_SYSTEM_PROMPT = (
     "분량은 초안과 비슷하게 유지하고, 좋은 부분은 함부로 바꾸지 않는다. 브리프와 작품 설정 밖의 사실을 새로 만들지 않는다."
 )
 REVIEW_MARKER = "[수정본]"  # 감수 의견 → 수정본 전환 지점 (라인 단위 매칭)
+PARALLEL_REVIEW_SYSTEM_PROMPT = (
+    "너는 한국 웹소설 편집장이다. 아래 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼 "
+    "다섯 관점에서 감수하라.\n"
+    "[출력 형식]\n"
+    "[감수]\n"
+    "- 중요한 문제만 3~7개. 원문 위치, 근거, 이유, 수정 제안을 한국어로 간결하게 쓴다.\n"
+    "[수정본] 섹션은 출력하지 마라. 원고를 다시 쓰거나 자동 수정하지 마라.\n"
+    "컨텍스트와 장면 계약 밖의 사실을 새로 만들지 마라."
+)
 
 router = APIRouter()
 
@@ -599,4 +610,192 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                         completion_chars=review_chars)
         yield {"event": "done", "data": "[DONE]"}
 
+    return EventSourceResponse(event_stream())
+
+
+# ---------- 병렬 장면 집필 스트리밍 ----------
+@router.post("/ai/generate-parallel")
+async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depends(get_db)):
+    """Medium planner/worker 병렬 집필 후 xhigh 감수만 수행한다."""
+    endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
+    base_payload = GenerateRequest(
+        endpoint_id=payload.endpoint_id,
+        prompt_override=payload.prompt_override,
+        context=payload.context,
+        params=payload.params,
+    )
+    _, base_messages, injected_lore, injected_outline, injected_foreshadows = _build_messages(
+        base_payload, db)
+    model = _resolve_model(endpoint, payload.params.model)
+    temperature = payload.params.temperature
+    if temperature is None:
+        temperature = endpoint.temperature
+    generation_client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+
+    reviewer = _get_endpoint_or_404(payload.review.endpoint_id or endpoint.id, db)
+    reviewer_model = _resolve_model(reviewer, payload.review.model)
+    reviewer_effort = payload.review.reasoning_effort or "xhigh"
+    reviewer_client = (llm.make_client(reviewer.base_url, reviewer.api_key_encrypted)
+                       if reviewer.id != endpoint.id else generation_client)
+
+    planner_system = (
+        "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
+        "2~4개 장면으로 나누고, 장면 order는 1부터 연속이어야 한다.\n"
+        "각 장면에는 title, purpose, required_beats, characters, opening_state, closing_hook을 포함하라.\n"
+        "정본 컨텍스트와 브리프 밖의 사건·고유명사를 새로 만들지 마라."
+    )
+    planner_instruction = (
+        f"{base_messages[-1]['content']}\n\n"
+        "[병렬 Planner — 장면 계약 생성]\n"
+        "현재 회차를 2~4개 장면으로 분해하라. 각 worker는 자기 계약만 집필한다.\n"
+        '{"scenes":[{"order":1,"title":"...","purpose":"...",'
+        '"required_beats":["..."],"characters":["..."],'
+        '"opening_state":"...","closing_hook":"..."}]} 형식만 출력하라.'
+    )
+
+    async def event_stream():
+        yield {
+            "event": "parallel_start",
+            "data": json.dumps({
+                "model": model,
+                "generation_reasoning_effort": payload.generation_reasoning_effort,
+                "review_model": reviewer_model,
+                "review_endpoint": reviewer.name,
+                "review_reasoning_effort": reviewer_effort,
+                "worker_limit": payload.worker_limit,
+                "injected_lore": injected_lore,
+                "injected_outline": injected_outline,
+                "injected_foreshadows": injected_foreshadows,
+            }, ensure_ascii=False),
+        }
+        try:
+            planner_messages = [
+                {"role": "system", "content": planner_system},
+                {"role": "user", "content": planner_instruction},
+            ]
+            planner_raw = await llm.complete_chat(
+                generation_client, model, planner_messages,
+                temperature=temperature,
+                max_tokens=payload.params.max_tokens,
+                reasoning_effort=payload.generation_reasoning_effort,
+            )
+            plan = parallel_writer.parse_parallel_plan(planner_raw)
+            yield {
+                "event": "planner_done",
+                "data": json.dumps({
+                    "scene_count": len(plan.scenes),
+                    "scenes": [{"order": s.order, "title": s.title} for s in plan.scenes],
+                }, ensure_ascii=False),
+            }
+            for scene in plan.scenes:
+                yield {
+                    "event": "worker_start",
+                    "data": json.dumps({"order": scene.order, "title": scene.title},
+                                       ensure_ascii=False),
+                }
+
+            async def run_scene(scene):
+                contract = json.dumps(scene.model_dump(), ensure_ascii=False)
+                worker_prompt = (
+                    f"{base_messages[-1]['content']}\n\n"
+                    "[병렬 Worker — 자기 장면만 집필]\n"
+                    f"[장면 계약]\n{contract}\n"
+                    "앞 장면의 opening_state에서 시작하고 closing_hook으로 끝내라. "
+                    "다른 장면을 대신 쓰지 말고, 정본 컨텍스트 밖의 사실을 만들지 마라. "
+                    "원고 본문만 출력하라."
+                )
+                worker_messages = [
+                    {"role": "system", "content": NOVEL_SYSTEM_PROMPT},
+                    {"role": "user", "content": worker_prompt},
+                ]
+                text = await llm.complete_chat(
+                    generation_client, model, worker_messages,
+                    temperature=temperature,
+                    max_tokens=payload.params.max_tokens,
+                    reasoning_effort=payload.generation_reasoning_effort,
+                )
+                return parallel_writer.SceneResult(
+                    order=scene.order, title=scene.title, text=text,
+                )
+
+            results = await parallel_writer.run_parallel_workers(
+                plan.scenes, run_scene, payload.worker_limit,
+            )
+            for result in results:
+                yield {
+                    "event": "worker_done",
+                    "data": json.dumps({
+                        "order": result.order,
+                        "title": result.title,
+                        "chars": len(result.text),
+                    }, ensure_ascii=False),
+                }
+            assembled = parallel_writer.assemble_scene_results(results)
+            usage_service.record(
+                kind="parallel_plan", model=model, endpoint_name=endpoint.name,
+                prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
+                completion_chars=len(planner_raw),
+            )
+            usage_service.record(
+                kind="parallel_generate", model=model, endpoint_name=endpoint.name,
+                prompt_chars=sum(len(str(m.get("content") or "")) for m in base_messages),
+                completion_chars=len(assembled),
+            )
+            yield {"event": "message", "data": json.dumps({"delta": assembled}, ensure_ascii=False)}
+        except openai.APIError as exc:
+            yield {
+                "event": "parallel_error",
+                "data": json.dumps({"stage": "generation", "detail": _friendly_api_error(exc)},
+                                   ensure_ascii=False),
+            }
+            return
+        except Exception as exc:  # noqa: BLE001 — 병렬 단계 전체를 사용자 이벤트로 변환
+            yield {
+                "event": "parallel_error",
+                "data": json.dumps({
+                    "stage": "generation", "detail": f"병렬 집필 실패: {type(exc).__name__}",
+                }, ensure_ascii=False),
+            }
+            return
+
+        yield {
+            "event": "review_start",
+            "data": json.dumps({
+                "model": reviewer_model,
+                "endpoint": reviewer.name,
+                "reasoning_effort": reviewer_effort,
+            }, ensure_ascii=False),
+        }
+        review_messages = [
+            {"role": "system", "content": PARALLEL_REVIEW_SYSTEM_PROMPT},
+            {"role": "user", "content": (
+                f"{base_messages[-1]['content']}\n\n[조립 원고]\n{assembled}\n\n"
+                "위 원고만 감수하고 [감수] 의견만 출력하라.")},
+        ]
+        review_chars = 0
+        try:
+            async for delta in llm.stream_chat(
+                    reviewer_client, reviewer_model, review_messages,
+                    max_tokens=payload.review.max_tokens or payload.params.max_tokens,
+                    reasoning_effort=reviewer_effort):
+                review_chars += len(delta)
+                yield {"event": "review",
+                       "data": json.dumps({"delta": delta}, ensure_ascii=False)}
+            if review_chars:
+                usage_service.record(
+                    kind="parallel_review", model=reviewer_model,
+                    endpoint_name=reviewer.name,
+                    prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
+                    completion_chars=review_chars,
+                )
+        except openai.APIError as exc:
+            yield {"event": "parallel_error",
+                   "data": json.dumps({"stage": "review", "detail": _friendly_api_error(exc)},
+                                      ensure_ascii=False)}
+        except Exception as exc:  # noqa: BLE001
+            yield {"event": "parallel_error",
+                   "data": json.dumps({
+                       "stage": "review", "detail": f"감수 실패: {type(exc).__name__}",
+                   }, ensure_ascii=False)}
+        yield {"event": "done", "data": "[DONE]"}
     return EventSourceResponse(event_stream())

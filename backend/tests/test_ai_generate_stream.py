@@ -592,3 +592,124 @@ def test_review_system_prompt_lenses_and_markers(client, fake_llm):
     sys_text = fake_llm["client"].last_kwargs["messages"][0]["content"]
     for keyword in ("구조", "캐릭터", "연속성", "문장", "플랫폼", "[감수]", "[수정본]"):
         assert keyword in sys_text
+
+
+# ---------- 병렬 장면 집필 엔진 ----------
+def _parallel_plan_json() -> str:
+    return json.dumps({
+        "scenes": [
+            {
+                "order": 1, "title": "장면 1",
+                "purpose": "갈등을 시작한다",
+                "required_beats": ["첫 비트"],
+                "characters": ["주인공"],
+                "opening_state": "회차 시작",
+                "closing_hook": "다음 장면으로 넘긴다",
+            },
+            {
+                "order": 2, "title": "장면 2",
+                "purpose": "갈등을 키운다",
+                "required_beats": ["두 번째 비트"],
+                "characters": ["주인공"],
+                "opening_state": "장면 1 직후",
+                "closing_hook": "마지막 질문을 남긴다",
+            },
+        ],
+    }, ensure_ascii=False)
+
+
+@pytest.fixture()
+def parallel_llm(monkeypatch):
+    holder = {"complete_calls": [], "stream_calls": [], "fail_order": None}
+
+    class FakeClient:
+        pass
+
+    async def complete_chat(client, model, messages, temperature=None,
+                            max_tokens=None, reasoning_effort=None):
+        user = messages[-1]["content"]
+        holder["complete_calls"].append({
+            "model": model, "messages": messages,
+            "reasoning_effort": reasoning_effort,
+        })
+        if "[병렬 Planner" in user:
+            return _parallel_plan_json()
+        if '"order": 2' in user and holder["fail_order"] == 2:
+            raise RuntimeError("scene worker failed")
+        if '"order": 1' in user:
+            return "장면 1 원고"
+        if '"order": 2' in user:
+            return "장면 2 원고"
+        raise AssertionError(f"unexpected complete prompt: {user[:200]}")
+
+    async def stream_chat(client, model, messages, temperature=None,
+                          max_tokens=None, reasoning_effort=None):
+        holder["stream_calls"].append({
+            "model": model, "messages": messages,
+            "reasoning_effort": reasoning_effort,
+        })
+        yield "[감수]\n- 장면 연결이 자연스럽다."
+
+    monkeypatch.setattr(ai_panel.llm, "make_client", lambda *args, **kwargs: FakeClient())
+    monkeypatch.setattr(ai_panel.llm, "complete_chat", complete_chat)
+    monkeypatch.setattr(ai_panel.llm, "stream_chat", stream_chat)
+    return holder
+
+
+def _parallel_payload(endpoint_id: int) -> dict:
+    return {
+        "endpoint_id": endpoint_id,
+        "prompt_override": "이번 회차를 병렬 장면 집필하라.",
+        "worker_limit": 2,
+        "review": {"reasoning_effort": "xhigh"},
+    }
+
+
+def test_parallel_generate_emits_workers_in_progress_and_ordered_draft(
+        client, parallel_llm):
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    response = client.post("/api/v1/ai/generate-parallel",
+                           json=_parallel_payload(ep["id"]))
+    assert response.status_code == 200, response.text
+    events = _parse_sse(response.text)
+    names = [name for name, _data in events]
+    assert names[0] == "parallel_start"
+    assert "planner_done" in names
+    assert names[-1] == "done"
+    assert names.count("worker_start") == 2
+    assert names.count("worker_done") == 2
+    assembled = "".join(
+        json.loads(data)["delta"] for name, data in events if name == "message")
+    assert assembled == "장면 1 원고\n\n장면 2 원고"
+    assert parallel_llm["complete_calls"][0]["reasoning_effort"] == "medium"
+
+
+def test_parallel_review_starts_only_after_ordered_assembly(client, parallel_llm):
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    response = client.post("/api/v1/ai/generate-parallel",
+                           json=_parallel_payload(ep["id"]))
+    events = _parse_sse(response.text)
+    names = [name for name, _data in events]
+    assert names.index("message") < names.index("review_start") < names.index("review")
+    assert "refined" not in names
+    assert parallel_llm["stream_calls"][-1]["reasoning_effort"] == "xhigh"
+    review_prompt = parallel_llm["stream_calls"][-1]["messages"][-1]["content"]
+    assert "[조립 원고]\n장면 1 원고\n\n장면 2 원고" in review_prompt
+
+
+def test_parallel_worker_failure_emits_error_and_no_partial_message(client, parallel_llm):
+    parallel_llm["fail_order"] = 2
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    response = client.post("/api/v1/ai/generate-parallel",
+                           json=_parallel_payload(ep["id"]))
+    events = _parse_sse(response.text)
+    names = [name for name, _data in events]
+    assert "parallel_error" in names
+    assert "message" not in names
+    assert "review_start" not in names
