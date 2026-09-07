@@ -116,7 +116,7 @@ def test_canon_check_success(client, monkeypatch, chapter):
         "name": "e", "base_url": "http://x/v1", "default_model": "m",
         "is_default": True}).json()
     client.put(f"/api/v1/chapters/{chapter['id']}/content",
-               json={"content_md": "그는 어릴 때부터 검을 배웠다."})
+               json={"content_md": "그는 어릴 때부터 검을 배웠다.", "expected_revision": 0})
 
     resp = client.post("/api/v1/canon-check", json={"chapter_id": chapter["id"]})
     assert resp.status_code == 200, resp.text

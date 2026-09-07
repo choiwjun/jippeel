@@ -122,7 +122,7 @@ def endpoint_with_preset(client):
     project = client.post("/api/v1/projects", json={"title": "p"}).json()
     chapter = client.post(f"/api/v1/projects/{project['id']}/chapters", json={}).json()
     client.put(f"/api/v1/chapters/{chapter['id']}/content",
-               json={"content_md": "제1장 본문"})
+               json={"content_md": "제1장 본문", "expected_revision": 0})
     return {"endpoint_id": ep["id"], "preset_id": preset["id"],
             "chapter_id": chapter["id"]}
 
@@ -238,7 +238,7 @@ def test_auto_lore_injects_matched_entries_only(client, fake_llm):
     pid = client.post("/api/v1/projects", json={"title": "p"}).json()["id"]
     ch = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
     client.put(f"/api/v1/chapters/{ch['id']}/content", json={
-        "content_md": "검은 강가의 마을에서 이야기가 시작된다. 흑요 검이 빛난다."})
+        "content_md": "검은 강가의 마을에서 이야기가 시작된다. 흑요 검이 빛난다.", "expected_revision": 0})
     client.post(f"/api/v1/projects/{pid}/lore", json={
         "category": "용어", "title": "흑요 검", "keywords": ["흑요 검"], "content": "검의 설정"})
     client.post(f"/api/v1/projects/{pid}/lore", json={
@@ -316,7 +316,7 @@ def test_previous_chapter_tail_injected(client, fake_llm):
     ch2 = client.post(f"/api/v1/projects/{pid}/chapters",
                       json={"title": "2화", "sort_order": 1}).json()
     client.put(f"/api/v1/chapters/{ch1['id']}/content", json={
-        "content_md": "첫 화 도입부. " * 20 + "마지막 문장은 문이 열리는 순간이었다."})
+        "content_md": "첫 화 도입부. " * 20 + "마지막 문장은 문이 열리는 순간이었다.", "expected_revision": 0})
 
     resp = client.post("/api/v1/ai/generate", json={
         "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",

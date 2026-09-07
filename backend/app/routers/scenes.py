@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Chapter, Scene
-from app.schemas import ChapterDetail, SceneCreate, SceneOut, SceneUpdate, ScenesReorder
-from app.services.wordcount import count_novelpia_chars
+from app.schemas import ChapterDetail, SceneCreate, SceneMergePut, SceneOut, SceneUpdate, ScenesReorder
+from app.services import manuscripts
 
 router = APIRouter()
 
@@ -97,13 +97,9 @@ def reorder_scenes(cid: int, payload: ScenesReorder, db: Session = Depends(get_d
 
 
 @router.put("/chapters/{cid}/content_from_scenes", response_model=ChapterDetail)
-def merge_scenes_to_content(cid: int, db: Session = Depends(get_db)):
-    """장면 → 회차 본문 조립 (고도화 G-013).
-
-    sort_order 순으로 장면 본문을 빈 줄로 이어 붙여 content_md를 교체한다.
-    명시 호출 전용(자동 실행 없음 — P1). 장면이 없으면 422.
-    """
-    chapter = _get_chapter_or_404(cid, db)
+def merge_scenes_to_content(cid: int, payload: SceneMergePut, db: Session = Depends(get_db)):
+    """장면 → 회차 본문 조립 (고도화 G-013)."""
+    _get_chapter_or_404(cid, db)
     scenes = db.scalars(
         select(Scene).where(Scene.chapter_id == cid)
         .order_by(Scene.sort_order, Scene.id)
@@ -112,8 +108,15 @@ def merge_scenes_to_content(cid: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail="조립할 장면이 없습니다")
     merged = "\n\n".join(
         (s.content_md or "").strip() for s in scenes if (s.content_md or "").strip())
-    chapter.content_md = merged
-    chapter.word_count_cache = count_novelpia_chars(merged)
-    db.commit()
-    db.refresh(chapter)
-    return chapter
+    if not merged:
+        raise HTTPException(status_code=422, detail="조립할 장면 본문이 없습니다")
+    try:
+        chapter = manuscripts.replace_manuscript(
+            db, cid, merged, payload.expected_revision, reason="scene_merge"
+        )
+        db.commit()
+        db.refresh(chapter)
+        return chapter
+    except manuscripts.RevisionConflict as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.detail()) from exc

@@ -1,7 +1,7 @@
 """SQLAlchemy 2.x 모델 — 사양 §4 데이터 모델 개요."""
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, CheckConstraint, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -58,6 +58,7 @@ class Chapter(TimestampMixin, Base):
     # 초고|수정중|완료 (사양 S2 상태 칩)
     status: Mapped[str] = mapped_column(String(20), default="초고")
     word_count_cache: Mapped[int] = mapped_column(Integer, default=0)  # 노벨피아 모드 글자 수(공백·문장부호·특수문자 제외)
+    revision: Mapped[int] = mapped_column(Integer, default=0)  # 원고 낙관적 잠금 revision
     memo: Mapped[str | None] = mapped_column(Text)  # 빠른 메모 (FR-108, v0.3)
 
     project: Mapped["Project"] = relationship(back_populates="chapters")
@@ -68,12 +69,35 @@ class Chapter(TimestampMixin, Base):
         back_populates="chapter", cascade="all, delete-orphan",
         order_by="Scene.sort_order"
     )
+    snapshots: Mapped[list["ChapterSnapshot"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan", order_by="ChapterSnapshot.id"
+    )
     canon_runs: Mapped[list["CanonRun"]] = relationship(
         cascade="all, delete-orphan")
     quality_checks: Mapped[list["QualityCheck"]] = relationship(
         cascade="all, delete-orphan")
 
     __table_args__ = (CheckConstraint("status IN ('초고','수정중','완료')", name="ck_chapter_status"),)
+
+
+class ChapterSnapshot(Base):
+    """회차 본문 교체 전 복구본."""
+
+    __tablename__ = "chapter_snapshots"
+    __table_args__ = (
+        UniqueConstraint("chapter_id", "revision", name="uq_chapter_snapshots_chapter_revision"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("chapters.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_md: Mapped[str] = mapped_column(Text, default="")
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now(), index=True)
+
+    chapter: Mapped["Chapter"] = relationship(back_populates="snapshots")
 
 
 class Scene(TimestampMixin, Base):
@@ -275,6 +299,7 @@ class RefineRun(Base):
     changed_ratio: Mapped[float] = mapped_column(Float, default=0.0)
     report_json: Mapped[dict | None] = mapped_column(JSON)
     result_text: Mapped[str | None] = mapped_column(Text)
+    base_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     accepted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     chapter: Mapped["Chapter"] = relationship(back_populates="refine_runs")

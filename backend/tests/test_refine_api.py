@@ -84,7 +84,7 @@ def chapter(client):
     project = client.post("/api/v1/projects", json={"title": "소설"}).json()
     ch = client.post(f"/api/v1/projects/{project['id']}/chapters", json={}).json()
     client.put(f"/api/v1/chapters/{ch['id']}/content", json={
-        "content_md": "AI 규제에 대해 논의할 필요가 있다. 이 문제에 있어서 신중함이 요구된다."})
+        "content_md": "AI 규제에 대해 논의할 필요가 있다. 이 문제에 있어서 신중함이 요구된다.", "expected_revision": 0})
     return ch
 
 
@@ -92,7 +92,7 @@ def chapter(client):
 def test_refine_runs_and_returns_report(client, mock_pipeline, chapter):
     mock_pipeline(route_hint="standard", ratio=0.08)
 
-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
+    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
     assert resp.status_code == 200, resp.text
     body = resp.json()
 
@@ -122,7 +122,7 @@ def test_refine_runs_and_returns_report(client, mock_pipeline, chapter):
 
 def test_light_route_skips_diagnosis(client, mock_pipeline, chapter):
     mock_pipeline(route_hint="light")
-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
+    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
     assert resp.status_code == 200
     assert resp.json()["route_hint"] == "light"
 
@@ -136,26 +136,26 @@ def test_light_route_skips_diagnosis(client, mock_pipeline, chapter):
 def test_force_route_overrides_hint(client, mock_pipeline, chapter):
     mock_pipeline(route_hint="light")
     resp = client.post("/api/v1/refine",
-                       json={"chapter_id": chapter["id"], "force_route": "heavy"})
+                       json={"chapter_id": chapter["id"], "expected_revision": 1, "force_route": "heavy"})
     assert resp.json()["route_hint"] == "heavy"
 
 
 def test_degraded_hint_falls_back_to_standard(client, mock_pipeline, chapter):
     mock_pipeline(route_hint=None)  # shim graceful degrade → standard
-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
+    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
     assert resp.json()["route_hint"] == "standard"
 
 
 def test_refine_empty_chapter_rejected(client, chapter):
-    client.put(f"/api/v1/chapters/{chapter['id']}/content", json={"content_md": ""})
-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
+    client.put(f"/api/v1/chapters/{chapter['id']}/content", json={"content_md": "", "expected_revision": 1})
+    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 2})
     assert resp.status_code == 400
 
 
 def test_engine_not_configured_returns_503(client, monkeypatch, mock_pipeline, chapter):
     mock_pipeline(ratio=0.01)
     monkeypatch.delenv(humanize.REFINE_CMD_ENV, raising=False)
-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
+    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
     assert resp.status_code == 503
     assert "IM_NOT_AI_REFINE_CMD" in resp.json()["detail"]
 
@@ -164,9 +164,10 @@ def test_engine_not_configured_returns_503(client, monkeypatch, mock_pipeline, c
 def test_accept_replaces_chapter_content(client, mock_pipeline, chapter):
     mock_pipeline(ratio=0.10)
 
-    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]}).json()
+    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1}).json()
     resp = client.post(f"/api/v1/refine/runs/{body['run_id']}/accept")
     assert resp.status_code == 200
+    assert resp.json()["content_md"] == "수정된 본문입니다."
 
     after = client.get(f"/api/v1/chapters/{chapter['id']}").json()
     assert after["content_md"] == "수정된 본문입니다."
@@ -183,7 +184,7 @@ def test_accept_replaces_chapter_content(client, mock_pipeline, chapter):
 
 def test_reject_keeps_record_only(client, mock_pipeline, chapter):
     mock_pipeline(ratio=0.12)
-    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]}).json()
+    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1}).json()
 
     resp = client.post(f"/api/v1/refine/runs/{body['run_id']}/reject")
     assert resp.status_code == 200

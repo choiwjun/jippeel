@@ -14,7 +14,7 @@ def _mk_chapter(client, pid: int, title="회차", cache=None, status=None) -> di
     cid = body["id"]
     if cache is not None:
         # PUT content가 word_count_cache(공백제외)를 계산·저장한다
-        r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "가" * cache})
+        r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "가" * cache, "expected_revision": 0})
         assert r.json()["word_count_cache"] == cache
     if status is not None:
         r = client.patch(f"/api/v1/chapters/{cid}", json={"status": status})

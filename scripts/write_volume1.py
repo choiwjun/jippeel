@@ -21,9 +21,9 @@ def get(client, path):
     return r.json()
 
 
-def put_content(client, chapter_id, text):
+def put_content(client, chapter_id, text, expected_revision):
     r = client.put(f"{API}/chapters/{chapter_id}/content",
-                   json={"content_md": text}, timeout=60)
+                   json={"content_md": text, "expected_revision": expected_revision}, timeout=60)
     r.raise_for_status()
     return r.json()
 
@@ -94,7 +94,7 @@ def main():
             except Exception as exc:  # noqa: BLE001 — 한 화 실패가 전체를 멈추지 않게
                 print(f"  ✗ 실패({time.time() - t0:.0f}초): {exc}", flush=True)
                 continue
-            saved = put_content(client, ch["id"], text)
+            saved = put_content(client, ch["id"], text, detail["revision"])
             print(f"  ✓ 저장: {len(text):,}자 (노벨피아 {saved['word_count_cache']:,}) "
                   f"— {time.time() - t0:.0f}초", flush=True)
 

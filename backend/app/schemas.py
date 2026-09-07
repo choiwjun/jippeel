@@ -55,9 +55,24 @@ class ChapterUpdate(BaseModel):
 
 
 class ChapterContentPut(BaseModel):
-    """본문 저장 (PUT content — 자동저장 debounce 대상)."""
+    """본문 저장 (PUT/POST content — 자동저장 debounce 대상)."""
 
     content_md: str
+    expected_revision: int
+
+
+class ChapterRestorePost(BaseModel):
+    """복구본을 현재 회차 원고로 복원."""
+
+    snapshot_id: int
+    expected_revision: int
+
+
+class SceneMergePut(BaseModel):
+    """장면 본문을 회차 원고로 조립."""
+
+    expected_revision: int
+
 
 
 class ChapterOut(BaseModel):
@@ -72,6 +87,7 @@ class ChapterOut(BaseModel):
     title: str
     status: ChapterStatus
     word_count_cache: int
+    revision: int
     memo: str | None
     created_at: datetime
     updated_at: datetime
@@ -79,6 +95,24 @@ class ChapterOut(BaseModel):
 
 class ChapterDetail(ChapterOut):
     """본문 포함."""
+
+    content_md: str
+
+
+class ChapterSnapshotOut(BaseModel):
+    """회차 복구본 목록용 메타데이터."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    chapter_id: int
+    revision: int
+    reason: str
+    created_at: datetime
+
+
+class ChapterSnapshotDetail(ChapterSnapshotOut):
+    """회차 복구본 상세."""
 
     content_md: str
 
@@ -425,6 +459,7 @@ class SpanOut(BaseModel):
 
 class RefineRequest(BaseModel):
     chapter_id: int
+    expected_revision: int
     force_route: RefineRoute | None = None
 
 
@@ -448,6 +483,7 @@ class RefineRunOut(BaseModel):
     changed_ratio: float
     report_json: dict | None
     result_text: str | None
+    base_revision: int | None
     accepted: bool
 
 

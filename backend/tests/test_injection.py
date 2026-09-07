@@ -34,7 +34,7 @@ def _mk_lore(client, pid, title, keywords=None, content=None, category="용어")
 def _mk_chapter(client, pid, content_md):
     ch = client.post(f"/api/v1/projects/{pid}/chapters", json={}).json()
     client.put(f"/api/v1/chapters/{ch['id']}/content",
-               json={"content_md": content_md})
+               json={"content_md": content_md, "expected_revision": 0})
     return ch
 
 

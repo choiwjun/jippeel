@@ -111,7 +111,7 @@ def test_foreshadow_audience_knows(client, monkeypatch, chapter):
                         lambda base_url, api_key_encrypted: _FakeClient())
     _endpoint(client)
     client.put(f"/api/v1/chapters/{chapter['id']}/content",
-               json={"content_md": "본문"})
+               json={"content_md": "본문", "expected_revision": 0})
     body = client.post("/api/v1/canon-check",
                        json={"chapter_id": chapter["id"]}).json()
     assert body["checked_context"]["audience_known"] == 1
@@ -153,14 +153,14 @@ def test_style_profile_in_system_prompt(client, monkeypatch, project):
 # ---------- G-013 장면 → 본문 조립 ----------
 def test_merge_scenes_to_content(client, project, chapter):
     cid = chapter["id"]
-    assert client.put(f"/api/v1/chapters/{cid}/content_from_scenes").status_code == 422
+    assert client.put(f"/api/v1/chapters/{cid}/content_from_scenes", json={}).status_code == 422
 
     s2 = client.post(f"/api/v1/chapters/{cid}/scenes", json={
         "title": "후반", "content_md": "두 번째 장면.", "sort_order": 2}).json()
     s1 = client.post(f"/api/v1/chapters/{cid}/scenes", json={
         "title": "전반", "content_md": "첫 번째 장면.", "sort_order": 1}).json()
 
-    r = client.put(f"/api/v1/chapters/{cid}/content_from_scenes")
+    r = client.put(f"/api/v1/chapters/{cid}/content_from_scenes", json={"expected_revision": 0})
     assert r.status_code == 200
     body = r.json()
     assert body["content_md"] == "첫 번째 장면.\n\n두 번째 장면."
@@ -170,14 +170,14 @@ def test_merge_scenes_to_content(client, project, chapter):
 # ---------- G-041 품질 이력 ----------
 def test_quality_record_history_dedup(client, project, chapter):
     cid = chapter["id"]
-    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다."})
+    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다.", "expected_revision": 0})
     r1 = client.get(f"/api/v1/chapters/{cid}/quality").json()
     assert r1["recorded"] is True
     # 같은 본문 재조회 — 중복 기록 스킵
     r2 = client.get(f"/api/v1/chapters/{cid}/quality").json()
     assert r2["recorded"] is False
     # 본문 변경 — 새 기록
-    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다. 소리가 들려왔다."})
+    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다. 소리가 들려왔다.", "expected_revision": 1})
     r3 = client.get(f"/api/v1/chapters/{cid}/quality").json()
     assert r3["recorded"] is True
 
@@ -232,7 +232,7 @@ def test_foreshadow_suggest(client, monkeypatch, project, chapter):
                         lambda base_url, api_key_encrypted: _FakeClient())
     _endpoint(client)
     client.put(f"/api/v1/chapters/{chapter['id']}/content",
-               json={"content_md": "검이 스스로 그를 향했다."})
+               json={"content_md": "검이 스스로 그를 향했다.", "expected_revision": 0})
 
     body = client.post(f"/api/v1/projects/{project['id']}/foreshadows/suggest",
                        json={"chapter_id": chapter["id"]}).json()
@@ -295,7 +295,7 @@ def test_foreshadow_match_endpoint(client, project, chapter):
     f2 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
         "title": "예언의 조각", "keywords": ["예언"], "status": "설치"}).json()
     client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
-        "content_md": "검이 그의 손에서 울렸다. 검의 주인은 아직 다른 곳에 있다."})
+        "content_md": "검이 그의 손에서 울렸다. 검의 주인은 아직 다른 곳에 있다.", "expected_revision": 0})
 
     matched = client.get(f"/api/v1/projects/{pid}/foreshadows/match",
                          params={"chapter_id": chapter["id"]}).json()
@@ -339,7 +339,7 @@ def test_semantic_hybrid_catches_morphological_variant(client, monkeypatch, proj
         "category": "장소", "title": "남쪽 바다", "keywords": ["남쪽 바다"],
         "content": "바다의 끝"})
     client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
-        "content_md": "그는 흑염의 술식을 손끝으로 모았다."})
+        "content_md": "그는 흑염의 술식을 손끝으로 모았다.", "expected_revision": 0})
 
     # v1(키워드만) — 미매칭
     client.post("/api/v1/ai/generate", json={
@@ -370,7 +370,7 @@ def test_foreshadow_reminder(client, project):
                          json={"title": f"{i + 1}화", "sort_order": float(i)}).json()
         content = "방금 복선이 등장한다." if i == 6 else f"{i + 1}화 본문"
         client.put(f"/api/v1/chapters/{ch['id']}/content",
-                   json={"content_md": content})
+                   json={"content_md": content, "expected_revision": 0})
         chapters.append(ch)
 
     body = client.get(f"/api/v1/projects/{pid}/foreshadows/reminder?window=5").json()
@@ -393,7 +393,7 @@ def test_quality_merges_metrics_v2_when_available(client, project, chapter):
     from app.services import quality as quality_service
     quality_service._metrics_v2_loaded = False  # 모듈 캐시 리셋
     client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
-        "content_md": "「비켜라.」\n\n칼이 번개처럼 빠졌다. 그러나 그는 조용했다."})
+        "content_md": "「비켜라.」\n\n칼이 번개처럼 빠졌다. 그러나 그는 조용했다.", "expected_revision": 0})
     r = client.get(f"/api/v1/chapters/{chapter['id']}/quality?record=false").json()
     if quality_service._metrics_v2_module is not None:
         assert "v2" in r["metrics"]

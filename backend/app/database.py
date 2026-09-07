@@ -1,7 +1,10 @@
 """DB 엔진·세션 팩토리 (사양 §2.2, §8.2)."""
 import os
+import tempfile
+from pathlib import Path
+from urllib.parse import unquote, urlparse
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -51,8 +54,92 @@ def get_db():
         db.close()
 
 
+ALEMBIC_HEAD = "0a1b2c3d4e5f"
+TEMP_CREATE_ALL_ENV = "JIPPEEL_ALLOW_TEMP_CREATE_ALL"
+
+
+def _sqlite_file_from_url(url: str) -> Path | None:
+    parsed = urlparse(url)
+    if parsed.scheme != "sqlite" or not parsed.path or parsed.path == ":memory:":
+        return None
+    return Path(unquote(parsed.path[1:] if len(parsed.path) > 3 and parsed.path[0] == "/" and parsed.path[2] == ":" else parsed.path)).resolve()
+
+
+def _allow_temp_create_all() -> bool:
+    if os.environ.get(TEMP_CREATE_ALL_ENV) != "1":
+        return False
+    db_path = _sqlite_file_from_url(DATABASE_URL)
+    if db_path is None:
+        return False
+    try:
+        db_path.relative_to(Path(tempfile.gettempdir()).resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def assert_manuscript_schema_current(bind: Engine) -> None:
+    """Fail fast when an existing DB lacks preservation schema or Alembic head."""
+    if _allow_temp_create_all():
+        return
+
+    inspector = inspect(bind)
+    tables = set(inspector.get_table_names())
+    problems: list[str] = []
+    if "chapters" not in tables:
+        problems.append("empty or unmigrated database")
+    else:
+        chapter_cols = {col["name"] for col in inspector.get_columns("chapters")}
+        if "revision" not in chapter_cols:
+            problems.append("chapters.revision")
+
+        if "refine_runs" in tables:
+            refine_cols = {col["name"] for col in inspector.get_columns("refine_runs")}
+            if "base_revision" not in refine_cols:
+                problems.append("refine_runs.base_revision")
+        else:
+            problems.append("refine_runs table")
+
+        if "chapter_snapshots" not in tables:
+            problems.append("chapter_snapshots table")
+        else:
+            unique_cols = {
+                tuple(constraint.get("column_names") or [])
+                for constraint in inspector.get_unique_constraints("chapter_snapshots")
+            }
+            if ("chapter_id", "revision") not in unique_cols:
+                problems.append("chapter_snapshots(chapter_id, revision) unique")
+            index_cols = {
+                tuple(index.get("column_names") or [])
+                for index in inspector.get_indexes("chapter_snapshots")
+            }
+            if ("chapter_id",) not in index_cols:
+                problems.append("chapter_snapshots.chapter_id index")
+            if ("created_at",) not in index_cols:
+                problems.append("chapter_snapshots.created_at index")
+
+    if "alembic_version" not in tables:
+        problems.append("alembic_version table")
+    else:
+        with bind.connect() as connection:
+            current = connection.exec_driver_sql(
+                "SELECT version_num FROM alembic_version"
+            ).scalar()
+        if current != ALEMBIC_HEAD:
+            problems.append(f"alembic head {current!r} != {ALEMBIC_HEAD}")
+
+    if problems:
+        missing = ", ".join(problems)
+        raise RuntimeError(
+            f"DB schema is missing manuscript preservation objects ({missing}). "
+            "Back up the database and run `alembic upgrade head` before starting the API."
+        )
+
+
 def init_db() -> None:
-    """Sprint 1: create_all 사용. Alembic 마이그레이션은 다음 스프린트."""
+    """Initialize only explicitly marked temporary DBs; otherwise require Alembic."""
     from app import models  # noqa: F401  (모델 등록)
 
-    Base.metadata.create_all(bind=engine)
+    assert_manuscript_schema_current(engine)
+    if _allow_temp_create_all():
+        Base.metadata.create_all(bind=engine)

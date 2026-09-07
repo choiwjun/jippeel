@@ -33,7 +33,7 @@ def _setup(monkeypatch, client):
         "title": "2화", "sort_order": 1}).json()
     client.patch(f"/api/v1/chapters/{ch2['id']}", json={"memo": "시놉시스: 탑에 오른다"})
     client.put(f"/api/v1/chapters/{ch1['id']}/content", json={
-        "content_md": "1화 본문"})
+        "content_md": "1화 본문", "expected_revision": 0})
     return holder, ep["id"], ch1["id"], ch2["id"], ch2["title"]
 
 

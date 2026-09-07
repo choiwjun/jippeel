@@ -60,7 +60,7 @@ def test_list_projects_includes_card_aggregates(client):
     """목록 응답에 회차 수·누적 글자 수 집계가 포함된다(홈 카드용)."""
     pid = client.post("/api/v1/projects", json={"title": "집계"}).json()["id"]
     c1 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
-    client.put(f"/api/v1/chapters/{c1['id']}/content", json={"content_md": "가나다라마바사"})  # 공백제외 7자
+    client.put(f"/api/v1/chapters/{c1['id']}/content", json={"content_md": "가나다라마바사", "expected_revision": 0})  # 공백제외 7자
     client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "2화"})
 
     rows = client.get("/api/v1/projects").json()

@@ -17,6 +17,7 @@ def test_create_chapter_defaults(client):
     assert body["status"] == "초고"
     assert body["content_md"] == ""
     assert body["word_count_cache"] == 0
+    assert body["revision"] == 0
 
 
 def test_chapter_tree_ordered_and_lightweight(client):
@@ -57,7 +58,7 @@ def test_put_content_updates_word_count(client):
     cid = _mk_chapter(client, pid)["id"]
 
     content = "첫 문장입니다.\n\n둘째 문장!"
-    r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": content})
+    r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": content, "expected_revision": 0})
     assert r.status_code == 200
     body = r.json()
     assert body["content_md"] == content
@@ -70,7 +71,7 @@ def test_post_content_beacon_alias_matches_put(client):
     cid = _mk_chapter(client, pid)["id"]
 
     r = client.post(f"/api/v1/chapters/{cid}/content",
-                    json={"content_md": "언로드 직전 저장"})
+                    json={"content_md": "언로드 직전 저장", "expected_revision": 0})
     assert r.status_code == 200
     body = r.json()
     assert body["content_md"] == "언로드 직전 저장"

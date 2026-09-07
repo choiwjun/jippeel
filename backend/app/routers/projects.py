@@ -5,13 +5,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Chapter, Character, Project, Relationship
+from app.models import Chapter, ChapterSnapshot, Character, Project, Relationship
 from app.schemas import BootstrapRequest, BootstrapResponse, PlusStatusOut, PLUS_MIN_CHAPTERS, PLUS_MIN_CHARS_DONE
 from app.services import bootstrap as bootstrap_service
+from app.services import manuscripts
 from app.schemas import (
     ChaptersReorder,
     ChapterContentPut,
     ChapterCreate,
+    ChapterRestorePost,
+    ChapterSnapshotDetail,
+    ChapterSnapshotOut,
     ChapterDetail,
     ChapterOut,
     ChapterUpdate,
@@ -19,7 +23,6 @@ from app.schemas import (
     ProjectOut,
     ProjectUpdate,
 )
-from app.services.wordcount import count_novelpia_chars
 
 router = APIRouter()
 
@@ -202,26 +205,66 @@ def update_chapter(cid: int, payload: ChapterUpdate, db: Session = Depends(get_d
     return chapter
 
 
+def _revision_conflict(exc: manuscripts.RevisionConflict) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.detail())
+
+
 @router.put("/chapters/{cid}/content", response_model=ChapterDetail)
 def put_chapter_content(cid: int, payload: ChapterContentPut, db: Session = Depends(get_db)):
     """본문(content_md) 저장 + 공백 제외 글자 수 캐시 갱신."""
-    chapter = _get_chapter_or_404(cid, db)
-    chapter.content_md = payload.content_md
-    chapter.word_count_cache = count_novelpia_chars(payload.content_md)
-    db.commit()
-    db.refresh(chapter)
-    return chapter
+    try:
+        chapter = manuscripts.replace_manuscript(
+            db, cid, payload.content_md, payload.expected_revision, reason="autosave"
+        )
+        db.commit()
+        db.refresh(chapter)
+        return chapter
+    except manuscripts.ChapterNotFound as exc:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="chapter not found") from exc
+    except manuscripts.RevisionConflict as exc:
+        db.rollback()
+        raise _revision_conflict(exc) from exc
 
 
 @router.post("/chapters/{cid}/content", response_model=ChapterDetail,
              status_code=status.HTTP_200_OK)
 def post_chapter_content(cid: int, payload: ChapterContentPut, db: Session = Depends(get_db)):
-    """PUT 별칭 — 언로드 플러시 전용(QA Minor #1).
-
-    프론트(EditorPage)의 navigator.sendBeacon은 메서드가 POST로 고정되어
-    PUT을 쓸 수 없다. 페이지 이탈 시 대기 중 변경의 best-effort 저장을 수용한다.
-    """
+    """PUT 별칭 — 언로드 플러시 전용(QA Minor #1)."""
     return put_chapter_content(cid, payload, db)
+
+
+@router.get("/chapters/{cid}/snapshots", response_model=list[ChapterSnapshotOut])
+def list_chapter_snapshots(cid: int, db: Session = Depends(get_db)):
+    _get_chapter_or_404(cid, db)
+    return manuscripts.list_snapshots(db, cid)
+
+
+@router.get("/chapters/{cid}/snapshots/{sid}", response_model=ChapterSnapshotDetail)
+def get_chapter_snapshot(cid: int, sid: int, db: Session = Depends(get_db)):
+    _get_chapter_or_404(cid, db)
+    snapshot = db.get(ChapterSnapshot, sid)
+    if snapshot is None or snapshot.chapter_id != cid:
+        raise HTTPException(status_code=404, detail="snapshot not found")
+    return snapshot
+
+
+@router.post("/chapters/{cid}/restore", response_model=ChapterDetail)
+def restore_chapter_snapshot(cid: int, payload: ChapterRestorePost, db: Session = Depends(get_db)):
+    _get_chapter_or_404(cid, db)
+    snapshot = db.get(ChapterSnapshot, payload.snapshot_id)
+    if snapshot is None or snapshot.chapter_id != cid:
+        raise HTTPException(status_code=422, detail="해당 회차의 복구본만 복원할 수 있습니다")
+    try:
+        chapter = manuscripts.replace_manuscript(
+            db, cid, snapshot.content_md, payload.expected_revision, reason="restore"
+        )
+        db.commit()
+        db.refresh(chapter)
+        return chapter
+    except manuscripts.RevisionConflict as exc:
+        db.rollback()
+        raise _revision_conflict(exc) from exc
 
 
 @router.delete("/chapters/{cid}", status_code=status.HTTP_204_NO_CONTENT)
