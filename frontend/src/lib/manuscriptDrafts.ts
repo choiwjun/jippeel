@@ -51,6 +51,14 @@ type WriteResult = {
   detail: ChapterDetail;
 };
 
+export type ManuscriptReplacementToken = {
+  projectId: number;
+  chapterId: number;
+  editSequence: number;
+  text: string;
+  serverRevision: number;
+};
+
 const DRAFT_PREFIX = 'jippeel:manuscript-draft:v1:';
 const DEBOUNCE_MS = 1500;
 
@@ -230,9 +238,66 @@ class ManuscriptDraftCoordinator {
     this.scheduleSave();
   }
 
-  applyServerReplacement(detail: ChapterDetail) {
-    this.initFromServer(detail, true);
+  beginServerReplacement(): ManuscriptReplacementToken {
+    return {
+      projectId: this.projectId,
+      chapterId: this.chapterId,
+      editSequence: this.editSequence,
+      text: this.text,
+      serverRevision: this.serverRevision,
+    };
+  }
+
+  completeServerReplacement(detail: ChapterDetail, token: ManuscriptReplacementToken) {
+    if (token.projectId !== this.projectId || token.chapterId !== this.chapterId) return 'ignored' as const;
+    if (detail.id !== this.chapterId || detail.project_id !== this.projectId) {
+      this.saveState = 'error';
+      this.errorMessage = '회차가 현재 작품에 속하지 않아 교체 결과를 반영하지 않았습니다.';
+      this.persistDraft();
+      this.emit();
+      return 'ignored' as const;
+    }
+
+    const localChangedAfterRequest = this.editSequence !== token.editSequence || this.text !== token.text;
+    this.serverRevision = detail.revision ?? this.serverRevision;
+    this.serverText = detail.content_md;
     this.emitAck(detail);
+
+    if (!localChangedAfterRequest) {
+      this.initialized = true;
+      this.text = detail.content_md;
+      this.savedSequence = this.editSequence;
+      this.saveState = 'saved';
+      this.errorMessage = null;
+      this.conflict = null;
+      this.recovery = null;
+      this.removeStoredDraft();
+      this.emit();
+      return 'applied' as const;
+    }
+
+    if (this.timer !== undefined && typeof window !== 'undefined') {
+      window.clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+    const message = '서버 교체 작업 중 새 입력이 있어 자동 덮어쓰기를 멈췄습니다. 로컬 원고를 보존했습니다.';
+    this.conflict = {
+      message,
+      currentRevision: detail.revision ?? null,
+      localText: this.text,
+      serverText: detail.content_md,
+      serverRevision: detail.revision ?? null,
+    };
+    this.saveState = 'conflict';
+    this.errorMessage = message;
+    this.recovery = null;
+    this.persistDraft();
+    this.emit();
+    return 'late_edit' as const;
+  }
+
+  applyServerReplacement(detail: ChapterDetail) {
+    this.completeServerReplacement(detail, this.beginServerReplacement());
   }
 
   async flush(): Promise<WriteResult> {
@@ -529,12 +594,28 @@ export function useManuscriptDraft({
     clearRecovery: () => coordinator.clearRecovery(),
     useRecoveryText: (text: string) => coordinator.useRecoveryText(text),
     clearConflictKeepingLocal: () => coordinator.clearConflictKeepingLocal(),
+    beginServerReplacement: () => coordinator.beginServerReplacement(),
+    completeServerReplacement: (detail: ChapterDetail, token: ManuscriptReplacementToken) =>
+      coordinator.completeServerReplacement(detail, token),
     applyServerReplacement: (detail: ChapterDetail) => coordinator.applyServerReplacement(detail),
   };
 }
 
 export async function flushManuscriptDraft(projectId: number, chapterId: number) {
   return getManuscriptDraft(projectId, chapterId).flush();
+}
+
+export function beginManuscriptReplacement(projectId: number, chapterId: number) {
+  return getManuscriptDraft(projectId, chapterId).beginServerReplacement();
+}
+
+export function completeManuscriptReplacement(
+  projectId: number,
+  chapterId: number,
+  detail: ChapterDetail,
+  token: ManuscriptReplacementToken,
+) {
+  return getManuscriptDraft(projectId, chapterId).completeServerReplacement(detail, token);
 }
 
 export function applyManuscriptServerDetail(projectId: number, chapterId: number, detail: ChapterDetail) {

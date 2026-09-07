@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
 import { useEditorStore } from '@/stores/editorStore';
-import { applyManuscriptServerDetail, flushManuscriptDraft } from '@/lib/manuscriptDrafts';
+import { beginManuscriptReplacement, completeManuscriptReplacement, flushManuscriptDraft } from '@/lib/manuscriptDrafts';
 
 export interface Scene {
   id: number;
@@ -94,17 +94,21 @@ export function SceneManager({
     mutationFn: async () => {
       if (chapterId === null || projectId === null) throw new Error('회차를 먼저 선택하세요.');
       const flushed = await flushManuscriptDraft(projectId, chapterId);
-      return api.put<ChapterDetail>(`/chapters/${chapterId}/content_from_scenes`, {
+      const token = beginManuscriptReplacement(projectId, chapterId);
+      const detail = await api.put<ChapterDetail>(`/chapters/${chapterId}/content_from_scenes`, {
         expected_revision: flushed.detail.revision,
       });
+      return { detail, token, projectId, chapterId };
     },
-    onSuccess: (detail) => {
-      if (chapterId !== null && projectId !== null) {
-        applyManuscriptServerDetail(projectId, chapterId, detail);
-        queryClient.setQueryData(['chapter', chapterId], detail);
-        queryClient.invalidateQueries({ queryKey: ['chapters', projectId] });
+    onSuccess: ({ detail, token, projectId: actionProjectId, chapterId: actionChapterId }) => {
+      const result = completeManuscriptReplacement(actionProjectId, actionChapterId, detail, token);
+      queryClient.setQueryData(['chapter', actionChapterId], detail);
+      queryClient.invalidateQueries({ queryKey: ['chapters', actionProjectId] });
+      if (result === 'late_edit') {
+        toast('장면 조립 결과는 서버에 반영됐지만 새 입력이 있어 로컬 원고를 보존했습니다.', 'warning');
+      } else {
+        toast('장면을 회차 본문으로 합쳤습니다. (기존 본문이 장면들로 교체됨)', 'success');
       }
-      toast('장면을 회차 본문으로 합쳤습니다. (기존 본문이 장면들로 교체됨)', 'success');
     },
     onError: (e) => toast(`조립 실패: ${(e as Error).message}`, 'error'),
   });

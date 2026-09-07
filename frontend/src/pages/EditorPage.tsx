@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type Chapter, type ChapterDetail, type ChapterSnapshotDetail, type ChapterSnapshotMeta, type ChapterStatus } from '@/lib/api';
 import { useEditorStore } from '@/stores/editorStore';
-import { applyManuscriptServerDetail, flushManuscriptDraft, useManuscriptDraft } from '@/lib/manuscriptDrafts';
+import { beginManuscriptReplacement, completeManuscriptReplacement, flushManuscriptDraft, useManuscriptDraft } from '@/lib/manuscriptDrafts';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { countChars } from '@/lib/wordCount';
 import { volumeLabel, volumeSortKey } from '@/lib/api';
@@ -346,18 +346,24 @@ function SnapshotDialog({ pid, chapter }: { pid: number; chapter: ChapterDetail 
   const restore = useMutation({
     mutationFn: async (snapshotId: number) => {
       const flushed = await flushManuscriptDraft(pid, chapter.id);
-      return api.post<ChapterDetail>(`/chapters/${chapter.id}/restore`, {
+      const token = beginManuscriptReplacement(pid, chapter.id);
+      const detail = await api.post<ChapterDetail>(`/chapters/${chapter.id}/restore`, {
         snapshot_id: snapshotId,
         expected_revision: flushed.detail.revision,
       });
+      return { detail, token };
     },
-    onSuccess: (detail) => {
-      applyManuscriptServerDetail(pid, chapter.id, detail);
+    onSuccess: ({ detail, token }) => {
+      const result = completeManuscriptReplacement(pid, chapter.id, detail, token);
       updateChapterCaches(queryClient, pid, detail);
       queryClient.invalidateQueries({ queryKey: ['chapter-snapshots', chapter.id] });
-      toast('복구본을 현재 원고로 복원했습니다.', 'success');
-      setOpen(false);
-      setSelectedId(null);
+      if (result === 'late_edit') {
+        toast('복구 결과는 서버에 반영됐지만 새 입력이 있어 로컬 원고를 보존했습니다.', 'warning');
+      } else {
+        toast('복구본을 현재 원고로 복원했습니다.', 'success');
+        setOpen(false);
+        setSelectedId(null);
+      }
     },
     onError: (e) => toast((e as Error).message, 'error'),
   });

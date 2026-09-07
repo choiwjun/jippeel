@@ -66,8 +66,14 @@ async function setupFixture(page: Page) {
   ]);
   const writes: Array<{ chapterId: number; body: any }> = [];
   const heldWrites: HeldRoute[] = [];
+  const heldAccepts: HeldRoute[] = [];
+  const heldMerges: HeldRoute[] = [];
+  const heldRestores: HeldRoute[] = [];
   let abortNextSaveBeforeMutation = false;
   let abortNextSaveAfterMutation = false;
+  let holdNextAccept = false;
+  let holdNextMerge = false;
+  let holdNextRestore = false;
   const refinedRuns = new Map<number, { id: number; chapter_id: number; base_revision: number }>();
   let nextRunId = 900;
 
@@ -152,6 +158,11 @@ async function setupFixture(page: Page) {
       const current = chapters.get(run.chapter_id)!;
       if (current.revision !== run.base_revision) return json(409, { detail: { code: 'revision_conflict', message: '윤문 실행 뒤 원고가 바뀌었습니다.', current_revision: current.revision } });
       const next = { ...current, content_md: `${current.content_md}\nrefined`, revision: current.revision + 1, updated_at: now() };
+      if (holdNextAccept) {
+        holdNextAccept = false;
+        heldAccepts.push(new HeldRoute(route));
+        return;
+      }
       chapters.set(current.id, next);
       return json(200, next);
     }
@@ -170,6 +181,11 @@ async function setupFixture(page: Page) {
       writes.push({ chapterId: id, body: { merge: true, ...body } });
       if (body.expected_revision !== current.revision) return json(409, { detail: { code: 'revision_conflict', message: '장면 조립 전 원고가 최신이 아닙니다.', current_revision: current.revision } });
       const next = { ...current, content_md: 'scene text', revision: current.revision + 1, updated_at: now() };
+      if (holdNextMerge) {
+        holdNextMerge = false;
+        heldMerges.push(new HeldRoute(route));
+        return;
+      }
       chapters.set(id, next);
       return json(200, next);
     }
@@ -191,6 +207,11 @@ async function setupFixture(page: Page) {
       if (body.expected_revision !== current.revision) return json(409, { detail: { code: 'revision_conflict', message: '복구 전 원고가 최신이 아닙니다.', current_revision: current.revision } });
       const snap = (snapshots.get(id) ?? []).find((s) => s.id === body.snapshot_id)!;
       const next = { ...current, content_md: snap.content_md, revision: current.revision + 1, updated_at: now() };
+      if (holdNextRestore) {
+        holdNextRestore = false;
+        heldRestores.push(new HeldRoute(route));
+        return;
+      }
       chapters.set(id, next);
       return json(200, next);
     }
@@ -201,6 +222,12 @@ async function setupFixture(page: Page) {
     chapters,
     writes,
     heldWrites,
+    heldAccepts,
+    heldMerges,
+    heldRestores,
+    holdNextAccept: () => { holdNextAccept = true; },
+    holdNextMerge: () => { holdNextMerge = true; },
+    holdNextRestore: () => { holdNextRestore = true; },
     abortNextSaveBeforeMutation: () => { abortNextSaveBeforeMutation = true; },
     abortNextSaveAfterMutation: () => { abortNextSaveAfterMutation = true; },
   };
@@ -215,6 +242,13 @@ async function fillEditor(page: Page, text: string) {
   const editor = page.locator('.cm-content');
   await editor.click();
   await editor.fill(text);
+}
+
+async function storedDraft(page: Page, projectId = 1, chapterId = 10) {
+  return page.evaluate(([pid, cid]) => {
+    const raw = localStorage.getItem(`jippeel:manuscript-draft:v1:${pid}:${cid}`);
+    return raw ? JSON.parse(raw) as { text: string; baseRevision: number; editSequence: number } : null;
+  }, [projectId, chapterId]);
 }
 
 test.describe.serial('manuscript preservation frontend fixture', () => {
@@ -314,6 +348,116 @@ test.describe.serial('manuscript preservation frontend fixture', () => {
     await expect(page.getByText(/저장됨 ·/)).toBeVisible();
   });
 
+  test('does not let a pending refine accept response overwrite a late local edit', async ({ page }) => {
+    const f = await setupFixture(page);
+    await openEditor(page, 1);
+    await fillEditor(page, 'before refine');
+    await page.getByRole('button', { name: '윤문 리포트' }).click();
+    await page.getByRole('button', { name: '🔍 윤문 실행' }).click();
+    await expect.poll(() => f.writes.some((w) => w.chapterId === 10 && w.body.content_md === 'before refine'), { timeout: 8_000 }).toBe(true);
+    await expect(page.getByRole('button', { name: '수락' })).toBeVisible();
+
+    f.holdNextAccept();
+    await page.getByRole('button', { name: '수락' }).click();
+    await expect.poll(() => f.heldAccepts.length, { timeout: 5_000 }).toBe(1);
+    await page.getByRole('button', { name: '패널 닫기' }).click();
+    await fillEditor(page, 'late local edit');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'late local edit' });
+
+    const accepted = { ...f.chapters.get(10)!, content_md: 'before refine\nrefined', revision: 2, updated_at: now() };
+    f.chapters.set(10, accepted);
+    await f.heldAccepts[0].fulfill(accepted);
+
+    await expect(page.locator('.cm-content')).toContainText('late local edit');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'late local edit' });
+    await expect(page.getByText('저장 충돌 — 원고 확인 필요')).toBeVisible();
+  });
+
+  test('does not let a pending scene merge response overwrite a late edit or transfer to another chapter', async ({ page }) => {
+    test.setTimeout(20_000);
+    const f = await setupFixture(page);
+    await openEditor(page, 1);
+    await fillEditor(page, 'before scene merge');
+    await page.getByRole('button', { name: 'AI 패널' }).click();
+    await page.getByRole('button', { name: /장면 관리/ }).click();
+    f.holdNextMerge();
+    page.once('dialog', (d) => d.accept());
+    await page.evaluate(() => { window.confirm = () => true; });
+    await page.getByRole('button', { name: /본문으로 합치기/ }).click({ timeout: 5_000 });
+    await expect.poll(() => f.heldMerges.length, { timeout: 5_000 }).toBe(1);
+    await page.keyboard.press('Escape');
+    const closePanel = page.getByRole('button', { name: '패널 닫기' });
+    if (await closePanel.isVisible()) await closePanel.click();
+    await fillEditor(page, 'late scene edit');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'late scene edit' });
+
+    await page.locator('aside button').filter({ hasText: /^2화/ }).click();
+    await expect(page.locator('.cm-content')).toContainText('second chapter');
+    const merged = { ...f.chapters.get(10)!, content_md: 'scene text', revision: 2, updated_at: now() };
+    f.chapters.set(10, merged);
+    await f.heldMerges[0].fulfill(merged);
+
+    await expect(page.locator('.cm-content')).toContainText('second chapter');
+    await page.locator('aside button').filter({ hasText: /^1화/ }).click();
+    await expect(page.locator('.cm-content')).toContainText('late scene edit');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'late scene edit' });
+  });
+
+  test('does not let a pending snapshot restore response overwrite a late local edit', async ({ page }) => {
+    const f = await setupFixture(page);
+    await openEditor(page, 1);
+    await fillEditor(page, 'before restore late');
+    await page.getByRole('button', { name: /복구본/ }).click();
+    await page.getByRole('button', { name: /revision 0/ }).click();
+    await expect(page.getByText('snapshot text')).toBeVisible();
+    f.holdNextRestore();
+    await page.getByRole('button', { name: /이 복구본으로 복원/ }).click();
+    await expect.poll(() => f.heldRestores.length, { timeout: 5_000 }).toBe(1);
+    await page.keyboard.press('Escape');
+    await fillEditor(page, 'late restore edit');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'late restore edit' });
+
+    const restored = { ...f.chapters.get(10)!, content_md: 'snapshot text', revision: 2, updated_at: now() };
+    f.chapters.set(10, restored);
+    await f.heldRestores[0].fulfill(restored);
+
+    await expect(page.locator('.cm-content')).toContainText('late restore edit');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'late restore edit' });
+    await expect(page.getByText('저장 충돌 — 원고 확인 필요')).toBeVisible();
+  });
+
+  test('does not acknowledge lost save responses when GET returns different text', async ({ page }) => {
+    const f = await setupFixture(page);
+    await openEditor(page, 1);
+    f.abortNextSaveBeforeMutation();
+    await fillEditor(page, 'lost negative draft');
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'different server text', revision: 7 });
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+
+    await expect(page.getByText('저장 실패 — 원고 보존됨')).toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('lost negative draft');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'lost negative draft' });
+  });
+
+  test('pagehide uses revision contract and beforeunload leaves recoverable text', async ({ page }) => {
+    const f = await setupFixture(page);
+    await openEditor(page, 1);
+    await fillEditor(page, 'pagehide local draft');
+    const beforeUnloadPrevented = await page.evaluate(() => {
+      const event = new Event('beforeunload', { cancelable: true });
+      return !window.dispatchEvent(event);
+    });
+    expect(beforeUnloadPrevented).toBe(true);
+    await expect(await storedDraft(page)).toMatchObject({ text: 'pagehide local draft', baseRevision: 0 });
+
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')));
+    await expect.poll(() => f.writes.some((w) => w.chapterId === 10 && w.body.content_md === 'pagehide local draft'), { timeout: 5_000 }).toBe(true);
+    const pagehideWrite = f.writes.find((w) => w.chapterId === 10 && w.body.content_md === 'pagehide local draft')!;
+    expect(pagehideWrite.body.expected_revision).toBe(0);
+    await expect(await storedDraft(page)).toMatchObject({ text: 'pagehide local draft' });
+  });
+
   test('flushes before refine start, sends expected_revision, and blocks stale accept safely', async ({ page }) => {
     const f = await setupFixture(page);
     await openEditor(page, 1);
@@ -346,7 +490,8 @@ test.describe.serial('manuscript preservation frontend fixture', () => {
     await expect(page.getByRole('button', { name: /장면 관리/ })).toBeVisible();
     await page.getByRole('button', { name: /장면 관리/ }).click();
     page.once('dialog', (d) => d.accept());
-    await page.getByRole('button', { name: /본문으로 합치기/ }).click();
+    await page.evaluate(() => { window.confirm = () => true; });
+    await page.getByRole('button', { name: /본문으로 합치기/ }).click({ timeout: 5_000 });
     await expect.poll(() => f.writes.some((w) => w.body.merge === true), { timeout: 8_000 }).toBe(true);
     const merge = f.writes.find((w) => w.body.merge === true)!;
     expect(merge.body.expected_revision).toBe(1);

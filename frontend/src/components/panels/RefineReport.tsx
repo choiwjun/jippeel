@@ -13,7 +13,7 @@ import { diffChars } from 'diff';
 import { api, type ChapterDetail, type RefineResult, type RefineSpan, type TaxonomyCategory } from '@/lib/api';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useEditorStore } from '@/stores/editorStore';
-import { applyManuscriptServerDetail, flushManuscriptDraft } from '@/lib/manuscriptDrafts';
+import { beginManuscriptReplacement, completeManuscriptReplacement, flushManuscriptDraft } from '@/lib/manuscriptDrafts';
 import { toast } from '@/components/ui/toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -62,16 +62,22 @@ export function RefineReport() {
     mutationFn: async (runId: number) => {
       if (chapterId === null || projectId === null) throw new Error('회차를 먼저 선택하세요.');
       await flushManuscriptDraft(projectId, chapterId);
-      return api.post<ChapterDetail>(`/refine/runs/${runId}/accept`);
+      const token = beginManuscriptReplacement(projectId, chapterId);
+      const detail = await api.post<ChapterDetail>(`/refine/runs/${runId}/accept`);
+      return { detail, token };
     },
-    onSuccess: (detail, runId) => {
+    onSuccess: ({ detail, token }, runId) => {
       if (chapterId !== null && projectId !== null) {
-        applyManuscriptServerDetail(projectId, chapterId, detail);
+        const result = completeManuscriptReplacement(projectId, chapterId, detail, token);
         queryClient.setQueryData(['chapter', chapterId], detail);
         queryClient.invalidateQueries({ queryKey: ['chapters', projectId] });
+        if (result === 'late_edit') {
+          toast('윤문 수락 결과는 서버에 반영됐지만 새 입력이 있어 로컬 원고를 보존했습니다.', 'warning');
+        } else {
+          toast('윤문 수락됨 — 회차 본문이 교체되었습니다.', 'success');
+        }
       }
       queryClient.invalidateQueries({ queryKey: ['refine-run', runId] });
-      toast('윤문 수락됨 — 회차 본문이 교체되었습니다.', 'success');
       setRun(null);
       close();
     },

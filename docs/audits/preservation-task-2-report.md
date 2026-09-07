@@ -110,3 +110,73 @@ The duplicate `build` key warning is pre-existing and recorded in the environmen
 - I did not run live DB, app lifespan, Alembic, or real LLM calls.
 - Parent/QA can use the new backend fixture prep for final real API browser QA.
 - I did not request child review because the task explicitly said no children.
+
+## Fix round 1 — sequence-aware replacement responses
+
+Review source: `docs/audits/preservation-task-2-review.md`.
+
+Changes made after commit `28a6c90`:
+- Added sequence-aware replacement tokens in `frontend/src/lib/manuscriptDrafts.ts`.
+- Refine accept, scene merge, and snapshot restore now capture a baseline after successful flush and before the replacement request.
+- If local text changes while the replacement response is pending, the response updates server revision/cache but does not overwrite editor text or remove the recovery draft.
+- Late replacement responses now leave an explicit conflict/comparison state with the local text preserved.
+- Expanded fixture coverage for held refine accept, held scene merge, held snapshot restore, negative lost-ack GET, and pagehide/beforeunload revision-contract behavior.
+
+### Fix red evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result before production fix:
+
+```text
+Running 13 tests using 1 worker
+5 passed
+✘ does not let a pending refine accept response overwrite a late local edit
+Expected substring: "late local edit"
+Received string:    "before refinerefined"
+1 failed, 7 did not run
+```
+
+### Fix green evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result:
+
+```text
+Running 13 tests using 1 worker
+13 passed (16.1s)
+```
+
+The preservation fixture now uses dedicated `127.0.0.1:15201`, `reuseExistingServer: false`, with all `/api/v1/*` requests mocked/guarded.
+
+### Fix build evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npm run build
+```
+
+Result:
+
+```text
+> jippeel-frontend@0.1.0 build
+> tsc -b && vite build
+
+▲ [WARNING] Duplicate key "build" in object literal [duplicate-object-key]
+vite v5.4.21 building for production...
+✓ 229 modules transformed.
+✓ built in 2.79s
+```
+
+The duplicate `build` key warning is pre-existing.
+
+### Fix round 1 limitations
+- Still fixture/browser QA only, not final backend integration.
+- No production DB, live backend, real LLM, dependency install, push, merge, or child review was used.

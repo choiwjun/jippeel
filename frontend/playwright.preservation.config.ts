@@ -10,7 +10,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:15193',
+    baseURL: 'http://127.0.0.1:15201',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     viewport: { width: 1440, height: 900 },
@@ -18,8 +18,8 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npx vite --host 127.0.0.1 --port 15193 --strictPort',
-    url: 'http://127.0.0.1:15193',
+    command: 'npx vite --host 127.0.0.1 --port 15201 --strictPort',
+    url: 'http://127.0.0.1:15201',
     reuseExistingServer: false,
     timeout: 60_000,
   },
