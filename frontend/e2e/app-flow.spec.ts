@@ -200,8 +200,26 @@ test.describe.serial('jippeel 종단 흐름', () => {
     await page.getByRole('button', { name: 'AI 패널' }).click();
     await expect(page.getByText('AI 결과는 자동으로 본문에 들어가지 않습니다.')).toBeVisible();
 
-    // 테스트용 엔드포인트(FakeLM) 명시 선택 → fake LLM :1234 경유 스트리밍
+    // 테스트용 엔드포인트(FakeLM) 명시 선택 — 외부 fake 서버 없이 SSE를 고정한다.
     await page.getByLabel('엔드포인트').selectOption({ label: 'FakeLM' });
+    await page.route('**/api/v1/ai/endpoints/*/models', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [{ id: 'fake-7b' }] }),
+      });
+    });
+    await page.route('**/api/v1/ai/generate', async (route) => {
+      const body = [
+        'event: start\ndata: ' + JSON.stringify({
+          model: 'fake-7b', injected_lore: [], injected_foreshadows: [],
+          injected_outline: null, review_enabled: false,
+        }) + '\n\n',
+        'event: message\ndata: ' + JSON.stringify({ delta: FAKE_LLM_OUTPUT }) + '\n\n',
+        'event: done\ndata: [DONE]\n\n',
+      ].join('');
+      await route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body });
+    });
 
     // 프롬프트 직접 입력 → 생성
     await page.getByLabel('프롬프트 직접 입력').fill('이어서 한 문단 집필해줘.');
@@ -242,6 +260,21 @@ test.describe.serial('jippeel 종단 흐름', () => {
 
     await page.getByRole('button', { name: '윤문 리포트' }).click();
     await expect(page.getByRole('heading', { name: '윤문 리포트' })).toBeVisible();
+    await page.route('**/api/v1/refine', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          run_id: 999, route_hint: 'standard',
+          spans: [{ category: 'E', start: 0, end: 5, severity: 'info', message: '리듬 점검' }],
+          original: MANUSCRIPT, refined: `${MANUSCRIPT}\n다듬은 문장.`,
+          changed_ratio: 0.1, gate: 'pass', status: 'ok',
+        }),
+      });
+    });
+    await page.route('**/api/v1/refine/runs/*/reject', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
     await page.getByRole('button', { name: /🔍 윤문 실행/ }).click();
 
     // diff 병렬 뷰 + 변경률 게이트 UI(30% 경고 / 50% 차단 눈금) 렌더 확인
