@@ -65,10 +65,10 @@ def _sqlite_file_from_url(url: str) -> Path | None:
     return Path(unquote(parsed.path[1:] if len(parsed.path) > 3 and parsed.path[0] == "/" and parsed.path[2] == ":" else parsed.path)).resolve()
 
 
-def _allow_temp_create_all() -> bool:
+def _allow_temp_create_all(url: str | None = None) -> bool:
     if os.environ.get(TEMP_CREATE_ALL_ENV) != "1":
         return False
-    db_path = _sqlite_file_from_url(DATABASE_URL)
+    db_path = _sqlite_file_from_url(url or DATABASE_URL)
     if db_path is None:
         return False
     try:
@@ -80,7 +80,7 @@ def _allow_temp_create_all() -> bool:
 
 def assert_manuscript_schema_current(bind: Engine) -> None:
     """Fail fast when an existing DB lacks preservation schema or Alembic head."""
-    if _allow_temp_create_all():
+    if _allow_temp_create_all(str(bind.url)):
         return
 
     inspector = inspect(bind)
@@ -141,5 +141,5 @@ def init_db() -> None:
     from app import models  # noqa: F401  (모델 등록)
 
     assert_manuscript_schema_current(engine)
-    if _allow_temp_create_all():
+    if _allow_temp_create_all(str(engine.url)):
         Base.metadata.create_all(bind=engine)

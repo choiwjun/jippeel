@@ -79,3 +79,40 @@ Result: 215 passed, 1 warning in 10.93s.
 - Frontend callers still need Task 2 updates for `expected_revision` and structured 409 handling.
 - I did not run frontend build or browser QA in this task.
 - I did not push, merge, or migrate production data.
+
+
+## Fix round 1 — review changes
+
+Review source: `docs/audits/preservation-task-1-review.md`.
+
+Changes made after commit `ff7b02b`:
+- Fresh conflict revisions now bypass the SQLAlchemy identity map.
+- No-op race and changing rowcount-conflict paths use the same fresh revision helper.
+- Duplicate snapshot unique failure now rolls back, then reports the real persisted current revision.
+- Added deterministic two-session no-op race coverage.
+- Added real DB duplicate snapshot rollback coverage.
+- Added missing/stale restore coverage and snapshot reason assertions for autosave/refine/scene_merge/restore.
+- Added concurrent changing loser `current_revision` assertion.
+- Added populated historical migration test from `d85fdcab0808` through nullable-volume to head with `refine_runs`, `characters`, `relationships`, and `lore_entries`.
+- Fixed `b3c4d5e6f7a8_chapter_volume_nullable.py` minimally for populated FK-preserving SQLite upgrade.
+- Hardened temp create_all bypass to inspect the passed engine URL.
+
+### Fix red evidence
+```text
+.venv/Scripts/python.exe -c "import os,tempfile,pathlib,pytest,sys; d=pathlib.Path(tempfile.mkdtemp(prefix='jippeel-fix-red-')); os.environ['DATABASE_URL']='sqlite:///'+(d/'lifespan.db').as_posix(); os.environ['JIPPEEL_ALLOW_TEMP_CREATE_ALL']='1'; sys.exit(pytest.main(['tests/test_manuscript_preservation.py','tests/test_migrations.py','-q']))"
+Result before production fixes: 4 failed, 19 passed, 1 warning in 2.29s.
+Failures: no-op race reported current_revision 1 instead of 2; duplicate snapshot rollback reported 1 instead of real 0; populated historical upgrade failed with SQLite FK error at DROP TABLE chapters; temp-create bypass did not inspect the passed engine URL.
+```
+
+### Fix green evidence
+```text
+.venv/Scripts/python.exe -c "import os,tempfile,pathlib,pytest,sys; d=pathlib.Path(tempfile.mkdtemp(prefix='jippeel-fix-green-')); os.environ['DATABASE_URL']='sqlite:///'+(d/'lifespan.db').as_posix(); os.environ['JIPPEEL_ALLOW_TEMP_CREATE_ALL']='1'; sys.exit(pytest.main(['tests/test_manuscript_preservation.py','tests/test_migrations.py','-q']))"
+Result: 23 passed, 1 warning in 1.73s.
+```
+
+
+### Fix full backend green evidence
+```text
+.venv/Scripts/python.exe -c "import os,tempfile,pathlib,pytest,sys; d=pathlib.Path(tempfile.mkdtemp(prefix='jippeel-fix-full-')); os.environ['DATABASE_URL']='sqlite:///'+(d/'lifespan.db').as_posix(); os.environ['JIPPEEL_ALLOW_TEMP_CREATE_ALL']='1'; sys.exit(pytest.main(['-q']))"
+Result: 221 passed, 1 warning in 12.24s.
+```

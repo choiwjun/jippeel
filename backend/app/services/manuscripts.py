@@ -32,6 +32,26 @@ class ChapterNotFound(Exception):
     """Raised when the target chapter does not exist."""
 
 
+def _fresh_current_revision(db: Session, chapter_id: int) -> int:
+    """Read the current revision from the database, not the identity map."""
+    db.expire_all()
+    current = db.execute(
+        select(Chapter.revision).where(Chapter.id == chapter_id)
+    ).scalar_one_or_none()
+    if current is None:
+        raise ChapterNotFound()
+    return int(current or 0)
+
+
+def _is_snapshot_revision_unique_error(exc: IntegrityError) -> bool:
+    text = str(exc.orig if getattr(exc, "orig", None) is not None else exc)
+    return (
+        "UNIQUE constraint failed" in text
+        and "chapter_snapshots.chapter_id" in text
+        and "chapter_snapshots.revision" in text
+    )
+
+
 def replace_manuscript(
     db: Session,
     chapter_id: int,
@@ -51,7 +71,7 @@ def replace_manuscript(
 
     current_revision = int(chapter.revision or 0)
     if current_revision != expected_revision:
-        raise RevisionConflict(current_revision=current_revision)
+        raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id))
 
     current_content = chapter.content_md or ""
     if current_content == content_md:
@@ -66,8 +86,7 @@ def replace_manuscript(
         )
         result = db.execute(noop_stmt)
         if result.rowcount != 1:
-            latest = db.get(Chapter, chapter_id)
-            raise RevisionConflict(current_revision=int(latest.revision if latest else current_revision))
+            raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id))
         db.flush()
         db.refresh(chapter)
         return chapter
@@ -83,8 +102,7 @@ def replace_manuscript(
     )
     result = db.execute(stmt)
     if result.rowcount != 1:
-        latest = db.get(Chapter, chapter_id)
-        raise RevisionConflict(current_revision=int(latest.revision if latest else current_revision))
+        raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id))
 
     db.add(
         ChapterSnapshot(
@@ -97,9 +115,9 @@ def replace_manuscript(
     try:
         db.flush()
     except IntegrityError as exc:
-        text = str(exc.orig if getattr(exc, "orig", None) is not None else exc)
-        if "chapter_snapshots" in text and "revision" in text:
-            raise RevisionConflict(current_revision=expected_revision + 1) from exc
+        if _is_snapshot_revision_unique_error(exc):
+            db.rollback()
+            raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id)) from exc
         raise
     db.refresh(chapter)
     return chapter

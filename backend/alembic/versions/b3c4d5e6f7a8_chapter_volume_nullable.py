@@ -20,8 +20,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table('chapters', schema=None) as batch_op:
-        batch_op.alter_column('volume', existing_type=sa.Integer(), nullable=True)
+    bind = op.get_bind()
+    sqlite = bind.dialect.name == 'sqlite'
+    if sqlite:
+        bind.exec_driver_sql('PRAGMA foreign_keys=OFF')
+    try:
+        with op.batch_alter_table('chapters', schema=None) as batch_op:
+            batch_op.alter_column('volume', existing_type=sa.Integer(), nullable=True)
+    finally:
+        if sqlite:
+            bind.exec_driver_sql('PRAGMA foreign_keys=ON')
 
 
 def downgrade() -> None:

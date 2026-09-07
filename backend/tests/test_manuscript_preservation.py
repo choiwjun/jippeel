@@ -97,6 +97,8 @@ def test_concurrent_same_revision_write_has_one_winner(client):
     statuses = sorted(resp.status_code for resp in results)
     assert statuses == [200, 409]
     winner = next(resp.json()["content_md"] for resp in results if resp.status_code == 200)
+    loser = next(resp for resp in results if resp.status_code == 409)
+    assert loser.json()["detail"]["current_revision"] == 1
     current = client.get(f"/api/v1/chapters/{cid}").json()
     assert current["content_md"] == winner
     assert current["revision"] == 1
@@ -300,3 +302,158 @@ def test_delete_chapter_cascades_snapshots(client):
     assert client.delete(f"/api/v1/chapters/{cid}").status_code == 204
     assert client.get(f"/api/v1/chapters/{cid}").status_code == 404
     assert client.get(f"/api/v1/chapters/{cid}/snapshots/{snapshots[0]['id']}").status_code == 404
+
+
+
+def test_noop_racing_changing_writer_reports_fresh_revision(tmp_path):
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import Base, create_db_engine
+    from app.models import Chapter, Project
+    from app.services import manuscripts
+
+    engine = create_db_engine(f"sqlite:///{(tmp_path / 'noop-race.db').as_posix()}")
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    setup = SessionLocal()
+    try:
+        project = Project(title="race")
+        setup.add(project)
+        setup.flush()
+        chapter = Chapter(project_id=project.id, title="one", content_md="same", revision=1)
+        setup.add(chapter)
+        setup.commit()
+        cid = chapter.id
+    finally:
+        setup.close()
+
+    stale_noop = SessionLocal()
+    winner = SessionLocal()
+    try:
+        cached = stale_noop.get(Chapter, cid)
+        assert cached.revision == 1
+        assert cached.content_md == "same"
+
+        changed = manuscripts.replace_manuscript(winner, cid, "newest", 1, reason="autosave")
+        winner.commit()
+        assert changed.revision == 2
+
+        with pytest.raises(manuscripts.RevisionConflict) as exc_info:
+            manuscripts.replace_manuscript(stale_noop, cid, "same", 1, reason="autosave")
+        assert exc_info.value.current_revision == 2
+        stale_noop.rollback()
+    finally:
+        stale_noop.close()
+        winner.close()
+
+    verify = SessionLocal()
+    try:
+        current = verify.get(Chapter, cid)
+        assert current.content_md == "newest"
+        assert current.revision == 2
+        snapshots = manuscripts.list_snapshots(verify, cid)
+        assert [(s.revision, s.content_md, s.reason) for s in snapshots] == [(1, "same", "autosave")]
+    finally:
+        verify.close()
+        engine.dispose()
+
+
+def test_duplicate_snapshot_integrity_rollback_reports_real_current_revision(tmp_path):
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import Base, create_db_engine
+    from app.models import Chapter, ChapterSnapshot, Project
+    from app.services import manuscripts
+
+    engine = create_db_engine(f"sqlite:///{(tmp_path / 'snapshot-dupe.db').as_posix()}")
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    db = SessionLocal()
+    try:
+        project = Project(title="dupe")
+        db.add(project)
+        db.flush()
+        chapter = Chapter(project_id=project.id, title="one", content_md="old", revision=0)
+        db.add(chapter)
+        db.flush()
+        db.add(ChapterSnapshot(
+            chapter_id=chapter.id,
+            revision=0,
+            content_md="pre-existing duplicate",
+            reason="autosave",
+        ))
+        db.commit()
+        cid = chapter.id
+
+        with pytest.raises(manuscripts.RevisionConflict) as exc_info:
+            manuscripts.replace_manuscript(db, cid, "new", 0, reason="autosave")
+        assert exc_info.value.current_revision == 0
+        db.rollback()
+    finally:
+        db.close()
+
+    verify = SessionLocal()
+    try:
+        current = verify.get(Chapter, cid)
+        assert current.content_md == "old"
+        assert current.revision == 0
+        snapshots = manuscripts.list_snapshots(verify, cid)
+        assert [(s.revision, s.content_md, s.reason) for s in snapshots] == [
+            (0, "pre-existing duplicate", "autosave")
+        ]
+    finally:
+        verify.close()
+        engine.dispose()
+
+
+def test_restore_requires_revision_stale_conflicts_and_keeps_reason(client):
+    pid = _project(client)["id"]
+    cid = _chapter(client, pid)["id"]
+    assert _put(client, cid, "first", 0).json()["revision"] == 1
+    assert _put(client, cid, "second", 1).json()["revision"] == 2
+    snapshots = client.get(f"/api/v1/chapters/{cid}/snapshots").json()
+    snapshot_id = snapshots[-1]["id"]
+
+    missing = client.post(f"/api/v1/chapters/{cid}/restore", json={"snapshot_id": snapshot_id})
+    assert missing.status_code == 422
+
+    stale = client.post(
+        f"/api/v1/chapters/{cid}/restore",
+        json={"snapshot_id": snapshot_id, "expected_revision": 1},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["current_revision"] == 2
+    assert client.get(f"/api/v1/chapters/{cid}").json()["content_md"] == "second"
+
+    restored = client.post(
+        f"/api/v1/chapters/{cid}/restore",
+        json={"snapshot_id": snapshot_id, "expected_revision": 2},
+    )
+    assert restored.status_code == 200
+    assert restored.json()["revision"] == 3
+    reasons = [s["reason"] for s in client.get(f"/api/v1/chapters/{cid}/snapshots").json()]
+    assert reasons[0] == "restore"
+    assert "autosave" in reasons
+
+
+def test_snapshot_reason_values_for_refine_and_scene_merge(client, mock_humanize):
+    pid = _project(client)["id"]
+    cid = _chapter(client, pid)["id"]
+    _put(client, cid, "base text", 0)
+
+    run = client.post("/api/v1/refine", json={"chapter_id": cid, "expected_revision": 1}).json()
+    accepted = client.post(f"/api/v1/refine/runs/{run['run_id']}/accept")
+    assert accepted.status_code == 200
+    assert accepted.json()["revision"] == 2
+
+    client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "one", "sort_order": 0, "content_md": "scene body"})
+    merged = client.put(
+        f"/api/v1/chapters/{cid}/content_from_scenes",
+        json={"expected_revision": 2},
+    )
+    assert merged.status_code == 200
+
+    reasons = [s["reason"] for s in client.get(f"/api/v1/chapters/{cid}/snapshots").json()]
+    assert reasons[:3] == ["scene_merge", "refine", "autosave"]

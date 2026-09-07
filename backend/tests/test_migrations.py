@@ -126,3 +126,84 @@ def test_startup_accepts_alembic_head_schema(alembic_config, monkeypatch):
     engine = create_db_engine(_current_url())
     assert_manuscript_schema_current(engine)
     engine.dispose()
+
+
+
+def test_populated_historical_upgrade_from_initial_with_references(alembic_config):
+    """Regression for FK failure while upgrading populated d85 DB through nullable volume."""
+    from sqlalchemy import text
+
+    command.upgrade(alembic_config, "d85fdcab0808")
+
+    engine = create_db_engine(_current_url())
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO projects (id, title) VALUES (1, 'historical')"))
+        conn.execute(text(
+            "INSERT INTO chapters "
+            "(id, project_id, volume, sort_order, title, content_md, status, word_count_cache) "
+            "VALUES (1, 1, 1, 1.0, 'one', 'old manuscript', '초고', 13)"
+        ))
+        conn.execute(text(
+            "INSERT INTO refine_runs "
+            "(id, chapter_id, route_hint, changed_ratio, report_json, result_text, accepted) "
+            "VALUES (1, 1, 'standard', 0.1, '{}', 'refined', 0)"
+        ))
+        conn.execute(text(
+            "INSERT INTO characters (id, project_id, name, aliases, card_json) "
+            "VALUES (1, 1, 'A', '[]', '{}')"
+        ))
+        conn.execute(text(
+            "INSERT INTO characters (id, project_id, name, aliases, card_json) "
+            "VALUES (2, 1, 'B', '[]', '{}')"
+        ))
+        conn.execute(text(
+            "INSERT INTO relationships (id, from_character_id, to_character_id, label, note) "
+            "VALUES (1, 1, 2, 'ally', 'kept')"
+        ))
+        conn.execute(text(
+            "INSERT INTO lore_entries (id, project_id, category, title, content, keywords) "
+            "VALUES (1, 1, '용어', '검', 'kept lore', '[]')"
+        ))
+    engine.dispose()
+
+    command.upgrade(alembic_config, "head")
+
+    engine = create_db_engine(_current_url())
+    with engine.connect() as conn:
+        chapter = conn.execute(text(
+            "SELECT volume, content_md, revision FROM chapters WHERE id = 1"
+        )).mappings().one()
+        run = conn.execute(text(
+            "SELECT chapter_id, base_revision FROM refine_runs WHERE id = 1"
+        )).mappings().one()
+        rel_count = conn.execute(text("SELECT count(*) FROM relationships WHERE note = 'kept'")).scalar_one()
+        lore_count = conn.execute(text("SELECT count(*) FROM lore_entries WHERE content = 'kept lore'")).scalar_one()
+        version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    engine.dispose()
+
+    assert chapter == {"volume": 1, "content_md": "old manuscript", "revision": 0}
+    assert run == {"chapter_id": 1, "base_revision": None}
+    assert rel_count == 1
+    assert lore_count == 1
+    assert version == "0a1b2c3d4e5f"
+
+
+def test_schema_guard_temp_bypass_uses_passed_engine_url(tmp_path, monkeypatch):
+    from app import database
+
+    allowed_root = tmp_path / "allowed-temp-root"
+    allowed_root.mkdir()
+    monkeypatch.setattr(database.tempfile, "gettempdir", lambda: str(allowed_root))
+    monkeypatch.setenv("JIPPEEL_ALLOW_TEMP_CREATE_ALL", "1")
+    monkeypatch.setattr(
+        database,
+        "DATABASE_URL",
+        f"sqlite:///{(allowed_root / 'lifespan.db').as_posix()}",
+    )
+
+    other_root = tmp_path / "not-the-bound-engine-temp-root"
+    other_root.mkdir()
+    engine = create_db_engine(f"sqlite:///{(other_root / 'empty.db').as_posix()}")
+    with pytest.raises(RuntimeError, match="alembic upgrade head"):
+        database.assert_manuscript_schema_current(engine)
+    engine.dispose()
