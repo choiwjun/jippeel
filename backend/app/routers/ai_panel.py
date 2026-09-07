@@ -38,7 +38,9 @@ NOVEL_SYSTEM_PROMPT = (
     "- 브리프의 장면 유형이 이 화의 리듬을 결정한다. 유형이 없으면 지시문과 컨텍스트에서 이 화의 성격을 스스로 판단한다.\n"
     "[장면 유형별 리듬]\n"
     "- 대립·액션: 대사와 행동 비트가 장면을 주도한다. 대사 비율과 문단 길이를 미리 정하지 말고, 긴장이 이어지는 만큼 번갈아 배치한다.\n"
-    "- 정보정리: 이 장면에 필요한 설명만 짧게 풀고 인물의 반응·행동 사이에 끼워 넣는다. 설명 문단이 이어지지 않게 한다.\n"
+    "- 대립: 문단 리듬의 바닥을 짧은 주고받기와 행동 한 줄로 잡는다. 한 문단에 대사와 행동이 뭉쳐 밀도가 떨어지기 전에 다음 비트로 넘어간다.\n"
+    "- 액션: 문단을 한 행동 단위로 끊어 쓴다. 여러 동작을 한 문단에 쌓지 않고, 행동 하나가 착지하면 다음 문단으로 넘어간다.\n"
+    "- 정보정리: 이 장면에 필요한 설명만 짧게 풀어 설명 블록을 인물의 반응 사이에 끼워 넣는다. 설명 문단이 연달아 놓이지 않게 한다.\n"
     "- 감정·이동: 인물의 시선과 판단이 흐르게 쓰되, 장면의 질문이나 갈등에 닿는 페이스를 유지한다.\n"
     "[전개]\n"
     "- 시작은 배경 설명이 아니라 이 장면의 갈등이나 질문에 적절한 속도로 들어선다. 정해진 글자 수가 아니라 장면의 흐름이 기준이다.\n"
@@ -134,9 +136,9 @@ def _format_brief_block(brief: EpisodeBrief) -> str:
     lines.append(f"감정 목표: {brief.emotion_goal}")
     lines.append("핵심 사건:")
     lines.extend(f"- {event}" for event in brief.core_events)
-    lines.append("인물 선택·대가:")
+    lines.append("인물 선택:")
     lines.extend(f"- {choice}" for choice in brief.character_choices)
-    lines.append(f"대가: {brief.cost}")
+    lines.append(f"대가(치르는 것): {brief.cost}")
     lines.append("금지사항:")
     lines.extend(f"- {item}" for item in brief.prohibitions)
     lines.append(f"다음 화 훅: {brief.next_hook}")
@@ -148,7 +150,7 @@ def _format_brief_block(brief: EpisodeBrief) -> str:
     return "\n".join(lines)
 
 
-def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict], dict]:
+def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict], dict, list[dict]]:
     """FR-404 — 요청된 컨텍스트(회차/캐릭터/로어북)를 프롬프트 블록으로 조립.
 
     자동 주입(auto_lore, 백로그 P1)이 켜지면 본문·지시문에 언급된 로어 항목을
@@ -444,8 +446,10 @@ def _split_review_stream():
     """감수 스트림을 '[감수]'/'[수정본]' 구간으로 분리하는 상태 기계.
 
     마커가 청크 경계에서 잘리는 것을 대비해 review 페이즈에서는
-    항상 마커 길이만큼의 말미를 버퍼에 남긴다. 반환: feed(delta) →
-    ("review"|"refined", 청크)을 yield하는 async generator.
+    항상 마커 길이만큼의 말미를 버퍼에 남긴다. 반환: (feed, flush) —
+    feed(delta)는 ("review"|"refined", 청크)을 yield하는 async generator,
+    flush()는 스트림 종료 시 호출하며 [수정본] 마커 없이 끝난 경우
+    carry에 남은 마지막 구간을 review 청크로 방출한다.
     """
     phase = "review"
     carry = ""
@@ -476,7 +480,13 @@ def _split_review_stream():
             yield "refined", rest
         carry = ""
 
-    return feed
+    async def flush():
+        nonlocal carry
+        if phase == "review" and carry:
+            yield "review", carry
+        carry = ""
+
+    return feed, flush
 
 
 # ---------- AI 생성 스트리밍 ----------
@@ -556,7 +566,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
             ]
             review_chars = 0
             try:
-                feed = _split_review_stream()
+                feed, flush_review = _split_review_stream()
                 async for delta in llm.stream_chat(
                         review_cfg["client"], review_cfg["model"], review_messages,
                         max_tokens=review_cfg["max_tokens"],
@@ -565,6 +575,10 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                     async for event_name, chunk in feed(delta):
                         yield {"event": event_name,
                                "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+                # 종료 flush — [수정본] 마커 없이 끝나도 carry의 마지막 구간을 review로 방출
+                async for event_name, chunk in flush_review():
+                    yield {"event": event_name,
+                           "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
             except openai.APIError as exc:
                 yield {"event": "review_error",
                        "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}

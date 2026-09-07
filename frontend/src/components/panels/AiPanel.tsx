@@ -23,21 +23,59 @@ import { Select } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 
-/** 회차 브리프 직렬화 — 필수 항목이 하나라도 비면 brief를 보내지 않는다(기존 요청과 동일 동작). */
-function buildBriefContext(brief: EpisodeBriefState): Record<string, unknown> | null {
+/**
+ * 회차 브리프 직렬화 — 성공 시 전송 객체, 실패 시 사유를 반환한다.
+ * 'incomplete'는 필수 항목 미입력(기존 동작 유지: brief 없이 생성),
+ * 'invalid'는 검증 위반(백엔드 계약 위반이므로 조용히 버리지 않고 경고 후 미전송).
+ */
+type ParsedBrief =
+  | { ok: true; brief: Record<string, unknown> }
+  | { ok: false; reason: 'incomplete' }
+  | { ok: false; reason: 'invalid'; message: string };
+
+function parseEpisodeBrief(brief: EpisodeBriefState): ParsedBrief {
   const lines = (raw: string) =>
     raw.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
   const emotionGoal = brief.emotion_goal.trim();
-  const coreEvents = lines(brief.core_events).slice(0, 3);
-  const characterChoices = lines(brief.character_choices).slice(0, 4);
+  const coreEvents = lines(brief.core_events);
+  const characterChoices = lines(brief.character_choices);
   const cost = brief.cost.trim();
-  const prohibitions = lines(brief.prohibitions).slice(0, 10);
+  const prohibitions = lines(brief.prohibitions);
   const nextHook = brief.next_hook.trim();
   if (
     !emotionGoal || coreEvents.length === 0 || characterChoices.length === 0
     || !cost || prohibitions.length === 0 || !nextHook
   ) {
-    return null;
+    return { ok: false, reason: 'incomplete' };
+  }
+  // 백엔드 EpisodeBrief 계약 — 위반 시 422가 되므로 전송하지 않는다
+  if (coreEvents.length > 3) {
+    return { ok: false, reason: 'invalid', message: '핵심 사건은 최대 3개까지 입력할 수 있습니다.' };
+  }
+  if (characterChoices.length > 4) {
+    return { ok: false, reason: 'invalid', message: '인물 선택은 최대 4개까지 입력할 수 있습니다.' };
+  }
+  if (prohibitions.length > 10) {
+    return { ok: false, reason: 'invalid', message: '금지사항은 최대 10개까지 입력할 수 있습니다.' };
+  }
+  if (emotionGoal.length > 500) {
+    return { ok: false, reason: 'invalid', message: '감정 목표는 500자 이내로 입력하세요.' };
+  }
+  if (cost.length > 500) {
+    return { ok: false, reason: 'invalid', message: '대가는 500자 이내로 입력하세요.' };
+  }
+  if (nextHook.length > 500) {
+    return { ok: false, reason: 'invalid', message: '다음 화 훅은 500자 이내로 입력하세요.' };
+  }
+  if ([...coreEvents, ...characterChoices, ...prohibitions].some((s) => s.length > 500)) {
+    return { ok: false, reason: 'invalid', message: '브리프 항목 하나는 500자 이내로 입력하세요.' };
+  }
+  const target = Number(brief.target_chars_novelpia);
+  if (
+    brief.target_chars_novelpia !== ''
+    && (!Number.isInteger(target) || target < 1000 || target > 10000)
+  ) {
+    return { ok: false, reason: 'invalid', message: '목표 글자 수는 1000~10000 사이의 정수로 입력하세요.' };
   }
   const out: Record<string, unknown> = {
     emotion_goal: emotionGoal,
@@ -48,14 +86,8 @@ function buildBriefContext(brief: EpisodeBriefState): Record<string, unknown> | 
     next_hook: nextHook,
   };
   if (brief.scene_type) out.scene_type = brief.scene_type;
-  const target = Number(brief.target_chars_novelpia);
-  if (
-    brief.target_chars_novelpia !== ''
-    && Number.isInteger(target) && target >= 1000 && target <= 10000
-  ) {
-    out.target_chars_novelpia = target;
-  }
-  return out;
+  if (brief.target_chars_novelpia !== '') out.target_chars_novelpia = target;
+  return { ok: true, brief: out };
 }
 
 export function AiPanel() {
@@ -144,8 +176,13 @@ export function AiPanel() {
       return;
     }
     const c = store.contextSelection;
-    // 회차 브리프 — 필수 항목이 모두 채워졌을 때만 context.brief로 전송
-    const brief = buildBriefContext(store.episodeBrief);
+    // 회차 브리프 — 필수 항목이 모두 채워졌을 때만 context.brief로 전송.
+    // 검증 위반(개수·500자·목표 글자 수 범위)은 조용히 버리지 않고 경고 후 미전송한다.
+    const parsedBrief = parseEpisodeBrief(store.episodeBrief);
+    if (!parsedBrief.ok && parsedBrief.reason === 'invalid') {
+      toast(`브리프를 전송하지 않습니다 — ${parsedBrief.message}`, 'warning');
+    }
+    const brief = parsedBrief.ok ? parsedBrief.brief : null;
     store.startStream();
     useAiPanelStore.getState().setAbort(streamGenerate(
       {
@@ -231,11 +268,11 @@ export function AiPanel() {
           AI 결과는 자동으로 본문에 들어가지 않습니다. ‘끼워넣기’ 또는 ‘선택 교체’를 눌러야 반영됩니다.
         </AlertDescription>
       </Alert>
-      {/* NFR-201 전송 고지 (M-2) */}
+      {/* NFR-201 전송 고지 (M-2) — 브리프 포함 */}
       <Alert variant="warning">
         <CloudUploadSlot />
         <AlertDescription>
-          선택한 회차·카드·로어북 내용은 지정한 LLM 엔드포인트로 전송됩니다.
+          선택한 회차·카드·로어북·이번 화 브리프 내용은 지정한 LLM 엔드포인트로 전송됩니다.
         </AlertDescription>
       </Alert>
 
@@ -545,6 +582,8 @@ function EpisodeBriefSection() {
   const [open, setOpen] = useState(false);
   const brief = useAiPanelStore((s) => s.episodeBrief);
   const setBrief = useAiPanelStore((s) => s.setEpisodeBrief);
+  // 브리프 필수값이 모두 유효해 실제로 전송되는 상태 — 배지로 항상 공개한다(NFR-201)
+  const applying = parseEpisodeBrief(brief).ok;
   return (
     <section className="rounded-md border border-border p-3">
       <button
@@ -553,7 +592,12 @@ function EpisodeBriefSection() {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground"
       >
-        <span>이번 화 브리프</span>
+        <span className="flex items-center gap-1.5">
+          이번 화 브리프
+          {applying && (
+            <Badge variant="secondary" className="text-[10px]">이번 화 브리프 적용 중</Badge>
+          )}
+        </span>
         <span aria-hidden="true">{open ? '▾' : '▸'}</span>
       </button>
       {open && (
@@ -565,6 +609,7 @@ function EpisodeBriefSection() {
               value={brief.emotion_goal}
               onChange={(e) => setBrief({ emotion_goal: e.target.value })}
               placeholder="예: 굴욕을 뒤집는 통쾌함"
+              maxLength={500}
             />
           </div>
           <div>
@@ -578,7 +623,7 @@ function EpisodeBriefSection() {
             />
           </div>
           <div>
-            <Label htmlFor="brief-character-choices">인물 선택·대가 (한 줄에 하나)</Label>
+            <Label htmlFor="brief-character-choices">인물 선택 (한 줄에 하나)</Label>
             <Textarea
               id="brief-character-choices"
               rows={2}
@@ -594,6 +639,7 @@ function EpisodeBriefSection() {
               value={brief.cost}
               onChange={(e) => setBrief({ cost: e.target.value })}
               placeholder="예: 세가 복귀 가능성을 포기한다"
+              maxLength={500}
             />
           </div>
           <div>
@@ -613,6 +659,7 @@ function EpisodeBriefSection() {
               value={brief.next_hook}
               onChange={(e) => setBrief({ next_hook: e.target.value })}
               placeholder="예: 검집이 열리려는 순간 뒤에서 손목을 붙잡힌다"
+              maxLength={500}
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -645,6 +692,7 @@ function EpisodeBriefSection() {
           </div>
           <p className="text-[11px] leading-snug text-muted-foreground">
             필수 항목을 모두 채우면 브리프가 전송됩니다. 비어 있으면 브리프 없이 생성됩니다.
+            항목 개수·글자 수 제한을 넘으면 경고 후 브리프 없이 생성됩니다.
             생성 결과는 자동 반영되지 않으므로 반드시 사람이 검수하세요.
           </p>
         </div>

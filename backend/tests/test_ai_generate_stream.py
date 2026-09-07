@@ -484,6 +484,56 @@ def test_brief_contract_validation_rejects_invalid(client, fake_llm):
     assert resp.status_code == 422
 
 
+def test_brief_array_items_strip_and_limits(client, fake_llm):
+    """배열 항목 검증 — 공백 항목·빈 항목·501자 항목은 422, 공백은 제거해 주입."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    base = {"endpoint_id": ep["id"], "prompt_override": "이어서 써줘"}
+
+    def post_brief(brief: dict):
+        return client.post("/api/v1/ai/generate",
+                           json={**base, "context": {"brief": brief}})
+
+    # 공백만 있는 항목 — strip 후 빈 값이므로 422
+    assert post_brief(_valid_brief() | {"core_events": ["   "]}).status_code == 422
+    # 배열 중간의 빈 항목 — 422
+    assert post_brief(_valid_brief() | {"prohibitions": ["정체를 숨긴다", ""]}).status_code == 422
+    # 501자 항목 — 422
+    assert post_brief(_valid_brief() | {"core_events": ["가" * 501]}).status_code == 422
+    # 문자열 필드도 동일 — 공백만 있는 cost, 501자 next_hook
+    assert post_brief(_valid_brief() | {"cost": "  \t "}).status_code == 422
+    assert post_brief(_valid_brief() | {"next_hook": "나" * 501}).status_code == 422
+
+    # 공백 제거는 검증으로 수행 — trim된 값이 프롬프트 블록에 주입된다
+    resp = post_brief(_valid_brief() | {"core_events": ["  파문 통보  "],
+                                        "emotion_goal": " 통쾌함 "})
+    assert resp.status_code == 200
+    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+    assert "파문 통보" in user_text
+    assert "  파문 통보  " not in user_text
+    assert "감정 목표: 통쾌함" in user_text
+
+
+def test_review_stream_tail_flushed_without_refined_marker(client, fake_llm):
+    """[수정본] 마커 없이 감수 스트림이 끝나도 carry에 남은 마지막 구간이 review로 방출된다."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    fake_llm["client"].set_chunks([
+        "[감수]\n- 서두 전개가 급하",
+        "다\n- 결말 훅이 약하다",
+    ])
+
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "review": {}})
+    assert resp.status_code == 200
+    events = _parse_sse(resp.text)
+
+    review = "".join(json.loads(d)["delta"] for e, d in events if e == "review")
+    assert review == "[감수]\n- 서두 전개가 급하다\n- 결말 훅이 약하다"
+    assert not [e for e, _ in events if e == "refined"]  # 마커가 없으므로 수정본 없음
+
+
 # ---------- 적응형 한국어 생성·감수 프롬프트 계약 ----------
 def test_novel_system_prompt_adaptive_korean_contract(client, fake_llm):
     """생성 system 프롬프트 — 브리프 우선·장면 유형 리듬 지침, 구형 절대 수치 규칙 제거."""

@@ -1,8 +1,8 @@
 """Pydantic 스키마 — 프로젝트·회차 (Sprint 1 범위)."""
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 ChapterStatus = Literal["초고", "수정중", "완료"]
 
@@ -291,19 +291,24 @@ class PromptPresetOut(BaseModel):
 
 
 # ---- AI 생성 요청 (POST /ai/generate) ----
+# 회차 브리프 문자열·배열 항목 공통 검증 — 앞뒤 공백 제거 후 1~500자.
+BriefText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+
+
 class EpisodeBrief(BaseModel):
     """회차 브리프 — 생성 요청 단위의 선택적 계약 (한국어 회차 품질 슬라이스).
 
-    필수 필드 6개는 비어 있으면 안 되고, 배열 개수·문자열 길이는 제한한다.
+    필수 필드 6개는 앞뒤 공백을 제거한 뒤 비어 있으면 안 되고(공백만 있는 값·항목도
+    거부), 문자열·배열 항목 모두 500자로 제한한다. 배열 개수 상한은 유지한다.
     DB 마이그레이션 없이 요청에만 존재하는 구조체다.
     """
 
-    emotion_goal: str = Field(min_length=1, max_length=500)
-    core_events: list[str] = Field(min_length=1, max_length=3)
-    character_choices: list[str] = Field(min_length=1, max_length=4)
-    cost: str = Field(min_length=1, max_length=500)
-    prohibitions: list[str] = Field(min_length=1, max_length=10)
-    next_hook: str = Field(min_length=1, max_length=500)
+    emotion_goal: BriefText
+    core_events: list[BriefText] = Field(min_length=1, max_length=3)
+    character_choices: list[BriefText] = Field(min_length=1, max_length=4)
+    cost: BriefText
+    prohibitions: list[BriefText] = Field(min_length=1, max_length=10)
+    next_hook: BriefText
     scene_type: Literal["대립", "액션", "정보정리", "감정", "이동"] | None = None
     target_chars_novelpia: int | None = Field(default=None, ge=1000, le=10000)
 
