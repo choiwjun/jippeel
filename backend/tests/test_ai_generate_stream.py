@@ -413,3 +413,72 @@ def test_review_absent_no_review_events(client, fake_llm):
     assert kinds[0] == "start"
     assert kinds[-1] == "done"
     assert not any(k.startswith("review") or k == "refined" for k in kinds)
+
+
+# ---------- 회차 브리프 (한국어 회차 품질 수직 슬라이스) ----------
+BRIEF_LABEL = "[이번 화 브리프 — 생성 계약]"
+
+
+def _valid_brief() -> dict:
+    return {
+        "emotion_goal": "굴욕을 뒤집는 통쾌함",
+        "core_events": ["파문 통보", "흑요검의 첫 반응"],
+        "character_choices": ["주인공은 복귀 대신 독자 노선을 택한다"],
+        "cost": "세가 복귀 가능성을 포기한다",
+        "prohibitions": ["흑요검의 정체를 완전히 밝히지 않는다"],
+        "next_hook": "검집이 열리려는 순간 뒤에서 손목을 붙잡힌다",
+        "scene_type": "대립",
+        "target_chars_novelpia": 3000,
+    }
+
+
+def test_generate_with_brief_injects_contract_block(client, fake_llm):
+    """context.brief 전송 시 브리프가 한국어 경계 블록으로 user 메시지에 주입된다."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "context": {"brief": _valid_brief()}})
+    assert resp.status_code == 200
+    events = _parse_sse(resp.text)
+    assert events[0][0] == "start"
+    assert events[-1][0] == "done"
+
+    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+    assert BRIEF_LABEL in user_text
+    assert "굴욕을 뒤집는 통쾌함" in user_text            # emotion_goal
+    assert "파문 통보" in user_text                      # core_events
+    assert "주인공은 복귀 대신 독자 노선을 택한다" in user_text  # character_choices
+    assert "세가 복귀 가능성을 포기한다" in user_text      # cost
+    assert "흑요검의 정체를 완전히 밝히지 않는다" in user_text  # prohibitions
+    assert "검집이 열리려는 순간 뒤에서 손목을 붙잡힌다" in user_text  # next_hook
+    assert "대립" in user_text                           # scene_type
+    assert "3000" in user_text                           # target_chars_novelpia
+
+
+def test_generate_without_brief_omits_brief_block(client, fake_llm):
+    """brief 미전송 시 기존 요청과 동일 — 브리프 라벨 블록이 없다."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘"})
+    assert resp.status_code == 200
+    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+    assert BRIEF_LABEL not in user_text
+
+
+def test_brief_contract_validation_rejects_invalid(client, fake_llm):
+    """빈 emotion_goal / core_events 4개 초과 — Pydantic 제한 위반은 422."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    base = {"endpoint_id": ep["id"], "prompt_override": "이어서 써줘"}
+
+    bad_goal = _valid_brief() | {"emotion_goal": ""}
+    resp = client.post("/api/v1/ai/generate",
+                       json={**base, "context": {"brief": bad_goal}})
+    assert resp.status_code == 422
+
+    bad_events = _valid_brief() | {"core_events": ["a", "b", "c", "d"]}
+    resp = client.post("/api/v1/ai/generate",
+                       json={**base, "context": {"brief": bad_events}})
+    assert resp.status_code == 422

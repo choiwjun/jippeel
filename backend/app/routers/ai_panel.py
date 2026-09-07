@@ -19,6 +19,7 @@ from app.schemas import (
     AiEndpointCreate,
     AiEndpointOut,
     AiEndpointUpdate,
+    EpisodeBrief,
     GenerateRequest,
     PromptPresetCreate,
     PromptPresetOut,
@@ -114,6 +115,30 @@ def _resolve_model(endpoint: AiEndpoint, requested: str | None) -> str:
     return model
 
 
+def _format_brief_block(brief: EpisodeBrief) -> str:
+    """회차 브리프 → 안정적인 한국어 경계 블록.
+
+    비어 있는(선택 미입력) 필드는 생략하고, 브리프 밖의 독립 사건 생성을 금지하는
+    경계 지시로 블록을 닫는다. 주입은 입력 컨텍스트일 뿐이며 원고에 삽입되지 않는다.
+    """
+    lines = ["[이번 화 브리프 — 생성 계약]"]
+    lines.append(f"감정 목표: {brief.emotion_goal}")
+    lines.append("핵심 사건:")
+    lines.extend(f"- {event}" for event in brief.core_events)
+    lines.append("인물 선택·대가:")
+    lines.extend(f"- {choice}" for choice in brief.character_choices)
+    lines.append(f"대가: {brief.cost}")
+    lines.append("금지사항:")
+    lines.extend(f"- {item}" for item in brief.prohibitions)
+    lines.append(f"다음 화 훅: {brief.next_hook}")
+    if brief.scene_type:
+        lines.append(f"장면 유형: {brief.scene_type}")
+    if brief.target_chars_novelpia is not None:
+        lines.append(f"목표 글자 수(노벨피아): {brief.target_chars_novelpia}")
+    lines.append("→ 위 브리프에 없는 독립 사건을 새로 만들지 마라.")
+    return "\n".join(lines)
+
+
 def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict], dict]:
     """FR-404 — 요청된 컨텍스트(회차/캐릭터/로어북)를 프롬프트 블록으로 조립.
 
@@ -128,6 +153,9 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
     injected_foreshadows: list[dict] = []
     outline_info: dict = {}
     ctx = payload.context
+    # 회차 브리프 — 브리프 우선 원칙: 다른 컨텍스트 블록보다 앞에 위치
+    if ctx.brief is not None:
+        blocks.append(_format_brief_block(ctx.brief))
     source_parts: list[str] = []
     project_id = ctx.project_id
     if ctx.scene_id is not None:

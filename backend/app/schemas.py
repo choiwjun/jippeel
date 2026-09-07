@@ -291,6 +291,23 @@ class PromptPresetOut(BaseModel):
 
 
 # ---- AI 생성 요청 (POST /ai/generate) ----
+class EpisodeBrief(BaseModel):
+    """회차 브리프 — 생성 요청 단위의 선택적 계약 (한국어 회차 품질 슬라이스).
+
+    필수 필드 6개는 비어 있으면 안 되고, 배열 개수·문자열 길이는 제한한다.
+    DB 마이그레이션 없이 요청에만 존재하는 구조체다.
+    """
+
+    emotion_goal: str = Field(min_length=1, max_length=500)
+    core_events: list[str] = Field(min_length=1, max_length=3)
+    character_choices: list[str] = Field(min_length=1, max_length=4)
+    cost: str = Field(min_length=1, max_length=500)
+    prohibitions: list[str] = Field(min_length=1, max_length=10)
+    next_hook: str = Field(min_length=1, max_length=500)
+    scene_type: Literal["대립", "액션", "정보정리", "감정", "이동"] | None = None
+    target_chars_novelpia: int | None = Field(default=None, ge=1000, le=10000)
+
+
 class GenerateContext(BaseModel):
     chapter_id: int | None = None
     character_ids: list[int] | None = None
@@ -312,6 +329,8 @@ class GenerateContext(BaseModel):
     auto_foreshadow_limit: int = Field(default=5, ge=1, le=10)
     # 작품 문체 프로파일 적용 (고도화 G-040) — Project.style_profile을 system 프롬프트에 결합
     style_profile: bool = False
+    # 회차 브리프 (한국어 회차 품질 슬라이스) — 선택적 생성 계약, 없으면 기존 동작 유지
+    brief: EpisodeBrief | None = None
 
 
 class GenerateParams(BaseModel):
