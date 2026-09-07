@@ -482,3 +482,33 @@ def test_brief_contract_validation_rejects_invalid(client, fake_llm):
     resp = client.post("/api/v1/ai/generate",
                        json={**base, "context": {"brief": bad_events}})
     assert resp.status_code == 422
+
+
+# ---------- 적응형 한국어 생성·감수 프롬프트 계약 ----------
+def test_novel_system_prompt_adaptive_korean_contract(client, fake_llm):
+    """생성 system 프롬프트 — 브리프 우선·장면 유형 리듬 지침, 구형 절대 수치 규칙 제거."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘"})
+    assert resp.status_code == 200
+    sys_text = fake_llm["client"].last_kwargs["messages"][0]["content"]
+    assert "회차 브리프" in sys_text
+    assert "장면 유형" in sys_text
+    # 구형 절대 규칙 — 보편 수치 지침은 남아 있으면 안 된다
+    assert "전체 분량의 35~50%는 대사다" not in sys_text
+    assert "한 문단은 1~2문장" not in sys_text
+    assert "첫 500자" not in sys_text
+
+
+def test_review_system_prompt_lenses_and_markers(client, fake_llm):
+    """감수 system 프롬프트 — 5개 감수 관점과 [감수]/[수정본] 마커를 유지한다."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    fake_llm["client"].set_chunks(["[감수]\n- 문제\n", "[수정본]\n수정 원고"])
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘", "review": {}})
+    assert resp.status_code == 200
+    sys_text = fake_llm["client"].last_kwargs["messages"][0]["content"]
+    for keyword in ("구조", "캐릭터", "연속성", "문장", "플랫폼", "[감수]", "[수정본]"):
+        assert keyword in sys_text
