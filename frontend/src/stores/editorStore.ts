@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { EditorView } from '@codemirror/view';
 
-export type SaveState = 'saved' | 'saving' | 'dirty' | 'error';
+export type SaveState = 'saved' | 'saving' | 'dirty' | 'error' | 'conflict';
 export type EditorMode = 'edit' | 'preview';
 
 interface EditorState {
@@ -39,8 +39,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   projectId: null,
   chapterId: null,
   setContext: (projectId, chapterId) => {
-    // 회차 전환 시 에디터 상태 초기화
-    if (chapterId !== get().chapterId) {
+    // 작품/회차 전환 시 표시 상태만 초기화한다. 실제 draft/save queue는 회차별 coordinator가 소유한다.
+    const prev = get();
+    if (projectId !== prev.projectId || chapterId !== prev.chapterId) {
       set({ projectId, chapterId, saveState: 'saved', wordCount: { total: 0, noSpace: 0, novelpia: 0 } });
     } else {
       set({ projectId });

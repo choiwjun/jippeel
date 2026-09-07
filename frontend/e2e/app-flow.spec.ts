@@ -357,7 +357,7 @@ test.describe.serial('jippeel 종단 흐름', () => {
     const PAYLOAD = '<script>window.__xss=1</script><img src=x onerror="window.__xss=2">**굵게**';
     // 본문을 먼저 저장해두어야 에디터가 XSS 내용을 로드한 상태로 미리보기에 들어간다
     await page.request.put(`/api/v1/chapters/${xssChapterId}/content`, {
-      data: { content_md: PAYLOAD },
+      data: { content_md: PAYLOAD, expected_revision: 0 },
     });
 
     await page.goto(`/projects/${projectId}/write`);

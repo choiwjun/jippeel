@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Chapter, type ChapterDetail, type ChapterStatus } from '@/lib/api';
+import { api, type Chapter, type ChapterDetail, type ChapterSnapshotDetail, type ChapterSnapshotMeta, type ChapterStatus } from '@/lib/api';
 import { useEditorStore } from '@/stores/editorStore';
+import { applyManuscriptServerDetail, flushManuscriptDraft, useManuscriptDraft } from '@/lib/manuscriptDrafts';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { countChars } from '@/lib/wordCount';
 import { volumeLabel, volumeSortKey } from '@/lib/api';
@@ -15,6 +16,10 @@ import { QualityDialog } from '@/components/editor/QualityDialog';
 import { CanonDialog } from '@/components/editor/CanonDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { Badge, StatusBadge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -50,11 +55,20 @@ export function EditorPage() {
   });
 
   useEffect(() => {
-    if (chapterId === null && chaptersQuery.data && chaptersQuery.data.length > 0) {
-      const first = [...chaptersQuery.data].sort(
-        (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
-      )[0];
-      setContext(pid, first.id);
+    if (useEditorStore.getState().projectId !== pid) setContext(pid, null);
+  }, [pid, setContext]);
+
+  useEffect(() => {
+    if (!chaptersQuery.data) return;
+    const sorted = [...chaptersQuery.data].sort(
+      (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
+    );
+    const selected = chapterId === null ? null : sorted.find((c) => c.id === chapterId);
+    const storeProjectId = useEditorStore.getState().projectId;
+    if (!selected) {
+      setContext(pid, sorted[0]?.id ?? null);
+    } else if (storeProjectId !== pid) {
+      setContext(pid, selected.id);
     }
   }, [chapterId, chaptersQuery.data, pid, setContext]);
 
@@ -82,7 +96,7 @@ export function EditorPage() {
               value="preview"
               className="thin-scroll min-h-0 min-w-0 flex-1 overflow-y-auto rounded-md border border-border bg-card"
             >
-              <PreviewBody chapterId={chapterId} />
+              <PreviewBody pid={pid} chapterId={chapterId} />
             </TabsContent>
           </Tabs>
         ) : (
@@ -117,14 +131,21 @@ export function EditorPage() {
   );
 }
 
-function PreviewBody({ chapterId }: { chapterId: number }) {
+function PreviewBody({ pid, chapterId }: { pid: number; chapterId: number }) {
+  const queryClient = useQueryClient();
   const detail = useQuery({
     queryKey: ['chapter', chapterId],
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
   });
+  const draft = useManuscriptDraft({
+    projectId: pid,
+    chapterId,
+    serverDetail: detail.data,
+    onServerDetail: (next) => updateChapterCaches(queryClient, pid, next),
+  });
   if (detail.isPending) return <p className="p-4 text-sm text-muted-foreground">불러오는 중…</p>;
   if (detail.isError) return <p className="p-4 text-sm text-destructive">{(detail.error as Error).message}</p>;
-  return <EditorPreview content={detail.data.content_md} />;
+  return <EditorPreview content={draft.text} />;
 }
 
 function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | null }) {
@@ -229,6 +250,7 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
         </DropdownMenu>
 
         {/* M-1 / FR-109 내보내기 (.txt/.md) — 현재 회차. 프로젝트 zip 묶음(JSZip)은 Sprint 4b */}
+        <SnapshotDialog pid={pid} chapter={chapter} />
         <ExportMenu pid={pid} chapter={chapter} />
 
         <Badge variant="secondary">{volumeLabel(chapter.volume)}</Badge>
@@ -284,6 +306,212 @@ function ExportMenu({ pid, chapter }: { pid: number; chapter: ChapterDetail }) {
   );
 }
 
+function updateChapterCaches(queryClient: ReturnType<typeof useQueryClient>, pid: number, detail: ChapterDetail) {
+  queryClient.setQueryData<ChapterDetail>(['chapter', detail.id], detail);
+  queryClient.setQueryData<Chapter[]>(['chapters', pid], (old) =>
+    old?.map((c) =>
+      c.id === detail.id
+        ? {
+            ...c,
+            title: detail.title,
+            status: detail.status,
+            memo: detail.memo,
+            volume: detail.volume,
+            sort_order: detail.sort_order,
+            word_count_cache: countChars(detail.content_md).novelpia,
+            revision: detail.revision,
+            updated_at: detail.updated_at,
+          }
+        : c,
+    ),
+  );
+}
+
+function SnapshotDialog({ pid, chapter }: { pid: number; chapter: ChapterDetail }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const snapshots = useQuery({
+    queryKey: ['chapter-snapshots', chapter.id],
+    queryFn: () => api.get<ChapterSnapshotMeta[]>(`/chapters/${chapter.id}/snapshots`),
+    enabled: open,
+  });
+  const selected = useQuery({
+    queryKey: ['chapter-snapshot', chapter.id, selectedId],
+    queryFn: () => api.get<ChapterSnapshotDetail>(`/chapters/${chapter.id}/snapshots/${selectedId}`),
+    enabled: open && selectedId !== null,
+  });
+
+  const restore = useMutation({
+    mutationFn: async (snapshotId: number) => {
+      const flushed = await flushManuscriptDraft(pid, chapter.id);
+      return api.post<ChapterDetail>(`/chapters/${chapter.id}/restore`, {
+        snapshot_id: snapshotId,
+        expected_revision: flushed.detail.revision,
+      });
+    },
+    onSuccess: (detail) => {
+      applyManuscriptServerDetail(pid, chapter.id, detail);
+      updateChapterCaches(queryClient, pid, detail);
+      queryClient.invalidateQueries({ queryKey: ['chapter-snapshots', chapter.id] });
+      toast('복구본을 현재 원고로 복원했습니다.', 'success');
+      setOpen(false);
+      setSelectedId(null);
+    },
+    onError: (e) => toast((e as Error).message, 'error'),
+  });
+
+  return (
+    <>
+      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setOpen(true)}>
+        복구본
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>회차 복구본</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+            <div className="thin-scroll max-h-72 overflow-y-auto rounded-md border border-border">
+              {snapshots.isPending && <p className="p-3 text-sm text-muted-foreground">복구본 불러오는 중…</p>}
+              {snapshots.isError && <p className="p-3 text-sm text-destructive">복구본을 불러올 수 없습니다.</p>}
+              {snapshots.data?.length === 0 && <p className="p-3 text-sm text-muted-foreground">아직 복구본이 없습니다.</p>}
+              {snapshots.data?.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className="block w-full border-b border-border px-3 py-2 text-left text-xs hover:bg-muted last:border-b-0"
+                  onClick={() => setSelectedId(s.id)}
+                >
+                  revision {s.revision} · {s.reason}
+                  <br />
+                  <span className="text-muted-foreground">{new Date(s.created_at).toLocaleString('ko-KR')}</span>
+                </button>
+              ))}
+            </div>
+            <div className="min-h-48 rounded-md border border-border bg-background p-3">
+              {selected.isPending && selectedId !== null && <p className="text-sm text-muted-foreground">원문 불러오는 중…</p>}
+              {!selectedId && <p className="text-sm text-muted-foreground">왼쪽에서 복구본을 고르면 원문을 먼저 확인합니다.</p>}
+              {selected.data && (
+                <div className="flex h-full flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">복구본 revision {selected.data.revision} 원문</p>
+                  <pre className="thin-scroll max-h-56 flex-1 overflow-y-auto whitespace-pre-wrap rounded-sm bg-muted p-2 font-serif text-sm">
+                    {selected.data.content_md}
+                  </pre>
+                  <Button
+                    size="sm"
+                    disabled={restore.isPending}
+                    onClick={() => restore.mutate(selected.data.id)}
+                  >
+                    이 복구본으로 복원
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function DraftPanels({
+  draft,
+}: {
+  draft: ReturnType<typeof useManuscriptDraft>;
+}) {
+  const copy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(`${label}을 클립보드에 복사했습니다.`, 'success');
+    } catch {
+      toast('클립보드 접근이 거부되었습니다.', 'error');
+    }
+  };
+
+  return (
+    <div className="space-y-2 border-b border-border p-3">
+      {draft.storageError && (
+        <Alert variant="warning">
+          <AlertDescription>{draft.storageError}</AlertDescription>
+        </Alert>
+      )}
+      {draft.errorMessage && draft.saveState === 'error' && (
+        <Alert variant="error">
+          <AlertDescription>
+            {draft.errorMessage} 로컬 원고는 화면과 브라우저 복구본에 보존됩니다.
+          </AlertDescription>
+        </Alert>
+      )}
+      {draft.recovery && (
+        <Alert variant={draft.recovery.kind === 'mismatch' ? 'warning' : 'info'}>
+          <AlertDescription>
+            <div className="flex flex-col gap-2">
+              <p>{draft.recovery.message}</p>
+              {draft.recovery.kind === 'mismatch' && (
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold">로컬 복구본 (base revision {draft.recovery.baseRevision})</p>
+                    <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-sm bg-background p-2 font-serif text-xs">{draft.recovery.localText}</pre>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold">서버 원고 (revision {draft.recovery.serverRevision})</p>
+                    <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-sm bg-background p-2 font-serif text-xs">{draft.recovery.serverText}</pre>
+                  </div>
+                  <div className="col-span-full flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => draft.useRecoveryText(draft.recovery!.localText)}>
+                      로컬 복구본 불러오기
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void copy(draft.recovery!.localText, '로컬 복구본')}>
+                      로컬 복구본 복사
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => draft.clearRecovery()}>
+                      서버 원고로 계속
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      {draft.conflict && (
+        <Alert variant="error">
+          <AlertDescription>
+            <div className="flex flex-col gap-2">
+              <p>
+                저장 충돌: {draft.conflict.message}
+                {draft.conflict.currentRevision != null ? ` (current_revision ${draft.conflict.currentRevision})` : ''}
+              </p>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold">로컬 원고</p>
+                  <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-sm bg-background p-2 font-serif text-xs">{draft.conflict.localText}</pre>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">서버 원고{draft.conflict.serverRevision != null ? ` revision ${draft.conflict.serverRevision}` : ''}</p>
+                  <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-sm bg-background p-2 font-serif text-xs">{draft.conflict.serverText ?? '서버 원고를 다시 불러오지 못했습니다.'}</pre>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => void copy(draft.conflict!.localText, '로컬 원고')}>로컬 원고 복사</Button>
+                {draft.conflict.serverText && (
+                  <Button size="sm" variant="ghost" onClick={() => void copy(draft.conflict!.serverText!, '서버 원고')}>서버 원고 복사</Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => draft.clearConflictKeepingLocal()}>로컬 원고로 다시 저장 시도</Button>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
 function EditorBody({ pid, chapterId }: { pid: number; chapterId: number }) {
   const queryClient = useQueryClient();
 
@@ -296,78 +524,45 @@ function EditorBody({ pid, chapterId }: { pid: number; chapterId: number }) {
   const setSaveState = useEditorStore((s) => s.setSaveState);
   const markSaved = useEditorStore((s) => s.markSaved);
 
-  const autoSaveMs = 1500;
-  const saveTimerRef = useRef<number | undefined>(undefined);
-  const countTimerRef = useRef<number | undefined>(undefined);
-  const latestTextRef = useRef<string | null>(null);
+  const draft = useManuscriptDraft({
+    projectId: pid,
+    chapterId,
+    serverDetail: detail.data,
+    onServerDetail: (next) => updateChapterCaches(queryClient, pid, next),
+  });
 
-  /** FR-106 — PUT /chapters/{cid}/content (자동저장 + Ctrl+S 즉시) */
-  const saveNow = useCallback(async () => {
-    const text = latestTextRef.current;
-    if (text === null || !detail.data || text === detail.data.content_md) return;
-    setSaveState('saving');
-    try {
-      await api.put<ChapterDetail>(`/chapters/${chapterId}/content`, { content_md: text });
-      markSaved();
-      // 트리의 word_count_cache 갱신 (전체 invalidate로 포커스 뺏김 방지)
-      queryClient.setQueryData<Chapter[]>(['chapters', pid], (old) =>
-        old?.map((c) =>
-          c.id === chapterId ? { ...c, word_count_cache: countChars(text).novelpia } : c,
-        ),
-      );
-    } catch {
-      setSaveState('error');
-    }
-  }, [chapterId, detail.data, markSaved, pid, queryClient, setSaveState]);
+  const countTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (draft.saveState === 'saved') markSaved();
+    else setSaveState(draft.saveState);
+  }, [draft.saveState, markSaved, setSaveState]);
+
+  useEffect(() => {
+    window.clearTimeout(countTimerRef.current);
+    countTimerRef.current = window.setTimeout(() => setWordCount(countChars(draft.text)), 200);
+    return () => window.clearTimeout(countTimerRef.current);
+  }, [draft.text, setWordCount]);
 
   const onChange = useCallback((text: string) => {
-    latestTextRef.current = text;
-
-    // FR-104 글자 수 — 200ms 디바운스 실시간 표시
-    window.clearTimeout(countTimerRef.current);
-    countTimerRef.current = window.setTimeout(() => setWordCount(countChars(text)), 200);
-
-    // FR-106 자동저장 — 디바운스 후 PUT
-    const store = useEditorStore.getState();
-    if (store.saveState !== 'saving') setSaveState('dirty');
-    window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(() => void saveNow(), autoSaveMs);
-  }, [saveNow, setSaveState, setWordCount]);
-
-  // 대기 중인 저장 플러시 — 두 경로 모두 커버해야 한다 (NFR-204):
-  //  1) 클라이언트 라우팅 이탈(홈 이동 등) → React 언마운트 클린업
-  //  2) 탭 닫기·새로고침·전체 이동 → 언마운트 클린업이 실행되지 않으므로 pagehide
-  // sendBeacon은 POST만 가능해 PUT 계약과 맞지 않으므로 keepalive fetch로 전송한다.
-  useEffect(() => {
-    const flushPendingSave = () => {
-      window.clearTimeout(saveTimerRef.current);
-      const text = latestTextRef.current;
-      if (text === null || chapterId === null) return;
-      if (useEditorStore.getState().saveState !== 'dirty') return;
-      void fetch(`/api/v1/chapters/${chapterId}/content`, {
-        method: 'PUT',
-        keepalive: true,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content_md: text }),
-      }).catch(() => {});
-    };
-    const onPageHide = () => flushPendingSave();
-    window.addEventListener('pagehide', onPageHide);
-    return () => {
-      window.removeEventListener('pagehide', onPageHide);
-      flushPendingSave();
-    };
-  }, [chapterId]);
+    draft.edit(text);
+  }, [draft]);
 
   if (detail.isPending) return <p className="p-4 text-sm text-muted-foreground">불러오는 중…</p>;
   if (detail.isError) return <p className="p-4 text-sm text-destructive">{(detail.error as Error).message}</p>;
+  if (detail.data.project_id !== pid) {
+    return <p className="p-4 text-sm text-destructive">이 회차는 현재 작품에 속하지 않습니다.</p>;
+  }
 
   return (
-    <CodeMirrorEditor
-      key={chapterId}
-      value={detail.data.content_md}
-      onChange={onChange}
-      onSave={() => void saveNow()}
-    />
+    <div className="min-h-full">
+      <DraftPanels draft={draft} />
+      <CodeMirrorEditor
+        key={`${pid}:${chapterId}`}
+        value={draft.text}
+        onChange={onChange}
+        onSave={() => void draft.flush().catch((e) => toast((e as Error).message, 'error'))}
+      />
+    </div>
   );
 }

@@ -5,7 +5,7 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, type ChapterDetail } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
+import { useEditorStore } from '@/stores/editorStore';
+import { applyManuscriptServerDetail, flushManuscriptDraft } from '@/lib/manuscriptDrafts';
 
 export interface Scene {
   id: number;
@@ -33,6 +35,7 @@ export function SceneManager({
   onPick: (sceneId: number | null) => void;
 }) {
   const queryClient = useQueryClient();
+  const projectId = useEditorStore((s) => s.projectId);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Scene | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
@@ -88,9 +91,19 @@ export function SceneManager({
 
   /** G-013 — 장면들을 sort_order 순으로 합쳐 회차 본문을 교체(명시 클릭 전용) */
   const mergeToContent = useMutation({
-    mutationFn: () => api.put(`/chapters/${chapterId}/content_from_scenes`, {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chapter', chapterId] });
+    mutationFn: async () => {
+      if (chapterId === null || projectId === null) throw new Error('회차를 먼저 선택하세요.');
+      const flushed = await flushManuscriptDraft(projectId, chapterId);
+      return api.put<ChapterDetail>(`/chapters/${chapterId}/content_from_scenes`, {
+        expected_revision: flushed.detail.revision,
+      });
+    },
+    onSuccess: (detail) => {
+      if (chapterId !== null && projectId !== null) {
+        applyManuscriptServerDetail(projectId, chapterId, detail);
+        queryClient.setQueryData(['chapter', chapterId], detail);
+        queryClient.invalidateQueries({ queryKey: ['chapters', projectId] });
+      }
       toast('장면을 회차 본문으로 합쳤습니다. (기존 본문이 장면들로 교체됨)', 'success');
     },
     onError: (e) => toast(`조립 실패: ${(e as Error).message}`, 'error'),
@@ -103,7 +116,7 @@ export function SceneManager({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
       <Button
         variant="ghost" size="sm" className="h-6 px-2 text-[11px]"
         onClick={() => setOpen(true)}
@@ -111,7 +124,8 @@ export function SceneManager({
       >
         장면 관리 ({scenes.length})
       </Button>
-      <DialogContent className="max-w-xl">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>현재 회차 장면 관리</DialogTitle>
         </DialogHeader>
@@ -214,7 +228,8 @@ export function SceneManager({
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

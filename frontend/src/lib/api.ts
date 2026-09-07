@@ -7,11 +7,23 @@ const BASE = '/api/v1';
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  detail: unknown;
+
+  constructor(status: number, message: string, detail?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.detail = detail;
   }
+}
+
+function detailMessage(detail: unknown): string | null {
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object' && 'message' in detail) {
+    const message = (detail as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return null;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -26,11 +38,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
+    let detail: unknown;
     try {
       const body = await res.json();
-      if (typeof body?.detail === 'string') msg = body.detail;
+      detail = body?.detail;
+      msg = detailMessage(detail) ?? msg;
     } catch { /* json 파싱 실패 시 기본 메시지 */ }
-    throw new ApiError(res.status, msg);
+    throw new ApiError(res.status, msg, detail);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -94,6 +108,7 @@ export interface Chapter {
   status: ChapterStatus;
   word_count_cache: number;
   memo: string | null;
+  revision: number;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +129,29 @@ export interface ChapterUpdate {
   sort_order?: number;
   status?: ChapterStatus;
   memo?: string | null;
+}
+
+export interface ChapterContentWrite {
+  content_md: string;
+  expected_revision: number;
+}
+
+export interface ChapterSnapshotMeta {
+  id: number;
+  chapter_id: number;
+  revision: number;
+  reason: 'autosave' | 'refine' | 'scene_merge' | 'restore' | string;
+  created_at: string;
+}
+
+export interface ChapterSnapshotDetail extends ChapterSnapshotMeta {
+  content_md: string;
+}
+
+export interface RevisionConflictDetail {
+  code?: string;
+  message?: string;
+  current_revision?: number;
 }
 
 
@@ -285,6 +323,7 @@ export interface RefineSpan {
 
 export interface RefineResult {
   run_id: number;
+  base_revision?: number | null;
   route_hint: string;
   spans: RefineSpan[];
   original: string;

@@ -10,9 +10,10 @@
 import { forwardRef, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { diffChars } from 'diff';
-import { api, type RefineResult, type RefineSpan, type TaxonomyCategory } from '@/lib/api';
+import { api, type ChapterDetail, type RefineResult, type RefineSpan, type TaxonomyCategory } from '@/lib/api';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { applyManuscriptServerDetail, flushManuscriptDraft } from '@/lib/manuscriptDrafts';
 import { toast } from '@/components/ui/toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ type RunState = {
 
 export function RefineReport() {
   const chapterId = useEditorStore((s) => s.chapterId);
+  const projectId = useEditorStore((s) => s.projectId);
   const close = useAiPanelStore((s) => s.close);
   const queryClient = useQueryClient();
 
@@ -40,11 +42,15 @@ export function RefineReport() {
   const [view, setView] = useState<'diff' | 'spans'>('diff');
 
   const execute = useMutation({
-    mutationFn: () =>
-      api.post<RefineResult>('/refine', {
+    mutationFn: async () => {
+      if (chapterId === null || projectId === null) throw new Error('회차를 먼저 선택하세요.');
+      const flushed = await flushManuscriptDraft(projectId, chapterId);
+      return api.post<RefineResult>('/refine', {
         chapter_id: chapterId,
+        expected_revision: flushed.detail.revision,
         force_route: routeOverride === '' ? null : routeOverride,
-      }),
+      });
+    },
     onSuccess: (result) => {
       setRun({ result, routeOverride });
       toast(`윤문 실행 완료 — 변경률 ${(result.changed_ratio * 100).toFixed(1)}%`, 'info');
@@ -53,10 +59,17 @@ export function RefineReport() {
   });
 
   const accept = useMutation({
-    mutationFn: (runId: number) => api.post(`/refine/runs/${runId}/accept`),
-    onSuccess: (_d, runId) => {
-      // m-8 단순화 — 자동저장 유지, invalidate로 회차/기록 갱신
-      queryClient.invalidateQueries({ queryKey: ['chapter', chapterId] });
+    mutationFn: async (runId: number) => {
+      if (chapterId === null || projectId === null) throw new Error('회차를 먼저 선택하세요.');
+      await flushManuscriptDraft(projectId, chapterId);
+      return api.post<ChapterDetail>(`/refine/runs/${runId}/accept`);
+    },
+    onSuccess: (detail, runId) => {
+      if (chapterId !== null && projectId !== null) {
+        applyManuscriptServerDetail(projectId, chapterId, detail);
+        queryClient.setQueryData(['chapter', chapterId], detail);
+        queryClient.invalidateQueries({ queryKey: ['chapters', projectId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['refine-run', runId] });
       toast('윤문 수락됨 — 회차 본문이 교체되었습니다.', 'success');
       setRun(null);

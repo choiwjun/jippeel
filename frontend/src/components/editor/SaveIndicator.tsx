@@ -23,7 +23,11 @@ export function SaveIndicator() {
 
   if (saveState === 'saving') return <span className="text-xs text-muted-foreground">저장 중…</span>;
   if (saveState === 'error')
-    return <span className="text-xs text-destructive">저장 실패 — 재시도 대기</span>;
+    return <span className="text-xs text-destructive">저장 실패 — 원고 보존됨</span>;
+  if (saveState === 'conflict')
+    return <span className="text-xs text-destructive">저장 충돌 — 원고 확인 필요</span>;
+  if (saveState === 'dirty')
+    return <span className="text-xs text-muted-foreground">저장 대기</span>;
   if (lastSavedAt)
     return (
       <span className="text-xs text-muted-foreground" aria-live="polite">
