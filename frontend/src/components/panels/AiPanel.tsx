@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShieldCheckIcon, CloudUploadIcon } from '@/components/ui/icons';
 import { useQuery } from '@tanstack/react-query';
 import { api, type AiEndpoint, type ChapterDetail, type PromptPreset, volumeLabel } from '@/lib/api';
-import { streamGenerate } from '@/lib/aiStream';
+import { streamGenerate, streamParallelGenerate } from '@/lib/aiStream';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { toast } from '@/components/ui/toast';
@@ -107,6 +107,17 @@ export function AiPanel() {
   const setReviewPass = useAiPanelStore((s) => s.setReviewPass);
   const reviewEffort = useAiPanelStore((s) => s.reviewEffort);
   const setReviewEffort = useAiPanelStore((s) => s.setReviewEffort);
+  const generationMode = useAiPanelStore((s) => s.generationMode);
+  const setGenerationMode = useAiPanelStore((s) => s.setGenerationMode);
+  const workerLimit = useAiPanelStore((s) => s.workerLimit);
+  const setWorkerLimit = useAiPanelStore((s) => s.setWorkerLimit);
+  const reviewEndpointId = useAiPanelStore((s) => s.reviewEndpointId);
+  const setReviewEndpointId = useAiPanelStore((s) => s.setReviewEndpointId);
+  const parallelReviewModel = useAiPanelStore((s) => s.parallelReviewModel);
+  const setParallelReviewModel = useAiPanelStore((s) => s.setParallelReviewModel);
+  const parallelReviewEffort = useAiPanelStore((s) => s.parallelReviewEffort);
+  const setParallelReviewEffort = useAiPanelStore((s) => s.setParallelReviewEffort);
+  const parallelProgress = useAiPanelStore((s) => s.parallelProgress);
 
   // 컨텍스트 + 스트리밍
   const ctx = useAiPanelStore((s) => s.contextSelection);
@@ -134,6 +145,7 @@ export function AiPanel() {
   const activeEndpoint = endpoints.find((e) => e.id === endpointId)
     ?? endpoints.find((e) => e.is_default)
     ?? endpoints[0];
+  const reviewEndpoint = endpoints.find((e) => e.id === reviewEndpointId) ?? activeEndpoint;
 
   // 엔드포인트 자동 선택(기본 엔드포인트 우선) — 로딩 완료 시 선택이 없으면 첫 엔드포인트 확정
   useEffect(() => {
@@ -151,6 +163,14 @@ export function AiPanel() {
     retry: false,
   });
   const models = modelsQuery.data?.data?.map((m) => m.id) ?? [];
+  const reviewModelsQuery = useQuery({
+    queryKey: ['endpoint-models', reviewEndpoint?.id],
+    queryFn: () => api.get<{ data: Array<{ id: string }> }>(`/ai/endpoints/${reviewEndpoint?.id}/models`),
+    enabled: generationMode === 'parallel' && reviewEndpoint?.id != null,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const reviewModels = reviewModelsQuery.data?.data?.map((m) => m.id) ?? [];
 
   /**
    * 스트림 제어 — abort 소유권은 aiPanelStore(모듈 스코프)로 이전.
@@ -183,64 +203,100 @@ export function AiPanel() {
       toast(`브리프를 전송하지 않습니다 — ${parsedBrief.message}`, 'warning');
     }
     const brief = parsedBrief.ok ? parsedBrief.brief : null;
+    const parallel = store.generationMode === 'parallel';
+    const body = {
+      endpoint_id: activeEndpoint.id,
+      preset_id: store.presetId,
+      prompt_override: store.promptOverride.trim() || null,
+      context: {
+        chapter_id: c.includeChapter ? c.chapterId : null,
+        character_ids: c.includeCharacters ? c.characterIds : [],
+        lore_ids: c.includeLore ? c.loreIds : [],
+        auto_lore: c.autoLore,
+        auto_lore_semantic: c.autoLoreSemantic,
+        auto_outline: c.autoOutline,
+        auto_foreshadow: c.autoForeshadow,
+        scene_id: c.sceneId,
+        style_profile: c.styleProfile,
+        ...(brief ? { brief } : {}),
+      },
+      params: {
+        model: store.model || undefined,
+        temperature: activeEndpoint?.temperature == null ? undefined : store.temperature,
+        max_tokens: store.maxTokens,
+      },
+      ...(parallel
+        ? {
+            worker_limit: store.workerLimit,
+            generation_reasoning_effort: 'medium',
+            review: {
+              endpoint_id: reviewEndpoint?.id ?? activeEndpoint.id,
+              model: store.parallelReviewModel || undefined,
+              reasoning_effort: store.parallelReviewEffort || 'xhigh',
+            },
+          }
+        : {
+            review: store.reviewPass
+              ? { reasoning_effort: store.reviewEffort || undefined }
+              : null,
+          }),
+    };
     store.startStream();
-    useAiPanelStore.getState().setAbort(streamGenerate(
-      {
-        endpoint_id: activeEndpoint.id,
-        preset_id: store.presetId,
-        prompt_override: store.promptOverride.trim() || null,
-        context: {
-          chapter_id: c.includeChapter ? c.chapterId : null,
-          character_ids: c.includeCharacters ? c.characterIds : [],
-          lore_ids: c.includeLore ? c.loreIds : [],
-          auto_lore: c.autoLore,
-          auto_lore_semantic: c.autoLoreSemantic,
-          auto_outline: c.autoOutline,
-          auto_foreshadow: c.autoForeshadow,
-          scene_id: c.sceneId,
-          style_profile: c.styleProfile,
-          ...(brief ? { brief } : {}),
-        },
-        params: {
-          model: store.model || undefined,
-          // 엔드포인트 온도가 미설정(null)이면 이 엔드포인트는 온도 미지원 — 전송하지 않는다
-          temperature: activeEndpoint?.temperature == null ? undefined : store.temperature,
-          max_tokens: store.maxTokens,
-        },
-        review: store.reviewPass
-          ? { reasoning_effort: store.reviewEffort || undefined }
-          : null,
+    const stream = parallel ? streamParallelGenerate : streamGenerate;
+    useAiPanelStore.getState().setAbort(stream(body, {
+      onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
+      onStart: (info) => {
+        const st = useAiPanelStore.getState();
+        st.setInjectedLore(info.injectedLore);
+        st.setInjectedForeshadows(info.injectedForeshadows);
+        st.setInjectedOutline(info.injectedOutline);
       },
-      {
-        onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
-        onStart: (info) => {
-          const st = useAiPanelStore.getState();
-          st.setInjectedLore(info.injectedLore);
-          st.setInjectedForeshadows(info.injectedForeshadows);
-          st.setInjectedOutline(info.injectedOutline);
-        },
-        onReviewStart: (info) => {
-          const st = useAiPanelStore.getState();
-          st.setReviewInfo({ model: info.model, endpoint: info.endpoint });
-          if (st.resultTab !== 'review') st.setResultTab('review');
-        },
-        onReviewChunk: (d) => useAiPanelStore.getState().appendReviewChunk(d),
-        onRefinedChunk: (d) => {
-          const st = useAiPanelStore.getState();
-          if (st.resultTab !== 'refined') st.setResultTab('refined');
-          st.appendRefinedChunk(d);
-        },
-        onReviewError: (msg) => {
-          toast(msg, 'warning');
-        },
-        onDone: () => useAiPanelStore.getState().finishStream(),
-        onError: (msg) => {
-          useAiPanelStore.getState().failStream(msg);
-          toast(msg, 'error');
-        },
+      onParallelStart: (info) => {
+        const st = useAiPanelStore.getState();
+        st.setInjectedLore(info.injectedLore);
+        st.setInjectedForeshadows(info.injectedForeshadows);
+        st.setInjectedOutline(info.injectedOutline);
+        st.setParallelProgress({ phase: 'planning', sceneCount: 0, started: 0, completed: 0, workerLimit: info.workerLimit });
       },
-    ));
-  }, [activeEndpoint, endpointsQuery.isLoading, presetsQuery.isLoading]);
+      onPlannerDone: (info) => useAiPanelStore.getState().setParallelProgress({
+        phase: 'workers', sceneCount: info.sceneCount, started: 0, completed: 0,
+      }),
+      onWorkerStart: () => {
+        const st = useAiPanelStore.getState();
+        st.setParallelProgress({ started: st.parallelProgress.started + 1 });
+      },
+      onWorkerDone: () => {
+        const st = useAiPanelStore.getState();
+        st.setParallelProgress({ completed: st.parallelProgress.completed + 1 });
+      },
+      onReviewStart: (info) => {
+        const st = useAiPanelStore.getState();
+        st.setReviewInfo({ model: info.model, endpoint: info.endpoint });
+        st.setParallelProgress({ phase: 'review' });
+        if (st.resultTab !== 'review') st.setResultTab('review');
+      },
+      onReviewChunk: (d) => useAiPanelStore.getState().appendReviewChunk(d),
+      onRefinedChunk: (d) => {
+        const st = useAiPanelStore.getState();
+        if (st.resultTab !== 'refined') st.setResultTab('refined');
+        st.appendRefinedChunk(d);
+      },
+      onReviewError: (msg) => toast(msg, 'warning'),
+      onParallelError: (msg, stage) => {
+        if (stage === 'generation') useAiPanelStore.getState().failStream(msg);
+        toast(msg, stage === 'review' ? 'warning' : 'error');
+      },
+      onDone: () => {
+        if (useAiPanelStore.getState().status === 'streaming') {
+          useAiPanelStore.getState().finishStream();
+        }
+      },
+      onError: (msg) => {
+        useAiPanelStore.getState().failStream(msg);
+        toast(msg, 'error');
+      },
+    }));
+  }, [activeEndpoint, reviewEndpoint, endpointsQuery.isLoading, presetsQuery.isLoading]);
 
   // endpoints/presets 로딩 중 클릭된 생성 요청 — settle 후 1회 자동 재시도
   useEffect(() => {
@@ -374,10 +430,82 @@ export function AiPanel() {
         />
       </section>
 
+      {/* 생성 엔진 — 기존 단일 흐름과 선택적 병렬 흐름 */}
+      <section className="rounded-md border border-border p-3">
+        <h3 className="mb-2 text-xs font-semibold text-muted-foreground">생성 엔진</h3>
+        <Label htmlFor="ai-generation-mode">집필 모드</Label>
+        <Select
+          id="ai-generation-mode"
+          value={generationMode}
+          onChange={(e) => setGenerationMode(e.target.value as 'single' | 'parallel')}
+        >
+          <option value="single">단일 생성 (기존 흐름)</option>
+          <option value="parallel">병렬 장면 집필 + 전체 감수</option>
+        </Select>
+        {generationMode === 'parallel' && (
+          <div className="mt-2 space-y-2">
+            <div>
+              <Label htmlFor="ai-worker-limit">동시 장면 수: {workerLimit}</Label>
+              <Slider
+                id="ai-worker-limit"
+                min={2}
+                max={4}
+                step={1}
+                value={workerLimit}
+                onChange={(e) => setWorkerLimit(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="ai-review-endpoint">전체 감수 엔드포인트</Label>
+              <Select
+                id="ai-review-endpoint"
+                value={reviewEndpointId ?? activeEndpoint?.id ?? ''}
+                onChange={(e) => {
+                  setReviewEndpointId(e.target.value === '' ? null : Number(e.target.value));
+                  setParallelReviewModel('');
+                }}
+              >
+                {endpoints.map((ep) => (
+                  <option key={ep.id} value={ep.id}>
+                    {ep.name}{ep.is_default ? ' (기본)' : ''}
+                  </option>
+                ))}
+              </Select>
+              <Label className="mt-2 block" htmlFor="ai-review-model">감수 모델</Label>
+              <Select
+                id="ai-review-model"
+                value={parallelReviewModel}
+                onChange={(e) => setParallelReviewModel(e.target.value)}
+              >
+                <option value="">엔드포인트 기본 모델</option>
+                {reviewModels.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </Select>
+              <Label className="mt-2 block" htmlFor="ai-parallel-review-effort">감수 추론 강도</Label>
+              <Select
+                id="ai-parallel-review-effort"
+                value={parallelReviewEffort}
+                onChange={(e) => setParallelReviewEffort(e.target.value as AiPanelState['parallelReviewEffort'])}
+              >
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+                <option value="xhigh">xhigh (권장)</option>
+              </Select>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                Planner와 장면 worker는 현재 엔드포인트를 사용하고, 조립 후 선택한 감수 모델로 전체 원고를 감수합니다.
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* 이번 화 브리프 — 필수 항목이 모두 채워졌을 때만 context.brief로 전송 */}
       <EpisodeBriefSection />
 
-      {/* 감수 패스 — 초안 생성 후 같은 스트림에서 감수·수정본을 이어받는다 */}
+      {/* 감수 패스 — 단일 생성에서만 기존 감수·수정본 흐름을 사용한다 */}
+      {generationMode === 'single' && (
       <section className="rounded-md border border-border p-3">
         <h3 className="mb-2 text-xs font-semibold text-muted-foreground">감수 패스</h3>
         <Checkbox
@@ -405,6 +533,7 @@ export function AiPanel() {
           </div>
         )}
       </section>
+      )}
 
       {/* 포함 컨텍스트 */}
       <ContextSection ctx={ctx} setContext={setContext} />
@@ -419,11 +548,20 @@ export function AiPanel() {
             disabled={endpointsQuery.isSuccess && endpoints.length === 0}
             title={pendingGenerate ? '엔드포인트 로딩 완료 후 자동 시작됩니다.' : undefined}
           >
-            {pendingGenerate ? '⏳ 생성 시작 (대기 중)' : '✨ 생성 시작'}
+            {pendingGenerate ? '⏳ 생성 시작 (대기 중)' : generationMode === 'parallel' ? '✨ 병렬 집필 시작' : '✨ 생성 시작'}
           </Button>
         )}
         {status === 'streaming' && (
-          <Badge variant="revising" aria-live="polite">STREAMING ●</Badge>
+          <>
+            <Badge variant="revising" aria-live="polite">STREAMING ●</Badge>
+            {generationMode === 'parallel' && (
+              <span className="text-[11px] text-muted-foreground" aria-live="polite">
+                {parallelProgress.phase === 'planning' && 'Planner 준비 중'}
+                {parallelProgress.phase === 'workers' && `장면 ${parallelProgress.completed}/${parallelProgress.sceneCount} 조립 대기`}
+                {parallelProgress.phase === 'review' && 'xhigh 전체 감수 중'}
+              </span>
+            )}
+          </>
         )}
       </div>
 

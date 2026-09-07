@@ -701,6 +701,39 @@ def test_parallel_review_starts_only_after_ordered_assembly(client, parallel_llm
     assert "[조립 원고]\n장면 1 원고\n\n장면 2 원고" in review_prompt
 
 
+def test_parallel_preserves_selected_preset_instruction(client, parallel_llm):
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    preset = client.post("/api/v1/ai/presets", json={
+        "name": "병렬 프리셋", "template_text": "이번 화는 추격전으로 시작하라.",
+        "context_flags": []}).json()
+    payload = _parallel_payload(ep["id"])
+    payload["preset_id"] = preset["id"]
+    payload["prompt_override"] = None
+    response = client.post("/api/v1/ai/generate-parallel", json=payload)
+    assert response.status_code == 200, response.text
+    planner_prompt = parallel_llm["complete_calls"][0]["messages"][-1]["content"]
+    assert "이번 화는 추격전으로 시작하라." in planner_prompt
+
+
+def test_parallel_uses_configured_reviewer_endpoint_and_model(client, parallel_llm):
+    generation = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    reviewer = client.post("/api/v1/ai/endpoints", json={
+        "name": "xhigh-reviewer", "base_url": "http://y/v1", "default_model": "review-model",
+        "reasoning_effort": "xhigh"}).json()
+    payload = _parallel_payload(generation["id"])
+    payload["review"] = {
+        "endpoint_id": reviewer["id"], "model": "review-override", "reasoning_effort": "xhigh",
+    }
+    response = client.post("/api/v1/ai/generate-parallel", json=payload)
+    assert response.status_code == 200, response.text
+    assert parallel_llm["stream_calls"][-1]["model"] == "review-override"
+    assert parallel_llm["stream_calls"][-1]["reasoning_effort"] == "xhigh"
+
+
 def test_parallel_worker_failure_emits_error_and_no_partial_message(client, parallel_llm):
     parallel_llm["fail_order"] = 2
     ep = client.post("/api/v1/ai/endpoints", json={

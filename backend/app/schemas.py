@@ -387,6 +387,7 @@ class ParallelGenerateRequest(BaseModel):
     """Medium 장면 병렬 집필 + xhigh 전체 감수 요청."""
 
     endpoint_id: int
+    preset_id: int | None = None
     prompt_override: str | None = None
     context: GenerateContext = Field(default_factory=GenerateContext)
     params: GenerateParams = Field(default_factory=GenerateParams)

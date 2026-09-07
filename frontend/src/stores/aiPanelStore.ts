@@ -2,6 +2,15 @@ import { create } from 'zustand';
 
 export type AiPanelStatus = 'idle' | 'streaming' | 'done' | 'error';
 export type AiPanelMode = 'ai' | 'refine';
+export type AiGenerationMode = 'single' | 'parallel';
+
+export interface ParallelProgress {
+  phase: 'idle' | 'planning' | 'workers' | 'review';
+  sceneCount: number;
+  started: number;
+  completed: number;
+  workerLimit: number;
+}
 
 /**
  * 회차 브리프 (한국어 회차 품질 슬라이스) — 백엔드 EpisodeBrief와 같은 필드명.
@@ -39,6 +48,18 @@ export interface AiPanelState {
 
   mode: AiPanelMode;
   setMode: (m: AiPanelMode) => void;
+  generationMode: AiGenerationMode;
+  setGenerationMode: (m: AiGenerationMode) => void;
+  workerLimit: number;
+  setWorkerLimit: (n: number) => void;
+  reviewEndpointId: number | null;
+  setReviewEndpointId: (id: number | null) => void;
+  parallelReviewModel: string;
+  setParallelReviewModel: (model: string) => void;
+  parallelReviewEffort: '' | 'low' | 'medium' | 'high' | 'xhigh';
+  setParallelReviewEffort: (effort: AiPanelState['parallelReviewEffort']) => void;
+  parallelProgress: ParallelProgress;
+  setParallelProgress: (p: Partial<ParallelProgress>) => void;
 
   // 호출 컨텍스트 (설계서 §5.3 / §7.6 — 호출 지점에서 자동 세팅)
   contextSelection: {
@@ -146,6 +167,18 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
 
   mode: 'ai',
   setMode: (m) => set({ mode: m }),
+  generationMode: 'single',
+  setGenerationMode: (m) => set({ generationMode: m }),
+  workerLimit: 3,
+  setWorkerLimit: (n) => set({ workerLimit: Math.max(2, Math.min(4, n)) }),
+  reviewEndpointId: null,
+  setReviewEndpointId: (id) => set({ reviewEndpointId: id }),
+  parallelReviewModel: '',
+  setParallelReviewModel: (model) => set({ parallelReviewModel: model }),
+  parallelReviewEffort: 'xhigh',
+  setParallelReviewEffort: (effort) => set({ parallelReviewEffort: effort }),
+  parallelProgress: { phase: 'idle', sceneCount: 0, started: 0, completed: 0, workerLimit: 3 },
+  setParallelProgress: (p) => set((s) => ({ parallelProgress: { ...s.parallelProgress, ...p } })),
 
   contextSelection: {
     chapterId: null,
@@ -204,13 +237,22 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   status: 'idle',
   streamingText: '',
   error: null,
-  startStream: () => set({ status: 'streaming', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null, reviewInfo: null, reviewText: '', refinedText: '', resultTab: 'draft' }),
+  startStream: () => set({
+    status: 'streaming', streamingText: '', error: null, injectedLore: [],
+    injectedForeshadows: [], injectedOutline: null, reviewInfo: null, reviewText: '',
+    refinedText: '', resultTab: 'draft',
+    parallelProgress: { phase: 'idle', sceneCount: 0, started: 0, completed: 0, workerLimit: get().workerLimit },
+  }),
   appendChunk: (s) => set((st) => ({ streamingText: st.streamingText + s })),
   finishStream: () => set({ status: 'done' }),
   failStream: (e) => set({ status: 'error', error: e }),
   resetResult: () => {
     get().abortStream();
-    set({ status: 'idle', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [], injectedOutline: null, pendingGenerate: false, reviewInfo: null, reviewText: '', refinedText: '', resultTab: 'draft' });
+    set({ status: 'idle', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [],
+      injectedOutline: null, pendingGenerate: false, reviewInfo: null, reviewText: '',
+      refinedText: '', resultTab: 'draft',
+      parallelProgress: { phase: 'idle', sceneCount: 0, started: 0, completed: 0, workerLimit: get().workerLimit },
+    });
   },
 
   reviewPass: false,

@@ -620,6 +620,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
     endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
     base_payload = GenerateRequest(
         endpoint_id=payload.endpoint_id,
+        preset_id=payload.preset_id,
         prompt_override=payload.prompt_override,
         context=payload.context,
         params=payload.params,
