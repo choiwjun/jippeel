@@ -601,6 +601,9 @@ def _parallel_plan_json() -> str:
             {
                 "order": 1, "title": "장면 1",
                 "purpose": "갈등을 시작한다",
+                "objective": "열쇠의 위치를 확인한다",
+                "choice": "열쇠를 집어 든다",
+                "cost": "추격자에게 흔적을 남긴다",
                 "required_beats": ["첫 비트"],
                 "characters": ["주인공"],
                 "opening_state": "회차 시작",
@@ -609,6 +612,9 @@ def _parallel_plan_json() -> str:
             {
                 "order": 2, "title": "장면 2",
                 "purpose": "갈등을 키운다",
+                "objective": "추격자의 위치를 확인한다",
+                "choice": "폐역 안쪽으로 도망친다",
+                "cost": "도주로가 좁아진다",
                 "required_beats": ["두 번째 비트"],
                 "characters": ["주인공"],
                 "opening_state": "장면 1 직후",
@@ -698,7 +704,10 @@ def test_parallel_review_starts_only_after_ordered_assembly(client, parallel_llm
     assert "refined" not in names
     assert parallel_llm["stream_calls"][-1]["reasoning_effort"] == "xhigh"
     review_prompt = parallel_llm["stream_calls"][-1]["messages"][-1]["content"]
-    assert "[조립 원고]\n장면 1 원고\n\n장면 2 원고" in review_prompt
+    assert "[장면별 조립 원고 — 감수 전용 메타데이터]" in review_prompt
+    assert "[장면 1 — 장면 1]" in review_prompt
+    assert review_prompt.index("[장면 1 — 장면 1]") < review_prompt.index("[장면 2 — 장면 2]")
+    assert "objective" in review_prompt and "closing_hook" in review_prompt
 
 
 def test_parallel_preserves_selected_preset_instruction(client, parallel_llm):

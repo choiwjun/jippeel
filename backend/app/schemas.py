@@ -364,6 +364,9 @@ class ParallelScenePlan(BaseModel):
     order: int = Field(ge=1, le=4)
     title: BriefText
     purpose: BriefText
+    objective: BriefText
+    choice: BriefText
+    cost: BriefText
     required_beats: list[BriefText] = Field(min_length=1, max_length=5)
     characters: list[BriefText] = Field(min_length=1, max_length=8)
     opening_state: BriefText

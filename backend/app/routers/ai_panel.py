@@ -79,8 +79,8 @@ REVIEW_SYSTEM_PROMPT = (
 )
 REVIEW_MARKER = "[수정본]"  # 감수 의견 → 수정본 전환 지점 (라인 단위 매칭)
 PARALLEL_REVIEW_SYSTEM_PROMPT = (
-    "너는 한국 웹소설 편집장이다. 아래 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼 "
-    "다섯 관점에서 감수하라.\n"
+    "너는 한국 웹소설 편집장이다. 아래 장면별 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼 "
+    "다섯 관점에서 감수하라. 장면 계약은 검수 기준이며 원고에 없는 사실을 추측하지 마라.\n"
     "[출력 형식]\n"
     "[감수]\n"
     "- 중요한 문제만 3~7개. 원문 위치, 근거, 이유, 수정 제안을 한국어로 간결하게 쓴다.\n"
@@ -642,7 +642,9 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
     planner_system = (
         "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
         "2~4개 장면으로 나누고, 장면 order는 1부터 연속이어야 한다.\n"
-        "각 장면에는 title, purpose, required_beats, characters, opening_state, closing_hook을 포함하라.\n"
+        "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook을 포함하라.\n"
+        "objective는 즉시 목표, choice는 핵심 선택, cost는 선택의 대가다.\n"
+        "required_beats에는 objective·choice·cost가 행동과 판단으로 드러나는 비트를 포함하라.\n"
         "정본 컨텍스트와 브리프 밖의 사건·고유명사를 새로 만들지 마라."
     )
     planner_instruction = (
@@ -650,6 +652,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         "[병렬 Planner — 장면 계약 생성]\n"
         "현재 회차를 2~4개 장면으로 분해하라. 각 worker는 자기 계약만 집필한다.\n"
         '{"scenes":[{"order":1,"title":"...","purpose":"...",'
+        '"objective":"...","choice":"...","cost":"...",'
         '"required_beats":["..."],"characters":["..."],'
         '"opening_state":"...","closing_hook":"..."}]} 형식만 출력하라.'
     )
@@ -701,9 +704,10 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     f"{base_messages[-1]['content']}\n\n"
                     "[병렬 Worker — 자기 장면만 집필]\n"
                     f"[장면 계약]\n{contract}\n"
-                    "앞 장면의 opening_state에서 시작하고 closing_hook으로 끝내라. "
-                    "다른 장면을 대신 쓰지 말고, 정본 컨텍스트 밖의 사실을 만들지 마라. "
-                    "원고 본문만 출력하라."
+                    "opening_state에서 시작하고 objective를 향해 진행하라. "
+                    "choice를 인물의 행동과 판단으로 보여주고 cost를 실제 위험·손실로 드러내라. "
+                    "closing_hook으로 끝내되, 다른 장면을 대신 쓰지 말고 정본 컨텍스트 밖의 사실을 만들지 마라. "
+                    "장면 계약·JSON·[감수]·[수정본] 같은 메타 문구 없이 원고 본문만 출력하라."
                 )
                 worker_messages = [
                     {"role": "system", "content": NOVEL_SYSTEM_PROMPT},
@@ -722,6 +726,10 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
             results = await parallel_writer.run_parallel_workers(
                 plan.scenes, run_scene, payload.worker_limit,
             )
+            quality_issues = parallel_writer.validate_results(results, plan.scenes)
+            if quality_issues:
+                raise ValueError("parallel draft quality validation failed: " + "; ".join(quality_issues))
+            review_source = parallel_writer.build_review_source(results, plan.scenes)
             for result in results:
                 yield {
                     "event": "worker_done",
@@ -770,8 +778,11 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         review_messages = [
             {"role": "system", "content": PARALLEL_REVIEW_SYSTEM_PROMPT},
             {"role": "user", "content": (
-                f"{base_messages[-1]['content']}\n\n[조립 원고]\n{assembled}\n\n"
-                "위 원고만 감수하고 [감수] 의견만 출력하라.")},
+                f"{base_messages[-1]['content']}\n\n[장면별 조립 원고 — 감수 전용 메타데이터]\n{review_source}\n\n"
+                "다음 항목을 반드시 확인하라: 장면별 purpose·required_beats·closing_hook 달성, "
+                "장면 전환의 인과, 주인공의 objective·choice·cost가 행동과 판단으로 드러나는지, "
+                "캐릭터·세계관·시간축·위치·미회수 복선과 충돌하는지. "
+                "원고를 다시 쓰지 말고 [감수] 의견만 출력하라.")},
         ]
         review_chars = 0
         try:

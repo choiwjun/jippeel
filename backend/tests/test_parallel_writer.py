@@ -13,6 +13,9 @@ def valid_scene(order: int) -> ParallelScenePlan:
         order=order,
         title=f"장면 {order}",
         purpose="갈등을 한 단계 진행한다",
+        objective="폐역 안에서 열쇠의 위치를 확인한다",
+        choice="열쇠를 직접 집어 든다",
+        cost="추격자에게 위치가 노출될 위험을 감수한다",
         required_beats=["행동 비트"],
         characters=["주인공"],
         opening_state="직전 장면의 결과에서 시작한다",
@@ -26,6 +29,13 @@ def test_parallel_plan_requires_two_to_four_contiguous_scenes():
     with pytest.raises(ValidationError):
         ParallelPlan(scenes=[valid_scene(1), valid_scene(3)])
     assert len(ParallelPlan(scenes=[valid_scene(1), valid_scene(2)]).scenes) == 2
+
+
+def test_parallel_scene_requires_motivation_contract_fields():
+    payload = valid_scene(1).model_dump()
+    payload.pop("objective")
+    with pytest.raises(ValidationError):
+        ParallelScenePlan(**payload)
 
 
 def test_assemble_scene_results_uses_scene_order_not_completion_order():
