@@ -1,0 +1,262 @@
+[
+  {
+    "id": "action-01",
+    "genre": "액션",
+    "prompt": "폐역에서 낡은 열쇠를 발견한 주인공이 추격자의 발소리를 듣고 도주한다.",
+    "required_cues": [
+      "열쇠",
+      "발소리"
+    ],
+    "forbidden_cues": [
+      "죽었다"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "action-02",
+    "genre": "액션",
+    "prompt": "항구 창고에서 동료를 구하기 위해 주인공이 경비선을 돌파한다.",
+    "required_cues": [
+      "창고",
+      "동료"
+    ],
+    "forbidden_cues": [
+      "마법학교"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "mystery-01",
+    "genre": "미스터리",
+    "prompt": "비 오는 골목의 시계방에서 사라진 시계의 단서를 찾는다.",
+    "required_cues": [
+      "시계",
+      "단서"
+    ],
+    "forbidden_cues": [
+      "해변"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "mystery-02",
+    "genre": "미스터리",
+    "prompt": "도서관 사서가 책 속에 숨은 암호를 발견하지만 범인이 먼저 나타난다.",
+    "required_cues": [
+      "암호",
+      "도서관"
+    ],
+    "forbidden_cues": [
+      "우주선"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "fantasy-01",
+    "genre": "판타지",
+    "prompt": "견습 마법사가 금지된 숲에서 부서진 나침반을 되살린다.",
+    "required_cues": [
+      "숲",
+      "나침반"
+    ],
+    "forbidden_cues": [
+      "현대 회사"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "fantasy-02",
+    "genre": "판타지",
+    "prompt": "용병이 얼음 성문 앞에서 맹세와 보상 사이를 선택한다.",
+    "required_cues": [
+      "성문",
+      "선택"
+    ],
+    "forbidden_cues": [
+      "평화로운 결말"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "romance-01",
+    "genre": "로맨스",
+    "prompt": "오래 헤어진 두 사람이 야간 서점에서 같은 편지를 발견한다.",
+    "required_cues": [
+      "서점",
+      "편지"
+    ],
+    "forbidden_cues": [
+      "전쟁터"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "romance-02",
+    "genre": "로맨스",
+    "prompt": "주인공이 약속을 지킬지 떠날지 결정하는 기차역에 도착한다.",
+    "required_cues": [
+      "약속",
+      "기차역"
+    ],
+    "forbidden_cues": [
+      "용궁"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "historical-01",
+    "genre": "역사",
+    "prompt": "조선 시대의 역관이 밀서의 진위를 확인하려고 장터로 향한다.",
+    "required_cues": [
+      "밀서",
+      "장터"
+    ],
+    "forbidden_cues": [
+      "인터넷"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "historical-02",
+    "genre": "역사",
+    "prompt": "항구의 상인이 세곡 장부를 숨길지 관아에 넘길지 고민한다.",
+    "required_cues": [
+      "장부",
+      "관아"
+    ],
+    "forbidden_cues": [
+      "자동차 경주"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "thriller-01",
+    "genre": "스릴러",
+    "prompt": "잠긴 아파트에서 정전이 일어나고 주인공은 이웃의 신호를 추적한다.",
+    "required_cues": [
+      "정전",
+      "신호"
+    ],
+    "forbidden_cues": [
+      "축제"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "thriller-02",
+    "genre": "스릴러",
+    "prompt": "녹음 파일 속 마지막 목소리를 따라 지하 주차장으로 내려간다.",
+    "required_cues": [
+      "녹음 파일",
+      "주차장"
+    ],
+    "forbidden_cues": [
+      "바다 항해"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "daily-01",
+    "genre": "일상",
+    "prompt": "동네 빵집 주인이 마지막 영업일에 오래된 손님을 다시 만난다.",
+    "required_cues": [
+      "빵집",
+      "손님"
+    ],
+    "forbidden_cues": [
+      "전쟁"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "daily-02",
+    "genre": "일상",
+    "prompt": "학교 방송부 학생들이 사라진 원고를 찾기 위해 교내를 돌아다닌다.",
+    "required_cues": [
+      "방송부",
+      "원고"
+    ],
+    "forbidden_cues": [
+      "황궁"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "sf-01",
+    "genre": "SF",
+    "prompt": "화성 기지의 정비사가 산소 누출 경보와 동료의 명령 사이에서 결단한다.",
+    "required_cues": [
+      "화성",
+      "산소"
+    ],
+    "forbidden_cues": [
+      "중세 성당"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "sf-02",
+    "genre": "SF",
+    "prompt": "기억을 백업하는 기술자가 삭제된 승객 기록을 복구한다.",
+    "required_cues": [
+      "기억",
+      "기록"
+    ],
+    "forbidden_cues": [
+      "농촌 장터"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "horror-01",
+    "genre": "호러",
+    "prompt": "산장 라디오에서 죽은 사람의 목소리가 들리고 문 밖에 흔적이 남는다.",
+    "required_cues": [
+      "라디오",
+      "흔적"
+    ],
+    "forbidden_cues": [
+      "결혼식 축가"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "horror-02",
+    "genre": "호러",
+    "prompt": "폐병원 복도에서 손전등이 꺼진 뒤 주인공은 발자국을 센다.",
+    "required_cues": [
+      "폐병원",
+      "발자국"
+    ],
+    "forbidden_cues": [
+      "놀이공원 불꽃놀이"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "political-01",
+    "genre": "정치극",
+    "prompt": "의회 보좌관이 표결 직전 사라진 문서를 찾아 협상에 나선다.",
+    "required_cues": [
+      "표결",
+      "문서"
+    ],
+    "forbidden_cues": [
+      "무인도 생존"
+    ],
+    "scene_count": 2
+  },
+  {
+    "id": "growth-01",
+    "genre": "성장",
+    "prompt": "실패한 선수는 마지막 경기에서 팀을 위해 자신의 약점을 인정한다.",
+    "required_cues": [
+      "마지막 경기",
+      "약점"
+    ],
+    "forbidden_cues": [
+      "초능력 각성"
+    ],
+    "scene_count": 2
+  }
+]
