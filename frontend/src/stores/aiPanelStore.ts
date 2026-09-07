@@ -3,6 +3,34 @@ import { create } from 'zustand';
 export type AiPanelStatus = 'idle' | 'streaming' | 'done' | 'error';
 export type AiPanelMode = 'ai' | 'refine';
 
+/**
+ * 회차 브리프 (한국어 회차 품질 슬라이스) — 백엔드 EpisodeBrief와 같은 필드명.
+ * 배열 필드는 줄바꿈 구분 원문으로 보관하고, 전송 직전에 배열로 직렬화한다.
+ */
+export interface EpisodeBriefState {
+  emotion_goal: string;
+  core_events: string;
+  character_choices: string;
+  cost: string;
+  prohibitions: string;
+  next_hook: string;
+  /** '' = 미지정 */
+  scene_type: string;
+  /** '' = 미지정 */
+  target_chars_novelpia: string;
+}
+
+export const EMPTY_EPISODE_BRIEF: EpisodeBriefState = {
+  emotion_goal: '',
+  core_events: '',
+  character_choices: '',
+  cost: '',
+  prohibitions: '',
+  next_hook: '',
+  scene_type: '',
+  target_chars_novelpia: '',
+};
+
 export interface AiPanelState {
   isOpen: boolean;
   open: () => void;
@@ -60,6 +88,10 @@ export interface AiPanelState {
   setModel: (m: string) => void;
   setPrompt: (s: string) => void;
   setParams: (p: Partial<Pick<AiPanelState, 'temperature' | 'maxTokens'>>) => void;
+
+  // 회차 브리프 (한국어 회차 품질 슬라이스) — 필수 항목이 모두 채워졌을 때만 context.brief로 전송
+  episodeBrief: EpisodeBriefState;
+  setEpisodeBrief: (b: Partial<EpisodeBriefState>) => void;
 
   // 스트리밍 (FR-405) — 누적 텍스트는 메모리에만 존재
   status: AiPanelStatus;
@@ -165,6 +197,9 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   setModel: (m) => set({ model: m }),
   setPrompt: (s) => set({ promptOverride: s }),
   setParams: (p) => set(p),
+
+  episodeBrief: { ...EMPTY_EPISODE_BRIEF },
+  setEpisodeBrief: (b) => set((s) => ({ episodeBrief: { ...s.episodeBrief, ...b } })),
 
   status: 'idle',
   streamingText: '',

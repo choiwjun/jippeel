@@ -5,7 +5,7 @@
  * NFR-201: 상단 전송 고지 Alert 고정 — 컨텍스트 전송 사실을 매 호출 인지.
  * FR-405: fetch 스트림(SSE) 소비 — EventSource 미사용(lib/aiStream.ts).
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShieldCheckIcon, CloudUploadIcon } from '@/components/ui/icons';
 import { useQuery } from '@tanstack/react-query';
 import { api, type AiEndpoint, type ChapterDetail, type PromptPreset, volumeLabel } from '@/lib/api';
@@ -22,6 +22,41 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
+
+/** 회차 브리프 직렬화 — 필수 항목이 하나라도 비면 brief를 보내지 않는다(기존 요청과 동일 동작). */
+function buildBriefContext(brief: EpisodeBriefState): Record<string, unknown> | null {
+  const lines = (raw: string) =>
+    raw.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
+  const emotionGoal = brief.emotion_goal.trim();
+  const coreEvents = lines(brief.core_events).slice(0, 3);
+  const characterChoices = lines(brief.character_choices).slice(0, 4);
+  const cost = brief.cost.trim();
+  const prohibitions = lines(brief.prohibitions).slice(0, 10);
+  const nextHook = brief.next_hook.trim();
+  if (
+    !emotionGoal || coreEvents.length === 0 || characterChoices.length === 0
+    || !cost || prohibitions.length === 0 || !nextHook
+  ) {
+    return null;
+  }
+  const out: Record<string, unknown> = {
+    emotion_goal: emotionGoal,
+    core_events: coreEvents,
+    character_choices: characterChoices,
+    cost,
+    prohibitions,
+    next_hook: nextHook,
+  };
+  if (brief.scene_type) out.scene_type = brief.scene_type;
+  const target = Number(brief.target_chars_novelpia);
+  if (
+    brief.target_chars_novelpia !== ''
+    && Number.isInteger(target) && target >= 1000 && target <= 10000
+  ) {
+    out.target_chars_novelpia = target;
+  }
+  return out;
+}
 
 export function AiPanel() {
   // 폼 상태
@@ -109,6 +144,8 @@ export function AiPanel() {
       return;
     }
     const c = store.contextSelection;
+    // 회차 브리프 — 필수 항목이 모두 채워졌을 때만 context.brief로 전송
+    const brief = buildBriefContext(store.episodeBrief);
     store.startStream();
     useAiPanelStore.getState().setAbort(streamGenerate(
       {
@@ -125,6 +162,7 @@ export function AiPanel() {
           auto_foreshadow: c.autoForeshadow,
           scene_id: c.sceneId,
           style_profile: c.styleProfile,
+          ...(brief ? { brief } : {}),
         },
         params: {
           model: store.model || undefined,
@@ -299,6 +337,9 @@ export function AiPanel() {
         />
       </section>
 
+      {/* 이번 화 브리프 — 필수 항목이 모두 채워졌을 때만 context.brief로 전송 */}
+      <EpisodeBriefSection />
+
       {/* 감수 패스 — 초안 생성 후 같은 스트림에서 감수·수정본을 이어받는다 */}
       <section className="rounded-md border border-border p-3">
         <h3 className="mb-2 text-xs font-semibold text-muted-foreground">감수 패스</h3>
@@ -361,7 +402,7 @@ export function AiPanel() {
 }
 
 /** FR-404 포함 컨텍스트 — 현재 회차 / 선택 캐릭터 / 선택 로어북 / 현재 장면 */
-import { type AiPanelState } from '@/stores/aiPanelStore';
+import { type AiPanelState, type EpisodeBriefState } from '@/stores/aiPanelStore';
 import { SceneManager, type Scene } from '@/components/panels/SceneManager';
 
 type AiPanelStoreApi = {
@@ -495,6 +536,119 @@ function ContextSection({
         />
       </div>
       <InjectedBadges ctx={ctx} />
+    </section>
+  );
+}
+
+/** 이번 화 브리프 — 선택적 생성 계약 입력. 필수 항목이 비면 brief 없이 생성된다. */
+function EpisodeBriefSection() {
+  const [open, setOpen] = useState(false);
+  const brief = useAiPanelStore((s) => s.episodeBrief);
+  const setBrief = useAiPanelStore((s) => s.setEpisodeBrief);
+  return (
+    <section className="rounded-md border border-border p-3">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground"
+      >
+        <span>이번 화 브리프</span>
+        <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-col gap-2">
+          <div>
+            <Label htmlFor="brief-emotion-goal">감정 목표</Label>
+            <Input
+              id="brief-emotion-goal"
+              value={brief.emotion_goal}
+              onChange={(e) => setBrief({ emotion_goal: e.target.value })}
+              placeholder="예: 굴욕을 뒤집는 통쾌함"
+            />
+          </div>
+          <div>
+            <Label htmlFor="brief-core-events">핵심 사건 (한 줄에 하나, 최대 3개)</Label>
+            <Textarea
+              id="brief-core-events"
+              rows={3}
+              value={brief.core_events}
+              onChange={(e) => setBrief({ core_events: e.target.value })}
+              placeholder={'예: 파문 통보\n흑요검의 첫 반응'}
+            />
+          </div>
+          <div>
+            <Label htmlFor="brief-character-choices">인물 선택·대가 (한 줄에 하나)</Label>
+            <Textarea
+              id="brief-character-choices"
+              rows={2}
+              value={brief.character_choices}
+              onChange={(e) => setBrief({ character_choices: e.target.value })}
+              placeholder="예: 주인공은 복귀 대신 독자 노선을 택한다"
+            />
+          </div>
+          <div>
+            <Label htmlFor="brief-cost">대가</Label>
+            <Input
+              id="brief-cost"
+              value={brief.cost}
+              onChange={(e) => setBrief({ cost: e.target.value })}
+              placeholder="예: 세가 복귀 가능성을 포기한다"
+            />
+          </div>
+          <div>
+            <Label htmlFor="brief-prohibitions">금지사항 (한 줄에 하나)</Label>
+            <Textarea
+              id="brief-prohibitions"
+              rows={2}
+              value={brief.prohibitions}
+              onChange={(e) => setBrief({ prohibitions: e.target.value })}
+              placeholder="예: 흑요검의 정체를 완전히 밝히지 않는다"
+            />
+          </div>
+          <div>
+            <Label htmlFor="brief-next-hook">다음 화 훅</Label>
+            <Input
+              id="brief-next-hook"
+              value={brief.next_hook}
+              onChange={(e) => setBrief({ next_hook: e.target.value })}
+              placeholder="예: 검집이 열리려는 순간 뒤에서 손목을 붙잡힌다"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="brief-scene-type">장면 유형</Label>
+              <Select
+                id="brief-scene-type"
+                value={brief.scene_type}
+                onChange={(e) => setBrief({ scene_type: e.target.value })}
+              >
+                <option value="">미지정</option>
+                <option value="대립">대립</option>
+                <option value="액션">액션</option>
+                <option value="정보정리">정보정리</option>
+                <option value="감정">감정</option>
+                <option value="이동">이동</option>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="brief-target-chars">목표 글자 수 (선택, 1000~10000)</Label>
+              <Input
+                id="brief-target-chars"
+                type="number"
+                min={1000}
+                max={10000}
+                value={brief.target_chars_novelpia}
+                onChange={(e) => setBrief({ target_chars_novelpia: e.target.value })}
+              />
+            </div>
+          </div>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            필수 항목을 모두 채우면 브리프가 전송됩니다. 비어 있으면 브리프 없이 생성됩니다.
+            생성 결과는 자동 반영되지 않으므로 반드시 사람이 검수하세요.
+          </p>
+        </div>
+      )}
     </section>
   );
 }
