@@ -184,8 +184,12 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
         blocks.append(f"[현재 회차: {chapter.title}]\n{chapter.content_md}")
         source_parts.append(chapter.content_md or "")
         project_id = project_id or chapter.project_id
-        if ctx.auto_outline and (chapter.memo or "").strip():
-            blocks.append(f"[이번 회차 목표(목차) — 이 화에서 반드시 다뤄야 할 내용]\n{chapter.memo}")
+        chapter_memo = (chapter.memo or "").strip()
+        if chapter_memo and ctx.auto_lore:
+            # 신규 회차는 본문이 비어 있을 수 있으므로 목차 메모도 로어 매칭 원본에 포함한다.
+            source_parts.append(chapter_memo)
+        if chapter_memo and ctx.auto_outline:
+            blocks.append(f"[이번 회차 목표(목차) — 이 화에서 반드시 다뤄야 할 내용]\n{chapter_memo}")
             outline_info["current"] = True
         if ctx.auto_outline and chapter.volume is not None:
             from app.models import VolumeNote

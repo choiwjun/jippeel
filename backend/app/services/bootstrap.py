@@ -1,7 +1,7 @@
 """작품 부트스트랩 서비스 — 입력 하나로 작품 전체 구조를 AI 생성해 일괄 저장.
 
 흐름 (POST /api/v1/projects/bootstrap):
-  1. LLM 3회 호출 (app.services.llm 재용)
+  1. LLM 4회 호출 (app.services.llm 재용)
      ① 제목 후보 5개 + 로그라인 + 주제의식
      ② 권·회차 목차 (각 회차 제목 + 2문단 시놉시스 + 핵심 사건)
      ③ 캐릭터 4~6명 + 관계 쌍 + 로어북 8~12개(keywords[] 포함)
@@ -25,6 +25,12 @@ from app.services import llm, usage as usage_service
 logger = logging.getLogger(__name__)
 
 DEFAULT_TITLE_STYLE = "웹소설식 긴 제목"
+
+# 후속 부트스트랩 콜에 전달하는 목차 앵커의 입력 상한.
+# 대형 요청(최대 50권 × 200화)에서도 프롬프트가 무제한으로 커지지 않게 한다.
+OUTLINE_ANCHOR_MAX_CHARS = 12_000
+_OUTLINE_ANCHOR_TITLE_MAX_CHARS = 200
+_OUTLINE_ANCHOR_FIELD_MAX_CHARS = 600
 
 # LLM 호출 온도 — 엔드포인트 설정 값을 그대로 사용한다.
 # None이면 temperature 파라미터를 전송하지 않는다(Codex 계열 모델은 거부함).
@@ -293,6 +299,48 @@ def _summarize_outline(chapters: list[OutlineChapter], volumes_index: dict) -> s
         head = f"{v}권. {vol_title}" if vol_title else f"{v}권"
         body = " ".join(f"{c.order}화){c.title}" for c in chapters if c.volume == v)
         parts.append(f"{head}\n{body}")
+    return "\n".join(parts)
+
+
+def _clip_outline_anchor(value: str, limit: int) -> str:
+    """목차 앵커 한 필드를 앞·뒤 맥락을 남기며 제한한다."""
+    value = _as_str(value)
+    if len(value) <= limit:
+        return value
+    marker = " … "
+    head = max((limit - len(marker)) // 2, 1)
+    return value[:head] + marker + value[-head:]
+
+
+def _outline_anchor_summary(chapters: list[OutlineChapter],
+                           volumes_index: dict) -> str:
+    """콜 2 목차의 고유명사·사건을 bounded 정본 블록으로 만든다."""
+    parts = [
+        "[목차가 정본 — 후속 생성 콜 공통 기준]",
+        "아래 목차에 등장하는 장소·세력·용어·사건명은 표기와 관계를 그대로 유지하라.",
+        "목차와 충돌하는 새 고유명사나 다른 장소명을 만들지 마라.",
+    ]
+    for v in sorted({c.volume for c in chapters}):
+        vol_title = _clip_outline_anchor(
+            _as_str(volumes_index.get(v)), _OUTLINE_ANCHOR_TITLE_MAX_CHARS)
+        head = f"{v}권. {vol_title}" if vol_title else f"{v}권"
+        for c in chapters:
+            if c.volume != v:
+                continue
+            entry = [f"- {c.order}화 제목: {_clip_outline_anchor(c.title, _OUTLINE_ANCHOR_TITLE_MAX_CHARS)}"]
+            if c.synopsis:
+                entry.append(
+                    f"  시놉시스: {_clip_outline_anchor(c.synopsis, _OUTLINE_ANCHOR_FIELD_MAX_CHARS)}")
+            if c.key_event:
+                entry.append(
+                    f"  핵심 사건: {_clip_outline_anchor(c.key_event, _OUTLINE_ANCHOR_FIELD_MAX_CHARS)}")
+            candidate = "\n".join([*parts, head, *entry])
+            if len(candidate) > OUTLINE_ANCHOR_MAX_CHARS:
+                marker = "… 목차 앵커 생략 (입력 상한 도달)"
+                base = "\n".join(parts)
+                available = OUTLINE_ANCHOR_MAX_CHARS - len(marker) - 1
+                return base[:max(available, 0)].rstrip() + "\n" + marker
+            parts.extend([head, *entry])
     return "\n".join(parts)
 
 
@@ -620,7 +668,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
                              client, model: str,
                              temperature: float | None = None,
                              reasoning_effort: str | None = None) -> dict:
-    """LLM 3회 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
+    """LLM 4회 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
 
     temperature/reasoning_effort가 None이면 파라미터를 전송하지 않는다
     (Codex 계열 reasoning 모델은 temperature를 거부한다).
@@ -634,7 +682,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
     outline_data = await _call_json(client, model, outline_msgs, temperature,
                                     reasoning_effort=reasoning_effort)
     preview = _coerce_outline(outline_data, volume_count, chapters_per_volume)
-    summary = _summarize_outline(preview, {
+    summary = _outline_anchor_summary(preview, {
         v.get("volume"): _as_str(v.get("title"))
         for v in _as_list(outline_data.get("volumes")) if isinstance(v, dict)
     })

@@ -418,3 +418,53 @@ def test_bootstrap_protagonist_name_enforced_across_calls(client, fake_llm, defa
     project = db.get(Project, body["project_id"])
     memo = json.loads(project.memo)["bootstrap"]
     assert memo["protagonist_name"] == "강산협"
+
+
+def test_bootstrap_outline_anchors_are_carried_to_character_and_lore_calls(
+        client, fake_llm, default_endpoint):
+    """콜 2 목차의 장소·사건명이 콜 3·4의 정본 컨텍스트로 전달된다."""
+    outline = {
+        "volumes": [{
+            "volume": 1,
+            "title": "폐선의 시작",
+            "chapters": [{
+                "order": 1,
+                "title": "첫 사냥의 준비",
+                "synopsis": (
+                    "서도윤은 은하역 폐선로의 환기구를 조사하며 "
+                    "청람 게이트의 개방 흔적을 찾는다."),
+                "key_event": "은하역 폐선로 선점 계획 확정",
+            }],
+        }],
+    }
+    enqueue_success(fake_llm, outline=outline)
+
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "현대판타지", "volume_count": 1, "chapters_per_volume": 1})
+    assert resp.status_code == 200, resp.text
+
+    calls = fake_llm["calls"]
+    characters_user = calls[2]["messages"][-1]["content"]
+    rellore_user = calls[3]["messages"][-1]["content"]
+    for prompt in (characters_user, rellore_user):
+        assert "은하역 폐선로" in prompt
+        assert "청람 게이트" in prompt
+        assert "목차가 정본" in prompt
+
+
+def test_bootstrap_outline_anchor_summary_has_a_hard_size_cap():
+    """대형 목차도 후속 LLM 콜용 앵커 블록이 고정 상한을 넘지 않는다."""
+    chapters = [
+        bootstrap_service.OutlineChapter(
+            volume=1, order=index + 1, sort_order=float(index),
+            title=f"회차 {index + 1}",
+            synopsis="은하역 폐선로 " + ("설명 " * 500),
+            key_event="핵심 사건 " + ("사건 " * 200),
+        )
+        for index in range(400)
+    ]
+
+    summary = bootstrap_service._outline_anchor_summary(chapters, {1: "대형 권"})
+
+    assert len(summary) <= bootstrap_service.OUTLINE_ANCHOR_MAX_CHARS
+    assert "목차 앵커 생략" in summary

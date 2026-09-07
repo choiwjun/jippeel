@@ -263,6 +263,36 @@ def test_auto_lore_injects_matched_entries_only(client, fake_llm):
     assert "[세계관: 흑요 검]" not in user_text
 
 
+def test_auto_lore_matches_current_chapter_memo_when_body_is_empty(client, fake_llm):
+    """신규 회차의 본문이 비어도 chapter.memo가 자동 로어 매칭 원본에 포함된다."""
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+    pid = client.post("/api/v1/projects", json={"title": "p"}).json()["id"]
+    ch = client.post(f"/api/v1/projects/{pid}/chapters", json={
+        "title": "1화",
+    }).json()
+    client.patch(f"/api/v1/chapters/{ch['id']}", json={
+        "memo": "이번 화에서 청람역 폐터널의 진동을 조사한다.",
+    })
+    client.post(f"/api/v1/projects/{pid}/lore", json={
+        "category": "장소", "title": "청람역 폐터널",
+        "keywords": ["청람역 폐터널"], "content": "폐터널 설정",
+    })
+
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+        "context": {
+            "chapter_id": ch["id"],
+            "auto_lore": True,
+            "auto_lore_semantic": False,
+            "auto_outline": True,
+        }})
+    assert resp.status_code == 200
+    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+    assert "[이번 회차 목표(목차)" in user_text
+    assert "[세계관(자동): 청람역 폐터널]" in user_text
+
+
 def test_system_prompt_prepended(client, fake_llm):
     """집필 기본 system 프롬프트가 user 메시지 앞에 붙는다(백로그: 프롬프트 고도화)."""
     ep = client.post("/api/v1/ai/endpoints", json={
