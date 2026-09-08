@@ -20,6 +20,8 @@ type HeldCanon = { route: Route; body: any };
 
 type FixtureState = {
   chapters: Map<number, Chapter>;
+  characters: Map<number, ReturnType<typeof fixtureCharacter>>;
+  lores: Map<number, ReturnType<typeof fixtureLore>>;
   writes: Array<{ chapterId: number; body: any }>;
   heldWrites: HeldRoute[];
   generateRequests: any[];
@@ -32,11 +34,13 @@ type FixtureState = {
 };
 
 const PROJECT_ID = 1;
+const SECOND_PROJECT_ID = 2;
 const FIRST_CHAPTER_ID = 10;
 const SECOND_CHAPTER_ID = 11;
 const FIRST_REVISION = 3;
 const CHAR_A = 201;
 const CHAR_B = 202;
+const PROJECT_2_LORE_ID = 401;
 const FORESHADOW_ID = 301;
 
 function now() { return '2026-09-08T00:00:00.000Z'; }
@@ -58,6 +62,37 @@ function chapter(id: number, title: string, content_md: string, revision: number
   };
 }
 
+
+function fixtureCharacter(id: number, projectId: number, name: string) {
+  return {
+    id,
+    project_id: projectId,
+    name,
+    aliases: [],
+    role: '주연',
+    appearance: '은빛 눈',
+    personality: '침착함',
+    speech_style: '짧게 말함',
+    background: '북부 출신',
+    card_json: null,
+    created_at: now(),
+    updated_at: now(),
+  };
+}
+
+function fixtureLore(id: number, projectId: number, title: string) {
+  return {
+    id,
+    project_id: projectId,
+    category: '장소',
+    title,
+    content: `${title} 본문`,
+    keywords: ['fixture'],
+    created_at: now(),
+    updated_at: now(),
+  };
+}
+
 function meta(c: Chapter) {
   const { content_md: _content, ...rest } = c;
   return rest;
@@ -72,7 +107,41 @@ function sse(events: Array<[string, unknown | string]>) {
 async function installStoreHandle(page: Page) {
   await page.addScriptTag({
     type: 'module',
-    content: `import { useAiPanelStore } from '/src/stores/aiPanelStore.ts'; window.__aiPanelStore = useAiPanelStore;`,
+    content: `
+      import { useAiPanelStore } from '/src/stores/aiPanelStore.ts';
+      import { useEditorStore } from '/src/stores/editorStore.ts';
+      window.__aiPanelStore = useAiPanelStore;
+      window.__editorStore = useEditorStore;
+      window.__aiContextRuntimeId = window.__aiContextRuntimeId ?? crypto.randomUUID();
+    `,
+  });
+}
+
+async function captureRuntimeEditorState(page: Page) {
+  await installStoreHandle(page);
+  return page.evaluate(([projectId, chapterId]) => {
+    const editor = (window as any).__editorStore.getState();
+    return {
+      runtimeId: (window as any).__aiContextRuntimeId as string,
+      editorProjectId: editor.projectId as number | null,
+      editorChapterId: editor.chapterId as number | null,
+      oldDraft: window.localStorage.getItem(`jippeel:manuscript-draft:v1:${projectId}:${chapterId}`),
+    };
+  }, [PROJECT_ID, FIRST_CHAPTER_ID]);
+}
+
+async function expectSameRuntimeAndStaleEditor(page: Page, before: Awaited<ReturnType<typeof captureRuntimeEditorState>>) {
+  await expect.poll(async () => page.evaluate(() => {
+    const editor = (window as any).__editorStore.getState();
+    return {
+      runtimeId: (window as any).__aiContextRuntimeId as string | undefined,
+      editorProjectId: editor.projectId as number | null,
+      editorChapterId: editor.chapterId as number | null,
+    };
+  })).toEqual({
+    runtimeId: before.runtimeId,
+    editorProjectId: before.editorProjectId,
+    editorChapterId: before.editorChapterId,
   });
 }
 
@@ -84,11 +153,27 @@ async function selectTwoCharactersForAi(page: Page) {
   }, [CHAR_A, CHAR_B]);
 }
 
+async function selectOneCharacterForAi(page: Page) {
+  await installStoreHandle(page);
+  await page.evaluate((a) => {
+    const store = (window as any).__aiPanelStore;
+    store.getState().setContext({ characterIds: [a], includeCharacters: true });
+  }, CHAR_A);
+}
+
 async function setupFixture(page: Page): Promise<FixtureState> {
   const state: FixtureState = {
     chapters: new Map<number, Chapter>([
       [FIRST_CHAPTER_ID, chapter(FIRST_CHAPTER_ID, '1화', '첫 회차 서버 원고는 본문 opt-out 때 보내면 안 된다.', FIRST_REVISION)],
       [SECOND_CHAPTER_ID, chapter(SECOND_CHAPTER_ID, '2화', '두 번째 회차 원고', 1)],
+    ]),
+    characters: new Map([
+      [CHAR_A, fixtureCharacter(CHAR_A, PROJECT_ID, '리아')],
+      [CHAR_B, fixtureCharacter(CHAR_B, PROJECT_ID, '카이')],
+    ]),
+    lores: new Map([
+      [FORESHADOW_ID, fixtureLore(FORESHADOW_ID, PROJECT_ID, '왕도 지하실')],
+      [PROJECT_2_LORE_ID, fixtureLore(PROJECT_2_LORE_ID, SECOND_PROJECT_ID, '사막 기록고')],
     ]),
     writes: [],
     heldWrites: [],
@@ -109,20 +194,36 @@ async function setupFixture(page: Page): Promise<FixtureState> {
     const requestBody = () => JSON.parse(route.request().postData() ?? '{}');
 
     if (method === 'GET' && path === '/projects') {
-      return json(200, [{
-        id: PROJECT_ID,
-        title: 'AI 컨텍스트 UI 픽스처',
-        genre: null,
-        synopsis: null,
-        platform_note: null,
-        created_at: now(),
-        updated_at: now(),
-        chapter_count: 2,
-        total_chars: 0,
-      }]);
+      return json(200, [
+        {
+          id: PROJECT_ID,
+          title: 'AI 컨텍스트 UI 픽스처',
+          genre: null,
+          synopsis: null,
+          platform_note: null,
+          created_at: now(),
+          updated_at: now(),
+          chapter_count: 2,
+          total_chars: 0,
+        },
+        {
+          id: SECOND_PROJECT_ID,
+          title: 'AI 컨텍스트 UI 픽스처 2',
+          genre: null,
+          synopsis: null,
+          platform_note: null,
+          created_at: now(),
+          updated_at: now(),
+          chapter_count: 0,
+          total_chars: 0,
+        },
+      ]);
     }
     if (method === 'GET' && path === `/projects/${PROJECT_ID}/chapters`) {
       return json(200, [...state.chapters.values()].map(meta));
+    }
+    if (method === 'GET' && path === `/projects/${SECOND_PROJECT_ID}/chapters`) {
+      return json(200, []);
     }
     const chapterMatch = path.match(/^\/chapters\/(\d+)$/);
     if (method === 'GET' && chapterMatch) {
@@ -149,6 +250,35 @@ async function setupFixture(page: Page): Promise<FixtureState> {
       state.heldWrites.push({ route, body, chapterId });
       return;
     }
+    const charactersMatch = path.match(/^\/projects\/(\d+)\/characters$/);
+    if (method === 'GET' && charactersMatch) {
+      const projectId = Number(charactersMatch[1]);
+      return json(200, [...state.characters.values()].filter((c) => c.project_id === projectId));
+    }
+    const characterMatch = path.match(/^\/characters\/(\d+)$/);
+    if (method === 'GET' && characterMatch) {
+      const character = state.characters.get(Number(characterMatch[1]));
+      return character ? json(200, character) : json(404, { detail: 'not found' });
+    }
+    const relationMatch = path.match(/^\/characters\/(\d+)\/relations$/);
+    if (method === 'GET' && relationMatch) return json(200, []);
+
+    const loreListMatch = path.match(/^\/projects\/(\d+)\/lore$/);
+    if (method === 'GET' && loreListMatch) {
+      const projectId = Number(loreListMatch[1]);
+      return json(200, [...state.lores.values()].filter((l) => l.project_id === projectId));
+    }
+    const loreSearchMatch = path.match(/^\/projects\/(\d+)\/lore\/search$/);
+    if (method === 'GET' && loreSearchMatch) {
+      const projectId = Number(loreSearchMatch[1]);
+      return json(200, [...state.lores.values()].filter((l) => l.project_id === projectId));
+    }
+    const loreMatch = path.match(/^\/lore\/(\d+)$/);
+    if (method === 'GET' && loreMatch) {
+      const entry = state.lores.get(Number(loreMatch[1]));
+      return entry ? json(200, entry) : json(404, { detail: 'not found' });
+    }
+
     if (method === 'GET' && path === '/ai/endpoints') {
       return json(200, [{
         id: 1,
@@ -282,6 +412,37 @@ async function openEditorAndPanel(page: Page) {
   await expect(page.getByText('호출 컨텍스트')).toBeVisible();
 }
 
+
+async function openCharacterAiFromProject(page: Page, projectId: number, characterName: string) {
+  await page.getByRole('link', { name: /캐릭터/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/characters$`));
+  await page.getByRole('button', { name: `${characterName} 상세 열기` }).click();
+  await expect(page.getByRole('heading', { name: new RegExp(`캐릭터 — ${characterName}`) })).toBeVisible();
+  await page.getByRole('button', { name: '✨ AI로 외형 초안' }).click();
+  await expect(page.getByText('호출 컨텍스트')).toBeVisible();
+}
+
+async function openLoreAiFromProject(page: Page, projectId: number, loreTitle: string) {
+  await page.getByRole('link', { name: /로어북/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/lore$`));
+  await openLoreAiOnCurrentPage(page, loreTitle);
+}
+
+async function navigateToProjectLoreWithRouter(page: Page, projectId: number) {
+  await page.evaluate((nextProjectId) => {
+    window.history.pushState(null, '', `/projects/${nextProjectId}/lore`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, projectId);
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/lore$`));
+}
+
+async function openLoreAiOnCurrentPage(page: Page, loreTitle: string) {
+  await page.getByRole('button', { name: new RegExp(loreTitle) }).click();
+  await expect(page.getByRole('heading', { name: loreTitle })).toBeVisible();
+  await page.getByRole('button', { name: '✨ AI로 본문 다듬기' }).click();
+  await expect(page.getByText('호출 컨텍스트')).toBeVisible();
+}
+
 test.describe.serial('AI-context Task3 fixture UI boundaries', () => {
   test('generation waits for flush and sends one complete pre-await snapshot with saved revision', async ({ page }) => {
     const state = await setupFixture(page);
@@ -390,6 +551,30 @@ test.describe.serial('AI-context Task3 fixture UI boundaries', () => {
     await expect(page.getByRole('button', { name: /⤳ 선택 교체/ })).toBeDisabled();
   });
 
+
+  test('active editor preview tab remains editor-bound while respecting body opt-out', async ({ page }) => {
+    const state = await setupFixture(page);
+    await page.goto(`/projects/${PROJECT_ID}/write`);
+    await expect(page.locator('.cm-content')).toBeVisible();
+    await page.getByRole('tab', { name: '미리보기' }).click();
+    await expect(page.getByText('첫 회차 서버 원고는 본문 opt-out 때 보내면 안 된다.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'AI 패널' }).click();
+    await page.getByLabel('프롬프트 직접 입력').fill('preview editor-bound request');
+    await page.getByLabel(/현재 회차 본문 포함/).uncheck();
+    await page.getByRole('button', { name: '✨ 생성 시작' }).click();
+    await expect(page.locator('pre')).toContainText('AI_CONTEXT_UI_DRAFT');
+
+    expect(state.writes).toHaveLength(0);
+    expect(state.generateRequests).toHaveLength(1);
+    expect(state.generateRequests[0].context).toMatchObject({
+      project_id: PROJECT_ID,
+      chapter_id: FIRST_CHAPTER_ID,
+      expected_revision: FIRST_REVISION,
+      include_chapter_content: false,
+    });
+  });
+
   test('canon and quality use shared purpose, payoff, relationship, flush revision, and hook applicability', async ({ page }) => {
     const state = await setupFixture(page);
     await openEditorAndPanel(page);
@@ -421,6 +606,189 @@ test.describe.serial('AI-context Task3 fixture UI boundaries', () => {
       episode_purpose: 'series_finale',
       approved_foreshadow_ids: [FORESHADOW_ID],
       include_relationships: true,
+    });
+  });
+
+  test('canon relationship opt-in is project-level with zero selected generation characters', async ({ page }) => {
+    const state = await setupFixture(page);
+    await page.goto(`/projects/${PROJECT_ID}/write`);
+    await expect(page.locator('.cm-content')).toBeVisible();
+    await page.getByRole('button', { name: '모순 검사' }).click();
+
+    const canonRelationship = page.getByLabel('작품 인물 관계 포함');
+    await expect(canonRelationship).toBeEnabled();
+    await canonRelationship.check();
+    await page.getByRole('button', { name: /검사 실행/ }).click();
+    await expect(page.getByText(/검사 기준/)).toContainText(`회차 #${FIRST_CHAPTER_ID}`);
+
+    expect(state.canonRequests).toHaveLength(1);
+    expect(state.canonRequests[0]).toMatchObject({
+      chapter_id: FIRST_CHAPTER_ID,
+      expected_revision: FIRST_REVISION,
+      include_relationships: true,
+    });
+    expect(state.canonRequests[0]).not.toHaveProperty('character_ids');
+  });
+
+  test('canon relationship opt-in is project-level with one selected generation character', async ({ page }) => {
+    const state = await setupFixture(page);
+    await page.goto(`/projects/${PROJECT_ID}/write`);
+    await expect(page.locator('.cm-content')).toBeVisible();
+    await installStoreHandle(page);
+    await page.evaluate((a) => {
+      const store = (window as any).__aiPanelStore;
+      store.getState().setContext({ characterIds: [a], includeCharacters: true });
+    }, CHAR_A);
+
+    await page.getByRole('button', { name: '모순 검사' }).click();
+    const canonRelationship = page.getByLabel('작품 인물 관계 포함');
+    await expect(canonRelationship).toBeEnabled();
+    await canonRelationship.check();
+    await page.getByRole('button', { name: /검사 실행/ }).click();
+
+    expect(state.canonRequests).toHaveLength(1);
+    expect(state.canonRequests[0]).toMatchObject({
+      chapter_id: FIRST_CHAPTER_ID,
+      expected_revision: FIRST_REVISION,
+      include_relationships: true,
+    });
+    expect(state.canonRequests[0]).not.toHaveProperty('character_ids');
+  });
+
+  test('generation relationship control stays disabled with zero or one selected character', async ({ page }) => {
+    const state = await setupFixture(page);
+    await openEditorAndPanel(page);
+    const generationRelationship = page.getByLabel('선택 인물 관계 포함');
+    await expect(generationRelationship).toBeDisabled();
+
+    await selectOneCharacterForAi(page);
+    await expect(generationRelationship).toBeDisabled();
+    await page.getByLabel('프롬프트 직접 입력').fill('one selected should not enable relationships');
+    await page.getByRole('button', { name: '✨ 생성 시작' }).click();
+    await expect(page.locator('pre')).toContainText('AI_CONTEXT_UI_DRAFT');
+
+    expect(state.generateRequests).toHaveLength(1);
+    expect(state.generateRequests[0].context.include_relationships).toBe(false);
+    expect(state.generateRequests[0].context.character_ids).toEqual([CHAR_A]);
+  });
+
+  test('quality dialog is purpose-only and does not expose relationship controls', async ({ page }) => {
+    const state = await setupFixture(page);
+    await page.goto(`/projects/${PROJECT_ID}/write`);
+    await expect(page.locator('.cm-content')).toBeVisible();
+    await page.getByRole('button', { name: '품질 진단' }).click();
+
+    await expect(page.getByLabel('회차 목적')).toBeVisible();
+    await expect(page.getByLabel('선택 인물 관계 포함')).not.toBeVisible();
+    await expect(page.getByLabel('작품 인물 관계 포함')).not.toBeVisible();
+    await page.getByLabel('회차 목적').selectOption('series_finale');
+    await expect(page.getByText('해당 없음')).toBeVisible();
+    expect(state.qualityRequests.some((q) => q.includes('episode_purpose=series_finale'))).toBeTruthy();
+  });
+
+
+  test('character standalone AI after unresolved editor recovery does not flush or inherit stale chapter identity', async ({ page }) => {
+    const state = await setupFixture(page);
+    await page.addInitScript(([projectId, chapterId]) => {
+      window.localStorage.setItem(`jippeel:manuscript-draft:v1:${projectId}:${chapterId}`, JSON.stringify({
+        version: 1,
+        projectId,
+        chapterId,
+        baseRevision: 1,
+        editSequence: 2,
+        text: 'OLD_UNRESOLVED_RECOVERY_DRAFT',
+        updatedAt: Date.now(),
+      }));
+    }, [PROJECT_ID, FIRST_CHAPTER_ID]);
+
+    await page.goto(`/projects/${PROJECT_ID}/write`);
+    await expect(page.getByText('로컬 복구본과 서버 원고가 다릅니다.')).toBeVisible();
+    const beforeNav = await captureRuntimeEditorState(page);
+    expect(beforeNav).toMatchObject({ editorProjectId: PROJECT_ID, editorChapterId: FIRST_CHAPTER_ID });
+    expect(beforeNav.oldDraft).toContain('OLD_UNRESOLVED_RECOVERY_DRAFT');
+
+    await openCharacterAiFromProject(page, PROJECT_ID, '리아');
+    await expectSameRuntimeAndStaleEditor(page, beforeNav);
+    expect(await page.evaluate(([projectId, chapterId]) => window.localStorage.getItem(`jippeel:manuscript-draft:v1:${projectId}:${chapterId}`), [PROJECT_ID, FIRST_CHAPTER_ID])).toContain('OLD_UNRESOLVED_RECOVERY_DRAFT');
+    await page.getByRole('button', { name: '✨ 생성 시작' }).click();
+    await expect(page.locator('pre')).toContainText('AI_CONTEXT_UI_DRAFT');
+
+    expect(state.writes).toHaveLength(0);
+    expect(state.generateRequests).toHaveLength(1);
+    expect(state.generateRequests[0].context).toMatchObject({
+      project_id: PROJECT_ID,
+      chapter_id: null,
+      expected_revision: null,
+      include_chapter_content: false,
+      episode_purpose: 'serial',
+      approved_foreshadow_ids: [],
+      include_relationships: false,
+      character_ids: [CHAR_A],
+      lore_ids: [],
+      scene_id: null,
+    });
+    expect(JSON.stringify(state.generateRequests[0].context)).not.toContain('OLD_UNRESOLVED_RECOVERY_DRAFT');
+  });
+
+  test('lore standalone AI after same-project editor visit does not flush or inherit stale chapter identity', async ({ page }) => {
+    const state = await setupFixture(page);
+    await page.goto(`/projects/${PROJECT_ID}/write`);
+    await expect(page.locator('.cm-content')).toBeVisible();
+    await page.getByRole('button', { name: 'AI 패널' }).click();
+    await page.getByLabel('회차 목적').selectOption('series_finale');
+    await page.getByRole('button', { name: /복선 회수 승인 선택/ }).click();
+    await page.getByLabel(/이번 요청에서 회수\/공개 허용/).check();
+    await page.getByRole('button', { name: '패널 닫기' }).click();
+    const beforeNav = await captureRuntimeEditorState(page);
+    expect(beforeNav).toMatchObject({ editorProjectId: PROJECT_ID, editorChapterId: FIRST_CHAPTER_ID });
+
+    await openLoreAiFromProject(page, PROJECT_ID, '왕도 지하실');
+    await expectSameRuntimeAndStaleEditor(page, beforeNav);
+    await page.getByRole('button', { name: '✨ 생성 시작' }).click();
+    await expect(page.locator('pre')).toContainText('AI_CONTEXT_UI_DRAFT');
+
+    expect(state.writes).toHaveLength(0);
+    expect(state.generateRequests).toHaveLength(1);
+    expect(state.generateRequests[0].context).toMatchObject({
+      project_id: PROJECT_ID,
+      chapter_id: null,
+      expected_revision: null,
+      include_chapter_content: false,
+      episode_purpose: 'serial',
+      approved_foreshadow_ids: [],
+      include_relationships: false,
+      character_ids: [],
+      lore_ids: [FORESHADOW_ID],
+      scene_id: null,
+    });
+  });
+
+  test('cross-project lore standalone AI uses explicit page project and not stale editor project or chapter', async ({ page }) => {
+    const state = await setupFixture(page);
+    await page.goto(`/projects/${PROJECT_ID}/write`);
+    await expect(page.locator('.cm-content')).toBeVisible();
+    const beforeNav = await captureRuntimeEditorState(page);
+    expect(beforeNav).toMatchObject({ editorProjectId: PROJECT_ID, editorChapterId: FIRST_CHAPTER_ID });
+
+    await navigateToProjectLoreWithRouter(page, SECOND_PROJECT_ID);
+    await expectSameRuntimeAndStaleEditor(page, beforeNav);
+    await openLoreAiOnCurrentPage(page, '사막 기록고');
+    await page.getByRole('button', { name: '✨ 생성 시작' }).click();
+    await expect(page.locator('pre')).toContainText('AI_CONTEXT_UI_DRAFT');
+
+    expect(state.writes).toHaveLength(0);
+    expect(state.generateRequests).toHaveLength(1);
+    expect(state.generateRequests[0].context).toMatchObject({
+      project_id: SECOND_PROJECT_ID,
+      chapter_id: null,
+      expected_revision: null,
+      include_chapter_content: false,
+      episode_purpose: 'serial',
+      approved_foreshadow_ids: [],
+      include_relationships: false,
+      character_ids: [],
+      lore_ids: [PROJECT_2_LORE_ID],
+      scene_id: null,
     });
   });
 

@@ -220,10 +220,34 @@ export function AiPanel() {
       if (startToken === null) return;
 
       const editorBefore = useEditorStore.getState();
-      const currentProjectId = editorBefore.projectId;
-      const currentChapterId = editorBefore.chapterId;
       const c = structuredClone(store.contextSelection);
-      const directives = structuredClone(store.getDirectives(currentProjectId, currentChapterId));
+      const activeEditorIdentity = store.activeEditorIdentity
+        ? structuredClone(store.activeEditorIdentity)
+        : null;
+      const editorIntent = c.requestSource === 'editor';
+      let expectedRevision: number | null = null;
+      let boundProjectId = c.projectId;
+      let boundChapterId = editorIntent ? c.chapterId : null;
+
+      if (editorIntent) {
+        if (
+          c.projectId === null
+          || c.chapterId === null
+          || activeEditorIdentity === null
+          || activeEditorIdentity.projectId !== c.projectId
+          || activeEditorIdentity.chapterId !== c.chapterId
+          || editorBefore.projectId !== c.projectId
+          || editorBefore.chapterId !== c.chapterId
+        ) {
+          toast('현재 열려 있는 회차를 확인할 수 없어 AI 요청을 시작하지 않았습니다.', 'warning');
+          useAiPanelStore.getState().clearAiStart(startToken);
+          return;
+        }
+        boundProjectId = c.projectId;
+        boundChapterId = c.chapterId;
+      }
+
+      const directives = structuredClone(store.getDirectives(boundProjectId, boundChapterId));
       const parsedBrief = parseEpisodeBrief(structuredClone(store.episodeBrief), directives.episodePurpose);
       if (!parsedBrief.ok && parsedBrief.reason === 'invalid') {
         toast(`브리프를 전송하지 않습니다 — ${parsedBrief.message}`, 'warning');
@@ -245,24 +269,24 @@ export function AiPanel() {
         parallelReviewModel: store.parallelReviewModel,
         parallelReviewEffort: store.parallelReviewEffort,
       };
-      let expectedRevision: number | null = null;
-      let boundProjectId = currentProjectId;
-      let boundChapterId = currentChapterId;
-
-      if (currentProjectId !== null && currentChapterId !== null) {
+      if (editorIntent && boundProjectId !== null && boundChapterId !== null) {
         let flushed;
         try {
-          flushed = await flushManuscriptDraft(currentProjectId, currentChapterId);
+          flushed = await flushManuscriptDraft(boundProjectId, boundChapterId);
         } catch (e) {
           toast((e as Error).message, 'error');
           useAiPanelStore.getState().clearAiStart(startToken);
           return;
         }
         const after = useEditorStore.getState();
+        const activeAfter = useAiPanelStore.getState().activeEditorIdentity;
         if (
           !useAiPanelStore.getState().isAiStartCurrent(startToken)
-          || after.projectId !== currentProjectId
-          || after.chapterId !== currentChapterId
+          || activeAfter === null
+          || activeAfter.projectId !== boundProjectId
+          || activeAfter.chapterId !== boundChapterId
+          || after.projectId !== boundProjectId
+          || after.chapterId !== boundChapterId
         ) {
           if (useAiPanelStore.getState().isAiStartCurrent(startToken)) {
             useAiPanelStore.getState().clearAiStart(startToken);
@@ -284,18 +308,18 @@ export function AiPanel() {
         context: {
           project_id: boundProjectId,
           chapter_id: boundChapterId,
-          include_chapter_content: c.includeChapterContent,
+          include_chapter_content: editorIntent ? c.includeChapterContent : false,
           expected_revision: expectedRevision,
           episode_purpose: directives.episodePurpose,
           approved_foreshadow_ids: directives.approvedForeshadowIds,
-          include_relationships: directives.includeRelationships,
+          include_relationships: directives.includeRelationships && c.includeCharacters && c.characterIds.length >= 2,
           character_ids: c.includeCharacters ? [...c.characterIds] : [],
           lore_ids: c.includeLore ? [...c.loreIds] : [],
           auto_lore: c.autoLore,
           auto_lore_semantic: c.autoLoreSemantic,
           auto_outline: c.autoOutline,
           auto_foreshadow: c.autoForeshadow,
-          scene_id: c.sceneId,
+          scene_id: editorIntent ? c.sceneId : null,
           style_profile: c.styleProfile,
           ...(brief ? { brief } : {}),
         },
@@ -324,7 +348,7 @@ export function AiPanel() {
         projectId: boundProjectId,
         chapterId: boundChapterId,
         expectedRevision,
-        includeChapterContent: c.includeChapterContent,
+        includeChapterContent: editorIntent ? c.includeChapterContent : false,
         startedAt: Date.now(),
       });
       const stream = parallel ? streamParallelGenerate : streamGenerate;
@@ -741,7 +765,7 @@ function ContextSection({
         <AiContextControls
           projectId={ctx.projectId}
           chapterId={ctx.chapterId}
-          selectedCharacterCount={ctx.characterIds.length}
+          relationshipPolicy={{ kind: 'generation', selectedCharacterCount: ctx.characterIds.length }}
         />
         <Checkbox
           label={`선택 캐릭터 (${charsCount})`}

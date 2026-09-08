@@ -1,0 +1,10 @@
+{
+  "base": "d2a5b3479969c0b13de3be00e1b1a3fbd6746063",
+  "sha256": {
+    "frontend/src/components/editor/AiContextControls.tsx": "7a397447cc2bd994b35cfcffcc8693348dbe0d8201e6a7037bf9e3c9975f12a5",
+    "frontend/src/components/panels/AiPanel.tsx": "7ff5f0cc5eadc6ca53685dea91d1db41c56e72306c00fa66d6722244aab0f2d0",
+    "frontend/src/components/editor/CanonDialog.tsx": "56eeafd1f67b3b991b4b25f3676c8cc1968b66b6b8ef15f2bfd480a3dfbb4a52",
+    "frontend/src/components/editor/QualityDialog.tsx": "29f74546e5b7f948ccee93911aa38107ee6d45f8f7b73267ca23214142a55906",
+    "frontend/e2e/ai-context-ui.spec.ts": "fe5b6d8c4e428f761f8cbe83840083c43c8fba87f70f4d0deb0f5f46ea7ebb79"
+  }
+}

@@ -123,3 +123,22 @@
 ## T4 독립 재검토 통과
 - 정확한 canon 화면 작품/회차/revision/hash, 저장 본문 SHA256, API 및 DB 이력 대조를 보강했다. 독립 재실행 통합3PASS, Spec/Quality PASS, 남은 지적 없음. 두 worker/조립 순서, 오류 요청8건의 제공자 호출 없음, 창작 데이터 무자동변경 및 소유 서버 정리도 유지됐다. 부모 backend269PASS 및 검토 hash 일치를 확인했다.
 - T4 변경을 로컬 커밋한 뒤 최종 전체 브랜치 사양/품질 검토로 이동한다. 아직 운영 반영/merge/push 없음.
+
+## 최종 브랜치 검토 착수
+- T4 commit `d2a5b3479969c0b13de3be00e1b1a3fbd6746063`. 부모의 유일한 검토 후 편집은 validation 명령 줄의 trailing space 제거이며 QA source/test/config는 검토 hash를 유지했다.
+- 전체 범위 `70ec67eb3be02a89baefe01b3e798d033431983b..d2a5b3479969c0b13de3be00e1b1a3fbd6746063`에 대해 새 Spec/Standards 검토자를 병렬 배정했다. Spec은 browser/실제 통합/보존 fixture, Standards는 backend 전체/build를 담당해 포트·빌드 충돌을 피한다. 운영 DB/기존 서비스/실제 AI/merge/push/deploy는 여전히 범위 밖이다.
+
+## 최종 Standards 지적 수용: 관계 옵션의 대상 정책 분리
+- 최종 Standards는 NEEDS FIXES. 실제 AiContextControls가 generation의 인물 선택 수 조건을 canon에도 적용해, 선택 인물 0/1명일 때 canon의 작품 전체 관계 opt-in을 막는다. 부모가 코드와 확정 ruling을 대조해 수용했다.
+- Standards native backend269/build는 PASS이며 source hash 유지. Markdown hard-break 및 기존 호환 helper 정리는 비차단/범위 밖으로 유지한다.
+- Spec 검토자가 현재 고정 소스/browser 포트를 사용 중이다. 원래 T3 구현자는 읽기 전용으로 최소 변경과 회귀 테스트를 준비하며, Spec의 소스·포트 해제 확인 전에는 수정/서버 실행을 하지 않는다.
+
+- Spec 검토자의 실제 브라우저 재현에서 canon 관계 옵션 비활성화가 확인됐다. 이전 소스 integration3/backend중점91/T3fixture7/보존fixture17 PASS 근거를 보존하고, 모든 소유 포트(15212/18112/18113/15227/15225)가 닫힌 것을 확인해 소스 소유권을 해제했다. 부모가 원래 T3 구현자에게 5개 frontend 파일의 최소 정책 분리와 RED→GREEN 회귀 테스트를 허가했다. Spec은 고정 Git 범위 정적 검토만 계속하며 수정 중 workingtree/실행 검증은 하지 않는다.
+
+## 최종 Spec 추가 지적 수용: 독립 AI 요청의 이전 회차 연결 차단
+- S2 최소 정책 분리 구현은 READY: UI fixture11/보존fixture17/build PASS. 부모가 fix-1 snapshot을 보존했다. 아직 최종 독립 재검토 전이다.
+- 최종 Spec의 S3도 실제 코드 대조 후 수용했다. EditorPage를 떠나도 editorStore ID가 남고, 인물/세계관 AI 진입점의 chapterId:null보다 이를 우선 사용해 이전 회차 flush/identity가 독립 요청에 섞일 수 있다.
+- 같은 frontend 구현자가 fix-2를 수행한다. 실제 활성 편집기(미리보기 포함)와 명시적 작품 단위 독립 요청을 구분하고, 기존 draft/recovery를 지우지 않으며 이전 회차 flush/본문/지시문이 새 요청에 섞이지 않도록 회귀 테스트를 먼저 추가한다. 두 최종 검토자는 실행/수정을 멈추고 합쳐진 고정 후보를 기다린다.
+
+- S3 구현자 UI15/보존17/build PASS 후 부모가 회귀 테스트의 page.goto가 in-memory 상태를 초기화하는 검증 공백을 확인했다. 앱 7개 파일은 동결하고 fixture/report만 실제 SPA 이동·동일 runtime·남아 있는 이전 editor 상태를 확인하도록 보강 중이다.
+- Spec의 먼저 시작된 fixture 실행은 소유권 전환을 위해 중단(exit -15)했으며 통과/실패 gate로 계산하지 않는다. Spec은 동결 앱으로 실제 통합3PASS/보존17PASS를 확보했고 전용 포트 정리를 확인했다. 구현자는 fixture15227만, Standards는 build만 담당하며, 보강된 fixture snapshot 후 최종 판정을 내린다.

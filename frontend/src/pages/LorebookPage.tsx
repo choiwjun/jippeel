@@ -253,7 +253,7 @@ function LoreDrawer({
             저장
           </Button>
           <Button variant="ghost" onClick={onClose}>닫기</Button>
-          {!isNew && <AiRefineButton entryId={entryId as number} />}
+          {!isNew && <AiRefineButton pid={pid} entryId={entryId as number} />}
         </div>
       </SheetBody>
     </Sheet>
@@ -261,7 +261,7 @@ function LoreDrawer({
 }
 
 /** S5 연결 — [AI로 본문 다듬기]. P1: 결과는 S5의 3버튼으로만 반영 */
-function AiRefineButton({ entryId }: { entryId: number }) {
+function AiRefineButton({ pid, entryId }: { pid: number; entryId: number }) {
   const openAiPanel = useAiPanelStore((s) => s.open);
   const setMode = useAiPanelStore((s) => s.setMode);
   const setContext = useAiPanelStore((s) => s.setContext);
@@ -274,7 +274,18 @@ function AiRefineButton({ entryId }: { entryId: number }) {
       className="ml-auto"
       onClick={() => {
         setMode('ai');
-        setContext({ chapterId: null, characterIds: [], loreIds: [entryId] });
+        setContext({
+          projectId: pid,
+          chapterId: null,
+          requestSource: 'standalone',
+          characterIds: [],
+          loreIds: [entryId],
+          includeChapter: false,
+          includeChapterContent: false,
+          includeCharacters: false,
+          includeLore: true,
+          sceneId: null,
+        });
         setPrompt('다음 세계관 항목 본문을 간결하고 일관성 있게 다듬어 주세요.');
         openAiPanel();
       }}

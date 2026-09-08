@@ -93,7 +93,6 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
   const openAiPanel = useAiPanelStore((s) => s.open);
   const queryClient = useQueryClient();
   const projectId = useEditorStore((s) => s.projectId);
-  const selectedCharacterCount = useAiPanelStore((s) => s.contextSelection.characterIds.length);
   const directives = useAiPanelStore((s) => s.getDirectives(projectId, chapterId));
   void presets;
 
@@ -156,7 +155,7 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
         <AiContextControls
           projectId={projectId}
           chapterId={chapterId}
-          selectedCharacterCount={selectedCharacterCount}
+          relationshipPolicy={{ kind: 'hidden' }}
           showForeshadows={false}
         />
         {qualityQuery.isPending && (

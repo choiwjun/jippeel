@@ -276,7 +276,7 @@ function CharacterDrawer({
         </div>
         {/* AI 초안 생성 진입점은 S5 패널 경유 — 결과는 자동 삽입되지 않음(P1) */}
         {!isNew && (
-          <AiDraftButtons character={detailQuery.data} />
+          <AiDraftButtons pid={pid} character={detailQuery.data} />
         )}
       </SheetBody>
     </Sheet>
@@ -284,7 +284,7 @@ function CharacterDrawer({
 }
 
 /** S5 연결 — [AI로 외형 초안] / [AI로 말투 예시] (P1: 끼워넣기는 사용자 클릭으로만) */
-function AiDraftButtons({ character }: { character?: Character }) {
+function AiDraftButtons({ pid, character }: { pid: number; character?: Character }) {
   const openAiPanel = useAiPanelStore((s) => s.open);
   const setMode = useAiPanelStore((s) => s.setMode);
   const setContext = useAiPanelStore((s) => s.setContext);
@@ -293,9 +293,16 @@ function AiDraftButtons({ character }: { character?: Character }) {
   const openWith = (prompt: string) => {
     setMode('ai');
     setContext({
+      projectId: pid,
       chapterId: null,
+      requestSource: 'standalone',
       characterIds: character ? [character.id] : [],
       loreIds: [],
+      includeChapter: false,
+      includeChapterContent: false,
+      includeCharacters: Boolean(character),
+      includeLore: false,
+      sceneId: null,
     });
     setPrompt(prompt);
     openAiPanel();

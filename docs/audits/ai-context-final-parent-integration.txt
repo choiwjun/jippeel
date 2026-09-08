@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [chromium] › e2e\ai-context-consistency.spec.ts:260:3 › AI context consistency real Task4 integration › browser single generation + automatic review uses saved identity while body opt-out omits body sentinel (2.2s)
+  ✓  2 [chromium] › e2e\ai-context-consistency.spec.ts:321:3 › AI context consistency real Task4 integration › browser parallel generation and canon log every provider phase with context parity (1.3s)
+  ✓  3 [chromium] › e2e\ai-context-consistency.spec.ts:436:3 › AI context consistency real Task4 integration › purpose quality, invalid ownership/revision no-provider matrix, legacy default, and creative-state preservation (363ms)
+
+  3 passed (12.0s)

@@ -79,7 +79,6 @@ export function CanonDialog({ chapterId }: { chapterId: number | null }) {
   const activeRequest = useRef<ActiveCanonRequest | null>(null);
   const lifetimeRef = useRef(0);
   const projectId = useEditorStore((s) => s.projectId);
-  const selectedCharacterCount = useAiPanelStore((s) => s.contextSelection.characterIds.length);
 
   const cleanupOwnedRequest = (token: string) => {
     if (activeRequest.current?.token === token) {
@@ -234,7 +233,7 @@ export function CanonDialog({ chapterId }: { chapterId: number | null }) {
           <AiContextControls
             projectId={projectId}
             chapterId={chapterId}
-            selectedCharacterCount={selectedCharacterCount}
+            relationshipPolicy={{ kind: 'canon' }}
           />
           <Button
             disabled={chapterId === null || pending}

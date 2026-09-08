@@ -4,6 +4,7 @@ export type AiPanelStatus = 'idle' | 'streaming' | 'done' | 'error';
 export type AiPanelMode = 'ai' | 'refine';
 export type AiGenerationMode = 'single' | 'parallel';
 export type EpisodePurpose = 'serial' | 'volume_end' | 'series_finale';
+export type AiContextRequestSource = 'editor' | 'standalone';
 
 export interface AiContextDirectives {
   episodePurpose: EpisodePurpose;
@@ -97,6 +98,7 @@ export interface AiPanelState {
   contextSelection: {
     projectId: number | null;
     chapterId: number | null;
+    requestSource: AiContextRequestSource;
     characterIds: number[];
     loreIds: number[];
     /** 선택값을 실제 요청에 포함할지 — 패널 체크박스에서 토글 (R-023) */
@@ -118,6 +120,7 @@ export interface AiPanelState {
     styleProfile: boolean;
   };
   setContext: (c: Partial<AiPanelState['contextSelection']>) => void;
+  activeEditorIdentity: { projectId: number; chapterId: number } | null;
   setCurrentIdentity: (projectId: number | null, chapterId: number | null) => void;
   getDirectives: (projectId: number | null, chapterId: number | null) => AiContextDirectives;
   setDirectives: (projectId: number | null, chapterId: number | null, patch: Partial<AiContextDirectives>) => void;
@@ -228,6 +231,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   contextSelection: {
     projectId: null,
     chapterId: null,
+    requestSource: 'standalone',
     characterIds: [],
     loreIds: [],
     includeChapter: false,
@@ -243,41 +247,53 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   },
   setContext: (c) =>
     set((s) => {
+      const explicitStandalone = c.projectId !== undefined && c.chapterId === null;
       const nextChapterId = c.chapterId !== undefined ? c.chapterId : s.contextSelection.chapterId;
       const nextProjectId = c.projectId !== undefined ? c.projectId : s.contextSelection.projectId;
       const chapterIncludedBySelection = c.chapterId !== undefined && c.chapterId !== null;
+      const chapterExplicitlyCleared = c.chapterId === null;
+      const requestSource = c.requestSource
+        ?? (explicitStandalone ? 'standalone' : chapterIncludedBySelection ? 'editor' : s.contextSelection.requestSource);
       return {
         contextSelection: {
           ...s.contextSelection,
           ...c,
           projectId: nextProjectId,
           chapterId: nextChapterId,
+          requestSource,
           // S3/S4 등에서 새 선택을 주입하면 자동 포함 — 패널에서 끈 상태는 유지
-          includeChapter: chapterIncludedBySelection ? true : s.contextSelection.includeChapter,
+          includeChapter: chapterExplicitlyCleared
+            ? false
+            : chapterIncludedBySelection ? true : s.contextSelection.includeChapter,
           includeChapterContent: c.includeChapterContent !== undefined
             ? c.includeChapterContent
-            : chapterIncludedBySelection ? true : s.contextSelection.includeChapterContent,
-          includeCharacters: c.characterIds !== undefined && c.characterIds.length > 0 ? true : s.contextSelection.includeCharacters,
-          includeLore: c.loreIds !== undefined && c.loreIds.length > 0 ? true : s.contextSelection.includeLore,
+            : chapterExplicitlyCleared ? false : chapterIncludedBySelection ? true : s.contextSelection.includeChapterContent,
+          includeCharacters: c.characterIds !== undefined ? c.characterIds.length > 0 : s.contextSelection.includeCharacters,
+          includeLore: c.loreIds !== undefined ? c.loreIds.length > 0 : s.contextSelection.includeLore,
         },
       };
     }),
 
+  activeEditorIdentity: null,
   setCurrentIdentity: (projectId, chapterId) =>
     set((s) => {
       const changed = s.contextSelection.projectId !== projectId || s.contextSelection.chapterId !== chapterId;
+      const activeEditorIdentity = projectId !== null && chapterId !== null ? { projectId, chapterId } : null;
       const next = {
         ...s.contextSelection,
         projectId,
         chapterId,
+        requestSource: chapterId !== null ? 'editor' as const : 'standalone' as const,
         includeChapter: chapterId !== null ? s.contextSelection.includeChapter || changed : false,
         includeChapterContent: chapterId !== null ? (changed ? true : s.contextSelection.includeChapterContent) : false,
       };
       return {
+        activeEditorIdentity,
         contextSelection: next,
         _pendingAiStart: changed ? null : s._pendingAiStart,
       };
     }),
+
   getDirectives: (projectId, chapterId) => {
     const found = get()._directiveMap[directiveKey(projectId, chapterId)];
     return found ?? DEFAULT_DIRECTIVES;

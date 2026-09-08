@@ -1,0 +1,35 @@
+{
+  "candidate_base": "d2a5b3479969c0b13de3be00e1b1a3fbd6746063",
+  "source_sha256": {
+    "frontend/src/components/editor/AiContextControls.tsx": "7a397447cc2bd994b35cfcffcc8693348dbe0d8201e6a7037bf9e3c9975f12a5",
+    "frontend/src/components/editor/CanonDialog.tsx": "56eeafd1f67b3b991b4b25f3676c8cc1968b66b6b8ef15f2bfd480a3dfbb4a52",
+    "frontend/src/components/editor/QualityDialog.tsx": "29f74546e5b7f948ccee93911aa38107ee6d45f8f7b73267ca23214142a55906",
+    "frontend/src/components/panels/AiPanel.tsx": "bc13577bb82916ec17c6a96adf36a1e0dd1eabacfc2b76cdbe8c64f3c167b1f4",
+    "frontend/src/pages/CharactersPage.tsx": "98ae8b4763493906391ca176e5f3e3363bfbb147718e72deb98365c7ac1655b3",
+    "frontend/src/pages/LorebookPage.tsx": "706ff2c49268724c3c8e3f8c45e6dc2e6de052264f241fe2bc7a5db0f0d41fa5",
+    "frontend/src/stores/aiPanelStore.ts": "a0b466708987665edc3517cb026851d9f9b292af949f4209e68b32fbb7cc55a4",
+    "frontend/e2e/ai-context-ui.spec.ts": "3a17c6b41a43d6f50b2af8da1b9a4d1a20477d57fa6bfecf05928426db85a210"
+  },
+  "integration_run_id": "20260908-192523-425543",
+  "provider_counts": {
+    "draft": 2,
+    "single_review": 1,
+    "planner": 1,
+    "worker": 2,
+    "parallel_review": 1,
+    "canon": 1
+  },
+  "negative_cases": 8,
+  "negative_no_provider_increase": true,
+  "creative_observed_rows_unchanged": true,
+  "canon_saved_body_sha256": "b7d5fa523f776666ef9759325be9eba3821e3c2fb90c46424156a545b57a2d07",
+  "canon_display_api_db_equal": true,
+  "owned_pids": {
+    "provider": 20016,
+    "backend": 19828
+  },
+  "owned_pid_cleanup_output": "PID=20016:GONE\r\nPID=19828:GONE\r\n",
+  "integration_exit": 0,
+  "backend_exit": 0,
+  "build_exit": 0
+}

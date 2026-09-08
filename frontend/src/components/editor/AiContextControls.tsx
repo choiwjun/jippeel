@@ -6,15 +6,20 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { useAiPanelStore, type EpisodePurpose } from '@/stores/aiPanelStore';
 
+export type AiContextRelationshipPolicy =
+  | { kind: 'generation'; selectedCharacterCount: number }
+  | { kind: 'canon' }
+  | { kind: 'hidden' };
+
 export function AiContextControls({
   projectId,
   chapterId,
-  selectedCharacterCount = 0,
+  relationshipPolicy,
   showForeshadows = true,
 }: {
   projectId: number | null;
   chapterId: number | null;
-  selectedCharacterCount?: number;
+  relationshipPolicy: AiContextRelationshipPolicy;
   showForeshadows?: boolean;
 }) {
   const [foreshadowOpen, setForeshadowOpen] = useState(false);
@@ -27,6 +32,19 @@ export function AiContextControls({
     ),
     enabled: showForeshadows && foreshadowOpen && projectId !== null,
   });
+
+  const relationshipHidden = relationshipPolicy.kind === 'hidden';
+  const relationshipDisabled = relationshipPolicy.kind === 'generation'
+    ? relationshipPolicy.selectedCharacterCount < 2
+    : relationshipPolicy.kind === 'canon'
+      ? projectId === null || chapterId === null
+      : true;
+  const relationshipLabel = relationshipPolicy.kind === 'canon'
+    ? '작품 인물 관계 포함'
+    : '선택 인물 관계 포함';
+  const relationshipChecked = relationshipPolicy.kind === 'generation' && relationshipDisabled
+    ? false
+    : directives.includeRelationships;
 
   return (
     <div className="flex flex-col gap-1.5 rounded-sm border border-border/60 p-2">
@@ -42,12 +60,14 @@ export function AiContextControls({
           <option value="series_finale">최종화</option>
         </Select>
       </div>
-      <Checkbox
-        label="선택 인물 관계 포함"
-        checked={directives.includeRelationships}
-        disabled={selectedCharacterCount < 2}
-        onChange={(e) => setDirectives(projectId, chapterId, { includeRelationships: e.target.checked })}
-      />
+      {!relationshipHidden && (
+        <Checkbox
+          label={relationshipLabel}
+          checked={relationshipChecked}
+          disabled={relationshipDisabled}
+          onChange={(e) => setDirectives(projectId, chapterId, { includeRelationships: e.target.checked })}
+        />
+      )}
       {showForeshadows && (
         <ButtonLikeToggle
           open={foreshadowOpen}
@@ -75,7 +95,6 @@ export function AiContextControls({
     </div>
   );
 }
-
 
 function ButtonLikeToggle({ open, disabled, onClick }: { open: boolean; disabled: boolean; onClick: () => void }) {
   return (
