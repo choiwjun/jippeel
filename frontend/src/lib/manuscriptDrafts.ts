@@ -154,6 +154,14 @@ class ManuscriptDraftCoordinator {
     for (const listener of this.ackListeners) listener(detail);
   }
 
+  private unresolvedRecovery() {
+    return this.recovery?.kind === 'mismatch';
+  }
+
+  private unresolvedRecoveryMessage() {
+    return '로컬 복구본과 서버 원고가 다릅니다. 로컬 복구본을 먼저 선택하거나 서버 원고로 계속할지 정하세요.';
+  }
+
   initFromServer(detail: ChapterDetail, force = false) {
     if (detail.id !== this.chapterId || detail.project_id !== this.projectId) return;
     const serverRevision = detail.revision ?? 0;
@@ -207,6 +215,20 @@ class ManuscriptDraftCoordinator {
     this.text = text;
     this.editSequence += 1;
     this.errorMessage = null;
+    if (this.unresolvedRecovery()) {
+      const recovery = this.recovery!;
+      const message = this.unresolvedRecoveryMessage();
+      this.conflict = {
+        message,
+        currentRevision: recovery.serverRevision,
+        localText: recovery.localText,
+        serverText: recovery.serverText,
+        serverRevision: recovery.serverRevision,
+      };
+      this.saveState = 'conflict';
+      this.emit();
+      return;
+    }
     if (!this.conflict) this.saveState = text === this.serverText ? 'saved' : 'dirty';
     this.persistDraft();
     this.emit();
@@ -220,7 +242,14 @@ class ManuscriptDraftCoordinator {
   }
 
   clearRecovery() {
+    const wasMismatch = this.recovery?.kind === 'mismatch';
     this.recovery = null;
+    if (wasMismatch && this.text === this.serverText) {
+      this.conflict = null;
+      this.saveState = 'saved';
+      this.errorMessage = null;
+      this.removeStoredDraft();
+    }
     this.emit();
   }
 
@@ -305,6 +334,12 @@ class ManuscriptDraftCoordinator {
       window.clearTimeout(this.timer);
       this.timer = undefined;
     }
+    if (this.unresolvedRecovery()) {
+      this.saveState = 'conflict';
+      this.errorMessage = this.unresolvedRecoveryMessage();
+      this.emit();
+      throw new Error(this.errorMessage);
+    }
     this.isFlushing = true;
     this.emit();
     try {
@@ -333,7 +368,7 @@ class ManuscriptDraftCoordinator {
   }
 
   pagehideFlush() {
-    if (this.conflict || this.inFlight || this.text === this.serverText) return;
+    if (this.unresolvedRecovery() || this.conflict || this.inFlight || this.text === this.serverText) return;
     try {
       void fetch(`/api/v1/chapters/${this.chapterId}/content`, {
         method: 'PUT',

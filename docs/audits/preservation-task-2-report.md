@@ -180,3 +180,77 @@ The duplicate `build` key warning is pre-existing.
 ### Fix round 1 limitations
 - Still fixture/browser QA only, not final backend integration.
 - No production DB, live backend, real LLM, dependency install, push, merge, or child review was used.
+
+## Fix round 2 — unresolved recovery mismatch preservation
+
+Review source: `docs/audits/preservation-final-spec-review.md` Finding 1.
+
+Changes made after commit `84dcc4b`:
+- Unresolved mismatched recovery drafts now remain unresolved until the user explicitly chooses local recovery or server text.
+- Ctrl+S and pre-action flush now block on unresolved recovery mismatch instead of treating `text === serverText` as saved and deleting browser storage.
+- Editing while an unresolved mismatch exists does not overwrite/delete the stored local recovery text.
+- `pagehide` does not send a best-effort write for unresolved recovery mismatches.
+- Replacement actions are blocked by the flush guard until the user resolves the recovery decision.
+- `RefineResult.base_revision` is now required in `frontend/src/lib/api.ts` and fixture refine responses include the captured base revision.
+
+### Fix round 2 red evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result before production fix:
+
+```text
+Running 14 tests using 1 worker
+✓ serializes delayed per-chapter saves and preserves newer typing
+✓ project switch rejects stale selected chapters and never writes under the new project context
+✘ unresolved mismatched recovery survives Ctrl+S, reload, and pre-action flush
+Matcher error: received value must be a non-null object
+Received has value: null
+1 failed, 11 did not run
+```
+
+This reproduced the final review issue: Ctrl+S removed the mismatched recovery draft without a matching save acknowledgement.
+
+### Fix round 2 green evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result:
+
+```text
+Running 14 tests using 1 worker
+14 passed (19.6s)
+```
+
+The fixture run used dedicated `127.0.0.1:15210`, `reuseExistingServer: false`, with all `/api/v1/*` requests mocked/guarded.
+
+### Fix round 2 build evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npm run build
+```
+
+Result:
+
+```text
+> jippeel-frontend@0.1.0 build
+> tsc -b && vite build
+
+▲ [WARNING] Duplicate key "build" in object literal [duplicate-object-key]
+vite v5.4.21 building for production...
+✓ 229 modules transformed.
+✓ built in 3.42s
+```
+
+The duplicate `build` key warning is pre-existing.
+
+### Fix round 2 limitations
+- Still fixture/browser QA only, not final backend integration.
+- No production DB, live backend, real LLM, dependency install, push, merge, or child review was used.

@@ -265,7 +265,7 @@ test.describe.serial('jippeel 종단 흐름', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          run_id: 999, route_hint: 'standard',
+          run_id: 999, base_revision: 0, route_hint: 'standard',
           spans: [{ category: 'E', start: 0, end: 5, severity: 'info', message: '리듬 점검' }],
           original: MANUSCRIPT, refined: `${MANUSCRIPT}\n다듬은 문장.`,
           changed_ratio: 0.1, gate: 'pass', status: 'ok',

@@ -150,7 +150,7 @@ async function setupFixture(page: Page) {
       if (body.expected_revision !== current.revision) return json(409, { detail: { code: 'revision_conflict', message: '윤문 전 원고가 최신이 아닙니다.', current_revision: current.revision } });
       const runId = nextRunId++;
       refinedRuns.set(runId, { id: runId, chapter_id: current.id, base_revision: current.revision });
-      return json(200, { run_id: runId, route_hint: 'light', spans: [], original: current.content_md, refined: `${current.content_md}\nrefined`, changed_ratio: 0.1, gate: 'pass', status: 'ok' });
+      return json(200, { run_id: runId, base_revision: current.revision, route_hint: 'light', spans: [], original: current.content_md, refined: `${current.content_md}\nrefined`, changed_ratio: 0.1, gate: 'pass', status: 'ok' });
     }
     const acceptMatch = path.match(/^\/refine\/runs\/(\d+)\/accept$/);
     if (method === 'POST' && acceptMatch) {
@@ -288,6 +288,43 @@ test.describe.serial('manuscript preservation frontend fixture', () => {
     await expect.poll(() => f.writes.some((w) => w.chapterId === 20 && w.body.content_md === 'project one unsaved')).toBe(false);
   });
 
+  test('unresolved mismatched recovery survives Ctrl+S, reload, and pre-action flush', async ({ page }) => {
+    const f = await setupFixture(page);
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server newer recovery', revision: 2 });
+    await page.addInitScript(() => localStorage.setItem('jippeel:manuscript-draft:v1:1:10', JSON.stringify({
+      projectId: 1,
+      chapterId: 10,
+      version: 1,
+      baseRevision: 0,
+      editSequence: 5,
+      text: 'unresolved local recovery',
+      updatedAt: Date.now(),
+    })));
+    await openEditor(page, 1);
+
+    await expect(page.getByText('로컬 복구본과 서버 원고가 다릅니다. 자동으로 덮어쓰지 않습니다.')).toBeVisible();
+    await expect(page.getByRole('alert').getByText('unresolved local recovery').first()).toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('server newer recovery');
+
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'unresolved local recovery', baseRevision: 0 });
+
+    await page.reload();
+    await expect(page.getByText('로컬 복구본과 서버 원고가 다릅니다. 자동으로 덮어쓰지 않습니다.')).toBeVisible();
+    await expect(page.getByRole('alert').getByText('unresolved local recovery').first()).toBeVisible();
+
+    const refineRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/refine') refineRequests.push(request.url());
+    });
+    await page.getByRole('button', { name: '윤문 리포트' }).click();
+    await page.getByRole('button', { name: '🔍 윤문 실행' }).click();
+    await expect(page.getByText('저장 충돌 — 원고 확인 필요')).toBeVisible();
+    expect(refineRequests).toHaveLength(0);
+    await expect(await storedDraft(page)).toMatchObject({ text: 'unresolved local recovery', baseRevision: 0 });
+  });
+
   test('keeps ApiError detail for 409 and shows local/server conflict recovery', async ({ page }) => {
     const f = await setupFixture(page);
     f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server newer', revision: 2 });
@@ -295,9 +332,9 @@ test.describe.serial('manuscript preservation frontend fixture', () => {
     // Rebase UI to old local base on purpose.
     await page.evaluate(() => localStorage.setItem('jippeel:manuscript-draft:v1:1:10', JSON.stringify({ projectId: 1, chapterId: 10, version: 1, baseRevision: 0, editSequence: 1, text: 'local draft' })));
     await page.reload();
-    await expect(page.getByText('로컬 복구본과 서버 원고가 다릅니다.')).toBeVisible();
-    await expect(page.getByRole('alert').getByText('local draft')).toBeVisible();
-    await expect(page.getByRole('alert').getByText('server newer')).toBeVisible();
+    await expect(page.getByText('로컬 복구본과 서버 원고가 다릅니다. 자동으로 덮어쓰지 않습니다.')).toBeVisible();
+    await expect(page.getByRole('alert').getByText('local draft').first()).toBeVisible();
+    await expect(page.getByRole('alert').getByText('server newer').first()).toBeVisible();
 
     await page.getByRole('button', { name: '로컬 복구본 불러오기' }).click();
     f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'even newer server', revision: 3 });

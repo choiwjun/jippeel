@@ -323,7 +323,7 @@ export interface RefineSpan {
 
 export interface RefineResult {
   run_id: number;
-  base_revision?: number | null;
+  base_revision: number;
   route_hint: string;
   spans: RefineSpan[];
   original: string;
