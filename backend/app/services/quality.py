@@ -19,6 +19,7 @@ import re
 import sys
 from pathlib import Path
 
+from app.schemas import EpisodePurpose
 from app.services.wordcount import count_novelpia_chars
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ HOOK_SIGNALS = ("?", "!", "…", "…", "순간", "눈을 떠", "소리가", "�
                 "그런데 그", "반짝", "번개", "빙글")
 
 
-def analyze_text(text: str) -> dict:
+def analyze_text(text: str, episode_purpose: EpisodePurpose = "serial") -> dict:
     """텍스트 → 지표 딕셔너리(결정적). 빈 텍스트도 안전하게 처리한다."""
     text = (text or "").strip()
     metrics: dict = {}
@@ -40,7 +41,8 @@ def analyze_text(text: str) -> dict:
         return {"chars_novelpia": 0, "dialogue_ratio": 0.0, "avg_para_chars": 0.0,
                 "ending_repeat_per_1k": 0.0, "connector_per_1k": 0.0,
                 "para_opener_variety": 0.0, "hook_present": False,
-                "para_count": 0}
+                "hook_score_applicable": episode_purpose == "serial",
+                "episode_purpose": episode_purpose, "para_count": 0}
 
     per_1k = max(len(text) / 1000, 0.001)
 
@@ -71,11 +73,13 @@ def analyze_text(text: str) -> dict:
     # 6) 후크 진단 — 마지막 300자
     tail = text[-300:]
     metrics["hook_present"] = any(sig in tail for sig in HOOK_SIGNALS)
+    metrics["hook_score_applicable"] = episode_purpose == "serial"
+    metrics["episode_purpose"] = episode_purpose
 
     return metrics
 
 
-def score_and_suggest(metrics: dict) -> tuple[int, list[str], list[str]]:
+def score_and_suggest(metrics: dict, episode_purpose: EpisodePurpose = "serial") -> tuple[int, list[str], list[str]]:
     """지표 → (0~100 점수, 개선 제안, 제안 프리셋 이름)."""
     suggestions: list[str] = []
     presets: list[str] = []
@@ -118,12 +122,16 @@ def score_and_suggest(metrics: dict) -> tuple[int, list[str], list[str]]:
         penalty += 10
         suggestions.append("문단 첫머리가 단조롭습니다. 시작 패턴을 다양화하세요.")
 
-    if not metrics.get("hook_present", False):
+    if episode_purpose == "serial" and not metrics.get("hook_present", False):
         penalty += 20
         suggestions.append(
             "마지막 300자에 후크(질문·위기·반전 시그널)가 없습니다 — 다음 화를 "
             "클릭하게 만드는 문장으로 끝내세요.")
         presets.append("장 끝 후크")
+    elif episode_purpose == "volume_end" and not metrics.get("hook_present", False):
+        suggestions.append("권말 회차입니다. 다음 화 훅보다 권의 감정선·사건선이 닫혔는지 확인하세요.")
+    elif episode_purpose == "series_finale":
+        suggestions.append("최종화 목적입니다. 후크 점수는 적용하지 않고 결말 의도와 설정 정합성을 사람이 확인하세요.")
 
     if metrics.get("chars_novelpia", 0) < 3000:
         suggestions.append(
@@ -135,10 +143,10 @@ def score_and_suggest(metrics: dict) -> tuple[int, list[str], list[str]]:
     return score, suggestions, presets
 
 
-def analyze_chapter(text: str) -> dict:
+def analyze_chapter(text: str, episode_purpose: EpisodePurpose = "serial") -> dict:
     """라우터용 편의 함수 — analyze_text + score_and_suggest 통합 (+metrics_v2)."""
-    metrics = analyze_text(text)
-    score, suggestions, presets = score_and_suggest(metrics)
+    metrics = analyze_text(text, episode_purpose=episode_purpose)
+    score, suggestions, presets = score_and_suggest(metrics, episode_purpose=episode_purpose)
     v2 = try_metrics_v2(text)
     if v2:
         metrics["v2"] = v2

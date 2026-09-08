@@ -1,0 +1,26 @@
+{
+  "base": "da49ff3da852def210a99d4b5792dd5b376d8e6f",
+  "round": 1,
+  "scope": "Task2 owned source/tests only; parent HANDOFF/progress and preexisting files excluded",
+  "changed_since_initial_review": [
+    "backend/app/services/ai_context.py",
+    "backend/tests/test_ai_context_directives.py",
+    "backend/tests/test_foreshadows_canon.py"
+  ],
+  "sha256": {
+    "backend/app/services/ai_context.py": "720366f897a2b56327f93a6eb4b49ab8c2bb0e421e6292f1e3b0d54ccff5c8b7",
+    "backend/app/schemas.py": "5b67c979bb19a826c754d98fa0b3abe3626750b1a1bc045434572d10e455b71f",
+    "backend/app/routers/ai_panel.py": "3c2e0be21f057576848ccc775a7e44109ba3f89ed61d91f1db948631d9874740",
+    "backend/app/services/canon.py": "b6d3095376e45de432feb90dcc04824784e390687649c5d87bcc6ab4b5f635c2",
+    "backend/app/services/quality.py": "353eb79e5b41ca634177d98e804376a21dc4f489cdbf34f22c87691ae0614d7f",
+    "backend/app/routers/quality.py": "219a348542f04069ef38009b2a3a03b22f526c5f918c875929e94935cd605f4b",
+    "backend/app/services/parallel_writer.py": "6b32fcbe30901fa3ce19b7ad3c06a5f0a2b3098390a2c2d496b4c92dec1d62fe",
+    "backend/tests/test_ai_context_directives.py": "813a123aa68aae5cb8c0df756baa856d7085dbe51b63d90f399d0e7cc7c35764",
+    "backend/tests/test_quality.py": "3bc7d1294353ca6f0d450798cfecf206b7a7ed384359e630cf6159190ce659dd",
+    "backend/tests/test_parallel_writer.py": "3df3891f127e885bee97a7ee6cf2e0b632a3a9d0051dec45b8d831dd56023b41",
+    "backend/tests/test_parallel_quality.py": "093d925d3167f7b1d9d72571e194a022dc1d3de9dfb32257009cb9c132f0b7f8",
+    "backend/tests/test_foreshadows_canon.py": "120ee310d4f46d0f9f4b8132a7aa6c041e583adf72f08b1fa1a8536c9a937f2a",
+    "backend/tests/test_ai_generate_stream.py": "cb59c891829bc2083bb6ee0fdff53847b8d5d24af6604c0535b032b8893c2a3e",
+    "backend/tests/test_ai_context_bundle.py": "d4a45dfdd415e297fa96cea591d0261df8b442786feda2e58f345d2dd35deb6e"
+  }
+}

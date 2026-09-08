@@ -58,3 +58,59 @@ def test_score_capped():
     score, suggestions, presets = score_and_suggest(m)
     assert score <= 20  # 전 항목 위반 → 최하위권
     assert len(suggestions) >= 4
+
+
+def test_series_finale_does_not_penalize_missing_hook():
+    text = "모든 싸움이 끝났다. 그는 검을 내려놓았다.\n\n문은 닫혔고, 남은 사람들은 서로를 바라보았다."
+    serial = analyze_chapter(text, episode_purpose="serial")
+    finale = analyze_chapter(text, episode_purpose="series_finale")
+    assert serial["metrics"]["hook_score_applicable"] is True
+    assert finale["metrics"]["hook_score_applicable"] is False
+    assert finale["score"] >= serial["score"]
+    assert "장 끝 후크" in serial["suggested_preset_names"]
+    assert "장 끝 후크" not in finale["suggested_preset_names"]
+    assert not any("다음 화" in s and "클릭" in s for s in finale["suggestions"])
+
+
+def test_quality_history_dedup_includes_purpose_not_hash(client):
+    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
+    ch = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "완결", "sort_order": 99}).json()
+    client.put(f"/api/v1/chapters/{ch['id']}/content", json={"content_md": "끝났다. 그는 웃었다.", "expected_revision": 0})
+    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial").status_code == 200
+    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial").status_code == 200
+    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=series_finale").status_code == 200
+    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial").status_code == 200
+    rows = client.get(f"/api/v1/chapters/{ch['id']}/quality/history").json()
+    purposes = [row["metrics_json"]["episode_purpose"] for row in rows]
+    assert sorted(purposes) == ["serial", "series_finale"]
+
+
+def test_quality_history_legacy_rows_without_purpose_are_serial_compatible(client):
+    import hashlib
+
+    from app.database import get_db
+    from app.models import QualityCheck
+
+    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
+    ch = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
+    text = "끝났다. 그는 웃었다."
+    client.put(
+        f"/api/v1/chapters/{ch['id']}/content",
+        json={"content_md": text, "expected_revision": 0},
+    )
+    db = next(iter(client.app.dependency_overrides[get_db]()))
+    db.add(QualityCheck(
+        chapter_id=ch["id"],
+        score=80,
+        content_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        metrics_json={"hook_present": False},
+        suggestions_json=[],
+        presets_json=[],
+    ))
+    db.commit()
+
+    resp = client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial")
+    assert resp.status_code == 200
+    assert resp.json()["recorded"] is False
+    rows = client.get(f"/api/v1/chapters/{ch['id']}/quality/history").json()
+    assert len(rows) == 1

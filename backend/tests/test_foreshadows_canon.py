@@ -217,3 +217,187 @@ def test_canon_checked_context_preserves_input_revision_and_hash(client, monkeyp
     sent_user = holder["calls"][0]["messages"][-1]["content"]
     assert "검사 전 원본" in sent_user
     assert "provider 중 바뀐 본문" not in sent_user
+
+
+def test_canon_approved_foreshadow_permission_does_not_mutate_rows(client, monkeypatch, chapter):
+    from app.routers import quality as quality_router
+
+    holder = {"calls": []}
+
+    class _Completions:
+        async def create(self, **kwargs):
+            holder["calls"].append(kwargs)
+            return _Response(json.dumps({"issues": []}, ensure_ascii=False))
+
+    class _FakeClient:
+        def __init__(self, base_url=None, api_key_encrypted=None):
+            self.chat = type("NS", (), {"completions": _Completions()})()
+
+    monkeypatch.setattr(
+        quality_router.llm,
+        "make_client",
+        lambda base_url, api_key_encrypted: _FakeClient(),
+    )
+    client.post(
+        "/api/v1/ai/endpoints",
+        json={"name": "e", "base_url": "http://x/v1", "default_model": "m", "is_default": True},
+    )
+    pid = chapter["project_id"]
+    fs = _fs(
+        client, pid, "검의 진짜 주인",
+        content="검은 타인의 것이다", status="설치", audience_knows=False,
+    )
+
+    resp = client.post(
+        "/api/v1/canon-check",
+        json={
+            "chapter_id": chapter["id"],
+            "episode_purpose": "series_finale",
+            "approved_foreshadow_ids": [fs["id"]],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    user_text = holder["calls"][0]["messages"][-1]["content"]
+    system_text = holder["calls"][0]["messages"][0]["content"]
+    assert "[최종화 목적]" in user_text
+    assert "[이번 요청에서 회수/공개 허용된 복선: 검의 진짜 주인]" in user_text
+    assert "그 공개 자체만으로 미회수 복선 오류로 판정하지 않는다" in system_text
+    checked = resp.json()["checked_context"]
+    assert checked["approved_foreshadow_ids"] == [fs["id"]]
+    after = client.get(f"/api/v1/projects/{pid}/foreshadows").json()[0]
+    assert after["status"] == "설치"
+    assert after["audience_knows"] is False
+    assert after["resolved_chapter_id"] is None
+
+
+def _capture_canon_prompt(client, monkeypatch, payload):
+    from app.routers import quality as quality_router
+
+    holder = {"calls": []}
+
+    class _Completions:
+        async def create(self, **kwargs):
+            holder["calls"].append(kwargs)
+            return _Response(json.dumps({"issues": []}, ensure_ascii=False))
+
+    class _FakeClient:
+        def __init__(self, base_url=None, api_key_encrypted=None):
+            self.chat = type("NS", (), {"completions": _Completions()})()
+
+    monkeypatch.setattr(
+        quality_router.llm,
+        "make_client",
+        lambda base_url, api_key_encrypted: _FakeClient(),
+    )
+    client.post(
+        "/api/v1/ai/endpoints",
+        json={"name": "e", "base_url": "http://x/v1", "default_model": "m", "is_default": True},
+    )
+    resp = client.post("/api/v1/canon-check", json=payload)
+    assert resp.status_code == 200, resp.text
+    return holder["calls"][0]["messages"][-1]["content"], resp.json()["checked_context"]
+
+
+def test_canon_prompt_labels_future_planted_rows_by_time_not_audience(client, monkeypatch):
+    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
+    ch1 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화", "sort_order": 1}).json()
+    ch2 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "2화", "sort_order": 2}).json()
+    client.put(
+        f"/api/v1/chapters/{ch1['id']}/content",
+        json={"content_md": "현재 회차 본문", "expected_revision": 0},
+    )
+    future_secret = _fs(
+        client, pid, "미래에 처음 설치될 문",
+        content="2화에서 처음 등장할 문은 아직 현재 사실이 아니다",
+        status="보류", audience_knows=False, planted_chapter_id=ch2["id"],
+    )
+    future_public = _fs(
+        client, pid, "미래 공개 계획",
+        content="독자가 알게 될 계획도 현재 회차 사실은 아니다",
+        status="설치", audience_knows=True, planted_chapter_id=ch2["id"],
+    )
+    client.patch(f"/api/v1/foreshadows/{future_public['id']}", json={"audience_knows": True})
+
+    user_text, context = _capture_canon_prompt(
+        client, monkeypatch, {"chapter_id": ch1["id"]},
+    )
+
+    assert "[미래 계획 복선: 미래에 처음 설치될 문 — 현재 사실 아님]" in user_text
+    assert "[미래 계획 복선: 미래 공개 계획 — 현재 사실 아님]" in user_text
+    assert "현재 인물 지식·세계 사실로 단정하지 마라" in user_text
+    assert "[미회수 복선 —" not in user_text
+    assert "[독자가 이미 알게 된 사실" not in user_text
+    assert context["included_foreshadow_ids"] == [future_secret["id"], future_public["id"]]
+    assert context["future_reference_foreshadow_ids"] == [future_secret["id"], future_public["id"]]
+    assert context["foreshadows"] == 1
+    assert context["audience_known"] == 1
+
+
+def test_canon_prompt_keeps_future_resolution_as_current_record_plan(client, monkeypatch):
+    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
+    ch1 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화", "sort_order": 1}).json()
+    ch2 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "2화", "sort_order": 2}).json()
+    client.put(
+        f"/api/v1/chapters/{ch1['id']}/content",
+        json={"content_md": "현재 회차 본문", "expected_revision": 0},
+    )
+    planned_resolution = _fs(
+        client, pid, "이미 설치된 검의 주인",
+        content="검의 주인은 아직 본문에서 밝혀지지 않았다",
+        status="설치", audience_knows=False,
+        planted_chapter_id=ch1["id"], resolved_chapter_id=ch2["id"],
+    )
+    public_current = _fs(
+        client, pid, "이미 공개된 혈통",
+        content="독자는 혈통을 이미 안다",
+        status="설치", audience_knows=True, planted_chapter_id=ch1["id"],
+    )
+    client.patch(f"/api/v1/foreshadows/{public_current['id']}", json={"audience_knows": True})
+
+    user_text, context = _capture_canon_prompt(
+        client, monkeypatch, {"chapter_id": ch1["id"]},
+    )
+
+    assert "[미래 계획 복선: 이미 설치된 검의 주인 — 현재 사실 아님]" not in user_text
+    assert "[미회수 복선 —" in user_text
+    assert "이미 설치된 검의 주인" in user_text
+    assert "미래 회수 계획은 현재 사실이나 현재 인물 지식으로 단정하지 마라" in user_text
+    assert "[독자가 이미 알게 된 사실" in user_text
+    assert "이미 공개된 혈통" in user_text
+    assert context["included_foreshadow_ids"] == [planned_resolution["id"], public_current["id"]]
+    assert context["future_reference_foreshadow_ids"] == [planned_resolution["id"]]
+    assert context["foreshadows"] == 1
+    assert context["audience_known"] == 1
+
+
+def test_canon_approved_future_plan_is_permission_without_state_mutation(client, monkeypatch):
+    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
+    ch1 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화", "sort_order": 1}).json()
+    ch2 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "2화", "sort_order": 2}).json()
+    client.put(
+        f"/api/v1/chapters/{ch1['id']}/content",
+        json={"content_md": "현재 회차 본문", "expected_revision": 0},
+    )
+    approved_future = _fs(
+        client, pid, "승인된 미래 문",
+        content="작가가 이번 요청에서만 당겨 쓸 수 있다",
+        status="보류", audience_knows=False, planted_chapter_id=ch2["id"],
+    )
+
+    user_text, context = _capture_canon_prompt(
+        client, monkeypatch, {
+            "chapter_id": ch1["id"],
+            "approved_foreshadow_ids": [approved_future["id"]],
+        },
+    )
+
+    assert "[이번 요청에서 회수/공개 허용된 복선: 승인된 미래 문]" in user_text
+    assert "이번 원고에서 자연스럽게 공개하거나 회수할 수 있다" in user_text
+    assert "기존 현재 사실로 단정하지 마라" in user_text
+    assert "반드시" not in user_text[user_text.find("승인된 미래 문"):user_text.find("승인된 미래 문") + 300]
+    assert context["approved_foreshadow_ids"] == [approved_future["id"]]
+    assert context["future_reference_foreshadow_ids"] == [approved_future["id"]]
+    after = client.get(f"/api/v1/projects/{pid}/foreshadows").json()[0]
+    assert after["status"] == "보류"
+    assert after["audience_knows"] is False
+    assert after["resolved_chapter_id"] is None

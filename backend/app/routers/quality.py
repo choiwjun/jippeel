@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import CanonRun, Chapter, QualityCheck
 from app.schemas import (CanonCheckRequest, CanonCheckResponse, CanonRunOut,
-                         ChapterQualityOut, QualityCheckOut)
+                         ChapterQualityOut, EpisodePurpose, QualityCheckOut)
 from app.services import ai_context
 from app.services import canon as canon_service
 from app.services import llm, quality as quality_service
@@ -84,7 +84,12 @@ def canon_runs(chapter_id: int = Query(...), db: Session = Depends(get_db)):
 
 
 @router.get("/chapters/{cid}/quality", response_model=ChapterQualityOut)
-def chapter_quality(cid: int, record: bool = True, db: Session = Depends(get_db)):
+def chapter_quality(
+    cid: int,
+    record: bool = True,
+    episode_purpose: EpisodePurpose = "serial",
+    db: Session = Depends(get_db),
+):
     """규칙 기반 회차 품질 진단 — LLM 호출 없이 로컬 계산(G-030·G-031).
 
     record=true(기본)이면 quality_checks에 이력을 기록하되, 본문 해시가
@@ -92,16 +97,22 @@ def chapter_quality(cid: int, record: bool = True, db: Session = Depends(get_db)
     """
     chapter = _get_chapter_or_404(cid, db)
     text = chapter.content_md or ""
-    result = quality_service.analyze_chapter(text)
+    result = quality_service.analyze_chapter(text, episode_purpose=episode_purpose)
 
     recorded = False
     if record:
         content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        last = db.scalars(
-            select(QualityCheck).where(QualityCheck.chapter_id == cid)
-            .order_by(QualityCheck.created_at.desc(), QualityCheck.id.desc())
-        ).first()
-        if last is None or last.content_hash != content_hash:
+        same_hash_rows = db.scalars(
+            select(QualityCheck).where(
+                QualityCheck.chapter_id == cid,
+                QualityCheck.content_hash == content_hash,
+            )
+        ).all()
+        has_same_purpose = any(
+            ((row.metrics_json or {}).get("episode_purpose") or "serial") == episode_purpose
+            for row in same_hash_rows
+        )
+        if not has_same_purpose:
             db.add(QualityCheck(
                 chapter_id=cid, score=result["score"], content_hash=content_hash,
                 metrics_json=result["metrics"], suggestions_json=result["suggestions"],

@@ -47,12 +47,11 @@ NOVEL_SYSTEM_PROMPT = (
     "[전개]\n"
     "- 시작은 배경 설명이 아니라 이 장면의 갈등이나 질문에 적절한 속도로 들어선다. 정해진 글자 수가 아니라 장면의 흐름이 기준이다.\n"
     "- 이전 화의 마지막 사건을 자연스럽게 이어받고, 화 중간에 긴장 고점을 하나 유지한다.\n"
-    "- 브리프에 다음 화 훅이 있으면 그 훅으로 향하는 미해결 질문이나 행동으로 화를 끝낸다. 훅이 없어도 장면의 긴장이 완전히 풀리기 전에 끝낸다.\n"
+    "- 결말 방식은 [연재화 목적]/[권말 목적]/[최종화 목적] 블록과 브리프의 next_hook 또는 ending_intent를 따른다.\n"
     "[문체]\n"
     "- '~하고 ~했다' 식의 문학적 장문 대신, 인물의 시선에서 흐르는 구어체 단문을 쓴다.\n"
     "- 형용사·수식어를 걷어내고 동사와 구체적 행동으로 보여준다. 설명은 절제하고, 보여줄 수 있는 것은 묘사하지 않는다.\n"
     "- 내면 묘사는 짧은 독백 한 줄로 과감하게: 의심·비웃음·각오.\n"
-    "- 갈등을 다 풀지 마라. 해결은 다음 화에 남긴다.\n"
     "[금지]\n"
     "- 풍경·날씨·외모 장식 묘사의 연속 금지\n"
     "- '그러나', '한편' 같은 느린 전환 남발 금지\n"
@@ -69,7 +68,7 @@ REVIEW_SYSTEM_PROMPT = (
     "- 캐릭터: 말투·행동·동기·지위의 일관성. 선택과 대가가 그 인물에게 설득력 있는지.\n"
     "- 연속성/설정: 시간표·동선·세계관 규칙의 모순. 컨텍스트(회차·캐릭터·로어·브리프)와의 충돌.\n"
     "- 문장/리듬: 중복·군더더기·설명 과다. 장면 유형에 맞는 대사·행동·설명의 리듬.\n"
-    "- 플랫폼: 노벨피아·문피아 연재 관행 — 도입 페이스, 화 전환, 다음 화 클릭을 유도하는 마무리.\n"
+    "- 플랫폼/목적: episode_purpose에 맞는 마무리인지. serial은 다음 화 압력, volume_end는 권 단위 closure, series_finale는 시리즈 closure를 본다.\n"
     "[출력 형식 — 절대 어긋나지 않는다]\n"
     "[감수]\n"
     "- 중요한 문제만 3~7개. 각 항목은 '- '으로 시작하고, 관점, 원문 위치와 근거(원문 표현), 이유, 수정 제안을 한국어로 간결하게 쓴다. 사소한 취향 지적은 하지 않는다.\n"
@@ -79,8 +78,8 @@ REVIEW_SYSTEM_PROMPT = (
 )
 REVIEW_MARKER = "[수정본]"  # 감수 의견 → 수정본 전환 지점 (라인 단위 매칭)
 PARALLEL_REVIEW_SYSTEM_PROMPT = (
-    "너는 한국 웹소설 편집장이다. 아래 장면별 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼 "
-    "다섯 관점에서 감수하라. 장면 계약은 검수 기준이며 원고에 없는 사실을 추측하지 마라.\n"
+    "너는 한국 웹소설 편집장이다. 아래 장면별 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼/목적 "
+    "다섯 관점에서 감수하라. episode_purpose에 맞는 마무리인지 보고, 장면 계약은 검수 기준이며 원고에 없는 사실을 추측하지 마라.\n"
     "[출력 형식]\n"
     "[감수]\n"
     "- 중요한 문제만 3~7개. 원문 위치, 근거, 이유, 수정 제안을 한국어로 간결하게 쓴다.\n"
@@ -225,7 +224,8 @@ def _build_messages(
                             detail="preset_id 또는 prompt_override 중 하나는 필요합니다.")
 
     user_content = f"{context_text}\n\n---\n\n지시:\n{instruction}"
-    system_prompt = _system_with_style(NOVEL_SYSTEM_PROMPT, bundle.style_profile_text)
+    base_system_prompt = f"{NOVEL_SYSTEM_PROMPT}\n\n{ai_context.purpose_directive(bundle.episode_purpose)}"
+    system_prompt = _system_with_style(base_system_prompt, bundle.style_profile_text)
     messages = [{"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}]
     injected_foreshadows = _foreshadow_items_from_metadata(db, bundle.metadata)
@@ -569,7 +569,8 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
     planner_system = (
         "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
         "2~4개 장면으로 나누고, 장면 order는 1부터 연속이어야 한다.\n"
-        "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook을 포함하라.\n"
+        "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook, ending_intent를 포함하라.\n"
+        "serial은 closing_hook을 채우고, volume_end는 closing_hook 또는 ending_intent를 채우며, series_finale의 마지막 장면은 ending_intent를 채워라.\n"
         "objective는 즉시 목표, choice는 핵심 선택, cost는 선택의 대가다.\n"
         "required_beats에는 objective·choice·cost가 행동과 판단으로 드러나는 비트를 포함하라.\n"
         "정본 컨텍스트와 브리프 밖의 사건·고유명사를 새로 만들지 마라."
@@ -581,7 +582,8 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         '{"scenes":[{"order":1,"title":"...","purpose":"...",'
         '"objective":"...","choice":"...","cost":"...",'
         '"required_beats":["..."],"characters":["..."],'
-        '"opening_state":"...","closing_hook":"..."}]} 형식만 출력하라.'
+        '"opening_state":"...","closing_hook":"...","ending_intent":"..."}]} 형식만 출력하라. '
+        'serial은 closing_hook, series_finale 마지막 장면은 ending_intent를 반드시 채워라.'
     )
 
     async def event_stream():
@@ -611,7 +613,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 max_tokens=payload.params.max_tokens,
                 reasoning_effort=payload.generation_reasoning_effort,
             )
-            plan = parallel_writer.parse_parallel_plan(planner_raw)
+            plan = parallel_writer.parse_parallel_plan(planner_raw, episode_purpose=bundle.episode_purpose)
             yield {
                 "event": "planner_done",
                 "data": json.dumps({
@@ -634,7 +636,8 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     f"[장면 계약]\n{contract}\n"
                     "opening_state에서 시작하고 objective를 향해 진행하라. "
                     "choice를 인물의 행동과 판단으로 보여주고 cost를 실제 위험·손실로 드러내라. "
-                    "closing_hook으로 끝내되, 다른 장면을 대신 쓰지 말고 정본 컨텍스트 밖의 사실을 만들지 마라. "
+                    "마무리는 episode_purpose와 장면 계약의 closing_hook 또는 ending_intent를 따른다. "
+                    "다른 장면을 대신 쓰지 말고 정본 컨텍스트 밖의 사실을 만들지 마라. "
                     "장면 계약·JSON·[감수]·[수정본] 같은 메타 문구 없이 원고 본문만 출력하라."
                 )
                 worker_messages = [
@@ -707,7 +710,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
             {"role": "system", "content": _append_generation_style(PARALLEL_REVIEW_SYSTEM_PROMPT, base_messages[0]["content"])},
             {"role": "user", "content": (
                 f"{base_messages[-1]['content']}\n\n[장면별 조립 원고 — 감수 전용 메타데이터]\n{review_source}\n\n"
-                "다음 항목을 반드시 확인하라: 장면별 purpose·required_beats·closing_hook 달성, "
+                "다음 항목을 반드시 확인하라: episode_purpose에 맞는 마무리, 장면별 purpose·required_beats·closing_hook·ending_intent 달성, "
                 "장면 전환의 인과, 주인공의 objective·choice·cost가 행동과 판단으로 드러나는지, "
                 "캐릭터·세계관·시간축·위치·미회수 복선과 충돌하는지. "
                 "원고를 다시 쓰지 말고 [감수] 의견만 출력하라.")},

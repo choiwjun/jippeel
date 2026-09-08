@@ -76,3 +76,18 @@
 - 독립 재검토 Spec PASS / Quality PASS. F1 해소; 별도 reviewer 재현4 + owned56 통과.
 - 부모가 최종 소스 hash를 재대조하고 native 임시 DB 전체 backend247개 통과를 새로 확인했다(`ai-context-task-1-parent-backend.txt`); diff check 통과.
 - T1만 검증 완료했다. 목적/복선 의미 T2, 프론트 T3, 실제 브라우저/제공자 QA T4는 아직 미완료이며 배포하지 않는다.
+
+## T2 구현 착수
+- T1 검증 소스 commit `da49ff3da852def210a99d4b5792dd5b376d8e6f`. T1 구현/검토자는 작업 종료, 공유 소스 수정 금지.
+- 새 `ai-context-backend-directives-impl` (`sub-fd691921`)가 T2만 맡는다. 목적별 brief/parallel/generation/review/canon 지침, 승인 복선 예외와 시점 라벨, 로컬 후크 점수 적용/이력 구분을 구현한다. `docs/superpowers/tasks/2026-09-08-ai-context-task-2.md` 참조.
+
+- T2 구현자 완료 보고: RED9실패→focused58/T1+T2 owned87/full265통과. 아직 독립 승인 전이다. `ai-context-task-2-review-diff.txt`에 추적 변경+신규 테스트 및 hash를 고정했고 `ai-context-task-2-reviewer`가 실제 diff/메시지 계약/선택 예외/후크 점수와 native 테스트를 검토한다. T2 소스는 검토 중 동결, 커밋 및 T3 진입 보류.
+
+- T2 독립 검토: owned87 통과이나 Spec/Quality NEEDS FIXES(S1). canon 실제 요청 문구가 미래 설치 복선을 현재 미회수 비밀로 분류하는 오류를 재현해 원 구현자 fix round1 배정. 메타데이터가 아니라 실제 전달 문구와 공개/승인/시점 조합을 검증한다.
+- Ruling Q1: HANDOFF/progress의 전역 git diff는 부모의 기존/진행 기록 변경이며 worker 소유권 위반 증거가 아니다. diff 패키지를 Task2 source/test 한정이라고 명시해 해소 — 기존 미커밋 문서를 보존하고 worker 소스 검토에서 제외한다 — 잘못 판단 시 코드 재작업보다 기록 손실 위험이 커 임의 정리를 금지한다.
+
+- T2 S1 fix round1 완료 보고: 실제 canon 문구에 미래 설치/현재 설치+미래 회수/승인/이미 공개 구분을 반영. RED3실패→메시지조합4/owned91/full269통과(구현자 기록). 원 검토자가 고정 hash로 S1 및 관련 조합을 재검토하며 부모도 전체 native backend를 새로 실행 중이다. 독립 PASS 전 커밋/T3 없음.
+
+## T2 검증 완료
+- 독립 Spec PASS / Quality PASS. S1 해소; 실제 전달 문구 재현 및 조합4/owned91 통과.
+- 부모가 최종 hash를 재대조하고 native 임시 DB 전체 backend269개 통과를 확인했다(`ai-context-task-2-parent-backend.txt`). 회차 목적·복선 허용 규칙의 백엔드 검증 완료이며 화면/실제 통합은 아직 남아 있다.

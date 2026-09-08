@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from app.schemas import ParallelPlan, ParallelScenePlan
+from app.schemas import EpisodePurpose, ParallelPlan, ParallelScenePlan
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,30 @@ SceneWorker = Callable[[ParallelScenePlan], Awaitable[SceneResult]]
 
 
 
-def parse_parallel_plan(raw: str) -> ParallelPlan:
+def validate_plan_for_purpose(plan: ParallelPlan, purpose: EpisodePurpose = "serial") -> None:
+    """Validate purpose-specific scene ending contracts without changing order."""
+    scenes = sorted(plan.scenes, key=lambda s: s.order)
+    if purpose == "serial":
+        missing = [s.order for s in scenes if not s.closing_hook]
+        if missing:
+            raise ValueError(f"serial scenes require closing_hook: {missing}")
+        return
+    if purpose == "volume_end":
+        missing = [s.order for s in scenes if not (s.closing_hook or s.ending_intent)]
+        if missing:
+            raise ValueError(f"volume_end scenes require closing_hook or ending_intent: {missing}")
+        return
+    if purpose == "series_finale":
+        missing = [s.order for s in scenes if not (s.closing_hook or s.ending_intent)]
+        if missing:
+            raise ValueError(f"series_finale scenes require closing_hook or ending_intent: {missing}")
+        if not scenes[-1].ending_intent:
+            raise ValueError("series_finale final scene requires ending_intent")
+        return
+    raise ValueError(f"unknown episode_purpose: {purpose}")
+
+
+def parse_parallel_plan(raw: str, episode_purpose: EpisodePurpose = "serial") -> ParallelPlan:
     """planner의 JSON 응답을 코드펜스 허용 방식으로 검증한다."""
     text = (raw or "").strip()
     if text.startswith("```"):
@@ -39,7 +62,9 @@ def parse_parallel_plan(raw: str) -> ParallelPlan:
         data = json.loads(text[start:end + 1])
     except json.JSONDecodeError as exc:
         raise ValueError("parallel planner JSON is invalid") from exc
-    return ParallelPlan.model_validate(data)
+    plan = ParallelPlan.model_validate(data)
+    validate_plan_for_purpose(plan, episode_purpose)
+    return plan
 CONTRACT_LEAK_MARKERS = (
     "[장면 계약]", "[장면 원고]", "[감수]", "[수정본]", "원고 본문만 출력",
 )

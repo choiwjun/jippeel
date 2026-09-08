@@ -187,6 +187,29 @@ def request_from_canon(payload: CanonCheckRequest, chapter: Chapter) -> ContextB
     )
 
 
+def purpose_directive(purpose: EpisodePurpose) -> str:
+    if purpose == "volume_end":
+        return (
+            "[권말 목적]\n"
+            "- 이 화는 권의 감정선·사건선을 닫는 회차다.\n"
+            "- 다음 권 질문은 작가가 준 경우에만 남긴다.\n"
+            "- 결말 의도가 있으면 억지 cliffhanger보다 closure를 우선한다."
+        )
+    if purpose == "series_finale":
+        return (
+            "[최종화 목적]\n"
+            "- 이 화는 시리즈 핵심 갈등과 감정선을 닫는 회차다.\n"
+            "- 작가가 명시하지 않은 새 sequel hook을 만들지 않는다.\n"
+            "- 해결된 결말을 약점으로 보지 않는다. 완결용 별도 점수는 만들지 않는다."
+        )
+    return (
+        "[연재화 목적]\n"
+        "- 이 화는 다음 회차로 이어지는 연재화다.\n"
+        "- next_hook이 있으면 그 방향으로 끝낸다.\n"
+        "- 단, 모든 갈등을 일부러 미완으로 남기라는 뜻은 아니다."
+    )
+
+
 def _format_brief_block(brief: EpisodeBrief) -> str:
     lines = ["[이번 화 브리프 — 생성 계약]"]
     lines.append(f"감정 목표: {brief.emotion_goal}")
@@ -200,7 +223,7 @@ def _format_brief_block(brief: EpisodeBrief) -> str:
     if brief.next_hook:
         lines.append(f"다음 화 훅: {brief.next_hook}")
     if brief.ending_intent:
-        lines.append(f"종결 의도: {brief.ending_intent}")
+        lines.append(f"결말 의도: {brief.ending_intent}")
     if brief.scene_type:
         lines.append(f"장면 유형: {brief.scene_type}")
     if brief.target_chars_novelpia is not None:
@@ -294,24 +317,70 @@ def _foreshadow_position_key(db: Session, row: Foreshadow) -> tuple[float, int, 
     return (ref.sort_order, ref.id, row.id)
 
 
-def _format_foreshadow_block(row: Foreshadow, approved: bool, future: bool) -> str:
+def _future_reference_attrs(db: Session, row: Foreshadow, current_chapter: Chapter | None) -> set[str]:
+    attrs: set[str] = set()
+    if current_chapter is None:
+        return attrs
+    for attr, label in (("planted_chapter_id", "planted"), ("resolved_chapter_id", "resolved")):
+        ref_id = getattr(row, attr, None)
+        if ref_id is None:
+            continue
+        ref = db.get(Chapter, ref_id)
+        if ref is not None and _is_future_reference(current_chapter, ref):
+            attrs.add(label)
+    return attrs
+
+
+def _chapter_ref_label(db: Session, chapter_id: int | None) -> str:
+    if chapter_id is None:
+        return "unknown/current record"
+    chapter = db.get(Chapter, chapter_id)
+    if chapter is None:
+        return "unknown/current record"
+    return f"{chapter.title}(현재 기록)"
+
+
+def _format_foreshadow_block(db: Session, row: Foreshadow, approved: bool, future_attrs: set[str]) -> str:
     content = (row.content or "").strip()
+    future_planted = "planted" in future_attrs
+    future_resolved = "resolved" in future_attrs
     if approved:
         block = f"[이번 요청에서 회수/공개 허용된 복선: {row.title}]"
-    elif future:
+    elif future_planted:
         block = f"[미래 계획 복선: {row.title} — 현재 사실 아님]"
+    elif row.audience_knows:
+        block = f"[독자가 이미 알게 된 복선 정보: {row.title}]"
     else:
         block = f"[미회수 복선: {row.title}]"
-    details = [f"상태: {row.status}. 독자 인지: {str(bool(row.audience_knows)).lower()}."]
+    details = [f"상태: {row.status}. 독자 인지: {str(bool(row.audience_knows)).lower()}. 기록: 현재 기록."]
+    if not future_planted:
+        details.append(f"설치 회차: {_chapter_ref_label(db, row.planted_chapter_id)}.")
     if content:
         details.append(content[:FORESHADOW_CONTENT_CHARS])
     if approved:
         details.append("→ 이번 원고에서 자연스럽게 공개하거나 회수할 수 있다. 단, 원고 밖 상태값은 자동 변경하지 마라.")
-    elif future:
-        details.append("→ 참조 회차가 현재 회차보다 뒤에 있다. 현재 인물 지식·세계 사실로 단정하지 마라.")
+        if future_planted:
+            details.append("→ 이 승인된 미래 설치 계획은 작가 허용 범위에서 사용할 수 있지만, 기존 현재 사실로 단정하지 마라.")
+    elif future_planted:
+        details.append("→ 참조 설치 회차가 현재 회차보다 뒤에 있다. 이 정보는 작가 계획일 수 있으나 현재 인물 지식·세계 사실로 단정하지 마라.")
+    elif row.audience_knows:
+        details.append("→ 이미 공개된 정보는 현재 사실로 참고할 수 있다. 새로운 회수·반전은 작가 승인 없이 만들지 마라.")
     else:
-        details.append("→ 이 복선은 아직 회수 전이다. 이 화에서 건드릴 거면 자연스럽게, 건드리지 않으면 결론을 미리 풀지 마라.")
+        details.append("→ 이 복선은 현재 기록이다. 작가 승인 없이 결론·정체·회수를 공개하지 마라. 결론을 미리 풀지 마라.")
+    if future_resolved and not future_planted:
+        details.append("→ 미래 회수 계획은 현재 사실이나 현재 인물 지식으로 단정하지 마라.")
     return block + "\n" + "\n".join(details)
+
+
+def _canon_foreshadow_line(db: Session, row: Foreshadow, future_attrs: set[str]) -> str:
+    content = (row.content or "").strip()[:FORESHADOW_CONTENT_CHARS]
+    line = f"- {row.title}"
+    if content:
+        line += f": {content}"
+    line += f" (설치 회차: {_chapter_ref_label(db, row.planted_chapter_id)})"
+    if "resolved" in future_attrs and "planted" not in future_attrs:
+        line += "\n  → 미래 회수 계획은 현재 사실이나 현재 인물 지식으로 단정하지 마라."
+    return line
 
 
 def _relationship_text(rel: Relationship, from_ch: Character, to_ch: Character) -> str:
@@ -544,20 +613,59 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         unknown_labels.append("foreshadow_history_is_current_record_only")
     approved_ids = [row.id for row in approved_rows]
 
-    if request.target == "canon" and included_foreshadow_rows:
-        unknown = [row for row in included_foreshadow_rows if not row.audience_knows]
-        known = [row for row in included_foreshadow_rows if row.audience_knows]
+    approved_set = set(approved_ids)
+    if request.target == "canon" and validation_foreshadows:
+        approved_for_render = [row for row in approved_rows]
+        unapproved_rows = [row for row in included_foreshadow_rows if row.id not in approved_set]
+        if approved_for_render:
+            parts = [
+                _format_foreshadow_block(
+                    db, row, approved=True, future_attrs=_future_reference_attrs(db, row, chapter)
+                )
+                for row in approved_for_render
+            ]
+            blocks.append("\n\n".join(parts))
+
+        attrs_by_id = {row.id: _future_reference_attrs(db, row, chapter) for row in unapproved_rows}
+        future_plants = [row for row in unapproved_rows if "planted" in attrs_by_id[row.id]]
+        current_rows = [row for row in unapproved_rows if "planted" not in attrs_by_id[row.id]]
+        if future_plants:
+            parts = [
+                _format_foreshadow_block(
+                    db, row, approved=False, future_attrs=attrs_by_id[row.id]
+                )
+                for row in future_plants
+            ]
+            blocks.append("\n\n".join(parts))
+
+        unknown = [row for row in current_rows if not row.audience_knows]
+        known = [row for row in current_rows if row.audience_knows]
         if unknown:
-            parts = [f"{row.title}: {row.content or ''}" for row in unknown]
-            blocks.append("[미회수 복선 — 아직 회수 전이므로 본문이 미리 결론을 풀어버리면 지적]\n" + "\n".join(parts))
+            parts = [_canon_foreshadow_line(db, row, attrs_by_id[row.id]) for row in unknown]
+            blocks.append(
+                "[미회수 복선 — 현재 기록. 작가 승인 없는 새 회수·정체 공개는 지적]\n"
+                + "\n".join(parts)
+            )
         if known:
-            parts = [f"{row.title}: {row.content or ''}" for row in known]
-            blocks.append("[독자가 이미 알게 된 사실 — 본문이 이를 마치 처음 밝히는 것처럼 쓰면 지적(인지 중복)]\n" + "\n".join(parts))
-        included_foreshadows = [{"id": row.id, "title": row.title} for row in included_foreshadow_rows]
+            parts = [_canon_foreshadow_line(db, row, attrs_by_id[row.id]) for row in known]
+            blocks.append(
+                "[독자가 이미 알게 된 사실 — 현재 공개 정보. 처음 밝히는 것처럼 쓰면 지적(인지 중복)]\n"
+                + "\n".join(parts)
+            )
+        rendered = approved_for_render + unapproved_rows
+        included_foreshadows = [{"id": row.id, "title": row.title} for row in rendered]
     elif request.target == "generate":
-        for row in included_foreshadow_rows:
-            future = row.id in future_ids
-            blocks.append(_format_foreshadow_block(row, approved=False, future=future))
+        rendered_ids: set[int] = set()
+        render_rows = list(approved_rows) + [row for row in included_foreshadow_rows if row.id not in approved_set]
+        for row in render_rows:
+            if row.id in rendered_ids:
+                continue
+            rendered_ids.add(row.id)
+            blocks.append(
+                _format_foreshadow_block(
+                    db, row, approved=row.id in approved_set, future_attrs=_future_reference_attrs(db, row, chapter)
+                )
+            )
             included_foreshadows.append({"id": row.id, "title": row.title})
 
     included_relationship_ids: list[int] = []
@@ -595,7 +703,7 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         "included_relationship_ids": included_relationship_ids,
         "included_foreshadow_ids": [row["id"] for row in included_foreshadows],
         "approved_foreshadow_ids": approved_ids,
-        "future_reference_foreshadow_ids": future_ids,
+        "future_reference_foreshadow_ids": sorted(future_ids),
         "outline": outline_info,
         "unknown_labels": unknown_labels,
         # Legacy canon count keys. Generation keeps them zero for JSON shape stability.

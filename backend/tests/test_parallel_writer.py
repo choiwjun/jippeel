@@ -88,3 +88,32 @@ def test_parallel_workers_are_bounded_and_cancel_on_failure():
         assert cancelled
 
     asyncio.run(exercise())
+
+
+def test_parallel_serial_requires_closing_hook():
+    from app.services.parallel_writer import validate_plan_for_purpose
+
+    p1 = valid_scene(1).model_copy(update={"closing_hook": None})
+    p2 = valid_scene(2)
+    plan = ParallelPlan(scenes=[p1, p2])
+    with pytest.raises(ValueError, match="closing_hook"):
+        validate_plan_for_purpose(plan, "serial")
+
+
+def test_parallel_series_finale_allows_ending_intent_on_final_scene():
+    from app.services.parallel_writer import validate_plan_for_purpose
+
+    p1 = valid_scene(1).model_copy(update={"closing_hook": "마지막 선택으로 이어진다"})
+    p2 = valid_scene(2).model_copy(update={"closing_hook": None, "ending_intent": "두 인물이 작별하며 시리즈 갈등을 닫는다"})
+    plan = ParallelPlan(scenes=[p1, p2])
+    validate_plan_for_purpose(plan, "series_finale")
+
+
+def test_parallel_series_finale_rejects_legacy_hook_only_final_scene():
+    from app.services.parallel_writer import validate_plan_for_purpose
+
+    p1 = valid_scene(1).model_copy(update={"closing_hook": "마지막 선택으로 이어진다"})
+    p2 = valid_scene(2).model_copy(update={"closing_hook": "다음 사건처럼 보이는 문장", "ending_intent": None})
+    plan = ParallelPlan(scenes=[p1, p2])
+    with pytest.raises(ValueError, match="final scene requires ending_intent"):
+        validate_plan_for_purpose(plan, "series_finale")

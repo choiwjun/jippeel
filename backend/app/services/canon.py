@@ -25,7 +25,9 @@ _SYSTEM_JSON = (
     "- 시간축: 회차 사이 흐른 시간이 본문 묘사(계절·부상 상태·배고픔·조명 등)와 모순되는지\n"
     "- 위치: 캐릭터가 직전 회차 끝에 있던 장소에서 이동 불가능한 장면 전환이 없는지\n"
     "- 독자 인지: 독자가 아직 모른다고 표시된 사실을 본문이 미리 노출하지 않는지\n"
-    "- 미회수 복선: 아직 회수 전인 복선을 본문이 결론까지 풀어버리지 않는지"
+    "- 미회수 복선: 아직 회수 전인 복선을 본문이 결론까지 풀어버리지 않는지\n"
+    "작가가 이번 요청에서 회수/공개 허용한 복선 ID는 그 공개 자체만으로 미회수 복선 오류로 판정하지 않는다. "
+    "그러나 다른 설정·관계·세계관 모순은 계속 지적한다."
 )
 
 
@@ -56,7 +58,7 @@ def build_messages(
     context["checked_input_revision"] = chapter.revision
     context["checked_input_hash"] = hashlib.sha256(checked_input_body.encode("utf-8")).hexdigest()
 
-    user = "\n\n".join(bundle.blocks)
+    user = "\n\n".join([ai_context.purpose_directive(bundle.episode_purpose), *bundle.blocks])
     user += ("\n\n위 회차 본문에서 설정 모순을 검사하라. 다음 JSON 형식으로 출력하라:\n"
              '{"issues": [{"quote": "본문 발췌(그대로)", "reason": "모순 이유", '
              '"severity": "warn|error|info"}]}')
