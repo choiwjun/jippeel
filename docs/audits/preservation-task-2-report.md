@@ -254,3 +254,82 @@ The duplicate `build` key warning is pre-existing.
 ### Fix round 2 limitations
 - Still fixture/browser QA only, not final backend integration.
 - No production DB, live backend, real LLM, dependency install, push, merge, or child review was used.
+
+## Fix round 3 — coherent unresolved mismatch state
+
+Review source: `docs/audits/preservation-final-spec-rereview-1.md`.
+
+Changes made after commit `9f10107`:
+- Chose the minimal safe design: unresolved mismatched recovery locks the editor until the user chooses local recovery or server text.
+- `edit()` no longer accepts or drops typing while unresolved recovery is active. The original local recovery draft remains in browser storage.
+- Server detail refreshes now update the unresolved recovery server body and revision as one visible pair.
+- Added an explicit `서버 원고 새로고침` action for the recovery panel.
+- Choosing `서버 원고로 계속` refreshes the server pair, shows that latest paired server body in the editor, removes the browser draft, and does not issue a PUT.
+- Choosing `로컬 복구본 불러오기` keeps the local recovery text recoverable while its save is pending and sends the latest observed `expected_revision`.
+
+### Fix round 3 red evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result before production fix, with the new unresolved-recovery lock probe:
+
+```text
+Running 15 tests using 1 worker
+✓ serializes delayed per-chapter saves and preserves newer typing
+✓ project switch rejects stale selected chapters and never writes under the new project context
+✘ unresolved mismatched recovery locks editing, survives reload, and local choice remains recoverable while saving
+Error: expect(locator).toBeVisible() failed
+Locator: getByText('복구 선택 전에는 편집이 잠겨 있습니다.')
+Expected: visible
+1 failed, 12 did not run, 2 passed
+```
+
+This reproduced the re-review issue: the old unresolved mismatch state still left the editor active and had no clear lock/choice model for later typing.
+
+### Fix round 3 green evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result:
+
+```text
+Running 15 tests using 1 worker
+15 passed (19.8s)
+```
+
+The expanded fixture includes:
+- typing/reload while a mismatch is open, then local recovery choice while save is held;
+- backend revision/body advancement plus server refresh, then server choice with no stale server-body PUT.
+
+The fixture run used dedicated `127.0.0.1:15214`, `reuseExistingServer: false`, with all `/api/v1/*` requests mocked/guarded.
+
+### Fix round 3 build evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npm run build
+```
+
+Result:
+
+```text
+> jippeel-frontend@0.1.0 build
+> tsc -b && vite build
+
+▲ [WARNING] Duplicate key "build" in object literal [duplicate-object-key]
+vite v5.4.21 building for production...
+✓ 229 modules transformed.
+✓ built in 2.79s
+```
+
+The duplicate `build` key warning is pre-existing.
+
+### Fix round 3 limitations
+- Still frontend fixture/browser QA only, not final real integration.
+- No backend, QA script, `HANDOFF.md`, production DB, live LLM, dependency install, push, merge, or child review was used.

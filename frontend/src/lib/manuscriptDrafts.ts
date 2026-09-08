@@ -202,6 +202,13 @@ class ManuscriptDraftCoordinator {
 
     this.serverRevision = serverRevision;
     this.serverText = detail.content_md;
+    if (this.unresolvedRecovery()) {
+      this.recovery = { ...this.recovery!, serverText: detail.content_md, serverRevision };
+      this.saveState = 'conflict';
+      this.errorMessage = null;
+      this.emit();
+      return;
+    }
     if (!this.hasUnsaved() && this.saveState !== 'saving') {
       this.text = detail.content_md;
       this.savedSequence = this.editSequence;
@@ -212,23 +219,15 @@ class ManuscriptDraftCoordinator {
   }
 
   edit(text: string) {
-    this.text = text;
-    this.editSequence += 1;
-    this.errorMessage = null;
     if (this.unresolvedRecovery()) {
-      const recovery = this.recovery!;
-      const message = this.unresolvedRecoveryMessage();
-      this.conflict = {
-        message,
-        currentRevision: recovery.serverRevision,
-        localText: recovery.localText,
-        serverText: recovery.serverText,
-        serverRevision: recovery.serverRevision,
-      };
       this.saveState = 'conflict';
+      this.errorMessage = this.unresolvedRecoveryMessage();
       this.emit();
       return;
     }
+    this.text = text;
+    this.editSequence += 1;
+    this.errorMessage = null;
     if (!this.conflict) this.saveState = text === this.serverText ? 'saved' : 'dirty';
     this.persistDraft();
     this.emit();
@@ -241,22 +240,57 @@ class ManuscriptDraftCoordinator {
     this.timer = window.setTimeout(() => void this.flush(), DEBOUNCE_MS);
   }
 
-  clearRecovery() {
-    const wasMismatch = this.recovery?.kind === 'mismatch';
-    this.recovery = null;
-    if (wasMismatch && this.text === this.serverText) {
+  async clearRecovery() {
+    const recovery = this.recovery;
+    if (recovery?.kind === 'mismatch') {
+      await this.refreshRecoveryServerText();
+      const latest = this.recovery ?? recovery;
+      this.serverRevision = latest.serverRevision;
+      this.serverText = latest.serverText;
+      this.text = latest.serverText;
+      this.editSequence += 1;
+      this.savedSequence = this.editSequence;
       this.conflict = null;
+      this.recovery = null;
       this.saveState = 'saved';
       this.errorMessage = null;
       this.removeStoredDraft();
+      this.emit();
+      return;
     }
+    this.recovery = null;
     this.emit();
   }
 
   useRecoveryText(text: string) {
+    const recovery = this.recovery;
+    if (recovery?.kind === 'mismatch') {
+      this.serverRevision = recovery.serverRevision;
+      this.serverText = recovery.serverText;
+    }
     this.conflict = null;
     this.recovery = null;
     this.edit(text);
+  }
+
+  async refreshRecoveryServerText() {
+    if (!this.unresolvedRecovery()) return;
+    try {
+      const latest = await api.get<ChapterDetail>(`/chapters/${this.chapterId}`);
+      if (latest.id === this.chapterId && latest.project_id === this.projectId && this.unresolvedRecovery()) {
+        const serverRevision = latest.revision ?? this.serverRevision;
+        this.serverRevision = serverRevision;
+        this.serverText = latest.content_md;
+        this.recovery = { ...this.recovery!, serverText: latest.content_md, serverRevision };
+        this.errorMessage = null;
+        this.saveState = 'conflict';
+        this.emitAck(latest);
+      }
+    } catch (error) {
+      this.errorMessage = apiMessage(error);
+      this.saveState = 'conflict';
+    }
+    this.emit();
   }
 
   clearConflictKeepingLocal() {
@@ -628,6 +662,7 @@ export function useManuscriptDraft({
     flush: () => coordinator.flush(),
     clearRecovery: () => coordinator.clearRecovery(),
     useRecoveryText: (text: string) => coordinator.useRecoveryText(text),
+    refreshRecoveryServerText: () => coordinator.refreshRecoveryServerText(),
     clearConflictKeepingLocal: () => coordinator.clearConflictKeepingLocal(),
     beginServerReplacement: () => coordinator.beginServerReplacement(),
     completeServerReplacement: (detail: ChapterDetail, token: ManuscriptReplacementToken) =>

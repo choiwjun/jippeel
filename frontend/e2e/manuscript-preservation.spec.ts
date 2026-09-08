@@ -288,7 +288,7 @@ test.describe.serial('manuscript preservation frontend fixture', () => {
     await expect.poll(() => f.writes.some((w) => w.chapterId === 20 && w.body.content_md === 'project one unsaved')).toBe(false);
   });
 
-  test('unresolved mismatched recovery survives Ctrl+S, reload, and pre-action flush', async ({ page }) => {
+  test('unresolved mismatched recovery locks editing, survives reload, and local choice remains recoverable while saving', async ({ page }) => {
     const f = await setupFixture(page);
     f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server newer recovery', revision: 2 });
     await page.addInitScript(() => localStorage.setItem('jippeel:manuscript-draft:v1:1:10', JSON.stringify({
@@ -297,32 +297,53 @@ test.describe.serial('manuscript preservation frontend fixture', () => {
       version: 1,
       baseRevision: 0,
       editSequence: 5,
-      text: 'unresolved local recovery',
+      text: 'first draft',
       updatedAt: Date.now(),
     })));
-    await openEditor(page, 1);
+    await page.goto('/projects/1/write');
 
     await expect(page.getByText('로컬 복구본과 서버 원고가 다릅니다. 자동으로 덮어쓰지 않습니다.')).toBeVisible();
-    await expect(page.getByRole('alert').getByText('unresolved local recovery').first()).toBeVisible();
-    await expect(page.locator('.cm-content')).toContainText('server newer recovery');
+    await expect(page.getByText('복구 선택 전에는 편집이 잠겨 있습니다.')).toBeVisible();
+    await expect(page.locator('.cm-content')).toHaveCount(0);
 
-    await page.locator('.cm-content').click();
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
-    await expect(await storedDraft(page)).toMatchObject({ text: 'unresolved local recovery', baseRevision: 0 });
+    await page.keyboard.type('ignored typing while unresolved');
+    await expect(await storedDraft(page)).toMatchObject({ text: 'first draft', baseRevision: 0 });
 
     await page.reload();
     await expect(page.getByText('로컬 복구본과 서버 원고가 다릅니다. 자동으로 덮어쓰지 않습니다.')).toBeVisible();
-    await expect(page.getByRole('alert').getByText('unresolved local recovery').first()).toBeVisible();
+    await expect(await storedDraft(page)).toMatchObject({ text: 'first draft', baseRevision: 0 });
 
-    const refineRequests: string[] = [];
-    page.on('request', (request) => {
-      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/refine') refineRequests.push(request.url());
-    });
-    await page.getByRole('button', { name: '윤문 리포트' }).click();
-    await page.getByRole('button', { name: '🔍 윤문 실행' }).click();
-    await expect(page.getByText('저장 충돌 — 원고 확인 필요')).toBeVisible();
-    expect(refineRequests).toHaveLength(0);
-    await expect(await storedDraft(page)).toMatchObject({ text: 'unresolved local recovery', baseRevision: 0 });
+    await page.getByRole('button', { name: '로컬 복구본 불러오기' }).click();
+    await expect(page.locator('.cm-content')).toContainText('first draft');
+    await expect.poll(() => f.heldWrites.length, { timeout: 5_000 }).toBe(1);
+    expect(f.heldWrites[0].body).toMatchObject({ content_md: 'first draft', expected_revision: 2 });
+    await expect(await storedDraft(page)).toMatchObject({ text: 'first draft', baseRevision: 2 });
+  });
+
+  test('server choice refreshes to latest paired server body and never PUTs stale displayed text', async ({ page }) => {
+    const f = await setupFixture(page);
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server body v1', revision: 2 });
+    await page.addInitScript(() => localStorage.setItem('jippeel:manuscript-draft:v1:1:10', JSON.stringify({
+      projectId: 1,
+      chapterId: 10,
+      version: 1,
+      baseRevision: 0,
+      editSequence: 4,
+      text: 'local old recovery',
+      updatedAt: Date.now(),
+    })));
+    await page.goto('/projects/1/write');
+    await expect(page.getByRole('alert').getByText('server body v1').first()).toBeVisible();
+
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server body v2', revision: 3 });
+    await page.getByRole('button', { name: '서버 원고 새로고침' }).click();
+    await expect(page.getByText('서버 원고 (revision 3)')).toBeVisible();
+    await expect(page.getByRole('alert').getByText('server body v2').first()).toBeVisible();
+
+    await page.getByRole('button', { name: '서버 원고로 계속' }).click();
+    await expect(page.locator('.cm-content')).toContainText('server body v2');
+    expect(f.writes.some((w) => w.body.content_md === 'server body v1' || w.body.content_md === 'server body v2')).toBe(false);
+    expect(await storedDraft(page)).toBeNull();
   });
 
   test('keeps ApiError detail for 409 and shows local/server conflict recovery', async ({ page }) => {

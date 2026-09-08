@@ -468,14 +468,17 @@ function DraftPanels({
                     <p className="text-xs font-semibold">서버 원고 (revision {draft.recovery.serverRevision})</p>
                     <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-sm bg-background p-2 font-serif text-xs">{draft.recovery.serverText}</pre>
                   </div>
-                  <div className="col-span-full flex gap-2">
+                  <div className="col-span-full flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => draft.useRecoveryText(draft.recovery!.localText)}>
                       로컬 복구본 불러오기
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => void copy(draft.recovery!.localText, '로컬 복구본')}>
                       로컬 복구본 복사
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => draft.clearRecovery()}>
+                    <Button size="sm" variant="ghost" onClick={() => void draft.refreshRecoveryServerText()}>
+                      서버 원고 새로고침
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void draft.clearRecovery()}>
                       서버 원고로 계속
                     </Button>
                   </div>
@@ -563,12 +566,18 @@ function EditorBody({ pid, chapterId }: { pid: number; chapterId: number }) {
   return (
     <div className="min-h-full">
       <DraftPanels draft={draft} />
-      <CodeMirrorEditor
-        key={`${pid}:${chapterId}`}
-        value={draft.text}
-        onChange={onChange}
-        onSave={() => void draft.flush().catch((e) => toast((e as Error).message, 'error'))}
-      />
+      {draft.recovery?.kind === 'mismatch' ? (
+        <div className="m-3 rounded-md border border-dashed border-warning/60 bg-warning/10 p-4 text-sm text-warning-foreground">
+          복구 선택 전에는 편집이 잠겨 있습니다. 로컬 복구본을 불러오거나 서버 원고로 계속할지 먼저 선택하세요.
+        </div>
+      ) : (
+        <CodeMirrorEditor
+          key={`${pid}:${chapterId}`}
+          value={draft.text}
+          onChange={onChange}
+          onSave={() => void draft.flush().catch((e) => toast((e as Error).message, 'error'))}
+        />
+      )}
     </div>
   );
 }
