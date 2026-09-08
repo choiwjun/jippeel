@@ -72,6 +72,8 @@ def refine_chapter(payload: RefineRequest, db: Session = Depends(get_db)):
             "spans": result["spans"],
             "metrics": result["report"]["metrics"],
             "gates_raw": result["report"]["gates"],
+            "input_content_md": input_content_md,
+            "base_revision": base_revision,
             "original_text": input_content_md,  # pipeline 입력 원문 보존(감사용)
         },
         result_text=None if result["status"] == "blocked" else result["refined"],
@@ -85,6 +87,7 @@ def refine_chapter(payload: RefineRequest, db: Session = Depends(get_db)):
 
     return RefineResult(
         run_id=run.id,
+        base_revision=base_revision,
         route_hint=result["route_hint"],
         spans=[SpanOut(**s) for s in result["spans"]],
         original=input_content_md,

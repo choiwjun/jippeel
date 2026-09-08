@@ -465,6 +465,7 @@ class RefineRequest(BaseModel):
 
 class RefineResult(BaseModel):
     run_id: int
+    base_revision: int
     route_hint: str
     spans: list[SpanOut]
     original: str

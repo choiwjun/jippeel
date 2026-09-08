@@ -457,3 +457,57 @@ def test_snapshot_reason_values_for_refine_and_scene_merge(client, mock_humanize
 
     reasons = [s["reason"] for s in client.get(f"/api/v1/chapters/{cid}/snapshots").json()]
     assert reasons[:3] == ["scene_merge", "refine", "autosave"]
+
+
+
+def test_refine_result_reports_captured_base_revision_despite_concurrent_advance(client, monkeypatch):
+    from app.database import get_db
+    from app.main import app
+    from app.services import manuscripts
+
+    pid = _project(client)["id"]
+    cid = _chapter(client, pid)["id"]
+    _put(client, cid, "pipeline input", 0)
+
+    def advance_during_pipeline(content_md, force_route=None):
+        assert content_md == "pipeline input"
+        override_get_db = app.dependency_overrides[get_db]
+        gen = override_get_db()
+        other_db = next(gen)
+        try:
+            changed = manuscripts.replace_manuscript(
+                other_db, cid, "concurrent edit", 1, reason="autosave"
+            )
+            other_db.commit()
+            assert changed.revision == 2
+        finally:
+            other_db.close()
+        return {
+            "route_hint": force_route or "standard",
+            "changed_ratio": 0.01,
+            "gate": "pass",
+            "status": "ok",
+            "spans": [],
+            "report": {"metrics": {}, "gates": {}},
+            "refined": "pipeline output",
+            "work_dir": "unused",
+        }
+
+    monkeypatch.setattr(humanize, "run_pipeline", advance_during_pipeline)
+    monkeypatch.setattr(humanize, "cleanup_workdir", lambda work_dir: None)
+
+    response = client.post("/api/v1/refine", json={"chapter_id": cid, "expected_revision": 1})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["original"] == "pipeline input"
+    assert body["base_revision"] == 1
+
+    run = client.get(f"/api/v1/refine/runs/{body['run_id']}").json()
+    assert run["base_revision"] == 1
+    assert run["report_json"]["base_revision"] == 1
+    assert run["report_json"]["input_content_md"] == "pipeline input"
+    assert run["report_json"]["original_text"] == "pipeline input"
+
+    current = client.get(f"/api/v1/chapters/{cid}").json()
+    assert current["revision"] == 2
+    assert current["content_md"] == "concurrent edit"

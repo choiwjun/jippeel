@@ -116,3 +116,33 @@ Result: 23 passed, 1 warning in 1.73s.
 .venv/Scripts/python.exe -c "import os,tempfile,pathlib,pytest,sys; d=pathlib.Path(tempfile.mkdtemp(prefix='jippeel-fix-full-')); os.environ['DATABASE_URL']='sqlite:///'+(d/'lifespan.db').as_posix(); os.environ['JIPPEEL_ALLOW_TEMP_CREATE_ALL']='1'; sys.exit(pytest.main(['-q']))"
 Result: 221 passed, 1 warning in 12.24s.
 ```
+
+
+## Task 1 follow-up round 2 — refine response base revision
+
+Review source: `docs/audits/preservation-final-spec-review.md` Finding 2.
+
+Changes made:
+- `RefineResult.base_revision` is now required in the backend response schema.
+- `POST /api/v1/refine` returns the pipeline-start `base_revision` captured before pipeline execution.
+- `RefineRun.report_json` now includes `base_revision` and `input_content_md`, while preserving `original_text` for compatibility.
+- Added a regression where the pipeline advances slowly while another session changes the chapter. The response/report keep the starting revision and input text, not the fresh current revision.
+
+### Follow-up red evidence
+```text
+cmd.exe /C "cd /d C:\Users\wj941\Documents\jippeel\backend && .venv\Scripts\python.exe ..\.eval_tmp\run_backend_pytest.py tests\test_manuscript_preservation.py -q"
+Result before backend schema/router fix: 1 failed, 15 passed, 1 warning in 1.85s.
+Failure: `KeyError: 'base_revision'` in `test_refine_result_reports_captured_base_revision_despite_concurrent_advance`.
+```
+
+### Follow-up green evidence
+```text
+cmd.exe /C "cd /d C:\Users\wj941\Documents\jippeel\backend && .venv\Scripts\python.exe ..\.eval_tmp\run_backend_pytest.py tests\test_manuscript_preservation.py tests\test_refine_api.py -q"
+Result: 24 passed, 1 warning in 1.54s.
+```
+
+### Follow-up full backend evidence
+```text
+cmd.exe /C "cd /d C:\Users\wj941\Documents\jippeel\backend && .venv\Scripts\python.exe ..\.eval_tmp\run_backend_pytest.py -q"
+Result: 222 passed, 1 warning in 12.41s.
+```
