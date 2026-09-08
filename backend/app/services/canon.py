@@ -4,6 +4,7 @@
 LLM 1콜(비스트리밍, JSON)로 탐지한다. 결과는 응답으로만 반환하며
 원고·설정을 절대 자동 수정하지 않는다(작가 판단 대상).
 """
+import hashlib
 import json
 
 import openai
@@ -11,7 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Chapter, Character, Foreshadow, LoreEntry
-from app.services import llm
+from app.schemas import CanonCheckRequest
+from app.services import ai_context, llm
 from app.services.bootstrap import _extract_json  # JSON 추출 계약 공유
 
 _SYSTEM_JSON = (
@@ -28,68 +30,38 @@ _SYSTEM_JSON = (
 
 
 def _build_context_blocks(db: Session, chapter: Chapter) -> tuple[list[str], dict]:
-    """회차 본문 + 직전 회차 끝부분 + 캐릭터 카드 + 로어 + 복선(독자 인지 포함) 블록."""
-    blocks: list[str] = [f"[검수 대상 회차: {chapter.title}]\n{chapter.content_md}"]
-    project_id = chapter.project_id
+    """Compatibility wrapper for older direct tests.
 
-    prev = db.scalars(
-        select(Chapter).where(
-            Chapter.project_id == project_id,
-            Chapter.sort_order < chapter.sort_order,
-        ).order_by(Chapter.sort_order.desc())
-    ).first()
-    if prev and (prev.content_md or "").strip():
-        blocks.append(
-            f"[직전 회차: {prev.title} 끝부분 — 시간축·위치 연속성 기준]\n"
-            f"…{prev.content_md[-1_000:]}")
-
-    chars = db.scalars(
-        select(Character).where(Character.project_id == project_id)).all()
-    if chars:
-        parts = []
-        for ch in chars:
-            fields = [f"이름: {ch.name}"]
-            for f in ("role", "appearance", "personality", "speech_style", "background"):
-                value = getattr(ch, f, None)
-                if value:
-                    fields.append(f"{f}: {value}")
-            parts.append("\n".join(fields))
-        blocks.append("[캐릭터 설정 — 본문의 인물 묘사·말투가 이와 모순되면 지적]\n"
-                      + "\n---\n".join(parts))
-
-    lore = db.scalars(
-        select(LoreEntry).where(LoreEntry.project_id == project_id)).all()
-    if lore:
-        parts = [f"{e.title}: {e.content or ''}" for e in lore if e.content]
-        blocks.append("[세계관 설정 — 본문이 이와 모순되면 지적]\n" + "\n".join(parts))
-
-    foreshadows = db.scalars(
-        select(Foreshadow).where(
-            Foreshadow.project_id == project_id,
-            Foreshadow.status.in_(("설치", "보류")))).all()
-    known = [f for f in foreshadows if f.audience_knows]
-    unknown = [f for f in foreshadows if not f.audience_knows]
-    if unknown:
-        parts = [f"{f.title}: {f.content or ''}" for f in unknown]
-        blocks.append("[미회수 복선 — 아직 회수 전이므로 본문이 미리 결론을 풀어버리면 지적]\n"
-                      + "\n".join(parts))
-    if known:
-        parts = [f"{f.title}: {f.content or ''}" for f in known]
-        blocks.append("[독자가 이미 알게 된 사실 — 본문이 이를 마치 처음 밝히는 것처럼 "
-                      "쓰면 지적(인지 중복)]\n" + "\n".join(parts))
-
-    return blocks, {"characters": len(chars), "lore": len(lore),
-                    "foreshadows": len(unknown), "audience_known": len(known)}
+    New callers should use build_messages(..., payload=...) so ownership and
+    revision validation come from app.services.ai_context.
+    """
+    payload = CanonCheckRequest(chapter_id=chapter.id)
+    bundle = ai_context.build_context_bundle(db, ai_context.request_from_canon(payload, chapter))
+    return bundle.blocks, bundle.metadata
 
 
-def build_messages(db: Session, chapter: Chapter) -> tuple[list[dict], dict]:
-    blocks, counts = _build_context_blocks(db, chapter)
-    user = "\n\n".join(blocks)
+def build_messages(
+    db: Session,
+    chapter: Chapter,
+    payload: CanonCheckRequest | None = None,
+    bundle: ai_context.ContextBundle | None = None,
+) -> tuple[list[dict], dict]:
+    if payload is None:
+        payload = CanonCheckRequest(chapter_id=chapter.id)
+    if bundle is None:
+        bundle = ai_context.build_context_bundle(db, ai_context.request_from_canon(payload, chapter))
+
+    checked_input_body = chapter.content_md or ""
+    context = dict(bundle.metadata)
+    context["checked_input_revision"] = chapter.revision
+    context["checked_input_hash"] = hashlib.sha256(checked_input_body.encode("utf-8")).hexdigest()
+
+    user = "\n\n".join(bundle.blocks)
     user += ("\n\n위 회차 본문에서 설정 모순을 검사하라. 다음 JSON 형식으로 출력하라:\n"
              '{"issues": [{"quote": "본문 발췌(그대로)", "reason": "모순 이유", '
              '"severity": "warn|error|info"}]}')
     return [{"role": "system", "content": _SYSTEM_JSON},
-            {"role": "user", "content": user}], counts
+            {"role": "user", "content": user}], context
 
 
 def parse_issues(raw: str) -> list[dict]:
@@ -110,15 +82,26 @@ def parse_issues(raw: str) -> list[dict]:
     return issues
 
 
-async def run_canon_check(db: Session, chapter: Chapter, client, model: str,
-                          temperature: float | None,
-                          reasoning_effort: str | None) -> tuple[list[dict], dict, str]:
+async def run_canon_check(
+    db: Session,
+    chapter: Chapter,
+    client,
+    model: str,
+    temperature: float | None,
+    reasoning_effort: str | None,
+    payload: CanonCheckRequest | None = None,
+    bundle: ai_context.ContextBundle | None = None,
+    messages_context: tuple[list[dict], dict] | None = None,
+) -> tuple[list[dict], dict, str]:
     """검사 실행 — 1회 실패 시 repair prompt 1회 재시도 후 예외 전파.
 
     사용량 기록(G-060)용으로 마지막 프롬프트 문자량을 모듈 변수에 남긴다.
     """
     global last_prompt_chars
-    messages, counts = build_messages(db, chapter)
+    if messages_context is None:
+        messages, counts = build_messages(db, chapter, payload=payload, bundle=bundle)
+    else:
+        messages, counts = messages_context
     last_prompt_chars = sum(len(m["content"]) for m in messages)
     raw = await llm.complete_chat(client, model, messages, temperature=temperature,
                                   reasoning_effort=reasoning_effort)

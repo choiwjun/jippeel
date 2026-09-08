@@ -63,3 +63,16 @@
 ## T1 구현 착수
 - 사전 검토 최종 PASS: R1–R7 및 A1–A3 해소. `ai-context-preflight-review.md`의 SPEC/PLAN hash를 부모가 대조했다.
 - 부모가 승인된 범위의 상세 계약을 확정했다. 새 backend implementer가 T1만 구현하고, 이후 독립 task review로 실제 diff/테스트를 확인한다. 목적/복선 의미 지침 T2, 프론트 T3, 실제 통합 QA T4는 후속 순차 작업이다.
+
+- 계획/재현/사전 검토 문서 commit `49b813933d2c5d11a1a811ce42b742f615f698f8`. T1 작업자 `ai-context-backend-context-impl` (`sub-12be2769`), 리뷰 기준도49b8139. 구현자는 소스/테스트 한정 소유, 부모 승인 전 커밋 금지. 완료 보고 뒤 새 독립 task reviewer를 배정한다.
+
+- T1 구현자 완료 보고: focused18/owned49/full backend240 통과(임시 DB·가짜 LLM); 아직 독립 승인 전이다. 고정 diff와 새 파일 전체를 `ai-context-task-1-review-diff.txt`에 기록했다. 독립 `ai-context-task-1-reviewer` (`sub-5a22485d`)가 Spec/Quality 실제 diff 검토와 native owned tests를 진행한다. 원 구현자 `sub-12be2769`는 수정 대기, 아직 커밋 없음.
+
+- T1 독립 검토: owned49 통과했으나 Spec/Quality NEEDS FIXES. F1: 현재 identity 없이 approved_foreshadow_ids만 전달하면 작품 추론/여러 작품 혼합 차단과 복선 참조 회차 소속 검증이 빠지는 경로를 테스트로 재현했다. 부모가 확인 후 원 구현자에 fix round1 배정, 프로젝트 의존 맥락 조립 이전 추론 및 gen/parallel no-provider 회귀 테스트를 요구했다. T2 진입/커밋 보류.
+
+- T1 fix round1 완료 보고: 프로젝트 추론을 조립 앞단으로 이동하고 복선 자체/요청 작품 양쪽 참조 소속을 검증, 공유 RevisionConflict helper 재사용. 신규 회귀 RED5실패→bundle23/owned56/full247통과(구현자 기록). 원 검토자가 고정 hash로 F1 재검토 중이며 부모도 전체 backend를 임시 DB로 재실행 시작했다. 독립 PASS 전 커밋/T2 없음.
+
+## T1 검증 완료
+- 독립 재검토 Spec PASS / Quality PASS. F1 해소; 별도 reviewer 재현4 + owned56 통과.
+- 부모가 최종 소스 hash를 재대조하고 native 임시 DB 전체 backend247개 통과를 새로 확인했다(`ai-context-task-1-parent-backend.txt`); diff check 통과.
+- T1만 검증 완료했다. 목적/복선 의미 T2, 프론트 T3, 실제 브라우저/제공자 QA T4는 아직 미완료이며 배포하지 않는다.

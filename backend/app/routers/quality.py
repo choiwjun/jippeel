@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import CanonRun, Chapter, QualityCheck
 from app.schemas import (CanonCheckRequest, CanonCheckResponse, CanonRunOut,
                          ChapterQualityOut, QualityCheckOut)
+from app.services import ai_context
 from app.services import canon as canon_service
 from app.services import llm, quality as quality_service
 from app.services import usage as usage_service
@@ -33,6 +34,8 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
     결과는 canon_runs에 이력으로 저장되며 GET /canon-check/runs로 재조회한다.
     """
     chapter = _get_chapter_or_404(payload.chapter_id, db)
+    bundle = ai_context.build_context_bundle(db, ai_context.request_from_canon(payload, chapter))
+    messages_context = canon_service.build_messages(db, chapter, payload=payload, bundle=bundle)
     try:
         endpoint, model = resolve_endpoint(db)
     except NoEndpointError as exc:
@@ -44,7 +47,10 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
         issues, counts, used_model = await canon_service.run_canon_check(
             db, chapter, client, model,
             temperature=endpoint.temperature,
-            reasoning_effort=endpoint.reasoning_effort)
+            reasoning_effort=endpoint.reasoning_effort,
+            payload=payload,
+            bundle=bundle,
+            messages_context=messages_context)
         prompt_chars = canon_service.last_prompt_chars
     except openai.APIError as exc:
         raise HTTPException(status_code=502,

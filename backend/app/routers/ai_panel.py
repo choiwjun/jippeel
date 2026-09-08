@@ -27,7 +27,7 @@ from app.schemas import (
     PromptPresetOut,
     PromptPresetUpdate,
 )
-from app.services import injection, llm, parallel_writer, usage as usage_service
+from app.services import ai_context, injection, llm, parallel_writer, usage as usage_service
 
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
 # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
@@ -161,144 +161,59 @@ def _format_brief_block(brief: EpisodeBrief) -> str:
     return "\n".join(lines)
 
 
-def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict], dict, list[dict]]:
-    """FR-404 — 요청된 컨텍스트(회차/캐릭터/로어북)를 프롬프트 블록으로 조립.
+def _style_profile_block(style_profile_text: str | None) -> str:
+    if not style_profile_text:
+        return ""
+    return f"[작품 문체 프로파일 — 반드시 따른다]\n{style_profile_text}"
 
-    자동 주입(auto_lore, 백로그 P1)이 켜지면 본문·지시문에 언급된 로어 항목을
-    점수순으로 추가한다. auto_outline(고도화 G-001)이 켜지면 현재 회차의
-    목차 메모(시놉시스·핵심 사건)와 다음 회차 전개 방향을 추가한다.
-    주입은 입력 컨텍스트일 뿐이며 원고에 자동 삽입되지
-    않는다(P1·FR-406). 반환: (블록 목록, 자동 주입 로어 [{id,title}], 목차 주입 정보)
+
+def _system_with_style(base: str, style_profile_text: str | None) -> str:
+    style_block = _style_profile_block(style_profile_text)
+    if not style_block:
+        return base
+    return f"{base}\n\n{style_block}"
+
+
+
+
+def _foreshadow_items_from_metadata(db: Session, metadata: dict) -> list[dict]:
+    ids = list(metadata.get("included_foreshadow_ids", []))
+    if not ids:
+        return []
+    rows = db.scalars(select(Foreshadow).where(Foreshadow.id.in_(ids))).all()
+    by_id = {row.id: row.title for row in rows}
+    return [{"id": row_id, "title": by_id.get(row_id, "")} for row_id in ids]
+
+
+def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[str], list[dict], dict, list[dict], dict]:
+    """Build context through the shared ContextBundle module.
+
+    Kept for caller/test stability. Ownership validation lives in
+    app.services.ai_context, not in this router.
     """
-    blocks: list[str] = []
-    injected: list[dict] = []
-    injected_foreshadows: list[dict] = []
-    outline_info: dict = {}
-    ctx = payload.context
-    # 회차 브리프 — 브리프 우선 원칙: 다른 컨텍스트 블록보다 앞에 위치
-    if ctx.brief is not None:
-        blocks.append(_format_brief_block(ctx.brief))
-    source_parts: list[str] = []
-    project_id = ctx.project_id
-    if ctx.scene_id is not None:
-        scene = db.get(Scene, ctx.scene_id)
-        if scene is None:
-            raise HTTPException(status_code=404, detail="scene not found")
-        blocks.append(f"[현재 장면: {scene.title or '무제'} — 이 장면 안에서만 집필]\n{scene.content_md}")
-        source_parts.append(scene.content_md or "")
-        if chapter_ref := db.get(Chapter, scene.chapter_id):
-            project_id = project_id or chapter_ref.project_id
-    if ctx.chapter_id is not None:
-        chapter = db.get(Chapter, ctx.chapter_id)
-        if chapter is None:
-            raise HTTPException(status_code=404, detail="chapter not found")
-        blocks.append(f"[현재 회차: {chapter.title}]\n{chapter.content_md}")
-        source_parts.append(chapter.content_md or "")
-        project_id = project_id or chapter.project_id
-        chapter_memo = (chapter.memo or "").strip()
-        if chapter_memo and ctx.auto_lore:
-            # 신규 회차는 본문이 비어 있을 수 있으므로 목차 메모도 로어 매칭 원본에 포함한다.
-            source_parts.append(chapter_memo)
-        if chapter_memo and ctx.auto_outline:
-            blocks.append(f"[이번 회차 목표(목차) — 이 화에서 반드시 다뤄야 할 내용]\n{chapter_memo}")
-            outline_info["current"] = True
-        if ctx.auto_outline and chapter.volume is not None:
-            from app.models import VolumeNote
-            vnote = db.scalars(
-                select(VolumeNote).where(
-                    VolumeNote.project_id == chapter.project_id,
-                    VolumeNote.volume == chapter.volume)).first()
-            if vnote is not None:
-                parts = [f"[{chapter.volume}권 개요 — 권 전체 방향, 이 화가 어긋나지 않게]"]
-                for field in ("overview", "emotion_curve", "climax_note"):
-                    value = getattr(vnote, field, None)
-                    if value and value.strip():
-                        parts.append(value.strip()[:400])
-                blocks.append("\n".join(parts))
-                outline_info["volume_note"] = vnote.volume
-        if ctx.previous_chapter:
-            prev = db.scalars(
-                select(Chapter).where(
-                    Chapter.project_id == chapter.project_id,
-                    Chapter.sort_order < chapter.sort_order,
-                ).order_by(Chapter.sort_order.desc())
-            ).first()
-            if prev and (prev.content_md or "").strip():
-                tail = prev.content_md[-PREVIOUS_CHAPTER_TAIL_CHARS:]
-                blocks.append(f"[직전 회차: {prev.title} 끝부분]\n…{tail}")
-        if ctx.auto_outline:
-            nxt = db.scalars(
-                select(Chapter).where(
-                    Chapter.project_id == chapter.project_id,
-                    Chapter.sort_order > chapter.sort_order,
-                ).order_by(Chapter.sort_order.asc())
-            ).first()
-            if nxt is not None:
-                direction = (nxt.memo or "").strip()
-                blocks.append(f"[다음 회차 예고: {nxt.title}]")
-                if direction:
-                    # 다음 회차를 다 쓰지 않도록 요약 수준만 전달
-                    blocks[-1] += f"\n{direction[:600]}"
-                outline_info["next_chapter_id"] = nxt.id
-                outline_info["next_title"] = nxt.title
-    if ctx.character_ids:
-        chars = db.scalars(
-            select(Character).where(Character.id.in_(ctx.character_ids))
-        ).all()
-        for ch in chars:
-            parts = [f"[캐릭터: {ch.name}]"]
-            for field in ("role", "appearance", "personality", "speech_style", "background"):
-                value = getattr(ch, field, None)
-                if value:
-                    parts.append(f"{field}: {value}")
-            blocks.append("\n".join(parts))
-    if ctx.lore_ids:
-        entries = db.scalars(select(LoreEntry).where(LoreEntry.id.in_(ctx.lore_ids))).all()
-        for entry in entries:
-            blocks.append(f"[세계관: {entry.title}]\n{entry.content or ''}")
-    if ctx.auto_lore and project_id is not None:
-        if payload.prompt_override:
-            source_parts.append(payload.prompt_override)
-        if ctx.auto_lore_semantic:
-            # G-070 시맨틱 하이브리드 — v1 점수 + 2-gram 코사인 랭킹
-            selected = injection.select_lore_for_text_hybrid(
-                db, project_id, "\n".join(source_parts), limit=ctx.auto_lore_limit)
-        else:
-            selected = injection.select_lore_for_text(
-                db, project_id, "\n".join(source_parts), limit=ctx.auto_lore_limit)
-        exclude = set(ctx.lore_ids or [])
-        for entry in selected:
-            if entry.id in exclude:
-                continue  # 명시 선택분과 중복 주입 방지
-            blocks.append(f"[세계관(자동): {entry.title}]\n{entry.content or ''}")
-            injected.append({"id": entry.id, "title": entry.title})
-    if ctx.auto_foreshadow and project_id is not None:
-        rows = db.scalars(
-            select(Foreshadow).where(
-                Foreshadow.project_id == project_id,
-                Foreshadow.status == "설치",
-            ).order_by(Foreshadow.created_at.desc(), Foreshadow.id.desc())
-        ).all()
-        for row in rows[:ctx.auto_foreshadow_limit]:
-            content = (row.content or "").strip()
-            block = f"[미회수 복선: {row.title}]"
-            if content:
-                block += f"\n{content[:400]}"
-            block += "\n→ 이 복선은 아직 회수 전이다. 이 화에서 건드릴 거면 자연스럽게, 건드리지 않으면 결론을 미리 풀지 마라."
-            blocks.append(block)
-            injected_foreshadows.append({"id": row.id, "title": row.title})
-    return blocks, injected, outline_info, injected_foreshadows
+    bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(payload))
+    foreshadows = _foreshadow_items_from_metadata(db, bundle.metadata)
+    return (
+        bundle.blocks,
+        list(bundle.metadata.get("injected_lore", [])),
+        dict(bundle.metadata.get("outline", {})),
+        foreshadows,
+        bundle.metadata,
+    )
 
 
-def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[dict]]:
-    """프리셋 템플릿 + 컨텍스트 + override → chat messages.
+def _build_messages(
+    payload: GenerateRequest,
+    db: Session,
+    bundle: ai_context.ContextBundle | None = None,
+) -> tuple[str, list[dict], list[dict], dict, list[dict], dict]:
+    """프리셋 템플릿 + 공유 ContextBundle + override → chat messages.
 
-    반환: (model_hint, messages, 자동 주입된 로어 목록, 목차 주입 정보, 복선 주입 목록)
-    context.style_profile(G-040)이면 해당 프로젝트의 문체 프로파일을
-    system 프롬프트 뒤에 결합한다(작품별 문체 유지).
+    반환: (model_hint, messages, 자동 주입된 로어 목록, 목차 주입 정보, 복선 주입 목록, 컨텍스트 메타데이터)
     """
-    context_blocks, injected, outline_info, injected_foreshadows = _build_context_blocks(payload, db)
-    sections = ["다음 컨텍스트를 참고해 작성하세요.", *context_blocks]
+    if bundle is None:
+        bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(payload))
+    sections = ["다음 컨텍스트를 참고해 작성하세요.", *bundle.blocks]
     context_text = "\n\n".join(p for p in sections if p)
 
     instruction = payload.prompt_override
@@ -310,24 +225,33 @@ def _build_messages(payload: GenerateRequest, db: Session) -> tuple[str, list[di
                             detail="preset_id 또는 prompt_override 중 하나는 필요합니다.")
 
     user_content = f"{context_text}\n\n---\n\n지시:\n{instruction}"
-    system_prompt = NOVEL_SYSTEM_PROMPT
-    if payload.context.style_profile:
-        # project_id 복원 — context에 명시 없으면 회차/장면 소속 프로젝트로 판별
-        style_project_id = payload.context.project_id
-        if style_project_id is None and payload.context.chapter_id is not None:
-            ch_row = db.get(Chapter, payload.context.chapter_id)
-            style_project_id = ch_row.project_id if ch_row else None
-        if style_project_id is None and payload.context.scene_id is not None:
-            scene_row = db.get(Scene, payload.context.scene_id)
-            ch_row = db.get(Chapter, scene_row.chapter_id) if scene_row else None
-            style_project_id = ch_row.project_id if ch_row else None
-        project = db.get(Project, style_project_id) if style_project_id else None
-        if project is not None and (project.style_profile or "").strip():
-            system_prompt = (f"{NOVEL_SYSTEM_PROMPT}\n\n[작품 문체 프로파일 — 반드시 따른다]\n"
-                             f"{project.style_profile.strip()}")
+    system_prompt = _system_with_style(NOVEL_SYSTEM_PROMPT, bundle.style_profile_text)
     messages = [{"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}]
-    return "default", messages, injected, outline_info, injected_foreshadows
+    injected_foreshadows = _foreshadow_items_from_metadata(db, bundle.metadata)
+    return (
+        "default",
+        messages,
+        list(bundle.metadata.get("injected_lore", [])),
+        dict(bundle.metadata.get("outline", {})),
+        injected_foreshadows,
+        bundle.metadata,
+    )
+
+
+
+
+def _style_suffix_from_generation_system(system_prompt: str) -> str:
+    if system_prompt.startswith(NOVEL_SYSTEM_PROMPT):
+        return system_prompt[len(NOVEL_SYSTEM_PROMPT):].strip()
+    return ""
+
+
+def _append_generation_style(system_prompt: str, generation_system_prompt: str) -> str:
+    suffix = _style_suffix_from_generation_system(generation_system_prompt)
+    if not suffix:
+        return system_prompt
+    return f"{system_prompt}\n\n{suffix}"
 
 
 def _friendly_api_error(exc: openai.APIError) -> str:
@@ -507,8 +431,9 @@ def _split_review_stream():
 # ---------- AI 생성 스트리밍 ----------
 @router.post("/ai/generate")
 async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
+    bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(payload))
     endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
-    _, messages, injected_lore, injected_outline, injected_foreshadows = _build_messages(payload, db)
+    _, messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(payload, db, bundle=bundle)
     model = _resolve_model(endpoint, payload.params.model)
     temperature = payload.params.temperature
     if temperature is None:
@@ -540,7 +465,8 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                "data": json.dumps({"model": model, "injected_lore": injected_lore,
                                    "injected_outline": injected_outline,
                                    "injected_foreshadows": injected_foreshadows,
-                                   "review_enabled": review_cfg is not None},
+                                   "review_enabled": review_cfg is not None,
+                                   "context_metadata": context_metadata},
                                   ensure_ascii=False)}
         completion_chars = 0
         draft_parts: list[str] = []
@@ -575,7 +501,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                                        "reasoning_effort": review_cfg["reasoning_effort"]},
                                       ensure_ascii=False)}
             review_messages = [
-                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                {"role": "system", "content": _append_generation_style(REVIEW_SYSTEM_PROMPT, messages[0]["content"])},
                 {"role": "user",
                  "content": f"{messages[-1]['content']}\n\n---\n\n[초안 원고]\n{''.join(draft_parts)}"},
             ]
@@ -617,7 +543,6 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
 @router.post("/ai/generate-parallel")
 async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depends(get_db)):
     """Medium planner/worker 병렬 집필 후 xhigh 감수만 수행한다."""
-    endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
     base_payload = GenerateRequest(
         endpoint_id=payload.endpoint_id,
         preset_id=payload.preset_id,
@@ -625,8 +550,10 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         context=payload.context,
         params=payload.params,
     )
-    _, base_messages, injected_lore, injected_outline, injected_foreshadows = _build_messages(
-        base_payload, db)
+    bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(base_payload))
+    endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
+    _, base_messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(
+        base_payload, db, bundle=bundle)
     model = _resolve_model(endpoint, payload.params.model)
     temperature = payload.params.temperature
     if temperature is None:
@@ -670,11 +597,12 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 "injected_lore": injected_lore,
                 "injected_outline": injected_outline,
                 "injected_foreshadows": injected_foreshadows,
+                "context_metadata": context_metadata,
             }, ensure_ascii=False),
         }
         try:
             planner_messages = [
-                {"role": "system", "content": planner_system},
+                {"role": "system", "content": _append_generation_style(planner_system, base_messages[0]["content"])},
                 {"role": "user", "content": planner_instruction},
             ]
             planner_raw = await llm.complete_chat(
@@ -710,7 +638,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     "장면 계약·JSON·[감수]·[수정본] 같은 메타 문구 없이 원고 본문만 출력하라."
                 )
                 worker_messages = [
-                    {"role": "system", "content": NOVEL_SYSTEM_PROMPT},
+                    {"role": "system", "content": base_messages[0]["content"]},
                     {"role": "user", "content": worker_prompt},
                 ]
                 text = await llm.complete_chat(
@@ -776,7 +704,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
             }, ensure_ascii=False),
         }
         review_messages = [
-            {"role": "system", "content": PARALLEL_REVIEW_SYSTEM_PROMPT},
+            {"role": "system", "content": _append_generation_style(PARALLEL_REVIEW_SYSTEM_PROMPT, base_messages[0]["content"])},
             {"role": "user", "content": (
                 f"{base_messages[-1]['content']}\n\n[장면별 조립 원고 — 감수 전용 메타데이터]\n{review_source}\n\n"
                 "다음 항목을 반드시 확인하라: 장면별 purpose·required_beats·closing_hook 달성, "

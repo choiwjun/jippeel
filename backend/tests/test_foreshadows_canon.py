@@ -123,8 +123,10 @@ def test_canon_check_success(client, monkeypatch, chapter):
     body = resp.json()
     assert len(body["issues"]) == 1  # 빈 quote 필터링
     assert body["issues"][0]["severity"] == "error"
-    assert body["checked_context"] == {"characters": 0, "lore": 0,
-                                       "foreshadows": 0, "audience_known": 0}
+    for key, value in {"characters": 0, "lore": 0, "foreshadows": 0, "audience_known": 0}.items():
+        assert body["checked_context"][key] == value
+    assert "checked_input_revision" in body["checked_context"]
+    assert "checked_input_hash" in body["checked_context"]
     # G-041 — 검사 이력 저장·재조회
     assert body["run_id"] > 0
     runs = client.get("/api/v1/canon-check/runs",
@@ -156,3 +158,62 @@ def test_project_delete_cascades_canon_and_quality_runs(client, chapter, monkeyp
     db.commit()
     r = client.delete(f"/api/v1/projects/{chapter['project_id']}")
     assert r.status_code in (204, 200)
+
+
+
+def test_canon_checked_context_preserves_input_revision_and_hash(client, monkeypatch, chapter):
+    import hashlib
+
+    from app.database import get_db
+    from app.models import Chapter
+    from app.routers import quality as quality_router
+
+    holder = {"calls": []}
+
+    class _Completions:
+        async def create(self, **kwargs):
+            holder["calls"].append(kwargs)
+            db = next(iter(client.app.dependency_overrides[get_db]()))
+            row = db.get(Chapter, chapter["id"])
+            row.content_md = "provider 중 바뀐 본문"
+            row.revision += 1
+            db.commit()
+            return _Response(json.dumps({"issues": []}, ensure_ascii=False))
+
+    class _FakeClient:
+        def __init__(self, base_url=None, api_key_encrypted=None):
+            self.chat = type("NS", (), {"completions": _Completions()})()
+
+    monkeypatch.setattr(
+        quality_router.llm,
+        "make_client",
+        lambda base_url, api_key_encrypted: _FakeClient(),
+    )
+    client.post(
+        "/api/v1/ai/endpoints",
+        json={"name": "e", "base_url": "http://x/v1", "default_model": "m", "is_default": True},
+    )
+    client.put(
+        f"/api/v1/chapters/{chapter['id']}/content",
+        json={"content_md": "검사 전 원본", "expected_revision": 0},
+    )
+    before = client.get(f"/api/v1/chapters/{chapter['id']}").json()
+    expected_hash = hashlib.sha256("검사 전 원본".encode("utf-8")).hexdigest()
+
+    resp = client.post(
+        "/api/v1/canon-check",
+        json={"chapter_id": chapter["id"], "expected_revision": before["revision"]},
+    )
+    assert resp.status_code == 200, resp.text
+    checked = resp.json()["checked_context"]
+    assert checked["checked_input_revision"] == before["revision"]
+    assert checked["checked_input_hash"] == expected_hash
+
+    runs = client.get(
+        "/api/v1/canon-check/runs", params={"chapter_id": chapter["id"]}
+    ).json()
+    assert runs[0]["context_json"]["checked_input_revision"] == before["revision"]
+    assert runs[0]["context_json"]["checked_input_hash"] == expected_hash
+    sent_user = holder["calls"][0]["messages"][-1]["content"]
+    assert "검사 전 원본" in sent_user
+    assert "provider 중 바뀐 본문" not in sent_user

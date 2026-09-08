@@ -1,0 +1,18 @@
+{
+  "base": "49b813933d2c5d11a1a811ce42b742f615f698f8",
+  "round": 1,
+  "changed_since_initial_review": [
+    "backend/app/services/ai_context.py",
+    "backend/tests/test_ai_context_bundle.py"
+  ],
+  "sha256": {
+    "backend/app/services/ai_context.py": "e80c309c41daefdb1cc8ff860a703372299555a4cbc47b50b2b99f8254302b4f",
+    "backend/app/schemas.py": "5b67c979bb19a826c754d98fa0b3abe3626750b1a1bc045434572d10e455b71f",
+    "backend/app/routers/ai_panel.py": "022a91c59893e51d6144d952b9acd8fb3636ecc97d93211da52159a51ffb3772",
+    "backend/app/services/canon.py": "31d432c3a91b0b016ce8ef01f4d8cd268f7ab2f9bdd0a959572bf8a78264192a",
+    "backend/app/routers/quality.py": "a7fc5093303c017b592a5d5a83e5d14d0616d220e6b540e7daa625ce714fd704",
+    "backend/tests/test_ai_context_bundle.py": "d4a45dfdd415e297fa96cea591d0261df8b442786feda2e58f345d2dd35deb6e",
+    "backend/tests/test_ai_generate_stream.py": "cb59c891829bc2083bb6ee0fdff53847b8d5d24af6604c0535b032b8893c2a3e",
+    "backend/tests/test_foreshadows_canon.py": "92f6c73fe037a77d4c6a8a09717234e15b2508a163358abb31f7253426e02a4a"
+  }
+}

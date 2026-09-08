@@ -327,6 +327,7 @@ class PromptPresetOut(BaseModel):
 # ---- AI 생성 요청 (POST /ai/generate) ----
 # 회차 브리프 문자열·배열 항목 공통 검증 — 앞뒤 공백 제거 후 1~500자.
 BriefText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+EpisodePurpose = Literal["serial", "volume_end", "series_finale"]
 
 
 class EpisodeBrief(BaseModel):
@@ -342,13 +343,20 @@ class EpisodeBrief(BaseModel):
     character_choices: list[BriefText] = Field(min_length=1, max_length=4)
     cost: BriefText
     prohibitions: list[BriefText] = Field(min_length=1, max_length=10)
-    next_hook: BriefText
+    next_hook: BriefText | None = None
+    ending_intent: BriefText | None = None
     scene_type: Literal["대립", "액션", "정보정리", "감정", "이동"] | None = None
     target_chars_novelpia: int | None = Field(default=None, ge=1000, le=10000)
 
 
 class GenerateContext(BaseModel):
     chapter_id: int | None = None
+    project_id: int | None = Field(default=None, description="현재 요청이 속한 작품 ID")
+    include_chapter_content: bool = True
+    expected_revision: int | None = Field(default=None, ge=0)
+    episode_purpose: EpisodePurpose = "serial"
+    approved_foreshadow_ids: list[int] = Field(default_factory=list, max_length=20)
+    include_relationships: bool = False
     character_ids: list[int] | None = None
     lore_ids: list[int] | None = None
     # 로어북 자동 주입 (백로그 P1) — chapter가 없으면 project_id로 프로젝트 판별
@@ -356,7 +364,6 @@ class GenerateContext(BaseModel):
     auto_lore_limit: int = Field(default=6, ge=1, le=20)
     # 시맨틱 매칭 강화 (고도화 G-070) — 2-gram 코사인 하이브리드 랭킹
     auto_lore_semantic: bool = False
-    project_id: int | None = Field(default=None, description="chapter 없이 auto_lore 사용 시 프로젝트 지정")
     # 직전 회차 끝부분 자동 포함 (백로그 — 이어쓰기 맥락 유지)
     previous_chapter: bool = False
     # 목차 자동 주입 (고도화 G-001) — 현재 회차 시놉시스·다음 회차 전개 방향 포함
@@ -370,6 +377,21 @@ class GenerateContext(BaseModel):
     style_profile: bool = False
     # 회차 브리프 (한국어 회차 품질 슬라이스) — 선택적 생성 계약, 없으면 기존 동작 유지
     brief: EpisodeBrief | None = None
+
+    @model_validator(mode="after")
+    def validate_context_contract(self):
+        if self.expected_revision is not None and self.chapter_id is None:
+            raise ValueError("expected_revision requires chapter_id")
+        if self.brief is not None:
+            has_hook = bool(self.brief.next_hook)
+            has_ending = bool(self.brief.ending_intent)
+            if self.episode_purpose == "serial" and not has_hook:
+                raise ValueError("serial brief requires next_hook")
+            if self.episode_purpose == "volume_end" and not (has_hook or has_ending):
+                raise ValueError("volume_end brief requires next_hook or ending_intent")
+            if self.episode_purpose == "series_finale" and not has_ending:
+                raise ValueError("series_finale brief requires ending_intent")
+        return self
 
 
 class GenerateParams(BaseModel):
@@ -404,7 +426,8 @@ class ParallelScenePlan(BaseModel):
     required_beats: list[BriefText] = Field(min_length=1, max_length=5)
     characters: list[BriefText] = Field(min_length=1, max_length=8)
     opening_state: BriefText
-    closing_hook: BriefText
+    closing_hook: BriefText | None = None
+    ending_intent: BriefText | None = None
 
 
 class ParallelPlan(BaseModel):
@@ -592,6 +615,10 @@ class CanonIssueOut(BaseModel):
 
 class CanonCheckRequest(BaseModel):
     chapter_id: int
+    expected_revision: int | None = Field(default=None, ge=0)
+    episode_purpose: EpisodePurpose = "serial"
+    approved_foreshadow_ids: list[int] = Field(default_factory=list, max_length=20)
+    include_relationships: bool = False
 
 
 class CanonCheckResponse(BaseModel):

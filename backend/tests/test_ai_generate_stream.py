@@ -755,3 +755,41 @@ def test_parallel_worker_failure_emits_error_and_no_partial_message(client, para
     assert "parallel_error" in names
     assert "message" not in names
     assert "review_start" not in names
+
+
+
+def test_parallel_context_includes_style_profile_in_all_phases_probe_c(client, parallel_llm):
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium",
+    }).json()
+    pid = client.post("/api/v1/projects", json={"title": "STYLE_PROJECT"}).json()["id"]
+    client.patch(
+        f"/api/v1/projects/{pid}",
+        json={"style_profile": "STYLE_TOKEN_PROJECT_A — hardboiled terse rhythm"},
+    )
+    ch = client.post(
+        f"/api/v1/projects/{pid}/chapters",
+        json={"title": "STYLE_CHAPTER", "sort_order": 1},
+    ).json()
+    client.put(
+        f"/api/v1/chapters/{ch['id']}/content",
+        json={"content_md": "STYLE_CHAPTER_BODY", "expected_revision": 0},
+    )
+    payload = _parallel_payload(ep["id"])
+    payload["context"] = {"project_id": pid, "chapter_id": ch["id"], "style_profile": True}
+
+    response = client.post("/api/v1/ai/generate-parallel", json=payload)
+    assert response.status_code == 200, response.text
+
+    events = _parse_sse(response.text)
+    start = json.loads(dict(events)["parallel_start"])
+    assert start["context_metadata"]["project_id"] == pid
+    assert start["context_metadata"]["chapter_id"] == ch["id"]
+
+    all_calls = parallel_llm["complete_calls"] + parallel_llm["stream_calls"]
+    assert len(all_calls) >= 4
+    for call in all_calls:
+        combined = "\n".join(m["content"] for m in call["messages"])
+        assert "STYLE_TOKEN_PROJECT_A" in combined
+        assert "STYLE_CHAPTER_BODY" in combined
