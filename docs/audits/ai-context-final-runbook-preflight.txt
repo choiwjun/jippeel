@@ -1,0 +1,9 @@
+Native PowerShell output below: display trailing spaces and blank EOF lines trimmed only. Raw output: .eval_tmp/ai-context-final-parent/runbook-preflight-output-raw.txt
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Application     node.exe                                           22.23.2.0  C:\Users\wj941\AppData\Local\hermes\no...
+Application     npm.cmd                                            0.0.0.0    C:\Users\wj941\AppData\Local\hermes\no...
+Application     npx.cmd                                            0.0.0.0    C:\Users\wj941\AppData\Local\hermes\no...
+True
+True
