@@ -1,0 +1,1 @@
+Task4 parent precommit check: removed one trailing space from validation report command line150 only. No source/test/config changes after independent rereview. Five implementation hashes remain equal to rereview-1 snapshot. CRLF-aware cached diff check required.

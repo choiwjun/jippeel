@@ -101,3 +101,25 @@
 ## T3 검증 완료
 - 초기 독립 검토의 단일 High stale-canon 결함이 scoped 재검토 Spec/Quality PASS로 해소됐다. reviewer가 별도재현2/신규fixture7/보존fixture17/build를 새로 통과하고 전후 소스 hash 일치를 확인했다.
 - 부모도 최종 hash와 native build PASS를 확인했다(`ai-context-task-3-parent-build.txt`). 이 단계는 UI fixture 검증이며 실제 API/SQLite/provider 통합 T4는 아직 실행 전이다.
+
+## T4 실제 격리 통합 QA 착수
+- T3 검증 소스 commit `03bad73239e861b0f122d176fe6b014b28b278af`. 기존 native CRLF를 보존했고 CR-at-EOL을 인식하는 diff check도 통과했다(코드 변경 없이 검토 hash 유지).
+- 새 `ai-context-integration-qa-impl` (`sub-57021bb6`)이 QA 파일만 소유한다. 전용15212/18112/18113, strict Alembic 임시DB, 실제 browser/API 및 독립 가짜제공자 JSONL, 원고·복선 상태 무자동변경과 제공자호출 전 오류를 검증한다. 상세 Task4 handoff와 환경 rulings 참조. T4 구현자 보고 이후 독립 QA 검토 및 최종 브랜치 검토가 남아 있다.
+
+- T4 QA scripts/config/실제 통합 spec 초안 생성. 작업자가 native backend 회귀 테스트를 비동기로 시작한 뒤 대기 턴을 종료해 부모가 기존 handle 결과 확인 및 실제 integration 단계 재개를 지시했다. 아직 QA 검증 리포트/전체 완료 보고가 없으며 이를 통합 통과로 간주하지 않는다.
+
+- T4 최초 실제 실행은 QA TypeScript Windows 경로 escaping 오류로 시작 실패, QA 설정만 보정해 재실행했다. 다음 실행은 strict Alembic 임시DB와 provider/backend health까지 확인했으나 QA seed 로어 category가 실제 enum과 달라422로 중단됐다. API 검증을 바꾸지 않고 seed만 스키마에 맞추며, 실패 근거/소유 프로세스 정리를 보존한다. 아직 브라우저 통합 통과 아님.
+
+- T4 run4는 실제 단일생성+감수 요청까지 동작했고, 열린 AI 모달이 sidebar 클릭을 막아 QA 시나리오가 timeout됐다(앱 오류 아님). QA만 정상 닫기→회차이동 순서로 수정했고 seed-ready 대기 및 테스트의 강제 current identity 주입도 제거해 자연스러운 편집기 연결을 검증하도록 강화했다. run5 단일 통합 실행 중; 아직 최종 통과/커밋 없음.
+
+- T4 run5는 회차 이동 후 패널을 다시 여는 QA 동작 누락으로 중단돼 QA만 보정했다. run6 첫 실제 브라우저 시나리오 1개 통과, 병렬 planner/worker×2/reviewer까지 제공자 로그 확보. 병렬 검증이 원시 enum을 자연어 제공자 지시문에서 찾던 assertion을 실제 HTTP enum / 제공자 지시문 경계별 확인으로 고쳤다. run7 실행 중이며 validation 초안은 아직 READY가 아니다.
+
+## T4 독립 검토 착수
+- 최종 구현자 검증: 실제 browser/FastAPI/strict Alembic 임시SQLite/가짜provider 통합 3개 PASS, native backend 전체269 PASS, build PASS. 실제 provider JSONL은 draft2/review1/planner1/worker2/parallel-review1/canon1이며, 문서·DB·PID/listener 근거를 보존했다.
+- 새 독립 `ai-context-task-4-reviewer`가 6개 QA 파일의 고정 hash와 실제 통합 재실행을 검토한다. 구현자는 동결 상태다. 아직 T4 커밋/최종 브랜치 검토/전체 완료 아님.
+
+- T4 독립 통합3PASS/중점 backend91PASS/buildPASS, 부모 backend269PASS. 다만 독립 검토는 NEEDS FIXES: canon 화면의 검사 기준을 일반 라벨로만 확인해 정확한 작품·회차·revision·hash 표시 검증이 부족하다. 부모가 실제 소스를 확인하고 지적을 수용했다. 원래 QA 구현자에게 저장된 본문에서 독립 계산한 hash와 정확한 표시·이력을 대조하는 테스트 보강만 요청했다. 앱 변경 없이 재실행하고 같은 독립 검토자가 재검토해야 한다.
+
+## T4 독립 재검토 통과
+- 정확한 canon 화면 작품/회차/revision/hash, 저장 본문 SHA256, API 및 DB 이력 대조를 보강했다. 독립 재실행 통합3PASS, Spec/Quality PASS, 남은 지적 없음. 두 worker/조립 순서, 오류 요청8건의 제공자 호출 없음, 창작 데이터 무자동변경 및 소유 서버 정리도 유지됐다. 부모 backend269PASS 및 검토 hash 일치를 확인했다.
+- T4 변경을 로컬 커밋한 뒤 최종 전체 브랜치 사양/품질 검토로 이동한다. 아직 운영 반영/merge/push 없음.

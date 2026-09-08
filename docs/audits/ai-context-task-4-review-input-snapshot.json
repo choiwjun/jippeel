@@ -1,0 +1,11 @@
+{
+  "base": "03bad73239e861b0f122d176fe6b014b28b278af",
+  "sha256": {
+    "scripts/ai_context_fake_llm_server.py": "c6f166142f0fd7edabce71e30ddba14e4c833bedb45c2e4becba11e3cebdf81e",
+    "scripts/ai_context_backend_fixture.py": "70ba234f2d618c6172e97494d32499f30e40384db2179a3a1299ffb31d612057",
+    "frontend/vite.ai-context.config.ts": "244ffe98e8595d1af5b060fc815ce7b6d50e9c29772d92900d2ed8c0d00ff6d9",
+    "frontend/playwright.ai-context.config.ts": "7d1e26226904afc4436d2814ef03747d8616948d9c02046296a89a08708d3bc9",
+    "frontend/e2e/ai-context-consistency.spec.ts": "427fdb373bb50b78ea5e4618bd96bf43cfa17c3018622bf2338c13a5dde658e1",
+    "docs/audits/ai-context-consistency-validation.md": "14cf6ce6e92af8903b26fc71386abec8e271eded91e28fdd3ec60f9017613167"
+  }
+}
