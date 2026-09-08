@@ -40,6 +40,7 @@ export type ManuscriptSnapshot = {
   storageError: string | null;
   conflict: ConflictState | null;
   recovery: RecoveryState | null;
+  recoveryActionPending: boolean;
   hasUnsaved: boolean;
   isFlushing: boolean;
 };
@@ -96,6 +97,7 @@ class ManuscriptDraftCoordinator {
   private inFlightSeq: number | null = null;
   private inFlightText: string | null = null;
   private initialized = false;
+  private recoveryActionId = 0;
 
   text = '';
   serverText = '';
@@ -107,6 +109,7 @@ class ManuscriptDraftCoordinator {
   storageError: string | null = null;
   conflict: ConflictState | null = null;
   recovery: RecoveryState | null = null;
+  recoveryActionPending = false;
   isFlushing = false;
 
   constructor(projectId: number, chapterId: number) {
@@ -130,6 +133,7 @@ class ManuscriptDraftCoordinator {
       storageError: this.storageError,
       conflict: this.conflict,
       recovery: this.recovery,
+      recoveryActionPending: this.recoveryActionPending,
       hasUnsaved: this.hasUnsaved(),
       isFlushing: this.isFlushing,
     };
@@ -241,10 +245,14 @@ class ManuscriptDraftCoordinator {
   }
 
   async clearRecovery() {
+    if (this.recoveryActionPending) return;
     const recovery = this.recovery;
     if (recovery?.kind === 'mismatch') {
-      await this.refreshRecoveryServerText();
-      const latest = this.recovery ?? recovery;
+      const refreshed = await this.refreshRecoveryServerText();
+      if (!refreshed || !this.unresolvedRecovery()) return;
+      const latest = this.recovery!;
+      this.recoveryActionId += 1;
+      this.recoveryActionPending = false;
       this.serverRevision = latest.serverRevision;
       this.serverText = latest.serverText;
       this.text = latest.serverText;
@@ -265,6 +273,8 @@ class ManuscriptDraftCoordinator {
   useRecoveryText(text: string) {
     const recovery = this.recovery;
     if (recovery?.kind === 'mismatch') {
+      this.recoveryActionId += 1;
+      this.recoveryActionPending = false;
       this.serverRevision = recovery.serverRevision;
       this.serverText = recovery.serverText;
     }
@@ -273,24 +283,40 @@ class ManuscriptDraftCoordinator {
     this.edit(text);
   }
 
-  async refreshRecoveryServerText() {
-    if (!this.unresolvedRecovery()) return;
+  async refreshRecoveryServerText(): Promise<boolean> {
+    if (!this.unresolvedRecovery() || this.recoveryActionPending) return false;
+    const actionId = this.recoveryActionId + 1;
+    this.recoveryActionId = actionId;
+    this.recoveryActionPending = true;
+    this.errorMessage = null;
+    this.saveState = 'conflict';
+    this.emit();
     try {
       const latest = await api.get<ChapterDetail>(`/chapters/${this.chapterId}`);
-      if (latest.id === this.chapterId && latest.project_id === this.projectId && this.unresolvedRecovery()) {
-        const serverRevision = latest.revision ?? this.serverRevision;
-        this.serverRevision = serverRevision;
-        this.serverText = latest.content_md;
-        this.recovery = { ...this.recovery!, serverText: latest.content_md, serverRevision };
-        this.errorMessage = null;
-        this.saveState = 'conflict';
-        this.emitAck(latest);
+      if (actionId !== this.recoveryActionId || !this.unresolvedRecovery()) return false;
+      if (latest.id !== this.chapterId || latest.project_id !== this.projectId) {
+        throw new Error('서버 원고 응답이 현재 회차와 맞지 않습니다.');
       }
-    } catch (error) {
-      this.errorMessage = apiMessage(error);
+      const serverRevision = latest.revision ?? this.serverRevision;
+      this.serverRevision = serverRevision;
+      this.serverText = latest.content_md;
+      this.recovery = { ...this.recovery!, serverText: latest.content_md, serverRevision };
+      this.errorMessage = null;
       this.saveState = 'conflict';
+      this.emitAck(latest);
+      return true;
+    } catch (error) {
+      if (actionId === this.recoveryActionId && this.unresolvedRecovery()) {
+        this.errorMessage = apiMessage(error);
+        this.saveState = 'conflict';
+      }
+      return false;
+    } finally {
+      if (actionId === this.recoveryActionId) {
+        this.recoveryActionPending = false;
+        this.emit();
+      }
     }
-    this.emit();
   }
 
   clearConflictKeepingLocal() {

@@ -458,6 +458,12 @@ function DraftPanels({
           <AlertDescription>
             <div className="flex flex-col gap-2">
               <p>{draft.recovery.message}</p>
+              {draft.errorMessage && draft.recovery.kind === 'mismatch' && (
+                <p className="text-sm font-semibold text-destructive">{draft.errorMessage}</p>
+              )}
+              {draft.recoveryActionPending && draft.recovery.kind === 'mismatch' && (
+                <p className="text-sm text-muted-foreground">서버 원고 확인 중…</p>
+              )}
               {draft.recovery.kind === 'mismatch' && (
                 <div className="grid gap-2 md:grid-cols-2">
                   <div>
@@ -469,16 +475,16 @@ function DraftPanels({
                     <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-sm bg-background p-2 font-serif text-xs">{draft.recovery.serverText}</pre>
                   </div>
                   <div className="col-span-full flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => draft.useRecoveryText(draft.recovery!.localText)}>
+                    <Button size="sm" variant="outline" disabled={draft.recoveryActionPending} onClick={() => draft.useRecoveryText(draft.recovery!.localText)}>
                       로컬 복구본 불러오기
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => void copy(draft.recovery!.localText, '로컬 복구본')}>
                       로컬 복구본 복사
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void draft.refreshRecoveryServerText()}>
+                    <Button size="sm" variant="ghost" disabled={draft.recoveryActionPending} onClick={() => void draft.refreshRecoveryServerText()}>
                       서버 원고 새로고침
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void draft.clearRecovery()}>
+                    <Button size="sm" variant="ghost" disabled={draft.recoveryActionPending} onClick={() => void draft.clearRecovery()}>
                       서버 원고로 계속
                     </Button>
                   </div>

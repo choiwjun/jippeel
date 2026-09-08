@@ -69,6 +69,9 @@ async function setupFixture(page: Page) {
   const heldAccepts: HeldRoute[] = [];
   const heldMerges: HeldRoute[] = [];
   const heldRestores: HeldRoute[] = [];
+  const heldChapterGets: HeldRoute[] = [];
+  let abortNextChapterGet = false;
+  let holdNextChapterGet = false;
   let abortNextSaveBeforeMutation = false;
   let abortNextSaveAfterMutation = false;
   let holdNextAccept = false;
@@ -105,6 +108,15 @@ async function setupFixture(page: Page) {
     }
     const chapterMatch = path.match(/^\/chapters\/(\d+)$/);
     if (method === 'GET' && chapterMatch) {
+      if (abortNextChapterGet) {
+        abortNextChapterGet = false;
+        return json(503, { detail: '서버 원고를 새로고침하지 못했습니다.' });
+      }
+      if (holdNextChapterGet) {
+        holdNextChapterGet = false;
+        heldChapterGets.push(new HeldRoute(route));
+        return;
+      }
       const c = chapters.get(Number(chapterMatch[1]));
       return c ? json(200, c) : json(404, { detail: 'not found' });
     }
@@ -225,6 +237,9 @@ async function setupFixture(page: Page) {
     heldAccepts,
     heldMerges,
     heldRestores,
+    heldChapterGets,
+    abortNextChapterGet: () => { abortNextChapterGet = true; },
+    holdNextChapterGet: () => { holdNextChapterGet = true; },
     holdNextAccept: () => { holdNextAccept = true; },
     holdNextMerge: () => { holdNextMerge = true; },
     holdNextRestore: () => { holdNextRestore = true; },
@@ -343,6 +358,69 @@ test.describe.serial('manuscript preservation frontend fixture', () => {
     await page.getByRole('button', { name: '서버 원고로 계속' }).click();
     await expect(page.locator('.cm-content')).toContainText('server body v2');
     expect(f.writes.some((w) => w.body.content_md === 'server body v1' || w.body.content_md === 'server body v2')).toBe(false);
+    expect(await storedDraft(page)).toBeNull();
+  });
+
+  test('failed server recovery choice keeps original draft locked until successful retry', async ({ page }) => {
+    const f = await setupFixture(page);
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server stale before retry', revision: 2 });
+    await page.addInitScript(() => localStorage.setItem('jippeel:manuscript-draft:v1:1:10', JSON.stringify({
+      projectId: 1,
+      chapterId: 10,
+      version: 1,
+      baseRevision: 0,
+      editSequence: 7,
+      text: 'local retry recovery',
+      updatedAt: 12345,
+    })));
+    await page.goto('/projects/1/write');
+    await expect(page.getByText('복구 선택 전에는 편집이 잠겨 있습니다.')).toBeVisible();
+
+    f.abortNextChapterGet();
+    await page.getByRole('button', { name: '서버 원고로 계속' }).click();
+    await expect(page.getByText('서버 원고를 새로고침하지 못했습니다.')).toBeVisible();
+    await expect(page.getByText('복구 선택 전에는 편집이 잠겨 있습니다.')).toBeVisible();
+    await expect(page.getByRole('alert').getByText('local retry recovery').first()).toBeVisible();
+    await expect(page.getByRole('alert').getByText('server stale before retry').first()).toBeVisible();
+    await expect(page.locator('.cm-content')).toHaveCount(0);
+    expect(await storedDraft(page)).toEqual({ projectId: 1, chapterId: 10, version: 1, text: 'local retry recovery', baseRevision: 0, editSequence: 7, updatedAt: 12345 });
+    expect(f.writes).toHaveLength(0);
+
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server latest after retry', revision: 3 });
+    await page.getByRole('button', { name: '서버 원고로 계속' }).click();
+    await expect(page.locator('.cm-content')).toContainText('server latest after retry');
+    expect(f.writes).toHaveLength(0);
+    expect(await storedDraft(page)).toBeNull();
+  });
+
+  test('server recovery choice disables competing actions while latest server body is pending', async ({ page }) => {
+    const f = await setupFixture(page);
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server body before pending', revision: 2 });
+    await page.addInitScript(() => localStorage.setItem('jippeel:manuscript-draft:v1:1:10', JSON.stringify({
+      projectId: 1,
+      chapterId: 10,
+      version: 1,
+      baseRevision: 0,
+      editSequence: 8,
+      text: 'local pending recovery',
+      updatedAt: 12345,
+    })));
+    await page.goto('/projects/1/write');
+    await expect(page.getByRole('button', { name: '서버 원고로 계속' })).toBeVisible();
+
+    f.chapters.set(10, { ...f.chapters.get(10)!, content_md: 'server body after pending', revision: 3 });
+    f.holdNextChapterGet();
+    await page.getByRole('button', { name: '서버 원고로 계속' }).evaluate((button) => (button as HTMLButtonElement).click());
+    await expect(page.getByRole('button', { name: '로컬 복구본 불러오기' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '서버 원고 새로고침' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '서버 원고로 계속' })).toBeDisabled();
+    await expect(page.getByText('서버 원고 확인 중…')).toBeVisible();
+    await expect.poll(() => f.heldChapterGets.length, { timeout: 5_000 }).toBe(1);
+    expect(await storedDraft(page)).toEqual({ projectId: 1, chapterId: 10, version: 1, text: 'local pending recovery', baseRevision: 0, editSequence: 8, updatedAt: 12345 });
+
+    await f.heldChapterGets[0].fulfill(f.chapters.get(10)!);
+    await expect(page.locator('.cm-content')).toContainText('server body after pending');
+    expect(f.writes).toHaveLength(0);
     expect(await storedDraft(page)).toBeNull();
   });
 

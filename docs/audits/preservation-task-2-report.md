@@ -333,3 +333,86 @@ The duplicate `build` key warning is pre-existing.
 ### Fix round 3 limitations
 - Still frontend fixture/browser QA only, not final real integration.
 - No backend, QA script, `HANDOFF.md`, production DB, live LLM, dependency install, push, merge, or child review was used.
+
+## Fix round 4 — recovery refresh failure and pending choice lifecycle
+
+Review source: `docs/audits/preservation-final-spec-rereview-2.md`.
+
+Changes made after commit `e9bcf86`:
+- `refreshRecoveryServerText()` now returns an explicit success/failure boolean.
+- Failed server refresh/server-choice GETs keep the unresolved recovery state, editor lock, and original browser draft intact.
+- Refresh failures show the backend/API error in the recovery panel and leave retry/local-choice available.
+- `clearRecovery()` only clears recovery and browser storage after a successful latest server-body refresh.
+- Added a `recoveryActionPending` snapshot flag and a recovery action id.
+- While a recovery server refresh/server-choice request is pending, local/server choice controls are visibly disabled and a Korean pending message is shown.
+- Stale delayed recovery action responses are ignored if another recovery decision invalidates that action.
+
+### Fix round 4 red evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result before production fix, with the new failed-server-choice probe:
+
+```text
+Running 17 tests using 1 worker
+✓ serializes delayed per-chapter saves and preserves newer typing
+✓ project switch rejects stale selected chapters and never writes under the new project context
+✓ unresolved mismatched recovery locks editing, survives reload, and local choice remains recoverable while saving
+✓ server choice refreshes to latest paired server body and never PUTs stale displayed text
+✘ failed server recovery choice keeps original draft locked until successful retry
+Error: expect(locator).toBeVisible() failed
+Locator: getByText('서버 원고를 새로고침하지 못했습니다.')
+Expected: visible
+1 failed, 12 did not run, 4 passed
+```
+
+This reproduced the re-review issue: failed server-choice refresh did not keep a visible failed-unresolved recovery state.
+
+### Fix round 4 green evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npx playwright test --config playwright.preservation.config.ts --reporter=list
+```
+
+Result:
+
+```text
+Running 17 tests using 1 worker
+17 passed (21.0s)
+```
+
+The expanded fixture includes:
+- failed server-choice GET leaves the exact original localStorage draft, lock, recovery UI, and no PUT;
+- retry after the failure resolves to the latest paired server body/revision with no PUT;
+- delayed server-choice latest-body GET disables competing local/server choice controls while pending, then resolves with no PUT.
+
+The fixture run used dedicated `127.0.0.1:15224`, `reuseExistingServer: false`, with all `/api/v1/*` requests mocked/guarded.
+
+### Fix round 4 build evidence
+Command:
+
+```cmd
+cd /d C:\Users\wj941\Documents\jippeel\frontend && npm run build
+```
+
+Result:
+
+```text
+> jippeel-frontend@0.1.0 build
+> tsc -b && vite build
+
+▲ [WARNING] Duplicate key "build" in object literal [duplicate-object-key]
+vite v5.4.21 building for production...
+✓ 229 modules transformed.
+✓ built in 2.88s
+```
+
+The duplicate `build` key warning is pre-existing.
+
+### Fix round 4 limitations
+- Still frontend fixture/browser QA only, not final real integration.
+- No backend, QA script, `HANDOFF.md`, production DB, live LLM, dependency install, push, merge, or child review was used.
