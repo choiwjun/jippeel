@@ -1,0 +1,451 @@
+{
+  "started_at": "2026-09-07T22:58:35.844149+00:00",
+  "host": "127.0.0.1",
+  "port": 18080,
+  "project_root": "C:\\Users\\wj941\\Documents\\jippeel",
+  "python_executable": "C:\\Users\\wj941\\Documents\\jippeel\\backend\\.venv\\Scripts\\python.exe",
+  "status": "passed",
+  "work_dir": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg",
+  "database_url": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-preservation-qa-mtpaadtg/fixture.db",
+  "db_path": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg\\fixture.db",
+  "backup_path": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg\\fixture-backup.db",
+  "im_not_ai_root": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg\\im-not-ai-stub-root",
+  "stub_log": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg\\refine-stub-calls.jsonl",
+  "jippeel_allow_temp_create_all": null,
+  "alembic_log": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg\\alembic-upgrade-head.json",
+  "backend_pid": 16700,
+  "backend_log": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg\\backend-18080.log",
+  "health": "ok",
+  "api_probe": {
+    "synthetic": {
+      "project_title": "QA 원고 보존 합성 작품",
+      "chapter_title": "합성 회차 1",
+      "initial_content": "첫 문장입니다. 두 번째 문장입니다. 보존 검증용 합성 원고입니다.",
+      "stale_content": "이 문장은 오래된 revision으로 저장되어서는 안 됩니다.",
+      "volume_title": "합성 1권",
+      "character_names": [
+        "합성 주인공",
+        "합성 조력자"
+      ],
+      "lore_title": "합성 도시",
+      "scene_title": "합성 장면",
+      "foreshadow_title": "합성 붉은 열쇠"
+    },
+    "fixture_ids": {
+      "project_id": 1,
+      "volume_note_id": 1,
+      "chapter_id": 1,
+      "character_ids": [
+        1,
+        2
+      ],
+      "relationship_id": 1,
+      "lore_id": 1,
+      "scene_id": 1,
+      "foreshadow_id": 1,
+      "refine_run_id": 1,
+      "refine_snapshot_id": 2
+    },
+    "project_id": 1,
+    "chapter_id": 1,
+    "steps": [
+      {
+        "name": "create synthetic project",
+        "project_id": 1
+      },
+      {
+        "name": "create synthetic volume note",
+        "volume_note_id": 1
+      },
+      {
+        "name": "create synthetic chapter",
+        "chapter_id": 1,
+        "revision": 0
+      },
+      {
+        "name": "create synthetic characters",
+        "character_ids": [
+          1,
+          2
+        ]
+      },
+      {
+        "name": "create synthetic relationship",
+        "relationship_id": 1
+      },
+      {
+        "name": "create synthetic lore",
+        "lore_id": 1
+      },
+      {
+        "name": "create synthetic scene",
+        "scene_id": 1
+      },
+      {
+        "name": "create synthetic foreshadow",
+        "foreshadow_id": 1
+      },
+      {
+        "name": "initial content save",
+        "revision": 1
+      },
+      {
+        "name": "stale write rejected",
+        "status": 409,
+        "detail": {
+          "code": "revision_conflict",
+          "message": "원고가 다른 곳에서 먼저 저장되었습니다. 최신 원고를 확인한 뒤 다시 시도하세요.",
+          "current_revision": 1
+        }
+      },
+      {
+        "name": "stale refine rejected before stub",
+        "status": 409,
+        "stub_calls": 0
+      },
+      {
+        "name": "valid refine uses stub",
+        "run_id": 1,
+        "gate": "pass"
+      },
+      {
+        "name": "accept refine",
+        "revision": 2
+      },
+      {
+        "name": "snapshot detail preserves pre-image",
+        "snapshot_id": 2
+      },
+      {
+        "name": "snapshot restore",
+        "revision": 3
+      }
+    ],
+    "final_revision": 3,
+    "stub_calls": 1
+  },
+  "backup_comparison": {
+    "alembic_version": {
+      "columns": [
+        "version_num"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          "0a1b2c3d4e5f"
+        ]
+      ]
+    },
+    "projects": {
+      "columns": [
+        "id",
+        "title",
+        "genre",
+        "synopsis",
+        "platform_note",
+        "created_at",
+        "updated_at",
+        "memo",
+        "style_profile"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          "QA 원고 보존 합성 작품",
+          "QA",
+          "synthetic only",
+          "no real endpoint",
+          "2026-09-07 22:58:40.647936",
+          "2026-09-07 22:58:40.647942",
+          null,
+          null
+        ]
+      ]
+    },
+    "chapters": {
+      "columns": [
+        "id",
+        "project_id",
+        "volume",
+        "sort_order",
+        "title",
+        "content_md",
+        "status",
+        "word_count_cache",
+        "memo",
+        "created_at",
+        "updated_at",
+        "revision"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          1,
+          1,
+          1.0,
+          "합성 회차 1",
+          "첫 문장입니다. 두 번째 문장입니다. 보존 검증용 합성 원고입니다.",
+          "초고",
+          26,
+          null,
+          "2026-09-07 22:58:40.681044",
+          "2026-09-07 22:58:41.976713",
+          3
+        ]
+      ]
+    },
+    "chapter_snapshots": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "revision",
+        "content_md",
+        "reason",
+        "created_at"
+      ],
+      "row_count": 3,
+      "rows": [
+        [
+          1,
+          1,
+          0,
+          "",
+          "autosave",
+          "2026-09-07 22:58:40.849620"
+        ],
+        [
+          2,
+          1,
+          1,
+          "첫 문장입니다. 두 번째 문장입니다. 보존 검증용 합성 원고입니다.",
+          "refine",
+          "2026-09-07 22:58:41.930860"
+        ],
+        [
+          3,
+          1,
+          2,
+          "첫 문장입니다. 두 번째 문장입니다. 보존 검증용 합성 원고입니다.\n\n[QA 윤문 stub]",
+          "restore",
+          "2026-09-07 22:58:41.977916"
+        ]
+      ]
+    },
+    "refine_runs": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "route_hint",
+        "changed_ratio",
+        "report_json",
+        "result_text",
+        "accepted",
+        "base_revision"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          1,
+          "light",
+          0.01,
+          "{\"gate\": \"pass\", \"status\": \"ok\", \"spans\": [], \"metrics\": {\"route_hint\": \"light\", \"genre\": \"essay\", \"qa_stub\": true, \"char_count\": 37}, \"gates_raw\": {\"qa_stub\": true, \"genre\": \"essay\", \"before_chars\": 37, \"after_chars\": 51, \"change_rate\": {\"rate\": 0.01}, \"gates\": []}, \"original_text\": \"\\uccab \\ubb38\\uc7a5\\uc785\\ub2c8\\ub2e4. \\ub450 \\ubc88\\uc9f8 \\ubb38\\uc7a5\\uc785\\ub2c8\\ub2e4. \\ubcf4\\uc874 \\uac80\\uc99d\\uc6a9 \\ud569\\uc131 \\uc6d0\\uace0\\uc785\\ub2c8\\ub2e4.\"}",
+          "첫 문장입니다. 두 번째 문장입니다. 보존 검증용 합성 원고입니다.\n\n[QA 윤문 stub]",
+          1,
+          1
+        ]
+      ]
+    },
+    "volume_notes": {
+      "columns": [
+        "id",
+        "project_id",
+        "volume",
+        "title",
+        "overview",
+        "emotion_curve",
+        "climax_note",
+        "created_at",
+        "updated_at"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          1,
+          1,
+          "합성 1권",
+          "합성 권 개요입니다.",
+          "불안→발견→결심",
+          "합성 고봉에서 붉은 열쇠가 드러납니다.",
+          "2026-09-07 22:58:40.675885",
+          "2026-09-07 22:58:40.675888"
+        ]
+      ]
+    },
+    "characters": {
+      "columns": [
+        "id",
+        "project_id",
+        "name",
+        "aliases",
+        "role",
+        "appearance",
+        "personality",
+        "speech_style",
+        "background",
+        "card_json",
+        "created_at",
+        "updated_at"
+      ],
+      "row_count": 2,
+      "rows": [
+        [
+          1,
+          1,
+          "합성 주인공",
+          "[\"QA-A\"]",
+          "주연",
+          "합성 검은 코트",
+          "침착함",
+          "짧게 말함",
+          "테스트 전용 인물",
+          "{\"qa\": true, \"preservation\": {\"slot\": \"character-a\"}}",
+          "2026-09-07 22:58:40.706200",
+          "2026-09-07 22:58:40.706203"
+        ],
+        [
+          2,
+          1,
+          "합성 조력자",
+          "[\"QA-B\"]",
+          "조연",
+          "합성 은색 펜",
+          "호기심 많음",
+          "질문형",
+          "관계 백업 검증용 인물",
+          "{\"qa\": true, \"preservation\": {\"slot\": \"character-b\"}}",
+          "2026-09-07 22:58:40.714482",
+          "2026-09-07 22:58:40.714487"
+        ]
+      ]
+    },
+    "relationships": {
+      "columns": [
+        "id",
+        "from_character_id",
+        "to_character_id",
+        "label",
+        "note"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          1,
+          2,
+          "합성 동료",
+          "백업 비교용 관계입니다."
+        ]
+      ]
+    },
+    "lore_entries": {
+      "columns": [
+        "id",
+        "project_id",
+        "category",
+        "title",
+        "content",
+        "keywords",
+        "created_at",
+        "updated_at"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          1,
+          "장소",
+          "합성 도시",
+          "백업 비교용 합성 로어 항목입니다.",
+          "[\"\\ud569\\uc131\\ub3c4\\uc2dc\", \"QA\\ub85c\\uc5b4\"]",
+          "2026-09-07 22:58:40.754845",
+          "2026-09-07 22:58:40.754849"
+        ]
+      ]
+    },
+    "scenes": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "sort_order",
+        "title",
+        "content_md",
+        "created_at",
+        "updated_at"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          1,
+          1.0,
+          "합성 장면",
+          "합성 장면 본문입니다. 붉은 열쇠가 탁자에 놓입니다.",
+          "2026-09-07 22:58:40.789983",
+          "2026-09-07 22:58:40.789987"
+        ]
+      ]
+    },
+    "foreshadows": {
+      "columns": [
+        "id",
+        "project_id",
+        "title",
+        "content",
+        "keywords",
+        "status",
+        "planted_chapter_id",
+        "resolved_chapter_id",
+        "created_at",
+        "updated_at",
+        "audience_knows"
+      ],
+      "row_count": 1,
+      "rows": [
+        [
+          1,
+          1,
+          "합성 붉은 열쇠",
+          "나중에 문을 여는 합성 복선입니다.",
+          "[\"\\ubd89\\uc740 \\uc5f4\\uc1e0\", \"\\ud569\\uc131 \\ubb38\"]",
+          "설치",
+          1,
+          null,
+          "2026-09-07 22:58:40.820698",
+          "2026-09-07 22:58:40.820701",
+          0
+        ]
+      ]
+    }
+  },
+  "validated": [
+    "Alembic upgrade head on a new temp SQLite DB before strict startup",
+    "backend API stale write/refine conflict handling with deterministic stubs",
+    "snapshot detail and restore for a synthetic manuscript",
+    "SQLite Connection.backup from read-only source URI to a new destination DB",
+    "exact full-row equality for selected creative and manuscript/history tables"
+  ],
+  "not_validated": [
+    "production DB, WAL/SHM, config, secrets, or real endpoints",
+    "encryption keys or credential restore",
+    "OS-level bare file copy/restore of loose DB/WAL/SHM files",
+    "paid model calls or LLM quality",
+    "frontend/browser integration or UI behavior"
+  ],
+  "finished_at": "2026-09-07T22:58:42.019192+00:00",
+  "result_json": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-preservation-qa-mtpaadtg\\preservation-fixture-result.json",
+  "keep_server": false
+}
