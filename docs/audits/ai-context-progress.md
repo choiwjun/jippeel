@@ -91,3 +91,13 @@
 ## T2 검증 완료
 - 독립 Spec PASS / Quality PASS. S1 해소; 실제 전달 문구 재현 및 조합4/owned91 통과.
 - 부모가 최종 hash를 재대조하고 native 임시 DB 전체 backend269개 통과를 확인했다(`ai-context-task-2-parent-backend.txt`). 회차 목적·복선 허용 규칙의 백엔드 검증 완료이며 화면/실제 통합은 아직 남아 있다.
+
+- T3 구현자 완료 보고: native build + 신규 fixture4 + 기존 보존 fixture17 + backend호환35 통과. 아직 독립 승인 전. `ai-context-task-3-review-diff.txt`에 source/test/config 한정 변경과 신규파일/hash를 고정했고 새 `ai-context-task-3-reviewer`가 실제 lifecycle/브라우저 요청·편집 결과 및 native build/fixture를 검토한다. 원 구현자는 수정 대기, T4 실행/커밋 보류.
+
+- T3 독립 검토: build/신규fixture4/보존fixture17 통과이나 Spec/Quality NEEDS FIXES. High: 회차A canon POST를 지연시키고 B로 이동 후 이전 응답을 받으면 B dialog에 A issue가 보이는 것을 실제 브라우저로 재현했다. 부모가 원 구현자에 응답 시점 token/회차/수정본 소유권, 닫기/재열기/왕복 이동, 늦은 오류·결과와 새 요청 경합까지 fix round1 배정했다. T4/커밋 보류.
+
+- T3 fix round1 완료 보고: CanonDialog와 fixture 테스트만 수정. 늦은 응답 token/lifetime/작품·회차 소유권 확인 및 origin revision/hash 표시를 추가했다. RED 재현→신규fixture7/별도재현2/보존17/build 통과(구현자 기록). 원 검토자가 고정 hash로 재검토하고 부모도 native build 실행 중이다. T4/커밋은 여전히 독립 PASS 후 진행한다.
+
+## T3 검증 완료
+- 초기 독립 검토의 단일 High stale-canon 결함이 scoped 재검토 Spec/Quality PASS로 해소됐다. reviewer가 별도재현2/신규fixture7/보존fixture17/build를 새로 통과하고 전후 소스 hash 일치를 확인했다.
+- 부모도 최종 hash와 native build PASS를 확인했다(`ai-context-task-3-parent-build.txt`). 이 단계는 UI fixture 검증이며 실제 API/SQLite/provider 통합 T4는 아직 실행 전이다.

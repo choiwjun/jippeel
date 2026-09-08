@@ -59,6 +59,11 @@ export function EditorPage() {
   }, [pid, setContext]);
 
   useEffect(() => {
+    useAiPanelStore.getState().setCurrentIdentity(Number.isFinite(pid) ? pid : null, chapterId);
+    return () => useAiPanelStore.getState().setCurrentIdentity(null, null);
+  }, [pid, chapterId]);
+
+  useEffect(() => {
     if (!chaptersQuery.data) return;
     const sorted = [...chaptersQuery.data].sort(
       (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
@@ -205,10 +210,11 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
           if (next === '완료') {
             void (async () => {
               try {
-                const q = await api.get<{ hook_present: boolean; suggested_preset_names: string[] }>(
-                  `/chapters/${chapterId}/quality?record=false`);
-                if (!q.hook_present) {
-                  toast('후크 없이 완료 처리됩니다 — 마지막 문장을 "장 끝 후크" 프리셋으로 다듬으면 다음 화 클릭률이 올라갑니다.', 'warning');
+                const purpose = useAiPanelStore.getState().getDirectives(pid, chapterId).episodePurpose;
+                const q = await api.get<{ metrics: { hook_present: boolean; hook_score_applicable?: boolean }; suggested_preset_names: string[] }>(
+                  `/chapters/${chapterId}/quality?record=false&episode_purpose=${purpose}`);
+                if (q.metrics.hook_score_applicable !== false && !q.metrics.hook_present) {
+                  toast('연재화 목적에서 후크 없이 완료 처리됩니다 — 마지막 문장을 "장 끝 후크" 프리셋으로 다듬을지 확인하세요.', 'warning');
                 }
               } catch { /* 점검 실패는 침묵 */ }
             })();

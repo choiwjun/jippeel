@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { AiContextControls } from '@/components/editor/AiContextControls';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -21,6 +23,7 @@ export interface QualityMetrics {
   connector_per_1k: number;
   para_opener_variety: number;
   hook_present: boolean;
+  hook_score_applicable?: boolean;
   para_count: number;
   /** im-not-ai 정량 엔진 병합분 (G-071) — 스킬 미설치 시 없음 */
   v2?: { risk_band?: string; risk_score?: number };
@@ -89,11 +92,14 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
   const presets = useAiPanelStore((s) => s.presetId);
   const openAiPanel = useAiPanelStore((s) => s.open);
   const queryClient = useQueryClient();
+  const projectId = useEditorStore((s) => s.projectId);
+  const selectedCharacterCount = useAiPanelStore((s) => s.contextSelection.characterIds.length);
+  const directives = useAiPanelStore((s) => s.getDirectives(projectId, chapterId));
   void presets;
 
   const qualityQuery = useQuery({
-    queryKey: ['quality', chapterId],
-    queryFn: () => api.get<ChapterQuality>(`/chapters/${chapterId}/quality`),
+    queryKey: ['quality', chapterId, directives.episodePurpose],
+    queryFn: () => api.get<ChapterQuality>(`/chapters/${chapterId}/quality?episode_purpose=${directives.episodePurpose}`),
     enabled: chapterId !== null && open,
   });
   const q = qualityQuery.data;
@@ -132,7 +138,7 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
   const scoreColor = q == null ? '' : q.score >= 80 ? 'text-success' : q.score >= 60 ? 'text-warning' : 'text-destructive';
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
       <Button
         size="sm"
         variant="outline"
@@ -142,10 +148,17 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
       >
         품질 진단
       </Button>
-      <DialogContent className="max-w-lg">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>회차 품질 진단 (로컬 규칙 기반)</DialogTitle>
         </DialogHeader>
+        <AiContextControls
+          projectId={projectId}
+          chapterId={chapterId}
+          selectedCharacterCount={selectedCharacterCount}
+          showForeshadows={false}
+        />
         {qualityQuery.isPending && (
           <p className="text-sm text-muted-foreground">계산 중…</p>
         )}
@@ -167,7 +180,7 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
               <div className="flex justify-between"><dt className="text-muted-foreground">평균 문단</dt><dd>{q.metrics.avg_para_chars}자</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">어미 반복/1k</dt><dd>{q.metrics.ending_repeat_per_1k}회</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">접속사/1k</dt><dd>{q.metrics.connector_per_1k}회</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">후크(끝 300자)</dt><dd>{q.metrics.hook_present ? '있음' : '없음'}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">후크(끝 300자)</dt><dd>{q.metrics.hook_score_applicable === false ? '해당 없음' : q.metrics.hook_present ? '있음' : '없음'}</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">공백제외 글자</dt><dd>{q.metrics.chars_novelpia.toLocaleString()}자</dd></div>
             </dl>
             {q.metrics.v2?.risk_band && (
@@ -218,7 +231,8 @@ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
             </p>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -1,0 +1,21 @@
+{
+  "base": "46b1ec2704e1d0bb4a3c2abef8f862bb56631937",
+  "round": 1,
+  "scope": "Task3 owned source/test/config only; parent HANDOFF/progress and preexisting files excluded",
+  "changed_since_initial_review": [
+    "frontend/src/components/editor/CanonDialog.tsx",
+    "frontend/e2e/ai-context-ui.spec.ts"
+  ],
+  "sha256": {
+    "frontend/src/stores/aiPanelStore.ts": "f2e07de46db9ee549f7edff45840c7f664f7ac22dd4c8249cba913cf8a64bfc0",
+    "frontend/src/components/panels/AiPanel.tsx": "193a27c66bc1d041d812e0b06c7b2eb074c1cfb0c79be0c9de2070fbf788fb31",
+    "frontend/src/components/editor/CanonDialog.tsx": "7eb3d5ce04903b6cdaaf3f35327abcbaa1041aa061ae12c8eaa2136058e273eb",
+    "frontend/src/components/editor/QualityDialog.tsx": "1ac11a793afd69e231f818f56a8ca3a381934677e7534e6dffffc0391b1210ca",
+    "frontend/src/pages/EditorPage.tsx": "578948a3ae1d2dc3ab3734e96a6bb375f2a4f6e2138e80097befefe768969d3d",
+    "frontend/src/lib/aiStream.ts": "84ffb6c258528b939330314ff992b434b2b550d8fadeffd78680fcb71d64f768",
+    "frontend/src/components/editor/AiContextControls.tsx": "2765f4cc0453f891c975551ba463ee51dda30da00bf21bb85f9c0eb4314659d9",
+    "frontend/e2e/ai-context-ui.spec.ts": "de806660725cc41ae4162b20bb25a91163f253617ff355fbc0342e44332d5d2f",
+    "frontend/playwright.ai-context.fixture.config.ts": "b0b41da073b8a59ec22fee654c8b6b1e7419f051b543ee1afb45028b2bad09b6",
+    "frontend/vite.ai-context.fixture.config.ts": "a17af72251710c2dc9c6efc1aa9eddfa9369f9f42a0e2bfa1a47ebfb7d012a91"
+  }
+}

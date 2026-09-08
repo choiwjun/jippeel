@@ -1,0 +1,18 @@
+Native Windows CRLF files retained; no source normalization.
+{
+  "frontend/src/components/panels/AiPanel.tsx": {
+    "crlf": 1110,
+    "lf": 1110
+  },
+  "frontend/src/lib/aiStream.ts": {
+    "crlf": 251,
+    "lf": 251
+  },
+  "frontend/src/pages/EditorPage.tsx": {
+    "crlf": 595,
+    "lf": 595
+  }
+}
+Command: git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol diff --check -- <Task3 owned source/test/config paths>
+exit_code=0; output empty.
+Default Linux git whitespace check treated CR at line ending as trailing whitespace; semantic source hashes remain those independently reviewed.

@@ -10,8 +10,10 @@ import { ShieldCheckIcon, CloudUploadIcon } from '@/components/ui/icons';
 import { useQuery } from '@tanstack/react-query';
 import { api, type AiEndpoint, type ChapterDetail, type PromptPreset, volumeLabel } from '@/lib/api';
 import { streamGenerate, streamParallelGenerate } from '@/lib/aiStream';
-import { useAiPanelStore } from '@/stores/aiPanelStore';
+import { useAiPanelStore, type AiPanelState, type AiResultOrigin, type EpisodeBriefState, type EpisodePurpose } from '@/stores/aiPanelStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { flushManuscriptDraft } from '@/lib/manuscriptDrafts';
+import { AiContextControls } from '@/components/editor/AiContextControls';
 import { toast } from '@/components/ui/toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
+import { SceneManager, type Scene } from '@/components/panels/SceneManager';
 
 /**
  * 회차 브리프 직렬화 — 성공 시 전송 객체, 실패 시 사유를 반환한다.
@@ -33,7 +36,7 @@ type ParsedBrief =
   | { ok: false; reason: 'incomplete' }
   | { ok: false; reason: 'invalid'; message: string };
 
-function parseEpisodeBrief(brief: EpisodeBriefState): ParsedBrief {
+function parseEpisodeBrief(brief: EpisodeBriefState, episodePurpose: EpisodePurpose = 'serial'): ParsedBrief {
   const lines = (raw: string) =>
     raw.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
   const emotionGoal = brief.emotion_goal.trim();
@@ -42,10 +45,14 @@ function parseEpisodeBrief(brief: EpisodeBriefState): ParsedBrief {
   const cost = brief.cost.trim();
   const prohibitions = lines(brief.prohibitions);
   const nextHook = brief.next_hook.trim();
-  if (
-    !emotionGoal || coreEvents.length === 0 || characterChoices.length === 0
-    || !cost || prohibitions.length === 0 || !nextHook
-  ) {
+  const endingIntent = brief.ending_intent.trim();
+  const baseFilled = emotionGoal && coreEvents.length > 0 && characterChoices.length > 0 && cost && prohibitions.length > 0;
+  const purposeFilled = episodePurpose === 'serial'
+    ? nextHook.length > 0
+    : episodePurpose === 'volume_end'
+      ? nextHook.length > 0 || endingIntent.length > 0
+      : endingIntent.length > 0;
+  if (!baseFilled || !purposeFilled) {
     return { ok: false, reason: 'incomplete' };
   }
   // 백엔드 EpisodeBrief 계약 — 위반 시 422가 되므로 전송하지 않는다
@@ -67,6 +74,9 @@ function parseEpisodeBrief(brief: EpisodeBriefState): ParsedBrief {
   if (nextHook.length > 500) {
     return { ok: false, reason: 'invalid', message: '다음 화 훅은 500자 이내로 입력하세요.' };
   }
+  if (endingIntent.length > 500) {
+    return { ok: false, reason: 'invalid', message: '엔딩 의도는 500자 이내로 입력하세요.' };
+  }
   if ([...coreEvents, ...characterChoices, ...prohibitions].some((s) => s.length > 500)) {
     return { ok: false, reason: 'invalid', message: '브리프 항목 하나는 500자 이내로 입력하세요.' };
   }
@@ -83,11 +93,21 @@ function parseEpisodeBrief(brief: EpisodeBriefState): ParsedBrief {
     character_choices: characterChoices,
     cost,
     prohibitions,
-    next_hook: nextHook,
   };
+  if (nextHook) out.next_hook = nextHook;
+  if (endingIntent) out.ending_intent = endingIntent;
   if (brief.scene_type) out.scene_type = brief.scene_type;
   if (brief.target_chars_novelpia !== '') out.target_chars_novelpia = target;
   return { ok: true, brief: out };
+}
+
+function resultMatchesCurrentEditor(origin: AiResultOrigin | null) {
+  if (!origin || origin.projectId === null || origin.chapterId === null) return false;
+  const editor = useEditorStore.getState();
+  return editor.projectId === origin.projectId
+    && editor.chapterId === origin.chapterId
+    && editor.view !== null
+    && editor.saveState !== 'conflict';
 }
 
 export function AiPanel() {
@@ -178,124 +198,191 @@ export function AiPanel() {
    * 패널 의도적 닫힘(close/toggle-off) 시에만 store.close()가 abort한다.
    */
   const generate = useCallback(() => {
-    const store = useAiPanelStore.getState();
-    if (!activeEndpoint) {
-      if (endpointsQuery.isLoading || presetsQuery.isLoading) {
-        // 조기 반환 금지 — 안내 후 settle 시 1회 자동 재시도(아래 effect)
-        if (!store.pendingGenerate) {
-          store.setPendingGenerate(true);
-          toast('엔드포인트를 불러오는 중입니다. 완료되면 자동으로 시작합니다.', 'info');
+    void (async () => {
+      const store = useAiPanelStore.getState();
+      if (!activeEndpoint) {
+        if (endpointsQuery.isLoading || presetsQuery.isLoading) {
+          // 조기 반환 금지 — 안내 후 settle 시 1회 자동 재시도(아래 effect)
+          if (!store.pendingGenerate) {
+            store.setPendingGenerate(true);
+            toast('엔드포인트를 불러오는 중입니다. 완료되면 자동으로 시작합니다.', 'info');
+          }
+          return;
         }
+        toast('AI 엔드포인트를 먼저 등록하세요 (S7 설정).', 'warning');
         return;
       }
-      toast('AI 엔드포인트를 먼저 등록하세요 (S7 설정).', 'warning');
-      return;
-    }
-    if (!store.presetId && !store.promptOverride.trim()) {
-      toast('프리셋을 고르거나 프롬프트를 입력하세요.', 'warning');
-      return;
-    }
-    const c = store.contextSelection;
-    // 회차 브리프 — 필수 항목이 모두 채워졌을 때만 context.brief로 전송.
-    // 검증 위반(개수·500자·목표 글자 수 범위)은 조용히 버리지 않고 경고 후 미전송한다.
-    const parsedBrief = parseEpisodeBrief(store.episodeBrief);
-    if (!parsedBrief.ok && parsedBrief.reason === 'invalid') {
-      toast(`브리프를 전송하지 않습니다 — ${parsedBrief.message}`, 'warning');
-    }
-    const brief = parsedBrief.ok ? parsedBrief.brief : null;
-    const parallel = store.generationMode === 'parallel';
-    const body = {
-      endpoint_id: activeEndpoint.id,
-      preset_id: store.presetId,
-      prompt_override: store.promptOverride.trim() || null,
-      context: {
-        chapter_id: c.includeChapter ? c.chapterId : null,
-        character_ids: c.includeCharacters ? c.characterIds : [],
-        lore_ids: c.includeLore ? c.loreIds : [],
-        auto_lore: c.autoLore,
-        auto_lore_semantic: c.autoLoreSemantic,
-        auto_outline: c.autoOutline,
-        auto_foreshadow: c.autoForeshadow,
-        scene_id: c.sceneId,
-        style_profile: c.styleProfile,
-        ...(brief ? { brief } : {}),
-      },
-      params: {
-        model: store.model || undefined,
-        temperature: activeEndpoint?.temperature == null ? undefined : store.temperature,
-        max_tokens: store.maxTokens,
-      },
-      ...(parallel
-        ? {
-            worker_limit: store.workerLimit,
-            generation_reasoning_effort: 'medium',
-            review: {
-              endpoint_id: reviewEndpoint?.id ?? activeEndpoint.id,
-              model: store.parallelReviewModel || undefined,
-              reasoning_effort: store.parallelReviewEffort || 'xhigh',
-            },
-          }
-        : {
-            review: store.reviewPass
-              ? { reasoning_effort: store.reviewEffort || undefined }
-              : null,
-          }),
-    };
-    store.startStream();
-    const stream = parallel ? streamParallelGenerate : streamGenerate;
-    useAiPanelStore.getState().setAbort(stream(body, {
-      onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
-      onStart: (info) => {
-        const st = useAiPanelStore.getState();
-        st.setInjectedLore(info.injectedLore);
-        st.setInjectedForeshadows(info.injectedForeshadows);
-        st.setInjectedOutline(info.injectedOutline);
-      },
-      onParallelStart: (info) => {
-        const st = useAiPanelStore.getState();
-        st.setInjectedLore(info.injectedLore);
-        st.setInjectedForeshadows(info.injectedForeshadows);
-        st.setInjectedOutline(info.injectedOutline);
-        st.setParallelProgress({ phase: 'planning', sceneCount: 0, started: 0, completed: 0, workerLimit: info.workerLimit });
-      },
-      onPlannerDone: (info) => useAiPanelStore.getState().setParallelProgress({
-        phase: 'workers', sceneCount: info.sceneCount, started: 0, completed: 0,
-      }),
-      onWorkerStart: () => {
-        const st = useAiPanelStore.getState();
-        st.setParallelProgress({ started: st.parallelProgress.started + 1 });
-      },
-      onWorkerDone: () => {
-        const st = useAiPanelStore.getState();
-        st.setParallelProgress({ completed: st.parallelProgress.completed + 1 });
-      },
-      onReviewStart: (info) => {
-        const st = useAiPanelStore.getState();
-        st.setReviewInfo({ model: info.model, endpoint: info.endpoint });
-        st.setParallelProgress({ phase: 'review' });
-        if (st.resultTab !== 'review') st.setResultTab('review');
-      },
-      onReviewChunk: (d) => useAiPanelStore.getState().appendReviewChunk(d),
-      onRefinedChunk: (d) => {
-        const st = useAiPanelStore.getState();
-        if (st.resultTab !== 'refined') st.setResultTab('refined');
-        st.appendRefinedChunk(d);
-      },
-      onReviewError: (msg) => toast(msg, 'warning'),
-      onParallelError: (msg, stage) => {
-        if (stage === 'generation') useAiPanelStore.getState().failStream(msg);
-        toast(msg, stage === 'review' ? 'warning' : 'error');
-      },
-      onDone: () => {
-        if (useAiPanelStore.getState().status === 'streaming') {
-          useAiPanelStore.getState().finishStream();
+      if (!store.presetId && !store.promptOverride.trim()) {
+        toast('프리셋을 고르거나 프롬프트를 입력하세요.', 'warning');
+        return;
+      }
+      const startToken = store.reserveAiStart('generate');
+      if (startToken === null) return;
+
+      const editorBefore = useEditorStore.getState();
+      const currentProjectId = editorBefore.projectId;
+      const currentChapterId = editorBefore.chapterId;
+      const c = structuredClone(store.contextSelection);
+      const directives = structuredClone(store.getDirectives(currentProjectId, currentChapterId));
+      const parsedBrief = parseEpisodeBrief(structuredClone(store.episodeBrief), directives.episodePurpose);
+      if (!parsedBrief.ok && parsedBrief.reason === 'invalid') {
+        toast(`브리프를 전송하지 않습니다 — ${parsedBrief.message}`, 'warning');
+      }
+      const brief = parsedBrief.ok ? structuredClone(parsedBrief.brief) : null;
+      const settingsSnapshot = {
+        generationMode: store.generationMode,
+        endpointId: activeEndpoint.id,
+        endpointHasTemperature: activeEndpoint.temperature != null,
+        presetId: store.presetId,
+        promptOverride: store.promptOverride.trim(),
+        model: store.model,
+        maxTokens: store.maxTokens,
+        temperature: store.temperature,
+        reviewPass: store.reviewPass,
+        reviewEffort: store.reviewEffort,
+        workerLimit: store.workerLimit,
+        reviewEndpointId: reviewEndpoint?.id ?? activeEndpoint.id,
+        parallelReviewModel: store.parallelReviewModel,
+        parallelReviewEffort: store.parallelReviewEffort,
+      };
+      let expectedRevision: number | null = null;
+      let boundProjectId = currentProjectId;
+      let boundChapterId = currentChapterId;
+
+      if (currentProjectId !== null && currentChapterId !== null) {
+        let flushed;
+        try {
+          flushed = await flushManuscriptDraft(currentProjectId, currentChapterId);
+        } catch (e) {
+          toast((e as Error).message, 'error');
+          useAiPanelStore.getState().clearAiStart(startToken);
+          return;
         }
-      },
-      onError: (msg) => {
-        useAiPanelStore.getState().failStream(msg);
-        toast(msg, 'error');
-      },
-    }));
+        const after = useEditorStore.getState();
+        if (
+          !useAiPanelStore.getState().isAiStartCurrent(startToken)
+          || after.projectId !== currentProjectId
+          || after.chapterId !== currentChapterId
+        ) {
+          if (useAiPanelStore.getState().isAiStartCurrent(startToken)) {
+            useAiPanelStore.getState().clearAiStart(startToken);
+          }
+          toast('회차가 바뀌어 AI 요청을 시작하지 않았습니다.', 'warning');
+          return;
+        }
+        expectedRevision = flushed.detail.revision;
+        boundProjectId = flushed.detail.project_id;
+        boundChapterId = flushed.detail.id;
+      }
+
+      if (!useAiPanelStore.getState().isAiStartCurrent(startToken)) return;
+      const parallel = settingsSnapshot.generationMode === 'parallel';
+      const body = {
+        endpoint_id: settingsSnapshot.endpointId,
+        preset_id: settingsSnapshot.presetId,
+        prompt_override: settingsSnapshot.promptOverride || null,
+        context: {
+          project_id: boundProjectId,
+          chapter_id: boundChapterId,
+          include_chapter_content: c.includeChapterContent,
+          expected_revision: expectedRevision,
+          episode_purpose: directives.episodePurpose,
+          approved_foreshadow_ids: directives.approvedForeshadowIds,
+          include_relationships: directives.includeRelationships,
+          character_ids: c.includeCharacters ? [...c.characterIds] : [],
+          lore_ids: c.includeLore ? [...c.loreIds] : [],
+          auto_lore: c.autoLore,
+          auto_lore_semantic: c.autoLoreSemantic,
+          auto_outline: c.autoOutline,
+          auto_foreshadow: c.autoForeshadow,
+          scene_id: c.sceneId,
+          style_profile: c.styleProfile,
+          ...(brief ? { brief } : {}),
+        },
+        params: {
+          model: settingsSnapshot.model || undefined,
+          temperature: settingsSnapshot.endpointHasTemperature ? settingsSnapshot.temperature : undefined,
+          max_tokens: settingsSnapshot.maxTokens,
+        },
+        ...(parallel
+          ? {
+              worker_limit: settingsSnapshot.workerLimit,
+              generation_reasoning_effort: 'medium',
+              review: {
+                endpoint_id: settingsSnapshot.reviewEndpointId,
+                model: settingsSnapshot.parallelReviewModel || undefined,
+                reasoning_effort: settingsSnapshot.parallelReviewEffort || 'xhigh',
+              },
+            }
+          : {
+              review: settingsSnapshot.reviewPass
+                ? { reasoning_effort: settingsSnapshot.reviewEffort || undefined }
+                : null,
+            }),
+      };
+      useAiPanelStore.getState().startStream({
+        projectId: boundProjectId,
+        chapterId: boundChapterId,
+        expectedRevision,
+        includeChapterContent: c.includeChapterContent,
+        startedAt: Date.now(),
+      });
+      const stream = parallel ? streamParallelGenerate : streamGenerate;
+      useAiPanelStore.getState().setAbort(stream(body, {
+        onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
+        onStart: (info) => {
+          const st = useAiPanelStore.getState();
+          st.setInjectedLore(info.injectedLore);
+          st.setInjectedForeshadows(info.injectedForeshadows);
+          st.setInjectedOutline(info.injectedOutline);
+        },
+        onParallelStart: (info) => {
+          const st = useAiPanelStore.getState();
+          st.setInjectedLore(info.injectedLore);
+          st.setInjectedForeshadows(info.injectedForeshadows);
+          st.setInjectedOutline(info.injectedOutline);
+          st.setParallelProgress({ phase: 'planning', sceneCount: 0, started: 0, completed: 0, workerLimit: info.workerLimit });
+        },
+        onPlannerDone: (info) => useAiPanelStore.getState().setParallelProgress({
+          phase: 'workers', sceneCount: info.sceneCount, started: 0, completed: 0,
+        }),
+        onWorkerStart: () => {
+          const st = useAiPanelStore.getState();
+          st.setParallelProgress({ started: st.parallelProgress.started + 1 });
+        },
+        onWorkerDone: () => {
+          const st = useAiPanelStore.getState();
+          st.setParallelProgress({ completed: st.parallelProgress.completed + 1 });
+        },
+        onReviewStart: (info) => {
+          const st = useAiPanelStore.getState();
+          st.setReviewInfo({ model: info.model, endpoint: info.endpoint });
+          st.setParallelProgress({ phase: 'review' });
+          if (st.resultTab !== 'review') st.setResultTab('review');
+        },
+        onReviewChunk: (d) => useAiPanelStore.getState().appendReviewChunk(d),
+        onRefinedChunk: (d) => {
+          const st = useAiPanelStore.getState();
+          if (st.resultTab !== 'refined') st.setResultTab('refined');
+          st.appendRefinedChunk(d);
+        },
+        onReviewError: (msg) => toast(msg, 'warning'),
+        onParallelError: (msg, stage) => {
+          if (stage === 'generation') useAiPanelStore.getState().failStream(msg);
+          toast(msg, stage === 'review' ? 'warning' : 'error');
+        },
+        onDone: () => {
+          if (useAiPanelStore.getState().status === 'streaming') {
+            useAiPanelStore.getState().finishStream();
+          }
+        },
+        onError: (msg) => {
+          useAiPanelStore.getState().failStream(msg);
+          toast(msg, 'error');
+        },
+      }));
+      useAiPanelStore.getState().clearAiStart(startToken);
+    })();
   }, [activeEndpoint, reviewEndpoint, endpointsQuery.isLoading, presetsQuery.isLoading]);
 
   // endpoints/presets 로딩 중 클릭된 생성 요청 — settle 후 1회 자동 재시도
@@ -307,6 +394,7 @@ export function AiPanel() {
 
   const stop = useCallback(() => {
     const st = useAiPanelStore.getState();
+    st.clearAiStart();
     st.abortStream();
     if (useAiPanelStore.getState().status === 'streaming') {
       useAiPanelStore.getState().finishStream();
@@ -577,8 +665,6 @@ export function AiPanel() {
 }
 
 /** FR-404 포함 컨텍스트 — 현재 회차 / 선택 캐릭터 / 선택 로어북 / 현재 장면 */
-import { type AiPanelState, type EpisodeBriefState } from '@/stores/aiPanelStore';
-import { SceneManager, type Scene } from '@/components/panels/SceneManager';
 
 type AiPanelStoreApi = {
   contextSelection: AiPanelState['contextSelection'];
@@ -592,7 +678,7 @@ function ContextSection({
   ctx: AiPanelStoreApi['contextSelection'];
   setContext: AiPanelStoreApi['setContext'];
 }) {
-  const chapterId = useEditorStore((s) => s.chapterId);
+  const chapterId = ctx.chapterId;
   const chapter = useQuery({
     queryKey: ['chapter', chapterId],
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
@@ -604,7 +690,7 @@ function ContextSection({
     enabled: chapterId !== null,
   });
   const scenes = scenesQuery.data ?? [];
-  const includeChapter = ctx.includeChapter && ctx.chapterId !== null;
+  const includeChapter = ctx.includeChapterContent && ctx.chapterId !== null;
   const charsCount = ctx.characterIds.length;
   const loreCount = ctx.loreIds.length;
 
@@ -647,10 +733,15 @@ function ContextSection({
           </div>
         )}
         <Checkbox
-          label={`현재 회차${chapter.data ? ` (${chapter.data.title.trim() || `${volumeLabel(chapter.data.volume)} ${chapter.data.id}화`})` : ''}`}
+          label={`현재 회차 본문 포함${chapter.data ? ` (${chapter.data.title.trim() || `${volumeLabel(chapter.data.volume)} ${chapter.data.id}화`})` : ''}`}
           checked={includeChapter}
           disabled={chapterId === null}
-          onChange={(e) => setContext({ includeChapter: e.target.checked })}
+          onChange={(e) => setContext({ includeChapterContent: e.target.checked, includeChapter: e.target.checked })}
+        />
+        <AiContextControls
+          projectId={ctx.projectId}
+          chapterId={ctx.chapterId}
+          selectedCharacterCount={ctx.characterIds.length}
         />
         <Checkbox
           label={`선택 캐릭터 (${charsCount})`}
@@ -720,8 +811,10 @@ function EpisodeBriefSection() {
   const [open, setOpen] = useState(false);
   const brief = useAiPanelStore((s) => s.episodeBrief);
   const setBrief = useAiPanelStore((s) => s.setEpisodeBrief);
+  const ctx = useAiPanelStore((s) => s.contextSelection);
+  const episodePurpose = useAiPanelStore((s) => s.getDirectives(ctx.projectId, ctx.chapterId).episodePurpose);
   // 브리프 필수값이 모두 유효해 실제로 전송되는 상태 — 배지로 항상 공개한다(NFR-201)
-  const applying = parseEpisodeBrief(brief).ok;
+  const applying = parseEpisodeBrief(brief, episodePurpose).ok;
   return (
     <section className="rounded-md border border-border p-3">
       <button
@@ -796,7 +889,17 @@ function EpisodeBriefSection() {
               id="brief-next-hook"
               value={brief.next_hook}
               onChange={(e) => setBrief({ next_hook: e.target.value })}
-              placeholder="예: 검집이 열리려는 순간 뒤에서 손목을 붙잡힌다"
+              placeholder={episodePurpose === 'series_finale' ? '선택: 후일담 단서가 있을 때만 입력' : '예: 검집이 열리려는 순간 뒤에서 손목을 붙잡힌다'}
+              maxLength={500}
+            />
+          </div>
+          <div>
+            <Label htmlFor="brief-ending-intent">엔딩 의도</Label>
+            <Input
+              id="brief-ending-intent"
+              value={brief.ending_intent}
+              onChange={(e) => setBrief({ ending_intent: e.target.value })}
+              placeholder="예: 두 인물이 선택의 대가를 받아들이고 끝낸다"
               maxLength={500}
             />
           </div>
@@ -829,7 +932,7 @@ function EpisodeBriefSection() {
             </div>
           </div>
           <p className="text-[11px] leading-snug text-muted-foreground">
-            필수 항목을 모두 채우면 브리프가 전송됩니다. 비어 있으면 브리프 없이 생성됩니다.
+            연재화는 다음 화 훅, 권말은 다음 화 훅 또는 엔딩 의도, 최종화는 엔딩 의도를 채우면 브리프가 전송됩니다. 비어 있으면 브리프 없이 생성됩니다.
             항목 개수·글자 수 제한을 넘으면 경고 후 브리프 없이 생성됩니다.
             생성 결과는 자동 반영되지 않으므로 반드시 사람이 검수하세요.
           </p>
@@ -871,6 +974,7 @@ function ResultSection() {
   const resultTab = useAiPanelStore((s) => s.resultTab);
   const setResultTab = useAiPanelStore((s) => s.setResultTab);
   const reviewInfo = useAiPanelStore((s) => s.reviewInfo);
+  const resultOrigin = useAiPanelStore((s) => s.resultOrigin);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hasReview = reviewText.length > 0 || refinedText.length > 0 || reviewInfo !== null;
@@ -884,6 +988,10 @@ function ResultSection() {
 
   /** 끼워넣기 — 현재 회차 본문 끝 append (P1 명시 클릭) */
   const insertAtEnd = useCallback(() => {
+    if (!resultMatchesCurrentEditor(useAiPanelStore.getState().resultOrigin)) {
+      toast('AI 결과가 다른 회차에서 생성되어 현재 원고에 자동 삽입하지 않았습니다. 복사 후 직접 확인하세요.', 'warning');
+      return;
+    }
     const view = useEditorStore.getState().view;
     if (!view) {
       toast('현재 회차 에디터가 없습니다.', 'warning');
@@ -897,6 +1005,10 @@ function ResultSection() {
 
   /** 선택 교체 — 에디터 선택 범위만 교체, 선택 없으면 끝에 추가 */
   const replaceSelection = useCallback(() => {
+    if (!resultMatchesCurrentEditor(useAiPanelStore.getState().resultOrigin)) {
+      toast('AI 결과가 다른 회차에서 생성되어 현재 원고에 자동 삽입하지 않았습니다. 복사 후 직접 확인하세요.', 'warning');
+      return;
+    }
     const view = useEditorStore.getState().view;
     if (!view) {
       toast('현재 회차 에디터가 없습니다.', 'warning');
@@ -925,6 +1037,7 @@ function ResultSection() {
   const hasText = activeText.length > 0;
   // 감수 의견 탭은 본문 반영 대상이 아니다 — 복사만 허용
   const readOnlyTab = resultTab === 'review';
+  const canInsertHere = resultMatchesCurrentEditor(resultOrigin);
 
   const tabs: Array<{ key: ResultTab; label: string; count: number }> = [
     { key: 'draft', label: '초안', count: streamingText.length },
@@ -975,10 +1088,10 @@ function ResultSection() {
         )}
       </div>
       <div className="grid grid-cols-3 gap-1.5 border-t border-border p-2" title="결과 도착 후 활성화됩니다 (P1)">
-        <Button size="sm" variant="outline" disabled={!hasText || busy || readOnlyTab} onClick={insertAtEnd}>
+        <Button size="sm" variant="outline" disabled={!hasText || busy || readOnlyTab || !canInsertHere} onClick={insertAtEnd}>
           ↪ 끼워넣기
         </Button>
-        <Button size="sm" variant="outline" disabled={!hasText || busy || readOnlyTab} onClick={replaceSelection}>
+        <Button size="sm" variant="outline" disabled={!hasText || busy || readOnlyTab || !canInsertHere} onClick={replaceSelection}>
           ⤳ 선택 교체
         </Button>
         <Button size="sm" variant="ghost" disabled={!hasText || busy} onClick={() => void copyResult()}>

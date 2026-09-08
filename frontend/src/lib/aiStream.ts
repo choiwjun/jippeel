@@ -23,6 +23,7 @@ export interface StreamHandlers {
     injectedForeshadows: InjectedLore[];
     injectedOutline: InjectedOutline | null;
     reviewEnabled: boolean;
+    contextMetadata?: Record<string, unknown>;
   }) => void;
   onParallelStart?: (info: {
     model: string;
@@ -34,6 +35,7 @@ export interface StreamHandlers {
     injectedLore: InjectedLore[];
     injectedForeshadows: InjectedLore[];
     injectedOutline: InjectedOutline | null;
+    contextMetadata?: Record<string, unknown>;
   }) => void;
   onPlannerDone?: (info: { sceneCount: number; scenes: Array<{ order: number; title: string }> }) => void;
   onWorkerStart?: (info: { order: number; title: string }) => void;
@@ -110,6 +112,8 @@ function streamRequest(
             injectedOutline: typeof parsed.injected_outline === 'object'
               && parsed.injected_outline !== null ? parsed.injected_outline : null,
             reviewEnabled: parsed.review_enabled === true,
+            contextMetadata: typeof parsed.context_metadata === 'object' && parsed.context_metadata !== null
+              ? parsed.context_metadata : undefined,
           });
         } catch { /* noop */ }
       } else if (eventName === 'parallel_start') {
@@ -126,6 +130,8 @@ function streamRequest(
             injectedForeshadows: parseInjectedLore(parsed.injected_foreshadows),
             injectedOutline: typeof parsed.injected_outline === 'object'
               && parsed.injected_outline !== null ? parsed.injected_outline : null,
+            contextMetadata: typeof parsed.context_metadata === 'object' && parsed.context_metadata !== null
+              ? parsed.context_metadata : undefined,
           });
         } catch { /* noop */ }
       } else if (eventName === 'planner_done') {

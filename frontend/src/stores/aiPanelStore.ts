@@ -3,6 +3,36 @@ import { create } from 'zustand';
 export type AiPanelStatus = 'idle' | 'streaming' | 'done' | 'error';
 export type AiPanelMode = 'ai' | 'refine';
 export type AiGenerationMode = 'single' | 'parallel';
+export type EpisodePurpose = 'serial' | 'volume_end' | 'series_finale';
+
+export interface AiContextDirectives {
+  episodePurpose: EpisodePurpose;
+  approvedForeshadowIds: number[];
+  includeRelationships: boolean;
+}
+
+export interface AiResultOrigin {
+  projectId: number | null;
+  chapterId: number | null;
+  expectedRevision: number | null;
+  includeChapterContent: boolean;
+  startedAt: number;
+}
+
+export const DEFAULT_DIRECTIVES: AiContextDirectives = {
+  episodePurpose: 'serial',
+  approvedForeshadowIds: [],
+  includeRelationships: false,
+};
+
+function directiveKey(projectId: number | null, chapterId: number | null) {
+  return `${projectId ?? 'none'}:${chapterId ?? 'none'}`;
+}
+
+
+function makeStartToken(kind: 'generate' | 'canon') {
+  return `${kind}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
 
 export interface ParallelProgress {
   phase: 'idle' | 'planning' | 'workers' | 'review';
@@ -23,6 +53,7 @@ export interface EpisodeBriefState {
   cost: string;
   prohibitions: string;
   next_hook: string;
+  ending_intent: string;
   /** '' = 미지정 */
   scene_type: string;
   /** '' = 미지정 */
@@ -36,6 +67,7 @@ export const EMPTY_EPISODE_BRIEF: EpisodeBriefState = {
   cost: '',
   prohibitions: '',
   next_hook: '',
+  ending_intent: '',
   scene_type: '',
   target_chars_novelpia: '',
 };
@@ -63,11 +95,13 @@ export interface AiPanelState {
 
   // 호출 컨텍스트 (설계서 §5.3 / §7.6 — 호출 지점에서 자동 세팅)
   contextSelection: {
+    projectId: number | null;
     chapterId: number | null;
     characterIds: number[];
     loreIds: number[];
     /** 선택값을 실제 요청에 포함할지 — 패널 체크박스에서 토글 (R-023) */
     includeChapter: boolean;
+    includeChapterContent: boolean;
     includeCharacters: boolean;
     includeLore: boolean;
     /** 본문 키워드와 일치하는 로어 자동 포함 (백로그 P1) */
@@ -84,6 +118,16 @@ export interface AiPanelState {
     styleProfile: boolean;
   };
   setContext: (c: Partial<AiPanelState['contextSelection']>) => void;
+  setCurrentIdentity: (projectId: number | null, chapterId: number | null) => void;
+  getDirectives: (projectId: number | null, chapterId: number | null) => AiContextDirectives;
+  setDirectives: (projectId: number | null, chapterId: number | null, patch: Partial<AiContextDirectives>) => void;
+  resultOrigin: AiResultOrigin | null;
+  setResultOrigin: (origin: AiResultOrigin | null) => void;
+  reserveAiStart: (kind: 'generate' | 'canon') => string | null;
+  isAiStartCurrent: (token: string) => boolean;
+  clearAiStart: (token?: string) => void;
+  _pendingAiStart: { kind: 'generate' | 'canon'; token: string } | null;
+  _directiveMap: Record<string, AiContextDirectives>;
 
   // 로어 자동 주입 (백로그 P1) — 본문 언급 로어를 백엔드가 선정·주입
   autoLore: boolean;
@@ -118,7 +162,7 @@ export interface AiPanelState {
   status: AiPanelStatus;
   streamingText: string;
   error: string | null;
-  startStream: () => void;
+  startStream: (origin?: AiResultOrigin) => void;
   appendChunk: (s: string) => void;
   finishStream: () => void;
   failStream: (e: string) => void;
@@ -159,6 +203,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   open: () => set({ isOpen: true }),
   // 의도적 닫힘 — 진행 중 스트림만 정리한다(데이터 로딩 재마운트와 무관).
   close: () => {
+    get().clearAiStart();
     get().abortStream();
     if (get().status === 'streaming') get().finishStream();
     set({ isOpen: false, pendingGenerate: false });
@@ -181,10 +226,12 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   setParallelProgress: (p) => set((s) => ({ parallelProgress: { ...s.parallelProgress, ...p } })),
 
   contextSelection: {
+    projectId: null,
     chapterId: null,
     characterIds: [],
     loreIds: [],
     includeChapter: false,
+    includeChapterContent: false,
     includeCharacters: false,
     includeLore: false,
     autoLore: true,
@@ -195,16 +242,75 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     styleProfile: false,
   },
   setContext: (c) =>
-    set((s) => ({
-      contextSelection: {
+    set((s) => {
+      const nextChapterId = c.chapterId !== undefined ? c.chapterId : s.contextSelection.chapterId;
+      const nextProjectId = c.projectId !== undefined ? c.projectId : s.contextSelection.projectId;
+      const chapterIncludedBySelection = c.chapterId !== undefined && c.chapterId !== null;
+      return {
+        contextSelection: {
+          ...s.contextSelection,
+          ...c,
+          projectId: nextProjectId,
+          chapterId: nextChapterId,
+          // S3/S4 등에서 새 선택을 주입하면 자동 포함 — 패널에서 끈 상태는 유지
+          includeChapter: chapterIncludedBySelection ? true : s.contextSelection.includeChapter,
+          includeChapterContent: c.includeChapterContent !== undefined
+            ? c.includeChapterContent
+            : chapterIncludedBySelection ? true : s.contextSelection.includeChapterContent,
+          includeCharacters: c.characterIds !== undefined && c.characterIds.length > 0 ? true : s.contextSelection.includeCharacters,
+          includeLore: c.loreIds !== undefined && c.loreIds.length > 0 ? true : s.contextSelection.includeLore,
+        },
+      };
+    }),
+
+  setCurrentIdentity: (projectId, chapterId) =>
+    set((s) => {
+      const changed = s.contextSelection.projectId !== projectId || s.contextSelection.chapterId !== chapterId;
+      const next = {
         ...s.contextSelection,
-        ...c,
-        // S3/S4 등에서 새 선택을 주입하면 자동 포함 — 패널에서 끈 상태는 유지
-        includeChapter: c.chapterId !== undefined && c.chapterId !== null ? true : s.contextSelection.includeChapter,
-        includeCharacters: c.characterIds !== undefined && c.characterIds.length > 0 ? true : s.contextSelection.includeCharacters,
-        includeLore: c.loreIds !== undefined && c.loreIds.length > 0 ? true : s.contextSelection.includeLore,
-      },
-    })),
+        projectId,
+        chapterId,
+        includeChapter: chapterId !== null ? s.contextSelection.includeChapter || changed : false,
+        includeChapterContent: chapterId !== null ? (changed ? true : s.contextSelection.includeChapterContent) : false,
+      };
+      return {
+        contextSelection: next,
+        _pendingAiStart: changed ? null : s._pendingAiStart,
+      };
+    }),
+  getDirectives: (projectId, chapterId) => {
+    const found = get()._directiveMap[directiveKey(projectId, chapterId)];
+    return found ?? DEFAULT_DIRECTIVES;
+  },
+  setDirectives: (projectId, chapterId, patch) =>
+    set((s) => {
+      const key = directiveKey(projectId, chapterId);
+      const current = s._directiveMap[key] ?? DEFAULT_DIRECTIVES;
+      const next: AiContextDirectives = {
+        episodePurpose: patch.episodePurpose ?? current.episodePurpose,
+        approvedForeshadowIds: patch.approvedForeshadowIds !== undefined
+          ? [...patch.approvedForeshadowIds]
+          : [...current.approvedForeshadowIds],
+        includeRelationships: patch.includeRelationships ?? current.includeRelationships,
+      };
+      return { _directiveMap: { ...s._directiveMap, [key]: next } };
+    }),
+  resultOrigin: null,
+  setResultOrigin: (origin) => set({ resultOrigin: origin }),
+  _pendingAiStart: null,
+  _directiveMap: {},
+  reserveAiStart: (kind) => {
+    const pending = get()._pendingAiStart;
+    if (pending) return null;
+    const token = makeStartToken(kind);
+    set({ _pendingAiStart: { kind, token } });
+    return token;
+  },
+  isAiStartCurrent: (token) => get()._pendingAiStart?.token === token,
+  clearAiStart: (token) => {
+    const pending = get()._pendingAiStart;
+    if (!token || pending?.token === token) set({ _pendingAiStart: null });
+  },
 
   autoLore: false,
   setAutoLore: (v) => set({ autoLore: v }),
@@ -237,10 +343,10 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   status: 'idle',
   streamingText: '',
   error: null,
-  startStream: () => set({
+  startStream: (origin) => set({
     status: 'streaming', streamingText: '', error: null, injectedLore: [],
     injectedForeshadows: [], injectedOutline: null, reviewInfo: null, reviewText: '',
-    refinedText: '', resultTab: 'draft',
+    refinedText: '', resultTab: 'draft', resultOrigin: origin ?? null,
     parallelProgress: { phase: 'idle', sceneCount: 0, started: 0, completed: 0, workerLimit: get().workerLimit },
   }),
   appendChunk: (s) => set((st) => ({ streamingText: st.streamingText + s })),
@@ -248,9 +354,10 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   failStream: (e) => set({ status: 'error', error: e }),
   resetResult: () => {
     get().abortStream();
+    get().clearAiStart();
     set({ status: 'idle', streamingText: '', error: null, injectedLore: [], injectedForeshadows: [],
       injectedOutline: null, pendingGenerate: false, reviewInfo: null, reviewText: '',
-      refinedText: '', resultTab: 'draft',
+      refinedText: '', resultTab: 'draft', resultOrigin: null,
       parallelProgress: { phase: 'idle', sceneCount: 0, started: 0, completed: 0, workerLimit: get().workerLimit },
     });
   },
@@ -271,6 +378,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   _abort: null,
   setAbort: (fn) => set({ _abort: fn }),
   abortStream: () => {
+    get().clearAiStart();
     const a = get()._abort;
     if (a) a();
     set({ _abort: null, pendingGenerate: false });
