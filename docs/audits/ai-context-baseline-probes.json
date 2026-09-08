@@ -1,0 +1,337 @@
+{
+  "meta": {
+    "branch": "feat/ai-context-consistency",
+    "head": "70ec67e",
+    "native_command": "cmd.exe /c \"cd /d C:\\Users\\wj941\\Documents\\jippeel\\backend && .venv\\Scripts\\python.exe ..\\.eval_tmp\\ai-context-baseline-probes\\probe_ai_context_baseline.py\"",
+    "native_exit_code": 0,
+    "native_duration_seconds": 2.3679191849987546,
+    "research_doc_read": "docs/audits/ai-context-flow-research.md",
+    "source_files_read": [
+      "backend/app/routers/ai_panel.py",
+      "backend/app/services/parallel_writer.py",
+      "backend/app/services/injection.py",
+      "backend/app/models.py",
+      "backend/app/schemas.py",
+      "backend/tests/test_ai_generate_stream.py",
+      "backend/tests/test_godohwa_v2.py",
+      "backend/tests/test_foreshadows_canon.py",
+      "backend/tests/conftest.py"
+    ],
+    "owned_files": [
+      "docs/audits/ai-context-baseline-probes.md",
+      "docs/audits/ai-context-baseline-probes.json",
+      ".eval_tmp/ai-context-baseline-probes/"
+    ],
+    "no_feature_code_changed": true
+  },
+  "env_setup": {
+    "set_inside_native_python_before_app_import": true,
+    "database_url_prefix": "sqlite:///<tempfile.gettempdir()>/jippeel_ai_context_probe_*/probe.db",
+    "database_url_actual": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel_ai_context_probe_e5auodet/probe.db",
+    "jippeel_allow_temp_create_all": "1",
+    "network_control": "app.services.llm.make_client, stream_chat, and complete_chat monkeypatched; no real HTTP LLM client used"
+  },
+  "probes": {
+    "a1_selected_character_lore_cross_project_generate": {
+      "http_status": 200,
+      "sse_events": [
+        "start",
+        "message",
+        "done"
+      ],
+      "input_ids": {
+        "project_a": 1,
+        "chapter_a": 1,
+        "project_b": 2,
+        "character_b": 1,
+        "lore_b": 1
+      },
+      "observed": {
+        "same_user_message_contains_project_a_chapter": true,
+        "same_user_message_contains_project_b_character": true,
+        "same_user_message_contains_project_b_lore": true,
+        "blocked_or_rejected": false
+      },
+      "message_summary": {
+        "phase": "single_generate_stream",
+        "kind": "stream_chat",
+        "system_has_style_marker": false,
+        "system_has_style_token": false,
+        "user_has_style_token": false,
+        "system_excerpt": {
+          "[작품 문체 프로파일": false,
+          "STYLE_TOKEN_PROJECT_B": false,
+          "STYLE_TOKEN_PROJECT_A": false
+        },
+        "user_marker_presence": {
+          "A_SELECTED_CHAPTER_BODY_ONLY": true,
+          "B_INTRUDER_CHARACTER_NAME": true,
+          "B_INTRUDER_LORE_TITLE": true,
+          "B_INTRUDER_LORE_CONTENT": true
+        },
+        "user_excerpts": {
+          "A_SELECTED_CHAPTER_BODY_ONLY": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: A_SELECTED_CHAPTER_TITLE]\nA_SELECTED_CHAPTER_BODY_ONLY\n\n[캐릭터: B_INTRUDER_CHARACTER_NAME]\nappearance: B_INTRUDER_APPEARANCE\nspeech_style: B_INTRUDER_SPEECH\n\n[세계관: B_INTRUDER_LORE_TITLE]\nB_INTRUDER_LORE_CONTENT\n\n---\n\n지시:\nselected mismat",
+          "B_INTRUDER_CHARACTER_NAME": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: A_SELECTED_CHAPTER_TITLE]\nA_SELECTED_CHAPTER_BODY_ONLY\n\n[캐릭터: B_INTRUDER_CHARACTER_NAME]\nappearance: B_INTRUDER_APPEARANCE\nspeech_style: B_INTRUDER_SPEECH\n\n[세계관: B_INTRUDER_LORE_TITLE]\nB_INTRUDER_LORE_CONTENT\n\n---\n\n지시:\nselected mismatch prompt",
+          "B_INTRUDER_LORE_TITLE": "해 작성하세요.\n\n[현재 회차: A_SELECTED_CHAPTER_TITLE]\nA_SELECTED_CHAPTER_BODY_ONLY\n\n[캐릭터: B_INTRUDER_CHARACTER_NAME]\nappearance: B_INTRUDER_APPEARANCE\nspeech_style: B_INTRUDER_SPEECH\n\n[세계관: B_INTRUDER_LORE_TITLE]\nB_INTRUDER_LORE_CONTENT\n\n---\n\n지시:\nselected mismatch prompt",
+          "B_INTRUDER_LORE_CONTENT": "ECTED_CHAPTER_TITLE]\nA_SELECTED_CHAPTER_BODY_ONLY\n\n[캐릭터: B_INTRUDER_CHARACTER_NAME]\nappearance: B_INTRUDER_APPEARANCE\nspeech_style: B_INTRUDER_SPEECH\n\n[세계관: B_INTRUDER_LORE_TITLE]\nB_INTRUDER_LORE_CONTENT\n\n---\n\n지시:\nselected mismatch prompt"
+        },
+        "user_chars": 272
+      }
+    },
+    "a2_project_id_b_with_chapter_a_mixes_style_auto_context": {
+      "http_status": 200,
+      "sse_events": [
+        "start",
+        "message",
+        "done"
+      ],
+      "input_ids": {
+        "project_a": 3,
+        "chapter_a": 2,
+        "project_b": 4,
+        "lore_b": 2,
+        "foreshadow_b": 1
+      },
+      "observed": {
+        "system_contains_project_b_style": true,
+        "user_contains_project_a_chapter": true,
+        "user_contains_project_b_auto_lore": true,
+        "user_contains_project_b_foreshadow": true,
+        "blocked_or_rejected": false
+      },
+      "message_summary": {
+        "phase": "single_generate_stream",
+        "kind": "stream_chat",
+        "system_has_style_marker": true,
+        "system_has_style_token": true,
+        "user_has_style_token": false,
+        "system_excerpt": {
+          "[작품 문체 프로파일": "긴다.\n[금지]\n- 풍경·날씨·외모 장식 묘사의 연속 금지\n- '그러나', '한편' 같은 느린 전환 남발 금지\n- 원고 외의 설명·요약·메타 코멘트 금지. 출력은 원고 본문만.\n\n[작품 문체 프로파일 — 반드시 따른다]\nSTYLE_TOKEN_PROJECT_B — clipped sentences only",
+          "STYLE_TOKEN_PROJECT_B": "묘사의 연속 금지\n- '그러나', '한편' 같은 느린 전환 남발 금지\n- 원고 외의 설명·요약·메타 코멘트 금지. 출력은 원고 본문만.\n\n[작품 문체 프로파일 — 반드시 따른다]\nSTYLE_TOKEN_PROJECT_B — clipped sentences only",
+          "STYLE_TOKEN_PROJECT_A": false
+        },
+        "user_marker_presence": {
+          "A_PID_CHAPTER_BODY_ONLY": true,
+          "B_AUTO_LORE_TITLE": true,
+          "B_FORESHADOW_TITLE": true
+        },
+        "user_excerpts": {
+          "A_PID_CHAPTER_BODY_ONLY": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: A_PID_CHAPTER_TITLE]\nA_PID_CHAPTER_BODY_ONLY\n\n[세계관(자동): B_AUTO_LORE_TITLE]\nB_AUTO_LORE_CONTENT\n\n[미회수 복선: B_FORESHADOW_TITLE]\nB_FORESHADOW_CONTENT\n→ 이 복선은 아직 회수 전이다. 이 화에서 건드릴 거면 자연스럽게, 건드리지 않으면 결론을 미리 풀지 마라.\n\n---\n\n지시:\nB_AUTO",
+          "B_AUTO_LORE_TITLE": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: A_PID_CHAPTER_TITLE]\nA_PID_CHAPTER_BODY_ONLY\n\n[세계관(자동): B_AUTO_LORE_TITLE]\nB_AUTO_LORE_CONTENT\n\n[미회수 복선: B_FORESHADOW_TITLE]\nB_FORESHADOW_CONTENT\n→ 이 복선은 아직 회수 전이다. 이 화에서 건드릴 거면 자연스럽게, 건드리지 않으면 결론을 미리 풀지 마라.\n\n---\n\n지시:\nB_AUTO_KEYWORD project id mismatch ",
+          "B_FORESHADOW_TITLE": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: A_PID_CHAPTER_TITLE]\nA_PID_CHAPTER_BODY_ONLY\n\n[세계관(자동): B_AUTO_LORE_TITLE]\nB_AUTO_LORE_CONTENT\n\n[미회수 복선: B_FORESHADOW_TITLE]\nB_FORESHADOW_CONTENT\n→ 이 복선은 아직 회수 전이다. 이 화에서 건드릴 거면 자연스럽게, 건드리지 않으면 결론을 미리 풀지 마라.\n\n---\n\n지시:\nB_AUTO_KEYWORD project id mismatch prompt"
+        },
+        "user_chars": 288
+      }
+    },
+    "b_selected_relationship_data_omitted_generate": {
+      "http_status": 200,
+      "sse_events": [
+        "start",
+        "message",
+        "done"
+      ],
+      "input_ids": {
+        "project": 5,
+        "chapter": 3,
+        "character_a": 2,
+        "character_b": 3,
+        "relationship": 1
+      },
+      "relationship_api_row": {
+        "id": 1,
+        "from_character_id": 2,
+        "to_character_id": 3,
+        "label": "BLOOD_OATH_LABEL_777",
+        "note": "HIDDEN_REL_NOTE_888"
+      },
+      "observed": {
+        "selected_characters_present": true,
+        "relationship_label_present": false,
+        "relationship_note_present": false,
+        "relationship_block_present": false
+      },
+      "message_summary": {
+        "phase": "single_generate_stream",
+        "kind": "stream_chat",
+        "system_has_style_marker": false,
+        "system_has_style_token": false,
+        "user_has_style_token": false,
+        "system_excerpt": {
+          "[작품 문체 프로파일": false,
+          "STYLE_TOKEN_PROJECT_B": false,
+          "STYLE_TOKEN_PROJECT_A": false
+        },
+        "user_marker_presence": {
+          "REL_SOURCE_CHARACTER": true,
+          "REL_TARGET_CHARACTER": true,
+          "BLOOD_OATH_LABEL_777": false,
+          "HIDDEN_REL_NOTE_888": false
+        },
+        "user_excerpts": {
+          "REL_SOURCE_CHARACTER": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: REL_CHAPTER_TITLE]\nREL_CHAPTER_BODY_ONLY\n\n[캐릭터: REL_SOURCE_CHARACTER]\nappearance: source appearance\n\n[캐릭터: REL_TARGET_CHARACTER]\nappearance: target appearance\n\n---\n\n지시:\nrelationship omission prompt",
+          "REL_TARGET_CHARACTER": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: REL_CHAPTER_TITLE]\nREL_CHAPTER_BODY_ONLY\n\n[캐릭터: REL_SOURCE_CHARACTER]\nappearance: source appearance\n\n[캐릭터: REL_TARGET_CHARACTER]\nappearance: target appearance\n\n---\n\n지시:\nrelationship omission prompt",
+          "BLOOD_OATH_LABEL_777": false,
+          "HIDDEN_REL_NOTE_888": false
+        },
+        "user_chars": 226
+      }
+    },
+    "c_style_profile_single_but_not_parallel_phases": {
+      "single_http_status": 200,
+      "parallel_http_status": 200,
+      "single_sse_events": [
+        "start",
+        "message",
+        "done"
+      ],
+      "parallel_sse_events": [
+        "parallel_start",
+        "planner_done",
+        "worker_start",
+        "worker_start",
+        "worker_done",
+        "worker_done",
+        "message",
+        "review_start",
+        "review",
+        "done"
+      ],
+      "input_ids": {
+        "project": 6,
+        "chapter": 4
+      },
+      "single_summary": {
+        "phase": "single_generate_stream",
+        "kind": "stream_chat",
+        "system_has_style_marker": true,
+        "system_has_style_token": true,
+        "user_has_style_token": false,
+        "system_excerpt": {
+          "[작품 문체 프로파일": "긴다.\n[금지]\n- 풍경·날씨·외모 장식 묘사의 연속 금지\n- '그러나', '한편' 같은 느린 전환 남발 금지\n- 원고 외의 설명·요약·메타 코멘트 금지. 출력은 원고 본문만.\n\n[작품 문체 프로파일 — 반드시 따른다]\nSTYLE_TOKEN_PROJECT_A — hardboiled terse rhythm",
+          "STYLE_TOKEN_PROJECT_B": false,
+          "STYLE_TOKEN_PROJECT_A": "묘사의 연속 금지\n- '그러나', '한편' 같은 느린 전환 남발 금지\n- 원고 외의 설명·요약·메타 코멘트 금지. 출력은 원고 본문만.\n\n[작품 문체 프로파일 — 반드시 따른다]\nSTYLE_TOKEN_PROJECT_A — hardboiled terse rhythm"
+        },
+        "user_marker_presence": {
+          "STYLE_CHAPTER_BODY_ONLY": true,
+          "STYLE_TOKEN_PROJECT_A": false
+        },
+        "user_excerpts": {
+          "STYLE_CHAPTER_BODY_ONLY": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: STYLE_CHAPTER_TITLE]\nSTYLE_CHAPTER_BODY_ONLY\n\n---\n\n지시:\nstyle profile single prompt",
+          "STYLE_TOKEN_PROJECT_A": false
+        },
+        "user_chars": 111
+      },
+      "parallel_phase_summaries": [
+        {
+          "phase": "parallel_planner_complete",
+          "kind": "complete_chat",
+          "system_has_style_marker": false,
+          "system_has_style_token": false,
+          "user_has_style_token": false,
+          "system_excerpt": {
+            "[작품 문체 프로파일": false,
+            "STYLE_TOKEN_PROJECT_B": false,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_marker_presence": {
+            "STYLE_CHAPTER_BODY_ONLY": true,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_excerpts": {
+            "STYLE_CHAPTER_BODY_ONLY": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: STYLE_CHAPTER_TITLE]\nSTYLE_CHAPTER_BODY_ONLY\n\n---\n\n지시:\nstyle profile parallel prompt\n\n[병렬 Planner — 장면 계약 생성]\n현재 회차를 2~4개 장면으로 분해하라. 각 worker는 자기 계약만 집필한다.\n{\"scenes\":[{\"order\":1,\"title\":\"...\",\"purpose\":\"...\",\"objective\":\"...",
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_chars": 384
+        },
+        {
+          "phase": "parallel_worker_complete_1",
+          "kind": "complete_chat",
+          "system_has_style_marker": false,
+          "system_has_style_token": false,
+          "user_has_style_token": false,
+          "system_excerpt": {
+            "[작품 문체 프로파일": false,
+            "STYLE_TOKEN_PROJECT_B": false,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_marker_presence": {
+            "STYLE_CHAPTER_BODY_ONLY": true,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_excerpts": {
+            "STYLE_CHAPTER_BODY_ONLY": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: STYLE_CHAPTER_TITLE]\nSTYLE_CHAPTER_BODY_ONLY\n\n---\n\n지시:\nstyle profile parallel prompt\n\n[병렬 Worker — 자기 장면만 집필]\n[장면 계약]\n{\"order\": 1, \"title\": \"장면 하나\", \"purpose\": \"목적 하나\", \"objective\": \"목표 하나\", \"choice\": \"선택 하나\", \"cost\": \"대가 하나",
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_chars": 552
+        },
+        {
+          "phase": "parallel_worker_complete_2",
+          "kind": "complete_chat",
+          "system_has_style_marker": false,
+          "system_has_style_token": false,
+          "user_has_style_token": false,
+          "system_excerpt": {
+            "[작품 문체 프로파일": false,
+            "STYLE_TOKEN_PROJECT_B": false,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_marker_presence": {
+            "STYLE_CHAPTER_BODY_ONLY": true,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_excerpts": {
+            "STYLE_CHAPTER_BODY_ONLY": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: STYLE_CHAPTER_TITLE]\nSTYLE_CHAPTER_BODY_ONLY\n\n---\n\n지시:\nstyle profile parallel prompt\n\n[병렬 Worker — 자기 장면만 집필]\n[장면 계약]\n{\"order\": 2, \"title\": \"장면 둘\", \"purpose\": \"목적 둘\", \"objective\": \"목표 둘\", \"choice\": \"선택 둘\", \"cost\": \"대가 둘\", \"r",
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_chars": 544
+        },
+        {
+          "phase": "parallel_reviewer_stream",
+          "kind": "stream_chat",
+          "system_has_style_marker": false,
+          "system_has_style_token": false,
+          "user_has_style_token": false,
+          "system_excerpt": {
+            "[작품 문체 프로파일": false,
+            "STYLE_TOKEN_PROJECT_B": false,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_marker_presence": {
+            "STYLE_CHAPTER_BODY_ONLY": true,
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_excerpts": {
+            "STYLE_CHAPTER_BODY_ONLY": "다음 컨텍스트를 참고해 작성하세요.\n\n[현재 회차: STYLE_CHAPTER_TITLE]\nSTYLE_CHAPTER_BODY_ONLY\n\n---\n\n지시:\nstyle profile parallel prompt\n\n[장면별 조립 원고 — 감수 전용 메타데이터]\n[장면 1 — 장면 하나]\n[장면 계약]\n{\"order\": 1, \"title\": \"장면 하나\", \"purpose\": \"목적 하나\", \"objective\": \"목표 하나\", \"choice\": \"선택 하나",
+            "STYLE_TOKEN_PROJECT_A": false
+          },
+          "user_chars": 845
+        }
+      ],
+      "observed": {
+        "single_system_contains_style_token": true,
+        "parallel_system_style_token_by_phase": {
+          "parallel_planner_complete": false,
+          "parallel_worker_complete_1": false,
+          "parallel_worker_complete_2": false,
+          "parallel_reviewer_stream": false
+        },
+        "parallel_user_style_token_by_phase": {
+          "parallel_planner_complete": false,
+          "parallel_worker_complete_1": false,
+          "parallel_worker_complete_2": false,
+          "parallel_reviewer_stream": false
+        },
+        "parallel_user_chapter_context_by_phase": {
+          "parallel_planner_complete": true,
+          "parallel_worker_complete_1": true,
+          "parallel_worker_complete_2": true,
+          "parallel_reviewer_stream": true
+        }
+      }
+    }
+  },
+  "temp_db_cleanup": {
+    "removed": true,
+    "path": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel_ai_context_probe_e5auodet"
+  }
+}
