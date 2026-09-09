@@ -99,8 +99,14 @@ def _build_fts_query(query: str) -> str | None:
     return " ".join('\"%s\"*' % t.replace('"', '\"\"') for t in terms)
 
 
-def search_entry_ids(db: Session, query: str, limit: int = 100) -> list[int] | None:
-    """MATCH 검색. FTS 미지원/쿼리 오류 시 None 반환(LIKE 폴백 신호)."""
+def search_entry_ids(
+    db: Session,
+    query: str,
+    limit: int = 100,
+    project_id: int | None = None,
+    category: str | None = None,
+) -> list[int] | None:
+    """MATCH 검색. 지정된 scope를 적용한 뒤 limit한다."""
     conn = _conn_of(db)
     if not _fts_supported(conn):
         return None
@@ -108,13 +114,28 @@ def search_entry_ids(db: Session, query: str, limit: int = 100) -> list[int] | N
     if fts_query is None:
         return []
     try:
-        rows = conn.execute(
-            text(
+        if project_id is None and category is None:
+            statement = (
                 f"SELECT rowid FROM {_FTS_TABLE} WHERE {_FTS_TABLE} MATCH :q "
                 "ORDER BY rank LIMIT :limit"
-            ),
-            {"q": fts_query, "limit": limit},
-        ).fetchall()
+            )
+            params = {"q": fts_query, "limit": limit}
+        else:
+            conditions = [f"{_FTS_TABLE} MATCH :q"]
+            params = {"q": fts_query, "limit": limit}
+            if project_id is not None:
+                conditions.append("e.project_id = :project_id")
+                params["project_id"] = project_id
+            if category is not None:
+                conditions.append("e.category = :category")
+                params["category"] = category
+            statement = (
+                f"SELECT f.rowid FROM {_FTS_TABLE} AS f "
+                "JOIN lore_entries AS e ON e.id = f.rowid "
+                f"WHERE {' AND '.join(conditions)} "
+                "ORDER BY f.rank LIMIT :limit"
+            )
+        rows = conn.execute(text(statement), params).fetchall()
     except sqlite3.OperationalError:
         # 문법 오류 등은 폴백 검색으로 처리
         return None

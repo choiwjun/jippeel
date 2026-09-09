@@ -65,3 +65,17 @@ def test_reorder_can_assign_null_via_explicit_items(client):
     ).json()
     assert items[0]["volume"] is None
     assert items[0]["sort_order"] == 2.0
+
+
+def test_reorder_moves_numbered_chapter_to_explicit_null_volume(client):
+    pid = _mk_project(client)
+    chapter = _mk_chapter(client, pid, title="권 회차", volume=1)
+
+    response = client.patch(
+        f"/api/v1/projects/{pid}/chapters/reorder",
+        json={"items": [{"id": chapter["id"], "volume": None, "sort_order": 2.0}]},
+    )
+
+    assert response.status_code == 200
+    moved = next(item for item in response.json() if item["id"] == chapter["id"])
+    assert moved["volume"] is None

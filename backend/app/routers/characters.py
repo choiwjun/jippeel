@@ -95,6 +95,17 @@ def patch_card_json(chid: int, payload: CardJsonPatch, db: Session = Depends(get
 @router.delete("/characters/{chid}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_character(chid: int, db: Session = Depends(get_db)):
     character = _get_character_or_404(chid, db)
+    has_relationship = db.scalar(
+        select(Relationship.id).where(
+            (Relationship.from_character_id == chid)
+            | (Relationship.to_character_id == chid)
+        ).limit(1)
+    )
+    if has_relationship is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="관계가 있는 캐릭터는 관계를 먼저 삭제해야 합니다",
+        )
     db.delete(character)
     db.commit()
 

@@ -124,3 +124,18 @@ class TestRelationships:
 
     def test_delete_missing_relation_404(self, client):
         assert client.delete("/api/v1/relations/9999").status_code == 404
+
+    def test_delete_character_with_relation_returns_conflict_and_preserves_data(self, client):
+        pid = _create_project(client)
+        a = _create_character(client, pid, name="A")
+        b = _create_character(client, pid, name="B")
+        relation = client.post(
+            f"/api/v1/projects/{pid}/characters/relations",
+            json={"from_character_id": a["id"], "to_character_id": b["id"], "label": "연결"},
+        ).json()
+
+        response = client.delete(f"/api/v1/characters/{a['id']}")
+
+        assert response.status_code == 409
+        assert client.get(f"/api/v1/characters/{a['id']}").status_code == 200
+        assert client.get(f"/api/v1/characters/{b['id']}/relations").json()[0]["id"] == relation["id"]

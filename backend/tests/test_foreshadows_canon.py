@@ -23,6 +23,44 @@ def _fs(client, pid, title, **kw):
                        json={"title": title, **kw}).json()
 
 
+def test_foreshadow_rejects_chapter_from_another_project(client):
+    project_a = client.post("/api/v1/projects", json={"title": "A"}).json()["id"]
+    project_b = client.post("/api/v1/projects", json={"title": "B"}).json()["id"]
+    foreign_chapter = client.post(
+        f"/api/v1/projects/{project_b}/chapters", json={"title": "B-1"}
+    ).json()
+
+    response = client.post(
+        f"/api/v1/projects/{project_a}/foreshadows",
+        json={"title": "외부 회차 참조", "planted_chapter_id": foreign_chapter["id"]},
+    )
+
+    assert response.status_code == 422
+
+
+def test_foreshadow_reminder_handles_installed_foreshadow_without_chapters(client):
+    pid = client.post("/api/v1/projects", json={"title": "회차 없는 프로젝트"}).json()["id"]
+    foreshadow = _fs(client, pid, "아직 풀리지 않은 복선", status="설치")
+
+    response = client.get(f"/api/v1/projects/{pid}/foreshadows/reminder")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "window": 5,
+        "latest_chapter": None,
+        "items": [{
+            "id": foreshadow["id"],
+            "title": "아직 풀리지 않은 복선",
+            "content": None,
+            "planted_chapter_id": None,
+            "last_mentioned_chapter_id": None,
+            "last_mentioned_chapter_title": None,
+            "chapters_since_mentioned": None,
+            "stale": True,
+        }],
+    }
+
+
 def test_foreshadow_crud_and_status_filter(client, chapter):
     pid = chapter["project_id"]
     f1 = _fs(client, pid, "검의 진짜 주인", status="설치")

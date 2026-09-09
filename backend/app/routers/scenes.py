@@ -83,7 +83,7 @@ def reorder_scenes(cid: int, payload: ScenesReorder, db: Session = Depends(get_d
     if len(ids) != len(set(ids)):
         raise HTTPException(status_code=422, detail="중복된 scene id가 있습니다")
     rows = {s.id: s for s in db.scalars(
-        select(Scene).where(Scene.id.in_(ids))).all()}
+        select(Scene).where(Scene.chapter_id == cid, Scene.id.in_(ids))).all()}
     if len(rows) != len(ids):
         raise HTTPException(status_code=422, detail="존재하지 않거나 소속이 다른 scene이 있습니다")
     for item in payload.items:

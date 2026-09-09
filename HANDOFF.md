@@ -1,10 +1,44 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 인계 — 관리 무결성 수정 및 QA 상태 (2026-09-09)
+
+### 현재 상태
+
+- 사용자 승인 정책에 따라 관리 무결성 결함 6개와 회차 없는 작품의 복선 reminder 500 결함을 TDD로 수정했다.
+- lorebook `category + limit` FTS 결함도 수정했다. project/category 조건을 FTS `LIMIT` 전에 적용한다.
+- 모든 검증을 통과했지만 아직 commit/push/운영 반영하지 않았다. 운영 DB·기존 서비스·점유 포트는 사용하지 않았다.
+
+### 수정 범위
+
+- `backend/app/routers/scenes.py`: 다른 회차 scene reorder 거부(`422`), 외부 scene 보존
+- `backend/app/routers/foreshadows.py`: 다른 작품 회차 planted/resolved 참조 거부(`422`); 회차가 0개여도 reminder가 `latest_chapter: null`과 복선 item을 반환
+- `backend/app/routers/characters.py`: 관계가 있는 character 삭제 거부(`409`), 관계 보존
+- `backend/app/routers/projects.py`: 복선 참조 chapter 삭제 거부(`409`); reorder에서 명시적 `volume: null` 처리
+- `backend/app/services/fts.py`, `backend/app/routers/lorebook.py`: project/category scope 후 FTS `LIMIT`; LIKE fallback scope 유지
+- 관련 회귀 테스트: `backend/tests/test_{scenes_api,foreshadows_canon,characters_api,projects_api,lorebook_api,volume_nullable}.py`
+
+### 검증 결과
+
+- 관련 backend 테스트: **54 passed**
+- 백엔드 전체 safe runner: **277 passed**, 기존 AnyIO/Starlette deprecation warning 1건
+- 격리 관리 무결성 harness: 7개 후보 모두 `candidate_reproduced: false`
+- 프론트 `npm run build`: exit 0, 기존 `vite.config.ts` duplicate `build` key warning 1건
+- 독립 review: **PASS**, patch-scoped blocker 없음
+- 재현/검증 보고서: `docs/audits/management-integrity-reproduction-2026-09-09.md`
+
+### Orca 오케스트레이션 상태
+
+- Run: `run_869ed15f813e`
+- 구현/수정 Task `task_8346d1896717`: **completed**, chapterless reminder red-green 회귀 검증 포함
+- 독립 review Task `task_49a0885a4145`: **PASS**, 관련 54개 및 전체 277개 테스트 확인
+- release QA Task `task_b40eb37eef80`: **DONE**, backend/harness/frontend 세 게이트 통과
+- 다음 단계는 검증된 tracked 파일만 선별해 main에 commit/push하는 것이다. `.eval_tmp/`, `.omo/`, 원시 감사자료는 커밋하지 않는다.
+
 ## 최신 인계 — 남은 작업과 main 공유 (2026-09-08)
 
 - 현재 작업·게시 대상은 **main**이다. 검증된 기존 변경을 fast-forward로 통합했으며 이번 인계에서 앱 소스는 수정하지 않았다.
 - 사용자 승인 범위는 남은 작업 문서화·main 커밋·push다. 후속 기능 구현·실제 AI 호출/비용·운영 DB 접근·배포 승인은 포함하지 않는다.
-- **다음 담당자는 [남은 작업 인계](docs/handoffs/2026-09-08-remaining-work.md)를 먼저 읽는다.** 우선 관리 무결성 후보의 현재 버전 격리 재현과 첫 수정 범위를 확정한다.
+- 이 섹션 작성 당시에는 [남은 작업 인계](docs/handoffs/2026-09-08-remaining-work.md)를 기준으로 관리 무결성 후보의 격리 재현과 수정 범위를 확정하는 단계였다. 현재 상태와 다음 게이트는 위의 최신 인계를 기준으로 한다.
 - 원고 보존과 AI 맥락 일관성은 완료 상태다. 아래 과거의 feature 브랜치/미push 기록은 검증 당시 이력이다. 이번 공유 대상은 main이며 운영 미배포 상태는 유지한다.
 - 임시 DB·원시 로그·기존 미추적 자료는 일괄 커밋하지 않는다. push 성공 여부는 원격 main ref와 로컬 HEAD 일치로 확인한다.
 

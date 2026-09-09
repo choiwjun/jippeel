@@ -42,6 +42,22 @@ def test_delete_project_cascades_chapters(client):
     assert client.get(f"/api/v1/chapters/{cid}").status_code == 404
 
 
+def test_delete_chapter_with_foreshadow_returns_conflict_and_preserves_data(client):
+    pid = client.post("/api/v1/projects", json={"title": "삭제 정책"}).json()["id"]
+    chapter = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "참조 회차"}).json()
+    foreshadow = client.post(
+        f"/api/v1/projects/{pid}/foreshadows",
+        json={"title": "연결 복선", "planted_chapter_id": chapter["id"]},
+    ).json()
+
+    response = client.delete(f"/api/v1/chapters/{chapter['id']}")
+
+    assert response.status_code == 409
+    assert client.get(f"/api/v1/chapters/{chapter['id']}").status_code == 200
+    remaining = client.get(f"/api/v1/projects/{pid}/foreshadows").json()
+    assert remaining[0]["id"] == foreshadow["id"]
+
+
 def test_delete_project_cascades_characters_with_relations(client):
     """회귀: 관계(relationships)가 있어도 프로젝트 삭제가 FK 오류 없이 통과해야 한다."""
     pid = client.post("/api/v1/projects", json={"title": "관계 캐스케이드"}).json()["id"]

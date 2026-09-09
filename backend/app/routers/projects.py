@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Chapter, ChapterSnapshot, Character, Project, Relationship
+from app.models import Chapter, ChapterSnapshot, Character, Foreshadow, Project, Relationship
 from app.schemas import BootstrapRequest, BootstrapResponse, PlusStatusOut, PLUS_MIN_CHAPTERS, PLUS_MIN_CHARS_DONE
 from app.services import bootstrap as bootstrap_service
 from app.services import manuscripts
@@ -270,6 +270,17 @@ def restore_chapter_snapshot(cid: int, payload: ChapterRestorePost, db: Session 
 @router.delete("/chapters/{cid}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_chapter(cid: int, db: Session = Depends(get_db)):
     chapter = _get_chapter_or_404(cid, db)
+    has_foreshadow = db.scalar(
+        select(Foreshadow.id).where(
+            (Foreshadow.planted_chapter_id == cid)
+            | (Foreshadow.resolved_chapter_id == cid)
+        ).limit(1)
+    )
+    if has_foreshadow is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="복선이 연결된 회차는 복선 참조를 먼저 정리해야 합니다",
+        )
     db.delete(chapter)
     db.commit()
 
@@ -293,7 +304,7 @@ def reorder_chapters(pid: int, payload: ChaptersReorder, db: Session = Depends(g
 
     for item in payload.items:
         chapter = chapters[item.id]
-        if item.volume is not None:
+        if "volume" in item.model_fields_set:
             chapter.volume = item.volume
         if item.sort_order is not None:
             chapter.sort_order = item.sort_order

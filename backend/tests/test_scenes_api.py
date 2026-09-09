@@ -89,3 +89,23 @@ def test_scene_context_injection(client, monkeypatch, chapter):
         "endpoint_id": ep["id"], "prompt_override": "hi",
         "context": {"scene_id": 99999}})
     assert resp.status_code == 404
+
+
+def test_scene_reorder_rejects_scene_from_another_chapter(client):
+    project_a = client.post("/api/v1/projects", json={"title": "A"}).json()["id"]
+    project_b = client.post("/api/v1/projects", json={"title": "B"}).json()["id"]
+    chapter_a = client.post(f"/api/v1/projects/{project_a}/chapters", json={"title": "A-1"}).json()
+    chapter_b = client.post(f"/api/v1/projects/{project_b}/chapters", json={"title": "B-1"}).json()
+    scene_a = _scene(client, chapter_a, "A scene", 0.0)
+    scene_b = _scene(client, chapter_b, "B scene", 1.0)
+
+    response = client.patch(
+        f"/api/v1/chapters/{chapter_a['id']}/scenes/order",
+        json={"items": [
+            {"id": scene_a["id"], "sort_order": 5.0},
+            {"id": scene_b["id"], "sort_order": 9.0},
+        ]},
+    )
+
+    assert response.status_code == 422
+    assert client.get(f"/api/v1/scenes/{scene_b['id']}").json()["sort_order"] == 1.0

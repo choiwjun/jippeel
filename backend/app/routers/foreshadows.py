@@ -51,7 +51,7 @@ def foreshadow_reminder(pid: int, window: int = 5, db: Session = Depends(get_db)
     if not foreshadows:
         return {"window": window, "latest_chapter": None, "items": []}
 
-    latest = chapters[-1]
+    latest = chapters[-1] if chapters else None
     latest_pos = len(chapters) - 1
 
     def last_mentioned_pos(row: Foreshadow) -> int | None:
@@ -83,7 +83,8 @@ def foreshadow_reminder(pid: int, window: int = 5, db: Session = Depends(get_db)
             "stale": since is None or since > window,
         })
     return {"window": window,
-            "latest_chapter": {"id": latest.id, "title": latest.title}, "items": items}
+            "latest_chapter": ({"id": latest.id, "title": latest.title}
+                               if latest is not None else None), "items": items}
 
 
 @router.get("/projects/{pid}/foreshadows/match")
@@ -198,11 +199,14 @@ def _get_foreshadow_or_404(fid: int, db: Session) -> Foreshadow:
     return row
 
 
-def _validate_chapter_refs(payload, db: Session) -> None:
+def _validate_chapter_refs(payload, project_id: int, db: Session) -> None:
     for field in ("planted_chapter_id", "resolved_chapter_id"):
         cid = getattr(payload, field, None)
-        if cid is not None and db.get(Chapter, cid) is None:
-            raise HTTPException(status_code=422, detail=f"{field}가 존재하지 않는 회차입니다")
+        if cid is None:
+            continue
+        chapter = db.get(Chapter, cid)
+        if chapter is None or chapter.project_id != project_id:
+            raise HTTPException(status_code=422, detail=f"{field}가 같은 작품의 회차를 가리켜야 합니다")
 
 
 @router.get("/projects/{pid}/foreshadows", response_model=list[ForeshadowOut])
@@ -223,7 +227,7 @@ def list_foreshadows(pid: int, status_filter: str | None = None,
              status_code=status.HTTP_201_CREATED)
 def create_foreshadow(pid: int, payload: ForeshadowCreate, db: Session = Depends(get_db)):
     _get_project_or_404(pid, db)
-    _validate_chapter_refs(payload, db)
+    _validate_chapter_refs(payload, pid, db)
     row = Foreshadow(
         project_id=pid,
         title=payload.title,
@@ -243,7 +247,7 @@ def create_foreshadow(pid: int, payload: ForeshadowCreate, db: Session = Depends
 def update_foreshadow(fid: int, payload: ForeshadowUpdate, db: Session = Depends(get_db)):
     row = _get_foreshadow_or_404(fid, db)
     data = payload.model_dump(exclude_unset=True)
-    _validate_chapter_refs(payload, db)
+    _validate_chapter_refs(payload, row.project_id, db)
     if "status" in data and data["status"] not in VALID_STATUS:
         raise HTTPException(status_code=422, detail="status는 설치|회수|보류 중 하나여야 합니다")
     for field, value in data.items():

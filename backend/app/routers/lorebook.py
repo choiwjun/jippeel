@@ -68,7 +68,7 @@ def search_lore(
 ):
     """키워드 검색 (FR-304). FTS5 MATCH → 실패 시 LIKE 폴백."""
     _get_project_or_404(pid, db)
-    ids = search_entry_ids(db, q, limit=limit)
+    ids = search_entry_ids(db, q, limit=limit, project_id=pid, category=category)
     if ids is not None:
         # FTS5 경로: 매치 없으면 빈 목록 (폴백 미사용)
         if not ids:

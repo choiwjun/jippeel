@@ -78,6 +78,34 @@ class TestSearch:
         res = client.get(f"/api/v1/projects/{pid}/lore/search", params={"q": "검"})
         assert [e["id"] for e in res.json()] == [hit]
 
+    def test_search_limit_is_applied_after_project_scope(self, client):
+        first_pid = _create_project(client)
+        target_pid = _create_project(client)
+        _create_entry(client, first_pid, "공통검색어 A", content="공통검색어")
+        target = _create_entry(client, target_pid, "공통검색어 B", content="공통검색어")
+
+        response = client.get(
+            f"/api/v1/projects/{target_pid}/lore/search",
+            params={"q": "공통검색어", "limit": 1},
+        )
+
+        assert response.status_code == 200
+        assert [row["id"] for row in response.json()] == [target["id"]]
+
+    def test_search_limit_is_applied_after_category_scope(self, client):
+        pid = _create_project(client)
+        _create_entry(client, pid, "공통검색어 장소", category="장소", content="공통검색어")
+        target = _create_entry(client, pid, "공통검색어 용어", category="용어", content="공통검색어")
+
+        response = client.get(
+            f"/api/v1/projects/{pid}/lore/search",
+            params={"q": "공통검색어", "category": "용어", "limit": 1},
+        )
+
+        assert response.status_code == 200
+        assert [row["id"] for row in response.json()] == [target["id"]]
+
+
     def test_search_no_match_returns_empty(self, client):
         pid = _create_project(client)
         _create_entry(client, pid, "항목", content="내용")
