@@ -15,6 +15,7 @@
 - `backend/app/routers/characters.py`: 관계가 있는 character 삭제 거부(`409`), 관계 보존
 - `backend/app/routers/projects.py`: 복선 참조 chapter 삭제 거부(`409`); reorder에서 명시적 `volume: null` 처리
 - `backend/app/services/fts.py`, `backend/app/routers/lorebook.py`: project/category scope 후 FTS `LIMIT`; LIKE fallback scope 유지
+- `frontend/vite.config.ts`: 중복 `build` 키 제거, 기존 `react-vendor/editor/markdown` 청크 유지
 - 관련 회귀 테스트: `backend/tests/test_{scenes_api,foreshadows_canon,characters_api,projects_api,lorebook_api,volume_nullable}.py`
 
 ### 검증 결과
@@ -22,7 +23,7 @@
 - 관련 backend 테스트: **54 passed**
 - 백엔드 전체 safe runner: **277 passed**, 기존 AnyIO/Starlette deprecation warning 1건
 - 격리 관리 무결성 harness: 7개 후보 모두 `candidate_reproduced: false`
-- 프론트 `npm run build`: exit 0, 기존 `vite.config.ts` duplicate `build` key warning 1건
+- 프론트 `npm run build`: exit 0, duplicate `build` key warning 제거. `react-vendor/editor/markdown` 청크 유지
 - 독립 review: **PASS**, patch-scoped blocker 없음
 - 재현/검증 보고서: `docs/audits/management-integrity-reproduction-2026-09-09.md`
 
@@ -32,6 +33,7 @@
 - 구현/수정 Task `task_8346d1896717`: **completed**, chapterless reminder red-green 회귀 검증 포함
 - 독립 review Task `task_49a0885a4145`: **PASS**, 관련 54개 및 전체 277개 테스트 확인
 - release QA Task `task_b40eb37eef80`: **DONE**, backend/harness/frontend 세 게이트 통과
+- Vite 수정 Task `task_2efa6ab75780` 및 독립 review `task_b3ccf82d0105`: **PASS**, build exit 0·중복 키 경고 제거
 - 반영 커밋: `6e154da` (`fix: enforce management data integrity boundaries`). `origin/main`과 로컬 `HEAD`가 일치한다.
 - 운영 반영·배포·운영 DB 접근은 별도 승인 없이는 진행하지 않는다. `.eval_tmp/`, `.omo/`, 원시 감사자료는 커밋하지 않는다.
 
