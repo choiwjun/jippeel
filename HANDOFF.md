@@ -1,41 +1,55 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
-## 최신 인계 — 관리 무결성 수정 및 QA 상태 (2026-09-09)
+## 최신 인계 — 관리 무결성·Vite 경고 정리 및 후속 계획 (2026-09-09)
 
-### 현재 상태
+### 현재 진행사항
 
-- 사용자 승인 정책에 따라 관리 무결성 결함 6개와 회차 없는 작품의 복선 reminder 500 결함을 TDD로 수정했다.
-- lorebook `category + limit` FTS 결함도 수정했다. project/category 조건을 FTS `LIMIT` 전에 적용한다.
-- 모든 검증을 통과해 `main`에 commit/push했다. 운영 반영은 하지 않았으며 운영 DB·기존 서비스·점유 포트는 사용하지 않았다.
+- 관리 무결성 결함 6개, 회차가 0개인 작품의 복선 reminder 500 결함, lorebook `category + limit` FTS 결함을 TDD로 수정했다.
+- `frontend/vite.config.ts`의 중복 `build` 키를 제거했다. 유효한 `react-vendor/editor/markdown` 청크 설정은 유지했다.
+- 운영 반영·배포·운영 DB 접근·실제 모델 호출은 하지 않았다.
+- 미추적 `.eval_tmp/`, `.omo/`, 원시 감사자료는 커밋하지 않았다.
 
 ### 수정 범위
 
 - `backend/app/routers/scenes.py`: 다른 회차 scene reorder 거부(`422`), 외부 scene 보존
-- `backend/app/routers/foreshadows.py`: 다른 작품 회차 planted/resolved 참조 거부(`422`); 회차가 0개여도 reminder가 `latest_chapter: null`과 복선 item을 반환
+- `backend/app/routers/foreshadows.py`: 다른 작품 회차 planted/resolved 참조 거부(`422`); 회차 0개 reminder에 `latest_chapter: null` 반환
 - `backend/app/routers/characters.py`: 관계가 있는 character 삭제 거부(`409`), 관계 보존
 - `backend/app/routers/projects.py`: 복선 참조 chapter 삭제 거부(`409`); reorder에서 명시적 `volume: null` 처리
 - `backend/app/services/fts.py`, `backend/app/routers/lorebook.py`: project/category scope 후 FTS `LIMIT`; LIKE fallback scope 유지
-- `frontend/vite.config.ts`: 중복 `build` 키 제거, 기존 `react-vendor/editor/markdown` 청크 유지
-- 관련 회귀 테스트: `backend/tests/test_{scenes_api,foreshadows_canon,characters_api,projects_api,lorebook_api,volume_nullable}.py`
+- `frontend/vite.config.ts`: dead duplicate `build` 블록 제거
 
-### 검증 결과
+### 검증·배포 결과
 
 - 관련 backend 테스트: **54 passed**
-- 백엔드 전체 safe runner: **277 passed**, 기존 AnyIO/Starlette deprecation warning 1건
+- 백엔드 전체 safe runner: **277 passed**
 - 격리 관리 무결성 harness: 7개 후보 모두 `candidate_reproduced: false`
-- 프론트 `npm run build`: exit 0, duplicate `build` key warning 제거. `react-vendor/editor/markdown` 청크 유지
-- 독립 review: **PASS**, patch-scoped blocker 없음
-- 재현/검증 보고서: `docs/audits/management-integrity-reproduction-2026-09-09.md`
+- 프론트 `npm run build`: **exit 0**, 중복 `build` 경고 없음; `react-vendor/editor/markdown` 청크 생성
+- 독립 Vite review: **PASS**, `git diff --check` 통과
+- AnyIO/Starlette deprecation warning 1건은 `backend/.venv/.../starlette/testclient.py:53`의 설치 의존성 코드에서 발생한다. 억지 suppression이나 무승인 의존성 업그레이드는 하지 않았다.
+- 로컬 `HEAD`와 `origin/main`: **946f61b** 일치
+- 최신 커밋: `946f61b fix: remove duplicate vite build configuration`
 
-### Orca 오케스트레이션 상태
+### Orca 상태
 
-- Run: `run_869ed15f813e`
-- 구현/수정 Task `task_8346d1896717`: **completed**, chapterless reminder red-green 회귀 검증 포함
-- 독립 review Task `task_49a0885a4145`: **PASS**, 관련 54개 및 전체 277개 테스트 확인
-- release QA Task `task_b40eb37eef80`: **DONE**, backend/harness/frontend 세 게이트 통과
-- Vite 수정 Task `task_2efa6ab75780` 및 독립 review `task_b3ccf82d0105`: **PASS**, build exit 0·중복 키 경고 제거
-- 반영 커밋: `6e154da` (`fix: enforce management data integrity boundaries`). `origin/main`과 로컬 `HEAD`가 일치한다.
-- 운영 반영·배포·운영 DB 접근은 별도 승인 없이는 진행하지 않는다. `.eval_tmp/`, `.omo/`, 원시 감사자료는 커밋하지 않는다.
+- Vite 구현 Task `task_2efa6ab75780`: **DONE**
+- Vite 독립 review Task `task_b3ccf82d0105`: **PASS**
+- 후속 조사 Run `run_171c0158883a`의 경고 조사 `task_15a248da6002`와 장기 과제 분해 `task_ea805d74d020`: `Reconnecting` 정체로 **BLOCKED** 처리했다. 동일 프롬프트는 재시도하지 않는다.
+- 해당 후속 조사에서는 소스·문서·커밋·push 변경이 없었다.
+
+### 진행해야 할 사항
+
+1. **AnyIO 경고 호환성 조사**: 격리 환경에서 FastAPI/Starlette/AnyIO/httpx 호환 버전을 확인한다. 경고 숨김보다 업그레이드·고정·보류를 비교하고, 승인 전 의존성 파일은 수정하지 않는다.
+2. **실제 모델 품질 평가**: 먼저 평가셋·채점 기준·비용 상한·provider를 확정한다. 사용자의 명시 승인 전에는 외부 API 호출과 비용 발생을 하지 않는다.
+3. **장편 기억**: chapter/context bundle, canon·revision·stale 판정의 저장 경계와 회귀 테스트를 설계한 뒤 별도 승인을 받는다.
+4. **백업·복원**: 백업 포맷, 암호화 키 취급, restore dry-run, 무결성 검증, 실패 복구 절차를 설계한다. 운영 DB에는 접근하지 않는다.
+5. **Windows 실기기 QA**: 사용자가 지정한 Windows 장치에서 포트·파일 경로·인코딩·실행 패키징·복원 시나리오를 검증한다.
+6. 각 항목은 독립 Task로 분리하고, 구현 전 read-only 조사와 acceptance evidence를 먼저 확정한다. 실제 변경은 별도 승인 후 진행한다.
+
+### 운영 제약
+
+- 운영 반영·배포·운영 DB 접근·실제 모델 호출은 별도 승인 없이는 진행하지 않는다.
+- `.eval_tmp/`, `.omo/`, 원시 감사자료는 커밋하지 않는다.
+- 새 검증은 기존 서비스를 종료하지 않고 임시 DB와 전용 포트를 사용한다.
 
 ## 최신 인계 — 남은 작업과 main 공유 (2026-09-08)
 
