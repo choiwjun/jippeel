@@ -6,7 +6,7 @@
 
 - 사용자 승인 정책에 따라 관리 무결성 결함 6개와 회차 없는 작품의 복선 reminder 500 결함을 TDD로 수정했다.
 - lorebook `category + limit` FTS 결함도 수정했다. project/category 조건을 FTS `LIMIT` 전에 적용한다.
-- 모든 검증을 통과했지만 아직 commit/push/운영 반영하지 않았다. 운영 DB·기존 서비스·점유 포트는 사용하지 않았다.
+- 모든 검증을 통과해 `main`에 commit/push했다. 운영 반영은 하지 않았으며 운영 DB·기존 서비스·점유 포트는 사용하지 않았다.
 
 ### 수정 범위
 
@@ -32,7 +32,8 @@
 - 구현/수정 Task `task_8346d1896717`: **completed**, chapterless reminder red-green 회귀 검증 포함
 - 독립 review Task `task_49a0885a4145`: **PASS**, 관련 54개 및 전체 277개 테스트 확인
 - release QA Task `task_b40eb37eef80`: **DONE**, backend/harness/frontend 세 게이트 통과
-- 다음 단계는 검증된 tracked 파일만 선별해 main에 commit/push하는 것이다. `.eval_tmp/`, `.omo/`, 원시 감사자료는 커밋하지 않는다.
+- 반영 커밋: `6e154da` (`fix: enforce management data integrity boundaries`). `origin/main`과 로컬 `HEAD`가 일치한다.
+- 운영 반영·배포·운영 DB 접근은 별도 승인 없이는 진행하지 않는다. `.eval_tmp/`, `.omo/`, 원시 감사자료는 커밋하지 않는다.
 
 ## 최신 인계 — 남은 작업과 main 공유 (2026-09-08)
 
