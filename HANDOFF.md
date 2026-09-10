@@ -1,5 +1,11 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 검증 업데이트 — memory migration rollback dry-run (2026-09-10)
+
+- 임시 SQLite에서 `1b2c3d4e5f60 → 0a1b2c3d4e5f → 1b2c3d4e5f60` rollback/re-upgrade를 확인했다.
+- downgrade 후 `memory_entries` 부재, re-upgrade 후 head와 table 복원을 확인했다.
+- 운영 DB migration은 여전히 실행하지 않았다.
+
 ## 최신 진행 업데이트 — 장편 기억 context 연결 완료 (2026-09-10)
 
 - `GenerateContext.include_memory`(기본 true)와 `include_draft_memory`(기본 false)를 추가했다.

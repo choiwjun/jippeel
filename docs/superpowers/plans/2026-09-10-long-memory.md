@@ -62,3 +62,10 @@
 - `build_context_bundle` injects only selected, approved, non-stale, non-future memory and records `included_memory_entry_ids`.
 - The API caller can explicitly disable memory injection without changing manuscript content.
 - Backend suite remains 280 passed; frontend production build passes.
+
+## Migration rollback dry-run (2026-09-10)
+
+- Temporary DB upgraded to `1b2c3d4e5f60`.
+- Downgrade to `0a1b2c3d4e5f` removed `memory_entries`.
+- Re-upgrade recreated `memory_entries` and restored head `1b2c3d4e5f60`.
+- No project DB or production service was used.
