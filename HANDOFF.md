@@ -1,5 +1,19 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 진행 업데이트 — AnyIO/Starlette 호환성 조사 완료 (2026-09-10)
+
+- 조사 보고서: [`docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`](docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md)
+- 직접 원인은 Starlette 1.6.0의 `httpx` fallback과 AnyIO 4.15.1의 `BlockingPortal` alias deprecation이었다.
+- `backend/requirements.txt`에 `anyio>=4.14,<4.15`, `httpx2>=2.0.0`을 추가했다.
+- 최종 requirements 격리 설치 + deprecation strict 전체 백엔드 회귀: **277 passed**. 프론트 빌드: **exit 0**.
+- 운영 반영·배포·운영 DB 접근·실제 모델 호출은 하지 않았다.
+
+### 다음 작업
+
+1. 실제 모델 품질 평가의 평가셋·채점 기준·비용 상한·provider를 확정한다.
+2. 승인된 기준으로 read-only 평가 설계와 acceptance evidence를 작성한다.
+3. 외부 API 호출과 비용 발생은 별도 승인 전까지 금지한다.
+
 ## 최신 인계 — 관리 무결성·Vite 경고 정리 및 후속 계획 (2026-09-09)
 
 ### 현재 진행사항

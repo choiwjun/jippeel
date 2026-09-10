@@ -1,10 +1,12 @@
 fastapi
 uvicorn[standard]
 sqlalchemy>=2.0
+anyio>=4.14,<4.15
 pydantic-settings
 openai>=1.40
 sse-starlette>=2.0
 cryptography>=42
 pytest
 httpx
+httpx2>=2.0.0
 alembic>=1.13

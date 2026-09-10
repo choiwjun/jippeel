@@ -20,11 +20,12 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // QA Minor #3 — 청크 크기 경고 해소: vendor 분리
+        // 벤더 청크 분리 — 단일 번들 비대화 완화 + 배포 캐시 효율
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           editor: ['@codemirror/state', '@codemirror/view', '@codemirror/language', '@codemirror/lang-markdown'],
           markdown: ['markdown-it', 'dompurify', 'diff'],
+          data: ['@tanstack/react-query', 'zustand'],
         },
       },
     },

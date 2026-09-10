@@ -26,6 +26,7 @@ from app.schemas import (
     PromptPresetCreate,
     PromptPresetOut,
     PromptPresetUpdate,
+    ReviewRequest,
 )
 from app.services import ai_context, injection, llm, parallel_writer, usage as usage_service
 
@@ -441,7 +442,8 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
 
     client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
 
-    # 감수 패스 사전 검증 — 초안 스트리밍 시작 전에 설정 오류를 잡는다
+    # 기존 인라인 감수 SSE 계약을 유지한다. 별도 /ai/review 엔드포인트도
+    # 제공하지만, 구버전 프론트와 저장된 요청은 같은 스트림을 계속 사용할 수 있다.
     review_cfg = None
     if payload.review is not None:
         rid = payload.review.endpoint_id or endpoint.id
@@ -451,14 +453,12 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
             if reviewer.id != endpoint.id else client,
             "endpoint_name": reviewer.name,
             "model": _resolve_model(reviewer, payload.review.model),
-            "reasoning_effort": payload.review.reasoning_effort if payload.review.reasoning_effort
-            else reviewer.reasoning_effort,
-            "max_tokens": payload.review.max_tokens if payload.review.max_tokens is not None
-            else payload.params.max_tokens,
+            "reasoning_effort": payload.review.reasoning_effort or reviewer.reasoning_effort,
+            "max_tokens": payload.review.max_tokens
+            if payload.review.max_tokens is not None else payload.params.max_tokens,
         }
 
     async def event_stream():
-        # 시작 이벤트 — 프론트가 스트림 개시를 확정할 수 있다
         # 시작 이벤트 — 프론트가 스트림 개시를 확정하고, 자동 주입된 로어 목록을
         # 투명하게 표시할 수 있다(주입 내역 공개)
         yield {"event": "start",
@@ -493,7 +493,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
             prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
             completion_chars=completion_chars)
 
-        # 감수 패스 — 초안 스트림이 정상 종료된 직후 같은 SSE에서 이어 실행
+        # 기존 인라인 감수 — 초안 스트림이 정상 종료된 뒤 같은 SSE로 이어간다.
         if review_cfg is not None:
             yield {"event": "review_start",
                    "data": json.dumps({"model": review_cfg["model"],
@@ -741,4 +741,59 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                        "stage": "review", "detail": f"감수 실패: {type(exc).__name__}",
                    }, ensure_ascii=False)}
         yield {"event": "done", "data": "[DONE]"}
+
+    return EventSourceResponse(event_stream())
+
+
+# ---------- 감수 패스 (백그라운드 병렬) ----------
+@router.post("/ai/review")
+async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
+    """초안 원고를 감수하고 수정본까지 스트리밍하는 독립 엔드포인트.
+
+    생성(/ai/generate)과 분리되어 있어 프론트가 비동기로 발사한다 —
+    감수(저속 xhigh 등)가 진행되는 동안에도 다음 회차 생성을 계속할 수 있다.
+    SSE 이벤트: review_start / review(지적) / refined(수정본) / review_error / done.
+    """
+    endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
+    model = _resolve_model(endpoint, payload.model)
+    reasoning_effort = payload.reasoning_effort or endpoint.reasoning_effort
+    client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+    review_messages = [
+        {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+        {"role": "user", "content": f"[초안 원고]\n{payload.draft}"},
+    ]
+
+    async def event_stream():
+        yield {"event": "review_start",
+               "data": json.dumps({"model": model, "endpoint": endpoint.name,
+                                   "reasoning_effort": reasoning_effort},
+                                  ensure_ascii=False)}
+        review_chars = 0
+        try:
+            feed, flush_review = _split_review_stream()
+            async for delta in llm.stream_chat(client, model, review_messages,
+                                               max_tokens=payload.max_tokens,
+                                               reasoning_effort=reasoning_effort):
+                review_chars += len(delta)
+                async for event_name, chunk in feed(delta):
+                    yield {"event": event_name,
+                           "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+            async for event_name, chunk in flush_review():
+                yield {"event": event_name,
+                       "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+        except openai.APIError as exc:
+            yield {"event": "review_error",
+                   "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}
+        except Exception as exc:  # noqa: BLE001
+            yield {"event": "review_error",
+                   "data": json.dumps({"detail": f"감수 실패: {type(exc).__name__}"},
+                                      ensure_ascii=False)}
+        else:
+            if review_chars:
+                usage_service.record(
+                    kind="review", model=model, endpoint_name=endpoint.name,
+                    prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
+                    completion_chars=review_chars)
+        yield {"event": "done", "data": "[DONE]"}
+
     return EventSourceResponse(event_stream())
