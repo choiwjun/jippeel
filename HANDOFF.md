@@ -1,5 +1,18 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 진행 업데이트 — 장편 기억 최소 수직 슬라이스 구현 (2026-09-10)
+
+- `MemoryEntry` provenance/revision/time-scope 모델과 `long_memory` 선택 서비스를 추가했다.
+- Alembic migration `1b2c3d4e5f60`을 추가하고 임시 DB head upgrade를 검증했다.
+- 신규 장편 기억 테스트 2개와 전체 backend **279 passed**를 확인했다.
+- 아직 prompt 자동 주입, UI, 자동 요약/backfill, 운영 migration은 실행하지 않았다.
+
+### 다음 게이트
+
+1. memory context를 generate/canon prompt에 연결할 contract와 payload 회귀를 별도 확정한다.
+2. 운영 migration 전 backfill·rollback·negative corpus를 검증한다.
+3. 실제 모델·Windows·운영 DB 작업은 기존 승인 조건을 따른다.
+
 ## 최신 진행 업데이트 — 안전한 dry-run과 Windows 정적 점검 완료 (2026-09-10)
 
 - 백업 dry-run 결과: [`docs/audits/backup-restore-dry-run-2026-09-10.md`](docs/audits/backup-restore-dry-run-2026-09-10.md)

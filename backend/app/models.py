@@ -32,6 +32,9 @@ class Project(TimestampMixin, Base):
     chapters: Mapped[list["Chapter"]] = relationship(
         back_populates="project", cascade="all, delete-orphan", order_by="Chapter.sort_order"
     )
+    memory_entries: Mapped[list["MemoryEntry"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
     volume_notes: Mapped[list["VolumeNote"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
@@ -72,6 +75,9 @@ class Chapter(TimestampMixin, Base):
     snapshots: Mapped[list["ChapterSnapshot"]] = relationship(
         back_populates="chapter", cascade="all, delete-orphan", order_by="ChapterSnapshot.id"
     )
+    memory_entries: Mapped[list["MemoryEntry"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan"
+    )
     canon_runs: Mapped[list["CanonRun"]] = relationship(
         cascade="all, delete-orphan")
     quality_checks: Mapped[list["QualityCheck"]] = relationship(
@@ -98,6 +104,37 @@ class ChapterSnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now(), index=True)
 
     chapter: Mapped["Chapter"] = relationship(back_populates="snapshots")
+
+
+class MemoryEntry(TimestampMixin, Base):
+    """Provenance-aware long-memory projection, never the manuscript source of truth."""
+
+    __tablename__ = "memory_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('summary','beat','decision','fact','timeline','relationship_note')",
+            name="ck_memory_entry_kind",
+        ),
+        CheckConstraint(
+            "visibility IN ('draft','approved','retired')",
+            name="ck_memory_entry_visibility",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False)
+    chapter_id: Mapped[int | None] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"), index=True)
+    source_revision: Mapped[int | None] = mapped_column(Integer)
+    source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    visibility: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
+    effective_from_sort_order: Mapped[float | None] = mapped_column(Float)
+    effective_to_sort_order: Mapped[float | None] = mapped_column(Float)
+    provenance_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+    project: Mapped["Project"] = relationship(back_populates="memory_entries")
+    chapter: Mapped["Chapter | None"] = relationship(back_populates="memory_entries")
 
 
 class Scene(TimestampMixin, Base):

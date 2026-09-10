@@ -54,7 +54,7 @@ def get_db():
         db.close()
 
 
-ALEMBIC_HEAD = "0a1b2c3d4e5f"
+ALEMBIC_HEAD = "1b2c3d4e5f60"
 TEMP_CREATE_ALL_ENV = "JIPPEEL_ALLOW_TEMP_CREATE_ALL"
 
 

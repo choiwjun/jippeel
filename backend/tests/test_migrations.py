@@ -185,7 +185,7 @@ def test_populated_historical_upgrade_from_initial_with_references(alembic_confi
     assert run == {"chapter_id": 1, "base_revision": None}
     assert rel_count == 1
     assert lore_count == 1
-    assert version == "0a1b2c3d4e5f"
+    assert version == "1b2c3d4e5f60"
 
 
 def test_schema_guard_temp_bypass_uses_passed_engine_url(tmp_path, monkeypatch):
