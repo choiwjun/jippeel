@@ -1,5 +1,20 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 진행 업데이트 — 남은 작업의 안전한 설계 완료 (2026-09-10)
+
+- 장편 기억: `docs/audits/long-memory-design-2026-09-10.md`
+- 백업·복원: `docs/audits/backup-restore-design-2026-09-10.md`
+- Windows 실기기 QA: `docs/audits/windows-device-qa-plan-2026-09-10.md`
+- 세 문서는 read-only 설계다. 운영 DB·실제 모델·Windows 장치·배포는 건드리지 않았다.
+- 실제 모델 평가 실행은 실제 사례 6개, provider/model 가격, 평가자와 별도 실행 승인이 준비될 때까지 보류한다.
+
+### 남은 실행 게이트
+
+1. 장편 기억은 schema 후보·migration·negative corpus를 별도 승인한다.
+2. 백업·복원은 temp DB dry-run과 key recovery plan을 먼저 승인한다.
+3. Windows QA는 장치·포트·테스트 key/DB를 지정한 뒤 수동 실행한다.
+4. 실제 모델 평가는 비용 cap과 raw usage evidence를 확보한 뒤 실행한다.
+
 ## 최신 진행 업데이트 — 실제 모델 품질 평가 설계 완료 (2026-09-10)
 
 - 설계 보고서: [`docs/audits/ai-model-quality-evaluation-design-2026-09-10.md`](docs/audits/ai-model-quality-evaluation-design-2026-09-10.md)
