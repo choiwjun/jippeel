@@ -1,5 +1,104 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 현재 기준 상태 — 2026-09-10
+
+### 저장소
+
+- 브랜치: `main`
+- 로컬/원격: `HEAD=6a27ec8`, `origin/main=6a27ec8`
+- 작업 트리: clean
+- 최신 push에는 작업물과 이 핸드오프 갱신이 포함되어 있다.
+
+### 완료된 작업
+
+1. Git pull 충돌 해결 및 원격 `main` 동기화
+2. Starlette/AnyIO/HTTPX 호환성 정리
+   - `anyio>=4.14,<4.15`
+   - `httpx2>=2.0.0`
+3. WSL 실행 스크립트 CRLF 결함 수정
+   - `scripts/prod.sh`, `scripts/dev.sh`를 LF로 정규화
+   - `bash -n` 통과
+4. 임시 SQLite 백업·복원 dry-run
+   - integrity check 통과
+   - foreign key 오류 0
+   - Alembic head 및 논리 row 복원 확인
+5. 장편 기억 최소 수직 슬라이스
+   - `MemoryEntry` 모델 및 migration `1b2c3d4e5f60`
+   - provenance/revision/hash/time-scope stale 판정
+   - 승인된 기억만 AI context에 자동 주입
+   - `include_memory=false`, `include_draft_memory` 옵션
+   - `included_memory_entry_ids` metadata 기록
+6. 임시 DB migration rollback/re-upgrade 검증
+   - `1b2c3d4e5f60 → 0a1b2c3d4e5f → 1b2c3d4e5f60`
+
+### 검증 증거
+
+- 백엔드 전체: **280 passed** (`-W error::DeprecationWarning`)
+- 프론트: `npm run build` 성공
+- 장편 기억 integration test: 승인·최신 memory 주입, stale memory 제외, 주입 비활성화 통과
+- 임시 DB만 사용했으며 운영 DB·기존 서비스·실제 provider·Windows 장치를 사용하지 않았다.
+
+### 남은 작업과 실행 게이트
+
+#### 1. 운영 DB migration — 실행 전 승인 필요
+
+현재 기존 `jippeel.db`는 새 Alembic head보다 뒤처져 있다. 따라서 일반 환경에서 앱을 시작하기 전에 다음 순서를 따라야 한다.
+
+1. 운영/기존 DB 백업을 먼저 만든다.
+2. 백업 manifest, logical integrity, restore 결과를 확인한다.
+3. 별도 승인 후 `backend/.venv/bin/alembic upgrade head`를 실행한다.
+4. 앱 시작과 기존 원고 read/write 회귀를 확인한다.
+
+이번 작업에서는 기존 DB를 migration하지 않았다.
+
+#### 2. 장편 기억 후속 기능
+
+- 자동 요약 및 backfill
+- memory 관리/승인/폐기 UI
+- 운영 DB에 대한 migration 후 기존 데이터 negative corpus 검증
+- prompt block 길이·우선순위·사용자 확인 UX 추가 검토
+
+#### 3. 백업·복원 운영 준비
+
+- key recovery plan 확정
+- 임시 DB failure injection 추가
+- 실제 restore rollback runbook 작성
+- 운영 DB/암호화 keyring에는 승인 전 접근하지 않음
+
+#### 4. 실제 모델 품질 평가
+
+- 실제 승인 사례 6개와 source owner 확정
+- provider/endpoint/model/가격표 확정
+- 독립 평가자 2명 배정
+- raw usage와 비용 증거 확보
+- USD 20 hard cap 내에서 별도 승인 후 실행
+- 위 조건이 없으면 provider 호출과 비용 발생을 하지 않음
+
+#### 5. Windows 실기기 QA
+
+- 정적 사전 점검은 통과했다.
+- 지정 Windows 장치, 전용 port, test DB/key가 필요하다.
+- DPAPI/keyring, batch 실행, 브라우저, NVDA, 성능, 복원 시나리오를 장치에서 수동 검증한다.
+
+### 주요 산출물
+
+- `docs/audits/ai-model-quality-evaluation-design-2026-09-10.md`
+- `docs/audits/long-memory-design-2026-09-10.md`
+- `docs/audits/backup-restore-design-2026-09-10.md`
+- `docs/audits/backup-restore-dry-run-2026-09-10.md`
+- `docs/audits/windows-device-qa-plan-2026-09-10.md`
+- `docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`
+- `docs/superpowers/plans/2026-09-10-long-memory.md`
+
+### 최근 커밋
+
+- `6a27ec8 docs: record memory migration rollback evidence`
+- `8416cb9 feat: inject validated memory into AI context`
+- `d5593a9 feat: add provenance-aware long memory storage`
+- `239fd57 fix: make WSL launch scripts bash compatible`
+
+---
+
 ## 최신 검증 업데이트 — memory migration rollback dry-run (2026-09-10)
 
 - 임시 SQLite에서 `1b2c3d4e5f60 → 0a1b2c3d4e5f → 1b2c3d4e5f60` rollback/re-upgrade를 확인했다.
