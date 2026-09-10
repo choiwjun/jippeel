@@ -61,6 +61,10 @@
 - before/after process, port, file hash
 - rollback 확인
 
+## 정적 사전 점검 결과
+
+WSL에서 `bash -n scripts/prod.sh scripts/dev.sh`를 먼저 실행했다. 두 스크립트가 CRLF였기 때문에 Bash가 line 25 부근에서 실패했다. WSL에서 `Jippeel실행.bat`이 이 스크립트를 호출하므로 실행 경로의 실제 결함으로 판정했다. 두 `.sh` 파일의 줄바꿈을 LF로 정규화한 뒤 같은 명령이 통과했고, batch 파일·frontend package·backend requirements 존재도 확인했다. 실제 Windows 장치에서의 실행/DPAPI/브라우저/NVDA 검증은 아직 하지 않았다.
+
 ## 현재 blocker
 
 Windows 장치 지정, 테스트 시간, 사용 가능한 별도 port, 실제 test DB/keyring이 아직 없다. 이 정보 없이 실기기 QA를 실행하거나 `Jippeel실행.bat`을 더블클릭하지 않는다.

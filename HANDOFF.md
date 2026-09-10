@@ -1,5 +1,19 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 진행 업데이트 — 안전한 dry-run과 Windows 정적 점검 완료 (2026-09-10)
+
+- 백업 dry-run 결과: [`docs/audits/backup-restore-dry-run-2026-09-10.md`](docs/audits/backup-restore-dry-run-2026-09-10.md)
+- 임시 SQLite를 Alembic head까지 생성하고 backup API로 복원했다. `integrity_check=ok`, foreign key 오류 0, head `0a1b2c3d4e5f`, 논리 row 복원 PASS.
+- Windows 정적 점검에서 CRLF shell script 문제를 재현했다. `scripts/prod.sh`, `scripts/dev.sh`를 LF로 정규화했고 `bash -n`이 통과했다.
+- 실제 운영 DB·keyring·Windows 장치·provider는 사용하지 않았다.
+
+### 다음 게이트
+
+1. 장편 기억은 schema/migration 구현 승인을 별도로 확정한다.
+2. 백업·복원은 key recovery plan과 temp restore failure injection을 추가 검증한다.
+3. Windows는 지정 장치에서 DPAPI·브라우저·NVDA·성능을 수동 실행한다.
+4. 실제 모델 평가는 사례·provider·가격·평가자를 확정한 뒤 실행한다.
+
 ## 최신 진행 업데이트 — 남은 작업의 안전한 설계 완료 (2026-09-10)
 
 - 장편 기억: `docs/audits/long-memory-design-2026-09-10.md`
