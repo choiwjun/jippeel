@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.models import Chapter, Character, Foreshadow, LoreEntry, Project, Relationship, Scene, VolumeNote
 from app.schemas import CanonCheckRequest, EpisodeBrief, GenerateRequest
 from app.services import injection
+from app.services.long_memory import format_context_memory, select_context_memory
 from app.services.manuscripts import RevisionConflict
 
 ContextTarget = Literal["generate", "canon"]
@@ -45,6 +46,8 @@ class ContextBundleRequest:
     episode_purpose: EpisodePurpose
     approved_foreshadow_ids: list[int]
     include_relationships: bool
+    include_memory: bool = True
+    include_draft_memory: bool = False
 
 
 @dataclass(frozen=True)
@@ -158,6 +161,8 @@ def request_from_generate(payload: GenerateRequest) -> ContextBundleRequest:
         episode_purpose=ctx.episode_purpose,
         approved_foreshadow_ids=list(ctx.approved_foreshadow_ids or []),
         include_relationships=ctx.include_relationships,
+        include_memory=ctx.include_memory,
+        include_draft_memory=ctx.include_draft_memory,
     )
 
 
@@ -471,6 +476,7 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
     included_foreshadows: list[dict] = []
     outline_info: dict = {}
     unknown_labels: list[str] = []
+    included_memory_entries = []
 
     if request.brief is not None:
         blocks.append(_format_brief_block(request.brief))
@@ -572,6 +578,15 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
             blocks.append(f"[세계관: {entry.title}]\n{entry.content or ''}")
         selected_chars_for_metadata = selected_chars
         selected_lore_for_metadata = selected_lore
+
+    if request.include_memory and project_id is not None and chapter is not None:
+        included_memory_entries = select_context_memory(
+            db, project_id=project_id, target_chapter_id=chapter.id,
+            include_draft=request.include_draft_memory,
+        )
+        memory_block = format_context_memory(included_memory_entries)
+        if memory_block:
+            blocks.append(memory_block)
 
     if request.auto_lore and project_id is not None:
         if request.prompt_text:
@@ -704,6 +719,9 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         "included_foreshadow_ids": [row["id"] for row in included_foreshadows],
         "approved_foreshadow_ids": approved_ids,
         "future_reference_foreshadow_ids": sorted(future_ids),
+        "included_memory_entry_ids": [entry.id for entry in included_memory_entries],
+        "include_memory": request.include_memory,
+        "include_draft_memory": request.include_draft_memory,
         "outline": outline_info,
         "unknown_labels": unknown_labels,
         # Legacy canon count keys. Generation keeps them zero for JSON shape stability.

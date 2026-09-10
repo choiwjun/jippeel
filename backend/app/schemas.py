@@ -377,6 +377,9 @@ class GenerateContext(BaseModel):
     style_profile: bool = False
     # 회차 브리프 (한국어 회차 품질 슬라이스) — 선택적 생성 계약, 없으면 기존 동작 유지
     brief: EpisodeBrief | None = None
+    # provenance 기반 장편 기억 자동 주입. draft는 명시적으로 요청한 미리보기에서만 포함
+    include_memory: bool = True
+    include_draft_memory: bool = False
 
     @model_validator(mode="after")
     def validate_context_contract(self):

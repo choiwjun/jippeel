@@ -47,6 +47,44 @@ def _patch_stream_llm(monkeypatch):
     return holder
 
 
+def test_approved_memory_is_injected_and_stale_memory_is_excluded(client):
+    from app.services.long_memory import create_memory_entry
+
+    pid, chapter = _project_with_chapter(client, body="현재 원문")
+    db = _db(client)
+    current = db.get(__import__("app.models", fromlist=["Chapter"]).Chapter, chapter["id"])
+    current_revision = current.revision
+    create_memory_entry(
+        db, project_id=pid, chapter_id=current.id, source_revision=current_revision,
+        source_text=current.content_md, kind="fact", body="현재 승인 기억", visibility="approved",
+    )
+    create_memory_entry(
+        db, project_id=pid, chapter_id=current.id, source_revision=current_revision - 1,
+        source_text=current.content_md, kind="fact", body="오래된 기억", visibility="approved",
+    )
+    db.commit()
+
+    payload = GenerateRequest(
+        endpoint_id=1, prompt_override="이어 써줘",
+        context=GenerateContext(project_id=pid, chapter_id=current.id),
+    )
+    bundle = build_context_bundle(db, request_from_generate(payload))
+    joined = "\n\n".join(bundle.blocks)
+    assert "현재 승인 기억" in joined
+    assert "오래된 기억" not in joined
+    assert bundle.metadata["included_memory_entry_ids"]
+
+    disabled = GenerateRequest(
+        endpoint_id=1, prompt_override="이어 써줘",
+        context=GenerateContext(
+            project_id=pid, chapter_id=current.id, include_memory=False,
+        ),
+    )
+    disabled_bundle = build_context_bundle(db, request_from_generate(disabled))
+    assert "현재 승인 기억" not in "\n\n".join(disabled_bundle.blocks)
+    assert disabled_bundle.metadata["included_memory_entry_ids"] == []
+
+
 def test_legacy_chapter_id_includes_body_by_default(client):
     pid, chapter = _project_with_chapter(client, body="레거시 본문")
     payload = GenerateRequest(

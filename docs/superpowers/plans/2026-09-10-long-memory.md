@@ -55,3 +55,10 @@
 - Temporary Alembic upgrade reached `1b2c3d4e5f60`.
 - New tests: 2 passed. Full backend suite: 279 passed with deprecation warnings treated as errors.
 - Prompt injection, UI, automatic summarization, backfill, and production migration remain intentionally outside this slice.
+
+## Context integration result (2026-09-10)
+
+- `GenerateContext.include_memory` defaults to true; `include_draft_memory` defaults to false.
+- `build_context_bundle` injects only selected, approved, non-stale, non-future memory and records `included_memory_entry_ids`.
+- The API caller can explicitly disable memory injection without changing manuscript content.
+- Backend suite remains 280 passed; frontend production build passes.

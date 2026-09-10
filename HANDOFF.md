@@ -1,5 +1,18 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 진행 업데이트 — 장편 기억 context 연결 완료 (2026-09-10)
+
+- `GenerateContext.include_memory`(기본 true)와 `include_draft_memory`(기본 false)를 추가했다.
+- generate/canon 공통 `build_context_bundle`이 승인·최신·현재 시간축 기억만 prompt block으로 넣는다.
+- `included_memory_entry_ids`를 metadata에 기록하고, 요청에서 memory 주입을 끌 수 있다.
+- 백엔드 전체 **280 passed**, 프론트 production build 성공.
+
+### 남은 게이트
+
+1. 운영 DB는 백업 후 `alembic upgrade head`를 별도 승인·실행해야 한다. 현재 작업에서는 실행하지 않았다.
+2. 자동 요약/backfill과 memory 관리 UI는 별도 범위다.
+3. 실제 모델 평가와 Windows 실기기 QA는 외부 입력/장치가 필요하다.
+
 ## 최신 진행 업데이트 — 장편 기억 최소 수직 슬라이스 구현 (2026-09-10)
 
 - `MemoryEntry` provenance/revision/time-scope 모델과 `long_memory` 선택 서비스를 추가했다.
