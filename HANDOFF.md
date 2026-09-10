@@ -1,5 +1,18 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 최신 진행 업데이트 — 실제 모델 품질 평가 설계 완료 (2026-09-10)
+
+- 설계 보고서: [`docs/audits/ai-model-quality-evaluation-design-2026-09-10.md`](docs/audits/ai-model-quality-evaluation-design-2026-09-10.md)
+- 실제 승인 원고 6개 파일럿, hard contract gate와 blind 문학 rubric을 분리했다.
+- USD 20 hard cap, provider usage 기반 비용 기록, 임시 DB/전용 포트만 사용하도록 정했다.
+- 실제 provider 호출·비용 발생·운영 DB 접근은 하지 않았다.
+
+### 다음 게이트
+
+1. 실제 사례 6개의 ID와 source owner를 manifest에 확정한다.
+2. provider/endpoint/model/가격표와 두 독립 평가자를 확정한다.
+3. 위 증거가 준비된 뒤에만 파일럿 실행을 승인한다.
+
 ## 최신 진행 업데이트 — AnyIO/Starlette 호환성 조사 완료 (2026-09-10)
 
 - 조사 보고서: [`docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`](docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md)
