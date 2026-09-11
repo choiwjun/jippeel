@@ -5,8 +5,8 @@
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=b1e77ce`, `origin/main=68887bc` (로컬 2 commits ahead)
-- 장편 기억 거버넌스 구현과 native integration fixture 보강을 추적 커밋했다.
+- 로컬/원격: `HEAD=7b95640`, `origin/main=7b95640`
+- 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
 ### 완료된 작업
@@ -34,6 +34,7 @@
    - project-scoped 생성/목록/필터, provenance/stale 표시, draft 승인·폐기
    - 다른 작품 memory/chapter 격리, 연결 회차 삭제 409 보존 게이트
    - 임시 SQLite backend 288 passed, frontend build, memory Playwright/axe E2E 통과
+   - stale 필터가 500건 이후 항목도 limit까지 찾도록 내부 batch scan 보정
 8. 격리 integration fixture·E2E 보강
    - native Windows Python fixture가 cross-project invalid foreshadow negative case를 실제 SQLite에 구성
    - parallel-writing E2E가 임시 backend에 자체 fake endpoint를 등록해 독립 실행 가능
@@ -42,6 +43,7 @@
 ### 검증 증거
 
 - 백엔드 전체: **288 passed** (임시 SQLite runner)
+- `-W error::DeprecationWarning` 전체 backend: **288 passed**
 - 프론트: `npm run build` 성공
 - 장편 기억 Playwright/axe E2E: **1 passed**
 - native Windows isolated AI-context integration: **3 passed**
@@ -98,6 +100,7 @@
 - `docs/audits/backup-restore-design-2026-09-10.md`
 - `docs/audits/backup-restore-dry-run-2026-09-10.md`
 - `docs/audits/windows-device-qa-plan-2026-09-10.md`
+- `docs/runbooks/long-memory-governance-release.md`
 - `docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`
 - `docs/superpowers/plans/2026-09-10-long-memory.md`
 
