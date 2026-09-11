@@ -5,8 +5,8 @@
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=207f4c7`, `origin/main=207f4c7`
-- 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정을 추적 커밋했다.
+- 로컬/원격: `HEAD=be41da3`, `origin/main=be41da3`
+- 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정, MVP v0.5 기획 반영을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
 ### 완료된 작업
@@ -40,6 +40,9 @@
    - native Windows Python fixture가 cross-project invalid foreshadow negative case를 실제 SQLite에 구성
    - parallel-writing E2E가 임시 backend에 자체 fake endpoint를 등록해 독립 실행 가능
    - 실제 provider/운영 DB/keyring 없이 AI-context 3개, manuscript-preservation 1개, 기본 a11y/app-flow/parallel/memory 11개 E2E 통과
+9. MVP v0.5 기획 반영
+   - `대시보드_MVP_사양.md`에 M6 장편 기억 거버넌스와 S8 화면/API/데이터 불변식/수용 기준 반영
+   - 상세 제품 사양: `docs/superpowers/specs/2026-09-11-long-memory-governance.md`
 
 ### 검증 증거
 
@@ -107,6 +110,8 @@
 - `docs/runbooks/long-memory-governance-release.md`
 - `docs/audits/long-memory-evaluation-manifest.template.json`
 - `docs/superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md`
+- `대시보드_MVP_사양.md` v0.5
+- `docs/superpowers/specs/2026-09-11-long-memory-governance.md`
 - `docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`
 - `docs/superpowers/plans/2026-09-10-long-memory.md`
 

@@ -1,10 +1,11 @@
 # 웹소설 AI 집필 대시보드 — MVP 사양 문서
 
-> **버전**: v0.4
-> **작성일**: 2026-08-26 (v0.4 갱신)
+> **버전**: v0.5
+> **작성일**: 2026-09-11 (v0.5 갱신)
 > **근거 문서**: `HANDOFF.md`, `요구사항_정의서.md`(승인 완료), `부록01_오픈소스_리서치.md`, `부록02_시장_검증.md`, `부록03_플랫폼_정책.md`, `부록04_im-not-ai_평가.md`, `부록05_오픈소스_최적조합.md`, `추천_병행연재_최적장르.md`
 > **v0.3 개정 사유**: `QA_기획정합성_리포트.md` 반영 (Major M-1~M-5, Minor m-4·m-9 처리)
 > **v0.4 개정 사유**: G3 PRD 게이트 — §9~§13 신규 추가(F-001~F-036 기능 정의, R→F 전수 매핑표, Q1~Q5 결정안, 아키텍처 리스크 C8/C9, Success Metrics)
+> **v0.5 개정 사유**: 장편 기억 거버넌스 후속 기획 — M6/S8 추가, MemoryEntry·project ownership·provenance/stale·수동 승인 계약 반영. 자동 요약/backfill과 운영 적용은 별도 승인 범위로 유지.
 > **작업 라우팅**: 본 문서는 기획팀 산출물. 프론트엔드 디자인 작업 시 §6 UI 가이드라인을 minimax 세션에 전달.
 
 ## v0.3 변경요약 (2026-08-25)
@@ -34,6 +35,7 @@
 | v0.1 | 2026-08-25 | 초안 작성 (기획팀) |
 | v0.2 | 2026-08-25 | ① 프론트엔드 React 전환(shadcn/ui + Tailwind, Zustand) ② 요구사항 정의서 FR/NFR 역참조 추가 ③ 부록05 §⑤ 변경 8건 반영(markdown-it+DOMPurify·openai SDK·SQLite 프라그마·윤문 span+jsdiff·ST카드 자체 파서·리스크 갱신) ④ §6 UI 가이드라인 React 스택 재작성 |
 | v0.4 | 2026-08-26 | **G3 PRD 게이트 산출**: ① §9 F-001~F-036 기능 정의(전 기능 MVP 범위) ② §10 R-001~R-054 전수 → F-xxx 매핑표(누락 0건) ③ §11 미결 질문 Q1~Q5 결정안(권 구조 채택, 관계 텍스트 라벨, 프리셋 5종, route_hint 자동 옵션 병행, 자동 백업 백로그 이월) ④ §12 아키텍처 리스크 C8(글자 수 산정)/C9(im-not-ai 호출 검증) 명시 ⑤ §13 Success Metrics 추가 |
+| v0.5 | 2026-09-11 | **장편 기억 거버넌스 기획 반영**: M6/S8, MemoryEntry API·UI·ownership·provenance/stale·수동 승인/폐기 수용 기준 추가. 자동 요약/backfill·운영 migration·실제 provider는 별도 승인 게이트로 분리 |
 | v0.3 | 2026-08-25 | **QA_기획정합성_리포트 반영**: ① FR-109 원고 내보내기 MVP 반영(S2 메뉴 .txt/.md, 백로그 P3 중복 제거) ② S5 AI 패널 전송 고지(NFR-201) 명시 ③ S7 NFR-404 AI 공개 판단 안내 추가(§8 리스크 병기) ④ 윤문 span category를 taxonomy ID(A~J)로 고정 ⑤ api_key 암호화 확정(DPAPI 우선+Fernet 폴백) ⑥ Chapter.memo 필드 추가(FR-108) ⑦ §6 UI 가이드라인 디자인 확정안 기준 갱신(Zustand 4스토어+TanStack Query 등) |
 
 ---
@@ -49,7 +51,7 @@
 - 로컬 우선: 원고·설정 데이터는 사용자 PC(SQLite 파일)에 저장.
 - MVP에서는 외부 도구(SillyTavern/novelWriter) 연동 없음 → 백로그로.
 
-### 1.2 포함 기능 (5개 모듈)
+### 1.2 포함 기능 (6개 모듈)
 
 > FR/NFR 번호는 `요구사항_정의서.md`(승인 완료) 기준. 수용 기준은 동 문서 §7.
 
@@ -60,6 +62,7 @@
 | M3 | **세계관/로어북 관리** | 용어·설정·장소·세력·마법체계 등 항목형 로어북. 카테고리 필터 + 키워드 검색. 향후 AI 컨텍스트 자동 주입을 고려한 키(keywords)-내용(content) 구조 | FR-301~305 / NFR-103 |
 | M4 | **AI 패널** | OpenAI 호환 엔드포인트 설정 UI(base_url / api_key / model / temperature). 프리셋 프롬프트(장면 생성·대사 보강·요약 등) 실행 → 결과를 에디터에 삽입/교체. 스트리밍 응답 지원. Ollama 네이티브 미지원(OpenAI 호환 경유만) | FR-401~409 / NFR-102·202·303·501·503 |
 | M5 | **윤문 모듈 (im-not-ai 연동)** | 회차 단위 "AI 티 제거 윤문" 버튼. 백엔드에서 im-not-ai 파이프라인(route_hint light/standard/heavy) 호출 → 진단 리포트(span) + 수정본 diff 뷰 → 수락/거절. 변경률 게이트 내장 | FR-501~507 / NFR-401·402 |
+| M6 | **장편 기억 거버넌스** | 작품별 기억 초안 생성·목록·필터·provenance/stale 확인. 작가가 draft를 승인/폐기하며, stale 또는 미승인 기억은 AI context에 자동 주입하지 않음. 자동 요약/backfill은 포함하지 않음 | LM-001~010 |
 
 공통/플랫폼 대응(FR-601 규정 요약 표시, FR-602 노벨피아 PLUS 충족 현황)은 S7 설정 및 S1 홈에 배치한다(Could).
 
@@ -155,6 +158,7 @@ frontend/                       # React + Vite (TypeScript)
 | S5 | **AI 패널 (사이드 패널)** | S2/S3/S4 어디서든 열림 | 엔드포인트 설정 폼(base_url, api_key, model 목록 조회, temperature, max_tokens). 프롬프트 프리셋 선택 → 컨텍스트(현재 회차/선택 캐릭터/로어북 항목) 체크박스로 포함. 스트리밍 출력 영역. 결과 "에디터 끼워넣기 / 선택 교체 / 복사" 버튼. **패널 상단 전송 고지 Alert 고정 표시**(NFR-201): "선택한 회차·카드·로어북 내용은 지정한 LLM 엔드포인트로 전송됩니다" |
 | S6 | **윤문 리포트** | S2에서 진입 (모달/전용 뷰) | route_hint 경로 표시(light/standard/heavy). 카테고리별 탐지 span 하이라이트. 원문↔수정본 diff. 변경률 게이트(30% 경고 / 50% 차단) 안내. 수락 시 에디터 반영 |
 | S7 | **설정** | `/settings` | AI 엔드포인트 전역 기본값 관리(프로젝트별 오버라이드 가능). im-not-ai 경로·윤문 강도 기본값. 자동 저장 주기. **규정·현황 탭에 NFR-404 안내 문구 고정 표시**: "AI 사용 여부의 공개/비공개 판단은 작가의 몫입니다"(앱은 안내 의무만 부담 — 권장 방침 유도 수준) |
+| S8 | **장편 기억 관리** | `/projects/{id}/memory` | 작품 정보와 수동 관리 안내. 종류·상태·stale·근거 회차 필터. body/provenance/source revision/hash/effective range 표시. 초안 추가, 승인·폐기 확인, stale 경고와 자동 주입 제외 사유 표시(LM-001~010) |
 
 ---
 
@@ -181,6 +185,10 @@ PromptPreset   프롬프트 프리셋 (name, template_text,
                      context_flags[]  ← chapter/characters/lore 포함 여부)
 RefineRun      윤문 실행 기록 (chapter_id FK, route_hint, changed_ratio,
                      report_json, result_text, accepted BOOL)
+MemoryEntry    장편 기억 (project_id FK, chapter_id nullable FK,
+                     source_revision, source_sha256, kind, body,
+                     visibility[draft|approved|retired], effective range,
+                     provenance_json, created_at, updated_at)
 ```
 
 ### 4.2 관계 (ERD 요약)
@@ -192,6 +200,8 @@ Character N───N Character   (via Relationship)
 Project 1───N LoreEntry
 AiEndpoint, PromptPreset : 전역 테이블 (프로젝트 독립)
 RefineRun N───1 Chapter
+Project 1───N MemoryEntry
+Chapter 1───N MemoryEntry (provenance source; 연결 회차 삭제는 409)
 ```
 
 - 회차 본문은 마크다운 통짜 텍스트(`content_md`)로 저장. MVP에서 장면 단위 분해는 하지 않음(백로그).
@@ -254,8 +264,23 @@ POST   /api/v1/ai/generate                     # POST → SSE 스트리밍
                params: { temperature?, max_tokens? } }
 ```
 
-### 윤문 (M5)
+### 장편 기억 (M6)
+```text
+GET    /api/v1/projects/{pid}/memories
+       # kind/visibility/chapter_id/stale/limit 필터
+POST   /api/v1/projects/{pid}/memories
+       # chapter_id, kind, body, effective range → 항상 draft
+PATCH  /api/v1/projects/{pid}/memories/{mid}
+       # visibility/effective range만 수정, pid ownership 검증
 ```
+
+- 생성 시 source revision/hash/provenance는 서버가 계산한다.
+- `retired`는 terminal 상태다.
+- source revision/hash가 달라지면 stale로 표시하고 AI context에서 제외한다.
+- memory가 연결된 chapter 삭제는 409로 거부해 provenance row를 보존한다.
+
+### 윤문 (M5)
+```text
 POST   /api/v1/refine                          # 회차 본문 윤문 실행
        body: { chapter_id, force_route?: "light"|"standard"|"heavy" }
        resp: { run_id, route_hint,
@@ -287,7 +312,7 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 > - **제품**: 한국 웹소설 작가용 데스크톱 우선 웹 대시보드. 긴 글(회차당 5천~1만 자)을 오래 쓰는 환경이므로 **눈 피로 최소화와 집중 모드가 최우선**.
 > - **기술 스택(확정)**: **React + Vite (TypeScript)**, **shadcn/ui + Tailwind CSS**, 상태관리 **Zustand**(스토어 4종: editor / aiPanel / settings / ui), 서버 상태 **TanStack Query(@tanstack/react-query)**, 라우팅 react-router, 에디터 CodeMirror 6(+lang-markdown), 미리보기 markdown-it+DOMPurify, diff jsdiff. Vue/Pinia/Naive UI는 폐기(v0.2 결정). AI 응답 스트리밍은 **fetch 스트림으로 SSE 수신**(EventSource 미사용 — POST 불가).
 > - **레이아웃**: 3분할 기준 — 좌측 사이드바(회차 트리/카테고리), 중앙 에디터(최대 폭 ~720px, 장문 가독 행길이), 우측 패널(AI 패널·윤문 리포트가 겹쳐 열리는 Sheet/Drawer).
-> - **화면 목록**: S1 홈, S2 회차 에디터(메인), S3 캐릭터 갤러리, S4 로어북, S5 AI 패널(전역 사이드 패널), S6 윤문 리포트(diff 뷰), S7 설정 — 위 §3 표 참조.
+> - **화면 목록**: S1 홈, S2 회차 에디터(메인), S3 캐릭터 갤러리, S4 로어북, S5 AI 패널(전역 사이드 패널), S6 윤문 리포트(diff 뷰), S7 설정, S8 장편 기억 관리 — 위 §3 표 참조.
 > - **shadcn/ui 컴포넌트 매핑 제안**: 회차 트리=커스텀 Tree(shadcn 미제공 → Radix Collapsible 조합 또는 react-arborist 검토), 캐릭터 상세·AI 패널=Sheet, 윤문 리포트=Dialog, 카테고리 필터·상태 칩=Tabs/Badge, 설정 폼=Form(Input, Select, Switch). 컴포넌트 소스가 프로젝트 내 `src/components/ui`에 생성되므로 토큰 수정으로 저채도 테마를 직접 구현할 것.
 > - **톤 & Tailwind 테마**: 차분한 저채도 배경 + 다크/라이트 테마 지원(CSS 변수 기반 테마 토큰). 액센트 컬러 1개(예: 남성향 판타지·무협 타깃 감성 — 딥블루/브론즈 계열 제안). 소설 도구이므로 대시보드 느낌의 밝은 파랑·SaaS 그라데이션은 배제. shadcn/ui 기본 뉴트럴 팔레트를 그대로 쓰지 말고 반드시 커스텀 토큰으로 조정.
 > - **타이포**: 본문 에디터는 국산 세리프/고딕 가독형(예: Pretendard, Noto Serif KR 선택 옵션). 행간 1.7~1.9, 자간 살짝 넓게. Tailwind `fontFamily`/`leading` 확장 설정으로 관리.
@@ -305,9 +330,10 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 ## 7. 백로그 (MVP 이후)
 
 | 우선순위 | 항목 | 비고 |
-|:---:|------|------|
+| :---: | :--- | :--- |
 | P1 | SillyTavern 캐릭터 카드 임포트/익스포트 | PNG metadata(V2/V3 spec) ↔ `card_json` 매핑. **자체 V2/V3 파서 구현**(부록05 L5: Python 성숙 파서 부재 실측 — @motioneffector/cards(MIT) 등 참고, AGPL 코드 비복사). 부록01: ST가 카드 생태계 사실상 표준(⭐32k+) |
 | P1 | 로어북 자동 컨텍스트 주입 | 본문 키워드 매칭 → AI 패널 요청에 로어북 항목 자동 포함 (SillyTavern world info 방식) |
+| P1 | 자동 요약·backfill | 승인된 원문에서 memory draft 후보를 만드는 별도 설계·평가·승인 작업. 자동 승인·운영 DB 실행은 금지 |
 | P2 | novelWriter 연동/임포트 | GPL-3.0. `.nwx`(XML) 프로젝트 가져오기. 부록01: OpenAI/Ollama 연동 내장 최신 버전 |
 | P2 | 장면(Scene) 단위 분해 | 회차 → 장면 계층. 장면별 AI 생성·재작성 |
 | P2 | 연속성 검사 | 캐릭터 말투·설정·시간축 불일치 탐지 (saga의 지식그래프 아이디어 참조) |
@@ -331,7 +357,7 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 8. **AI 사용 공개 여부 (NFR-404)**: AI 사용 공개/비공개 판단은 작가의 몫 — 앱은 S7 규정·현황 탭에서 이를 안내할 의무만 진다. 탐지 회피 기능 영구 제외(FR-W5) 원칙은 유지.
 
 ---
-*다음 단계: ① 본 사양(v0.3) 검토·승인 → ② minimax 세션에서 S1~S7 와이어프레임/컴포넌트 설계(§6 React 스택 가이드라인 전달) → ③ 백엔드 스캐폴딩(FastAPI + Alembic 초기 마이그레이션 + SQLite 프라그마 표준 적용)*
+*다음 단계: ① v0.5 장편 기억 기획·수용 기준 검토 → ② 운영 migration/provider/Windows QA 승인 게이트 확정 → ③ 자동 요약/backfill 별도 설계 승인 후 dry-run 구현. 현재 M6/S8 governance slice는 구현·검증 완료 상태다.*
 
 ---
 
