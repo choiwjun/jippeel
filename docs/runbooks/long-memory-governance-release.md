@@ -70,7 +70,7 @@ cd backend
 
 ## 5. 실제 모델 품질 평가 준비
 
-실행 전 별도 평가 문서를 승인한다.
+실행 전 별도 평가 문서를 승인한다. 입력 양식은 `docs/audits/long-memory-evaluation-manifest.template.json`을 복사해 사용하며, 원본 원고·API key·secret은 manifest에 넣지 않는다.
 
 - 승인된 사례 6개와 기대 결과/금지 결과를 고정한다.
 - source owner와 provenance 판정 기준을 각 사례에 기록한다.

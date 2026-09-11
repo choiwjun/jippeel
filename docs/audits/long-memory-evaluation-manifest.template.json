@@ -1,0 +1,92 @@
+{
+  "manifest_version": "2026-09-11",
+  "status": "template-only-no-provider-calls",
+  "hard_cap_usd": 20,
+  "provider": null,
+  "endpoint_name": null,
+  "model": null,
+  "reasoning_effort": null,
+  "temperature": null,
+  "max_tokens": null,
+  "rubric_version": "ai-model-quality-evaluation-design-2026-09-10",
+  "cases": [
+    {
+      "case_id": "real-case-01",
+      "surface": "generate",
+      "source_kind": "approved_real_chapter",
+      "source_ref": null,
+      "project_id": null,
+      "chapter_id": null,
+      "revision": null,
+      "episode_purpose": null,
+      "input_sha256": null,
+      "gold_contract_sha256": null,
+      "holdout": false
+    },
+    {
+      "case_id": "real-case-02",
+      "surface": "generate",
+      "source_kind": "approved_real_chapter",
+      "source_ref": null,
+      "project_id": null,
+      "chapter_id": null,
+      "revision": null,
+      "episode_purpose": null,
+      "input_sha256": null,
+      "gold_contract_sha256": null,
+      "holdout": false
+    },
+    {
+      "case_id": "real-case-03",
+      "surface": "generate",
+      "source_kind": "approved_real_chapter",
+      "source_ref": null,
+      "project_id": null,
+      "chapter_id": null,
+      "revision": null,
+      "episode_purpose": null,
+      "input_sha256": null,
+      "gold_contract_sha256": null,
+      "holdout": false
+    },
+    {
+      "case_id": "real-case-04",
+      "surface": "generate-parallel",
+      "source_kind": "approved_real_chapter",
+      "source_ref": null,
+      "project_id": null,
+      "chapter_id": null,
+      "revision": null,
+      "episode_purpose": null,
+      "input_sha256": null,
+      "gold_contract_sha256": null,
+      "holdout": true
+    },
+    {
+      "case_id": "real-case-05",
+      "surface": "generate-parallel",
+      "source_kind": "approved_real_chapter",
+      "source_ref": null,
+      "project_id": null,
+      "chapter_id": null,
+      "revision": null,
+      "episode_purpose": null,
+      "input_sha256": null,
+      "gold_contract_sha256": null,
+      "holdout": true
+    },
+    {
+      "case_id": "real-case-06",
+      "surface": "review-or-canon",
+      "source_kind": "approved_real_chapter",
+      "source_ref": null,
+      "project_id": null,
+      "chapter_id": null,
+      "revision": null,
+      "episode_purpose": null,
+      "input_sha256": null,
+      "gold_contract_sha256": null,
+      "holdout": false
+    }
+  ]
+}
