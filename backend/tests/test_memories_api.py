@@ -150,11 +150,23 @@ def test_memory_list_orders_by_source_before_applying_the_bound(client):
     for index in range(500):
         _create_memory(client, pid, chapter_id=high_chapter["id"], body=f"늦은 기억 {index}")
     low_memory = _create_memory(client, pid, chapter_id=low_chapter["id"], body="이른 기억")
+    stale_chapter = _create_chapter(client, pid, title="늦은 stale 근거", sort_order=200)
+    stale_memory = _create_memory(client, pid, chapter_id=stale_chapter["id"], body="늦은 stale 기억")
+    changed = client.put(
+        f"/api/v1/chapters/{stale_chapter['id']}/content",
+        json={"content_md": "stale 원문", "expected_revision": stale_chapter["revision"]},
+    )
+    assert changed.status_code == 200
 
     response = client.get(f"/api/v1/projects/{pid}/memories", params={"limit": 1})
+    stale_response = client.get(
+        f"/api/v1/projects/{pid}/memories", params={"stale": "true", "limit": 1}
+    )
 
     assert response.status_code == 200
     assert response.json()[0]["id"] == low_memory["id"]
+    assert stale_response.status_code == 200
+    assert stale_response.json()[0]["id"] == stale_memory["id"]
 
 
 def test_memory_validation_rejects_invalid_range_and_unbounded_limit(client):

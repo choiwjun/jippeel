@@ -98,6 +98,7 @@ def _list_rows(
     kind: str | None,
     visibility: str | None,
     chapter_id: int | None,
+    offset: int = 0,
 ) -> list[MemoryEntry]:
     statement = select(MemoryEntry).where(MemoryEntry.project_id == pid)
     if kind is not None:
@@ -112,7 +113,7 @@ def _list_rows(
             MemoryEntry.kind.asc(),
             Chapter.sort_order.asc().nulls_first(),
             MemoryEntry.id.asc(),
-        ).limit(_MAX_QUERY_ROWS)
+        ).offset(offset).limit(_MAX_QUERY_ROWS)
     ).all())
 
 
@@ -134,19 +135,35 @@ def list_memories(
     if chapter_id is not None:
         _get_chapter_for_project(pid, chapter_id, db)
 
-    rows = _list_rows(db, pid=pid, kind=kind, visibility=visibility, chapter_id=chapter_id)
     chapters = {
         chapter.id: chapter
         for chapter in db.scalars(select(Chapter).where(Chapter.project_id == pid)).all()
     }
-    rows_with_source = [
-        (row, chapters.get(row.chapter_id) if row.chapter_id is not None else None)
-        for row in rows
-    ]
-    rows_with_source.sort(key=lambda pair: _memory_sort_key(*pair))
-    items = [_to_out(row, source) for row, source in rows_with_source]
-    if stale is not None:
-        items = [item for item in items if item.stale is stale]
+    items: list[MemoryEntryOut] = []
+    offset = 0
+    while len(items) < limit:
+        rows = _list_rows(
+            db,
+            pid=pid,
+            kind=kind,
+            visibility=visibility,
+            chapter_id=chapter_id,
+            offset=offset,
+        )
+        if not rows:
+            break
+        rows_with_source = [
+            (row, chapters.get(row.chapter_id) if row.chapter_id is not None else None)
+            for row in rows
+        ]
+        rows_with_source.sort(key=lambda pair: _memory_sort_key(*pair))
+        page_items = [_to_out(row, source) for row, source in rows_with_source]
+        if stale is not None:
+            page_items = [item for item in page_items if item.stale is stale]
+        items.extend(page_items)
+        if stale is None or len(rows) < _MAX_QUERY_ROWS:
+            break
+        offset += len(rows)
     return items[:limit]
 
 
