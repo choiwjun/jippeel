@@ -53,6 +53,8 @@
 - native Windows isolated default E2E: **11 passed** (a11y, app-flow, memory, parallel-writing)
 - AI-context/preservation fixture 직접 실행: 각각 `seeded` / `passed`
 - 실제 provider는 fake provider만 사용했고, 운영 DB·keyring·지정 Windows 실기기 QA에는 접근하지 않았다.
+- 독립 reviewer가 확인한 이전 P1/P2 지적(교차 project PATCH, chapter 삭제 cascade, 500건 bound 정렬)은 각각 project-bound PATCH/422, chapter 삭제 409, stale batch scan으로 보정했고 회귀 테스트를 통과했다.
+- reviewer 재실행은 현재 provider cold-start 문제로 결과를 받지 못해, 최신 diff·LSP·전체 회귀를 수동 재확인했다.
 
 ### 남은 작업과 실행 게이트
 
