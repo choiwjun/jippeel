@@ -5,7 +5,7 @@
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=e0b5980`, `origin/main=e0b5980`
+- 로컬/원격: `HEAD=dbb7745`, `origin/main=dbb7745`
 - 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
@@ -101,6 +101,7 @@
 - `docs/audits/backup-restore-dry-run-2026-09-10.md`
 - `docs/audits/windows-device-qa-plan-2026-09-10.md`
 - `docs/runbooks/long-memory-governance-release.md`
+- `docs/audits/long-memory-evaluation-manifest.template.json`
 - `docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`
 - `docs/superpowers/plans/2026-09-10-long-memory.md`
 
