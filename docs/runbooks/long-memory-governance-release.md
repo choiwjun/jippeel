@@ -101,4 +101,4 @@ cd backend
 - 이 결과는 branch coverage를 대체하지 않으며, 표준 coverage 도입은 새 의존성 승인 후 별도 수행한다.
 - 운영 migration/restore: 승인 전 미실행.
 - 실제 provider 품질 평가: 평가셋·provider·독립 평가자 확정 전 미실행.
-- 자동 요약/backfill: 별도 설계·승인 전 미실행.
+- 자동 요약/backfill: 설계안은 작성했지만 구현·provider 호출·운영 적용은 승인 전 미실행.

@@ -5,7 +5,7 @@
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=7114afe`, `origin/main=7114afe`
+- 로컬/원격: `HEAD=7114afe`, `origin/main=7114afe` (자동 요약/backfill 설계안은 아직 미커밋)
 - 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
@@ -69,7 +69,7 @@
 
 #### 2. 장편 기억 후속 범위의 후속 게이트
 
-- 자동 요약 및 backfill은 별도 설계·승인 후 진행
+- 자동 요약·backfill 설계안(`docs/superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md`)은 작성했지만 구현·provider 호출은 별도 승인 후 진행
 - 운영 DB migration 후 기존 데이터 negative corpus 검증
 - 실제 모델 품질 평가와 prompt block 길이·우선순위는 provider/비용 상한 확정 후 진행
 
@@ -77,7 +77,7 @@
 
 - key recovery plan 확정
 - 임시 DB failure injection 추가
-- 실제 restore rollback runbook 작성
+- 실제 restore rollback runbook 작성 완료: `docs/runbooks/long-memory-governance-release.md`
 - 운영 DB/암호화 keyring에는 승인 전 접근하지 않음
 
 #### 4. 실제 모델 품질 평가
@@ -104,6 +104,7 @@
 - `docs/audits/windows-device-qa-plan-2026-09-10.md`
 - `docs/runbooks/long-memory-governance-release.md`
 - `docs/audits/long-memory-evaluation-manifest.template.json`
+- `docs/superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md`
 - `docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`
 - `docs/superpowers/plans/2026-09-10-long-memory.md`
 
