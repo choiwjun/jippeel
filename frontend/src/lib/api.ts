@@ -117,6 +117,49 @@ export interface ChapterDetail extends Chapter {
   content_md: string;
 }
 
+export type MemoryKind =
+  | "summary"
+  | "beat"
+  | "decision"
+  | "fact"
+  | "timeline"
+  | "relationship_note";
+export type MemoryVisibility = "draft" | "approved" | "retired";
+
+export interface MemoryEntry {
+  id: number;
+  project_id: number;
+  chapter_id: number | null;
+  source_revision: number | null;
+  source_sha256: string;
+  kind: MemoryKind;
+  body: string;
+  visibility: MemoryVisibility;
+  effective_from_sort_order: number | null;
+  effective_to_sort_order: number | null;
+  provenance: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  stale: boolean;
+  source_chapter_title: string | null;
+  source_chapter_revision: number | null;
+  source_chapter_sort_order: number | null;
+}
+
+export interface MemoryEntryCreate {
+  chapter_id?: number | null;
+  kind: MemoryKind;
+  body: string;
+  effective_from_sort_order?: number | null;
+  effective_to_sort_order?: number | null;
+}
+
+export interface MemoryEntryUpdate {
+  visibility?: MemoryVisibility;
+  effective_from_sort_order?: number | null;
+  effective_to_sort_order?: number | null;
+}
+
 export interface ChapterCreate {
   title?: string;
   volume?: number;

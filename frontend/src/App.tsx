@@ -8,6 +8,7 @@ import { LorebookPage } from '@/pages/LorebookPage';
 import { ForeshadowsPage } from '@/pages/ForeshadowsPage';
 import { PlanPage } from '@/pages/PlanPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { MemoryPage } from '@/pages/MemoryPage';
 
 /**
  * App 셸 + 라우팅 — 사양 §2.2 / 설계서 §1.3 컴포넌트 트리.
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/projects/:pid/lore" element={<LorebookPage />} />
             <Route path="/projects/:pid/foreshadows" element={<ForeshadowsPage />} />
             <Route path="/projects/:pid/plan" element={<PlanPage />} />
+            <Route path="/projects/:pid/memory" element={<MemoryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<HomePage />} />
           </Routes>

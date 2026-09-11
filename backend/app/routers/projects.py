@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Chapter, ChapterSnapshot, Character, Foreshadow, Project, Relationship
+from app.models import Chapter, ChapterSnapshot, Character, Foreshadow, MemoryEntry, Project, Relationship
 from app.schemas import BootstrapRequest, BootstrapResponse, PlusStatusOut, PLUS_MIN_CHAPTERS, PLUS_MIN_CHARS_DONE
 from app.services import bootstrap as bootstrap_service
 from app.services import manuscripts
@@ -280,6 +280,14 @@ def delete_chapter(cid: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="복선이 연결된 회차는 복선 참조를 먼저 정리해야 합니다",
+        )
+    has_memory = db.scalar(
+        select(MemoryEntry.id).where(MemoryEntry.chapter_id == cid).limit(1)
+    )
+    if has_memory is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="장편 기억이 연결된 회차는 기억을 먼저 폐기하거나 새 근거를 정리해야 합니다",
         )
     db.delete(chapter)
     db.commit()

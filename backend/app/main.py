@@ -7,8 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import SessionLocal, init_db
-from app.routers import (ai_panel, characters, foreshadows, lorebook, projects,
-                         quality, refine, scenes, system, volumes)
+from app.routers import (ai_panel, characters, foreshadows, lorebook,
+                         projects, quality, refine, scenes, system, volumes)
+from app.routers.memories import router as memories_router  # pyright: ignore[reportMissingImports]
 from app.services.fts import ensure_fts_index
 from app.services.presets import seed_presets
 
@@ -42,6 +43,7 @@ app.add_middleware(
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(characters.router, prefix="/api/v1")
 app.include_router(lorebook.router, prefix="/api/v1")
+app.include_router(memories_router, prefix="/api/v1")
 app.include_router(ai_panel.router, prefix="/api/v1")
 app.include_router(refine.router, prefix="/api/v1")
 app.include_router(scenes.router, prefix="/api/v1")

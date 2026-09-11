@@ -117,6 +117,67 @@ class ChapterSnapshotDetail(ChapterSnapshotOut):
     content_md: str
 
 
+# ---- MemoryEntry (장편 기억 거버넌스) ----
+MemoryKind = Literal["summary", "beat", "decision", "fact", "timeline", "relationship_note"]
+MemoryVisibility = Literal["draft", "approved", "retired"]
+
+
+class MemoryEntryCreate(BaseModel):
+    """작가가 직접 추가하는 기억. source provenance는 서버가 계산한다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    chapter_id: int | None = Field(default=None, ge=1)
+    kind: MemoryKind
+    body: str = Field(min_length=1, max_length=20_000)
+    effective_from_sort_order: float | None = None
+    effective_to_sort_order: float | None = None
+
+    @model_validator(mode="after")
+    def validate_effective_range(self):
+        if (
+            self.effective_from_sort_order is not None
+            and self.effective_to_sort_order is not None
+            and self.effective_from_sort_order > self.effective_to_sort_order
+        ):
+            raise ValueError("memory effective range is reversed")
+        if not self.body.strip():
+            raise ValueError("memory body must not be empty")
+        return self
+
+
+class MemoryEntryUpdate(BaseModel):
+    """기억의 상태·시간 범위만 수정한다. 본문과 provenance는 append-only다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    visibility: MemoryVisibility | None = None
+    effective_from_sort_order: float | None = None
+    effective_to_sort_order: float | None = None
+
+
+class MemoryEntryOut(BaseModel):
+    """저장 provenance와 현재 원문 기준 stale 상태를 함께 표시한다."""
+
+    id: int
+    project_id: int
+    chapter_id: int | None
+    source_revision: int | None
+    source_sha256: str
+    kind: MemoryKind
+    body: str
+    visibility: MemoryVisibility
+    effective_from_sort_order: float | None
+    effective_to_sort_order: float | None
+    provenance: dict
+    created_at: datetime
+    updated_at: datetime
+    stale: bool
+    source_chapter_title: str | None
+    source_chapter_revision: int | None
+    source_chapter_sort_order: float | None
+
+
 # ---- 노벨피아 PLUS 충족 현황 (A-038 / F-033, 결정사항_G4 Q3) ----
 PLUS_MIN_CHAPTERS = 15        # 프로젝트 내 회차 수 기준
 PLUS_MIN_CHARS_DONE = 3000    # 완료 회차 공백제외 글자 수 기준
@@ -243,15 +304,6 @@ class LoreEntryOut(BaseModel):
     updated_at: datetime
 
 
-# ---- Chapter reorder (Sprint 2) ----
-class ReorderItem(BaseModel):
-    id: int
-    volume: int | None = Field(default=None, ge=1)
-    sort_order: float | None = None
-
-
-class ChaptersReorder(BaseModel):
-    items: list[ReorderItem] = Field(min_length=1)
 # ---- Chapter reorder (Sprint 2) ----
 class ReorderItem(BaseModel):
     id: int

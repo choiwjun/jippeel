@@ -1,13 +1,13 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
-## 현재 기준 상태 — 2026-09-10
+## 현재 기준 상태 — 2026-09-11
 
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=6a27ec8`, `origin/main=6a27ec8`
-- 작업 트리: clean
-- 최신 push에는 작업물과 이 핸드오프 갱신이 포함되어 있다.
+- 로컬/원격: `HEAD=68887bc`, `origin/main=68887bc`
+- 추적 파일 변경: 장편 기억 거버넌스 후속 구현 및 검증 중
+- 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
 ### 완료된 작업
 
@@ -30,12 +30,17 @@
    - `included_memory_entry_ids` metadata 기록
 6. 임시 DB migration rollback/re-upgrade 검증
    - `1b2c3d4e5f60 → 0a1b2c3d4e5f → 1b2c3d4e5f60`
+7. 장편 기억 거버넌스 API/UI 후속 구현
+   - project-scoped 생성/목록/필터, provenance/stale 표시, draft 승인·폐기
+   - 다른 작품 memory/chapter 격리, 연결 회차 삭제 409 보존 게이트
+   - 임시 SQLite backend 288 passed, frontend build, memory Playwright/axe E2E 통과
 
 ### 검증 증거
 
-- 백엔드 전체: **280 passed** (`-W error::DeprecationWarning`)
+- 백엔드 전체: **288 passed** (`-W error::DeprecationWarning`)
 - 프론트: `npm run build` 성공
-- 장편 기억 integration test: 승인·최신 memory 주입, stale memory 제외, 주입 비활성화 통과
+- 장편 기억 Playwright/axe E2E: **1 passed**
+- 기존 장편 기억 integration test: 승인·최신 memory 주입, stale memory 제외, 주입 비활성화 통과
 - 임시 DB만 사용했으며 운영 DB·기존 서비스·실제 provider·Windows 장치를 사용하지 않았다.
 
 ### 남은 작업과 실행 게이트
@@ -51,12 +56,11 @@
 
 이번 작업에서는 기존 DB를 migration하지 않았다.
 
-#### 2. 장편 기억 후속 기능
+#### 2. 장편 기억 후속 범위의 후속 게이트
 
-- 자동 요약 및 backfill
-- memory 관리/승인/폐기 UI
-- 운영 DB에 대한 migration 후 기존 데이터 negative corpus 검증
-- prompt block 길이·우선순위·사용자 확인 UX 추가 검토
+- 자동 요약 및 backfill은 별도 설계·승인 후 진행
+- 운영 DB migration 후 기존 데이터 negative corpus 검증
+- 실제 모델 품질 평가와 prompt block 길이·우선순위는 provider/비용 상한 확정 후 진행
 
 #### 3. 백업·복원 운영 준비
 
