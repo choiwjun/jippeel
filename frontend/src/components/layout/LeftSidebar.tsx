@@ -1,11 +1,11 @@
-import { Link, useLocation, useParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Chapter, volumeLabel, volumeSortKey } from '@/lib/api';
-import { useEditorStore } from '@/stores/editorStore';
-import { StatusBadge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { Link, useLocation, useParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api, type Chapter, volumeLabel, volumeSortKey } from "@/lib/api";
+import { useEditorStore } from "@/stores/editorStore";
+import { StatusBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 /**
  * LeftSidebar 240px — 에디터에서는 회차 트리(권/화), 그 외 프로젝트 화면에서는
@@ -22,7 +22,10 @@ export function LeftSidebar() {
     <aside className="hidden w-60 shrink-0 border-r border-border bg-background md:flex md:flex-col">
       <ScrollArea className="min-h-0 flex-1 p-2">
         {isProjectRoute && (
-          <ProjectNavLinks pid={pathname.match(/^\/projects\/(\d+)/)?.[1] ?? ''} pathname={pathname} />
+          <ProjectNavLinks
+            pid={pathname.match(/^\/projects\/(\d+)/)?.[1] ?? ""}
+            pathname={pathname}
+          />
         )}
         {isEditorRoute && <ChapterTree pid={pid} />}
       </ScrollArea>
@@ -36,8 +39,8 @@ export function LeftSidebar() {
         <Link
           to="/settings"
           className={cn(
-            'block rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground',
-            pathname === '/settings' && 'text-foreground',
+            "block rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground",
+            pathname === "/settings" && "text-foreground",
           )}
         >
           ⚙ 설정
@@ -51,24 +54,52 @@ export function LeftSidebar() {
 function ProjectNavLinks({ pid, pathname }: { pid: string; pathname: string }) {
   const base = `/projects/${pid}`;
   const links = [
-    { to: `${base}/write`, label: '✍ 회차 집필', active: pathname.endsWith('/write') },
-    { to: `${base}/characters`, label: '👤 캐릭터', active: pathname.endsWith('/characters') },
-    { to: `${base}/lore`, label: '🗺 로어북', active: pathname.endsWith('/lore') },
-    { to: `${base}/foreshadows`, label: '🧵 복선', active: pathname.endsWith('/foreshadows') },
-    { to: `${base}/plan`, label: '📐 기획', active: pathname.endsWith('/plan') },
-    { to: `${base}/memory`, label: '🧠 장편 기억', active: pathname.endsWith('/memory') },
+    {
+      to: `${base}/write`,
+      label: "✍ 회차 집필",
+      active: pathname.endsWith("/write"),
+    },
+    {
+      to: `${base}/characters`,
+      label: "👤 캐릭터",
+      active: pathname.endsWith("/characters"),
+    },
+    {
+      to: `${base}/lore`,
+      label: "🗺 로어북",
+      active: pathname.endsWith("/lore"),
+    },
+    {
+      to: `${base}/foreshadows`,
+      label: "🧵 복선",
+      active: pathname.endsWith("/foreshadows"),
+    },
+    {
+      to: `${base}/plan`,
+      label: "📐 기획",
+      active: pathname.endsWith("/plan"),
+    },
+    {
+      to: `${base}/memory`,
+      label: "🧠 장편 기억",
+      active: pathname.endsWith("/memory"),
+    },
   ];
   return (
     <nav className="mb-1 flex flex-col gap-0.5" aria-label="프로젝트 화면 전환">
-      <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide">프로젝트</p>
+      <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide">
+        프로젝트
+      </p>
       {links.map((l) => (
         <Link
           key={l.to}
           to={l.to}
           aria-current={l.active || undefined}
           className={cn(
-            'rounded-md px-3 py-1.5 text-sm transition-colors duration-fast hover:bg-muted',
-            l.active ? 'bg-primary/10 font-medium text-foreground' : 'text-muted-foreground',
+            "rounded-md px-3 py-1.5 text-sm transition-colors duration-fast hover:bg-muted",
+            l.active
+              ? "bg-primary/10 font-medium text-foreground"
+              : "text-muted-foreground",
           )}
         >
           {l.label}
@@ -86,7 +117,7 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
   const queryClient = useQueryClient();
 
   const chapters = useQuery({
-    queryKey: ['chapters', pid],
+    queryKey: ["chapters", pid],
     queryFn: () => api.get<Chapter[]>(`/projects/${pid}/chapters`),
     enabled: Number.isFinite(pid),
   });
@@ -100,27 +131,37 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
     mutationFn: (volume: number | null) =>
       api.post<Chapter>(`/projects/${pid}/chapters`, {
         volume,
-        title: '',
+        title: "",
         sort_order: Date.now() % 1e7,
       }),
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['chapters', pid] });
+      queryClient.invalidateQueries({ queryKey: ["chapters", pid] });
       setContext(pid, created.id);
     },
   });
 
   if (chapters.isPending) {
-    return <p className="px-3 py-2 text-sm text-muted-foreground">회차 불러오는 중…</p>;
+    return (
+      <p className="px-3 py-2 text-sm text-muted-foreground">
+        회차 불러오는 중…
+      </p>
+    );
   }
   if (chapters.isError) {
-    return <p className="px-3 py-2 text-sm text-destructive">회차를 불러올 수 없습니다.</p>;
+    return (
+      <p className="px-3 py-2 text-sm text-destructive">
+        회차를 불러올 수 없습니다.
+      </p>
+    );
   }
 
   // 권(volume) 단위 그룹핑 — FR-102
   // null(권 없음) 회차는 0 키 그룹으로 모아 마지막에 표시한다
   const byVolume = new Map<number, Chapter[]>();
   for (const ch of [...chapters.data].sort(
-    (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
+    (a, b) =>
+      volumeSortKey(a.volume) - volumeSortKey(b.volume) ||
+      a.sort_order - b.sort_order,
   )) {
     const key = ch.volume ?? 0;
     const list = byVolume.get(key) ?? [];
@@ -128,7 +169,9 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
     byVolume.set(key, list);
   }
 
-  const volumes = [...byVolume.keys()].sort((a, b) => Number(a === 0) - Number(b === 0) || a - b);
+  const volumes = [...byVolume.keys()].sort(
+    (a, b) => Number(a === 0) - Number(b === 0) || a - b,
+  );
 
   return (
     <div className="flex flex-col gap-0.5 px-1">
@@ -142,8 +185,10 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
               aria-expanded={expanded}
               className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-muted"
             >
-              <span className="inline-block w-3 text-muted-foreground">{expanded ? '▾' : '▸'}</span>
-              {volume === 0 ? '권 없음' : `${volume}권`}
+              <span className="inline-block w-3 text-muted-foreground">
+                {expanded ? "▾" : "▸"}
+              </span>
+              {volume === 0 ? "권 없음" : `${volume}권`}
             </button>
             {expanded &&
               byVolume.get(volume)!.map((ch) => (
@@ -153,11 +198,15 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
                   onClick={() => setContext(pid, ch.id)}
                   aria-current={chapterId === ch.id || undefined}
                   className={cn(
-                    'ml-4 flex w-[calc(100%-1rem)] items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm',
-                    chapterId === ch.id ? 'bg-primary/10 font-medium text-foreground' : 'hover:bg-muted',
+                    "ml-4 flex w-[calc(100%-1rem)] items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm",
+                    chapterId === ch.id
+                      ? "bg-primary/10 font-medium text-foreground"
+                      : "hover:bg-muted",
                   )}
                 >
-                  <span className="truncate">{ch.title.trim() || `${volume}권 ${ch.id}화`}</span>
+                  <span className="truncate">
+                    {ch.title.trim() || `${volume}권 ${ch.id}화`}
+                  </span>
                   <StatusBadge status={ch.status} />
                 </button>
               ))}
@@ -171,11 +220,13 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
         className="mt-2 justify-start"
         disabled={createChapter.isPending}
         onClick={() =>
-        createChapter.mutate(
-          // 평면 구조(권 없음만 존재)면 새 회차도 권 없이 생성
-          chapters.data.some((c) => c.volume != null) ? (volumes[volumes.length - 1] || 1) : null,
-        )
-      }
+          createChapter.mutate(
+            // 평면 구조(권 없음만 존재)면 새 회차도 권 없이 생성
+            chapters.data.some((c) => c.volume != null)
+              ? volumes[volumes.length - 1] || 1
+              : null,
+          )
+        }
       >
         + 회차 추가
       </Button>
