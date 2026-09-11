@@ -1,11 +1,16 @@
 """장편 기억 provenance/revision/time-scope contract tests."""
 from pathlib import Path
 
+import pytest
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, create_db_engine
 from app.models import Chapter, MemoryEntry, Project
-from app.services.long_memory import create_memory_entry, select_context_memory
+from app.services.long_memory import (
+    create_memory_entry,
+    select_context_memory,
+    validate_visibility_transition,
+)
 
 
 def _session(tmp_path: Path):
@@ -44,6 +49,42 @@ def test_select_context_memory_excludes_stale_future_wrong_project_and_retired(t
     entries = select_context_memory(db, project_id=project.id, target_chapter_id=current.id)
 
     assert [entry.body for entry in entries] == ["현재 정본"]
+    db.close(); engine.dispose()
+
+
+def test_memory_service_rejects_invalid_inputs_and_target_ownership(tmp_path):
+    engine, db = _session(tmp_path)
+    project, other, current, _future = _project_with_chapters(db)
+    foreign_chapter = Chapter(project_id=other.id, sort_order=1, title="foreign", content_md="foreign")
+    db.add(foreign_chapter)
+    db.commit()
+
+    invalid_cases = [
+        {"kind": "unknown", "body": "body"},
+        {"kind": "fact", "body": "   "},
+        {"kind": "fact", "body": "body", "visibility": "unknown"},
+        {"kind": "fact", "body": "body", "chapter_id": 99999},
+        {"kind": "fact", "body": "body", "source_revision": 1},
+        {"kind": "fact", "body": "body", "chapter_id": foreign_chapter.id},
+        {"kind": "fact", "body": "body", "effective_from_sort_order": 3, "effective_to_sort_order": 2},
+    ]
+    for values in invalid_cases:
+        with pytest.raises(ValueError):
+            create_memory_entry(
+                db,
+                project_id=project.id,
+                chapter_id=values.pop("chapter_id", None),
+                source_revision=values.pop("source_revision", None),
+                source_text=current.content_md,
+                **values,
+            )
+
+    with pytest.raises(ValueError, match="target chapter not found"):
+        select_context_memory(db, project.id, 99999)
+    with pytest.raises(ValueError, match="belongs to another project"):
+        select_context_memory(db, project.id, foreign_chapter.id)
+    with pytest.raises(ValueError):
+        validate_visibility_transition("retired", "approved")
     db.close(); engine.dispose()
 
 

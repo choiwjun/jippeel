@@ -5,7 +5,7 @@
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=dbb7745`, `origin/main=dbb7745`
+- 로컬/원격: `HEAD=3d8b2f1`, `origin/main=3d8b2f1`
 - 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
@@ -33,7 +33,8 @@
 7. 장편 기억 거버넌스 API/UI 후속 구현
    - project-scoped 생성/목록/필터, provenance/stale 표시, draft 승인·폐기
    - 다른 작품 memory/chapter 격리, 연결 회차 삭제 409 보존 게이트
-   - 임시 SQLite backend 288 passed, frontend build, memory Playwright/axe E2E 통과
+   - 임시 SQLite backend 289 passed, frontend build, memory Playwright/axe E2E 통과
+   - Python stdlib trace 기준 핵심 모듈 line coverage 80% 이상 확인
    - stale 필터가 500건 이후 항목도 limit까지 찾도록 내부 batch scan 보정
 8. 격리 integration fixture·E2E 보강
    - native Windows Python fixture가 cross-project invalid foreshadow negative case를 실제 SQLite에 구성
@@ -42,8 +43,9 @@
 
 ### 검증 증거
 
-- 백엔드 전체: **288 passed** (임시 SQLite runner)
-- `-W error::DeprecationWarning` 전체 backend: **288 passed**
+- 백엔드 전체: **289 passed** (임시 SQLite runner)
+- `-W error::DeprecationWarning` 전체 backend: **289 passed**
+- stdlib trace 핵심 모듈 coverage: memories router 88.2%, schemas 99.4%, long_memory 86.0%
 - 프론트: `npm run build` 성공
 - 장편 기억 Playwright/axe E2E: **1 passed**
 - native Windows isolated AI-context integration: **3 passed**

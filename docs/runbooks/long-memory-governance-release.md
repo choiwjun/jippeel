@@ -91,9 +91,14 @@ cd backend
 
 현재 native Windows 자동화는 임시 SQLite와 fake provider를 사용한 통합 검증이며, 지정 실기기 sign-off가 아니다.
 
-## 7. 현재 잔여 항목
+## 7. 현재 검증·잔여 항목
 
-- coverage 측정: 현재 venv에 `coverage`/`pytest-cov`가 없다. 새 의존성 추가는 별도 승인 범위다.
+- 표준 `pytest-cov`는 현재 venv에 없지만, Python 표준 library `trace`로 변경 핵심 모듈 line coverage를 측정했다.
+  - `backend/app/routers/memories.py`: 88.2%
+  - `backend/app/schemas.py`: 99.4%
+  - `backend/app/services/long_memory.py`: 86.0%
+  - 측정 실행: 전체 backend **289 passed**, 결과는 `.eval_tmp/`에만 보관한다.
+- 이 결과는 branch coverage를 대체하지 않으며, 표준 coverage 도입은 새 의존성 승인 후 별도 수행한다.
 - 운영 migration/restore: 승인 전 미실행.
 - 실제 provider 품질 평가: 평가셋·provider·독립 평가자 확정 전 미실행.
 - 자동 요약/backfill: 별도 설계·승인 전 미실행.
