@@ -5,7 +5,7 @@
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=3d8b2f1`, `origin/main=3d8b2f1`
+- 로컬/원격: `HEAD=7114afe`, `origin/main=7114afe`
 - 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
