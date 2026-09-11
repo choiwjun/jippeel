@@ -5,8 +5,8 @@
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=68887bc`, `origin/main=68887bc`
-- 추적 파일 변경: 장편 기억 거버넌스 후속 구현 및 검증 중
+- 로컬/원격: `HEAD=b1e77ce`, `origin/main=68887bc` (로컬 2 commits ahead)
+- 장편 기억 거버넌스 구현과 native integration fixture 보강을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
 ### 완료된 작업
@@ -34,14 +34,21 @@
    - project-scoped 생성/목록/필터, provenance/stale 표시, draft 승인·폐기
    - 다른 작품 memory/chapter 격리, 연결 회차 삭제 409 보존 게이트
    - 임시 SQLite backend 288 passed, frontend build, memory Playwright/axe E2E 통과
+8. 격리 integration fixture·E2E 보강
+   - native Windows Python fixture가 cross-project invalid foreshadow negative case를 실제 SQLite에 구성
+   - parallel-writing E2E가 임시 backend에 자체 fake endpoint를 등록해 독립 실행 가능
+   - 실제 provider/운영 DB/keyring 없이 AI-context 3개, manuscript-preservation 1개, 기본 a11y/app-flow/parallel/memory 11개 E2E 통과
 
 ### 검증 증거
 
-- 백엔드 전체: **288 passed** (`-W error::DeprecationWarning`)
+- 백엔드 전체: **288 passed** (임시 SQLite runner)
 - 프론트: `npm run build` 성공
 - 장편 기억 Playwright/axe E2E: **1 passed**
-- 기존 장편 기억 integration test: 승인·최신 memory 주입, stale memory 제외, 주입 비활성화 통과
-- 임시 DB만 사용했으며 운영 DB·기존 서비스·실제 provider·Windows 장치를 사용하지 않았다.
+- native Windows isolated AI-context integration: **3 passed**
+- native Windows isolated manuscript-preservation integration: **1 passed**
+- native Windows isolated default E2E: **11 passed** (a11y, app-flow, memory, parallel-writing)
+- AI-context/preservation fixture 직접 실행: 각각 `seeded` / `passed`
+- 실제 provider는 fake provider만 사용했고, 운영 DB·keyring·지정 Windows 실기기 QA에는 접근하지 않았다.
 
 ### 남은 작업과 실행 게이트
 
@@ -96,10 +103,10 @@
 
 ### 최근 커밋
 
+- `b1e77ce test: harden native integration fixtures`
+- `0c17e5a feat: add long-memory governance`
+- `68887bc docs: refresh project handoff status`
 - `6a27ec8 docs: record memory migration rollback evidence`
-- `8416cb9 feat: inject validated memory into AI context`
-- `d5593a9 feat: add provenance-aware long memory storage`
-- `239fd57 fix: make WSL launch scripts bash compatible`
 
 ---
 
