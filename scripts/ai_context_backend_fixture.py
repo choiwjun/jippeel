@@ -33,8 +33,10 @@ BODY_SENTINEL = "초기 서버 본문은 프롬프트에 없어야 한다"
 SECOND_BODY = "두 번째 회차 원고입니다. 결과 원본 불일치 검증용 합성 원고입니다."
 
 with contextlib.suppress(Exception):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
 
 
 class FixtureError(RuntimeError):
@@ -207,7 +209,7 @@ def stop_process(proc: subprocess.Popen[str] | None, name: str, events: list[dic
         events.append(event)
 
 
-def seed_data(port: int, provider_port: int) -> dict[str, Any]:
+def seed_data(port: int, provider_port: int, db_path: Path) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     sentinels = {
         "body": BODY_SENTINEL,
@@ -367,8 +369,14 @@ def seed_data(port: int, provider_port: int) -> dict[str, Any]:
         "status": "회수",
         "audience_knows": False,
         "planted_chapter_id": ch1["id"],
-        "resolved_chapter_id": foreign_chapter["id"],
+        "resolved_chapter_id": ch2["id"],
     }, port, 201)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "UPDATE foreshadows SET resolved_chapter_id = ? WHERE id = ?",
+            (foreign_chapter["id"], bad_ref_foreshadow["id"]),
+        )
+        conn.commit()
     steps.append({
         "name": "foreign_negative_ids",
         "foreign_project_id": foreign_pid,
@@ -532,7 +540,7 @@ def main() -> int:
         update_report(report, pointer_path, run_report_path)
         update_report(report, eval_run_report_path, None)
 
-        seed = seed_data(args.backend_port, args.provider_port)
+        seed = seed_data(args.backend_port, args.provider_port, db_path)
         report.update(seed)
         report["sqlite_counts_after_seed"] = sqlite_counts(db_path)
         report["status"] = "seeded"

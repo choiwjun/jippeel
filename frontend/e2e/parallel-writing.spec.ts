@@ -11,6 +11,7 @@ function sse(events: Array<[string, unknown | string]>): string {
 test.describe.serial('병렬 집필 AI 패널', () => {
   let projectId = 0;
   let chapterId = 0;
+  let endpointId = 0;
 
   test.beforeAll(async ({ request }) => {
     const existing = await request.get('/api/v1/projects');
@@ -25,10 +26,22 @@ test.describe.serial('병렬 집필 AI 패널', () => {
     });
     expect(chapterResponse.ok()).toBeTruthy();
     chapterId = ((await chapterResponse.json()) as { id: number }).id;
+    const endpointResponse = await request.post('/api/v1/ai/endpoints', {
+      data: {
+        name: 'ParallelWritingE2E',
+        base_url: 'http://127.0.0.1:1234/v1',
+        api_key: 'fixture-key',
+        default_model: 'fixture-model',
+        is_default: true,
+      },
+    });
+    expect(endpointResponse.ok()).toBeTruthy();
+    endpointId = ((await endpointResponse.json()) as { id: number }).id;
   });
 
   test.afterAll(async ({ request }) => {
     if (projectId) await request.delete(`/api/v1/projects/${projectId}`);
+    if (endpointId) await request.delete(`/api/v1/ai/endpoints/${endpointId}`);
   });
 
   test('parallel mode sends settings, renders draft/review, and does not auto-write', async ({ page }) => {

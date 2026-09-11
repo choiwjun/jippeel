@@ -30,8 +30,10 @@ from urllib.parse import urlparse
 
 # Keep JSON output readable when invoked through cmd.exe from WSL.
 with contextlib.suppress(Exception):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 18080
@@ -605,7 +607,12 @@ def main() -> int:
         result["error"] = repr(exc)
         result["finished_at"] = now_iso()
         with contextlib.suppress(Exception):
-            work_dir = Path(result.get("work_dir") or tempfile.gettempdir())
+            work_dir_value = result.get("work_dir")
+            work_dir = Path(
+                work_dir_value
+                if work_dir_value is not None
+                else tempfile.gettempdir()
+            )
             fail_path = work_dir / "preservation-fixture-result.failed.json"
             fail_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
             result["result_json"] = str(fail_path)
