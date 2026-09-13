@@ -1,0 +1,39 @@
+REVIEW_GATE: PASS
+
+## Review
+
+No issues found.
+
+- **Fixed — Windows sensitive-read matching:** `backend/tests/isolation_guard.py:145–152` normalizes case, trailing dots/spaces, and stream suffixes before matching known sensitive filenames, then retains ownership validation. `backend/tests/test_isolation_guard.py:193–207` adds 18 str/bytes cases checking rejection, zero consumer calls, and latch growth. Existing assertions remain intact.
+
+- **Fixed — supported execution contract:** `backend/scripts/run_backend_pytest.py:8–29` establishes isolation before importing pytest and checks the final latch afterward. Its backend path derives from `__file__`, not a machine-specific location. `.eval_tmp/run_backend_pytest.py:1–6` delegates to it without duplicating implementation. The required deliverables are explicit in `docs/runbooks/isolated-backend-tests.md:5–12`; both affected runbooks now use this entrypoint. Historical commands are marked superseded without rewriting historical results.
+
+- **Fixed — overstated protection claims:** `docs/runbooks/isolated-backend-tests.md:39–46` and `docs/audits/failure-contracts-2026-09-12/b04-review-fixes.md` distinguish writable-open/known-sensitive-read and named audit/crypto checks from a general filesystem or OS sandbox. This matches the inspected source.
+
+### Independently checked evidence
+
+Evidence root: `/tmp/jippeel-b04-review-fixes-t4hs3psy/`.
+
+- `delta-clean.diff`: minimal corrections and additive regression coverage; no product changes or weakened assertions.
+- `aliases-red.txt`: 18 expected alias failures; `aliases-green.txt`: 19 tests passed.
+- `canonical-preflight.txt` and `compat-preflight.txt`: app/pytest absent, internal IPC 1, violations empty.
+- `validation-commands.json`, `full-final-clean.txt`, and `.exit`: **419 passed, 1 skipped, 19 warnings, 70 subtests passed; exit 0**. Final attestation records `violations=[]`, `subprocess_attempts=0`, seven fake-keyring calls, and 233 internal IPC operations.
+- Actual summaries in `coverage-clean.pretty.json:291–306,2817–2832,3552–3567` confirm:
+
+| Module | Line | Branch |
+|---|---:|---:|
+| bootstrap | 278/289 — 96.19% | 75/92 — 81.52% |
+| canon | 54/62 — 87.10% | 15/18 — 83.33% |
+| isolation_guard | 171/183 — 93.44% | 55/60 — 91.67% |
+
+`coverage-clean-manifest.json` records raw/pretty hashes and parsed equivalence. These findings are based on the new evidence, not previous suite counts.
+
+- `before-hashes.json`, `final-clean-hashes.json`, and `preservation-clean.json` support unchanged product crypto, all 37 backend app files, index, and retained `a8db…` coverage. HEAD/main match the assignment; staged diff evidence is empty. Scoped whitespace checking passed.
+
+### Residual limits
+
+The existing external-metrics skip, SQLite warnings, historical credential uncertainty, and unrecovered original `d6ad…` coverage remain. LSP results are **inconclusive**, not clean. Global dirty-worktree whitespace failures outside scope remain separate. Browser/real-provider validation was not repeated.
+
+Read-only review: no execution, edits, credential inspection, or Git mutations.
+
+**Merge verdict: OK with notes.** Previous B04 findings are resolved; parent owns final acceptance. This grants no production or Git-operation authorization.

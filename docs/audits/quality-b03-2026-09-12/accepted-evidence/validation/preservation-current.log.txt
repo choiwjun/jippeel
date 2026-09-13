@@ -1,0 +1,34 @@
+
+Running 26 tests using 1 worker
+
+Re-optimizing dependencies because vite config has changed
+Owned manuscript fixture started: 127.0.0.1:15225; proxy={}; latch=/tmp/jippeel-manuscript-http-8zGm7p/violations.jsonl
+  ✓   1 [chromium] › e2e/manuscript-preservation.spec.ts:468:5 › manuscript preservation frontend fixture › serializes delayed per-chapter saves and preserves newer typing (21.6s)
+  ✓   2 [chromium] › e2e/manuscript-preservation.spec.ts:503:5 › manuscript preservation frontend fixture › project switch rejects stale selected chapters and never writes under the new project context (1.6s)
+  ✓   3 [chromium] › e2e/manuscript-preservation.spec.ts:525:5 › manuscript preservation frontend fixture › unresolved mismatched recovery locks editing, survives reload, and local choice remains recoverable while saving (3.6s)
+  ✓   4 [chromium] › e2e/manuscript-preservation.spec.ts:590:5 › manuscript preservation frontend fixture › server choice refreshes to latest paired server body and never PUTs stale displayed text (1.1s)
+  ✓   5 [chromium] › e2e/manuscript-preservation.spec.ts:641:5 › manuscript preservation frontend fixture › failed server recovery choice keeps original draft locked until successful retry (1.1s)
+  ✓   6 [chromium] › e2e/manuscript-preservation.spec.ts:708:5 › manuscript preservation frontend fixture › server recovery choice disables competing actions while latest server body is pending (1.0s)
+  ✓   7 [chromium] › e2e/manuscript-preservation.spec.ts:776:5 › manuscript preservation frontend fixture › keeps ApiError detail for 409 and shows local/server conflict recovery (1.6s)
+  ✓   8 [chromium] › e2e/manuscript-preservation.spec.ts:828:5 › manuscript preservation frontend fixture › recovers reload drafts, survives storage failure, and preserves text after network error (2.0s)
+  ✓   9 [chromium] › e2e/manuscript-preservation.spec.ts:855:5 › manuscript preservation frontend fixture › preserves local text on network failure and reconciles lost save acknowledgements (1.3s)
+  ✓  10 [chromium] › e2e/manuscript-preservation.spec.ts:885:5 › manuscript preservation frontend fixture › does not let a pending refine accept response overwrite a late local edit (1.4s)
+  ✓  11 [chromium] › e2e/manuscript-preservation.spec.ts:932:5 › manuscript preservation frontend fixture › does not let a pending scene merge response overwrite a late edit or transfer to another chapter (1.3s)
+  ✓  12 [chromium] › e2e/manuscript-preservation.spec.ts:979:5 › manuscript preservation frontend fixture › does not let a pending snapshot restore response overwrite a late local edit (1.3s)
+  ✓  13 [chromium] › e2e/manuscript-preservation.spec.ts:1017:5 › manuscript preservation frontend fixture › does not acknowledge lost save responses when GET returns different text (934ms)
+  ✓  14 [chromium] › e2e/manuscript-preservation.spec.ts:1043:5 › manuscript preservation frontend fixture › pagehide uses revision contract and beforeunload leaves recoverable text (955ms)
+  ✓  15 [chromium] › e2e/manuscript-preservation.spec.ts:1083:5 › manuscript preservation frontend fixture › flushes before refine start, sends expected_revision, and blocks stale accept safely (1.4s)
+  ✓  16 [chromium] › e2e/manuscript-preservation.spec.ts:1130:5 › manuscript preservation frontend fixture › scene trigger is accessible and merge flushes with expected_revision (1.2s)
+  ✓  17 [chromium] › e2e/manuscript-preservation.spec.ts:1157:5 › manuscript preservation frontend fixture › shows snapshot text before explicit restore and restore uses current revision (1.2s)
+  ✓  18 [chromium] › e2e/manuscript-preservation.spec.ts:1202:3 › M02 held save after editor unmount refreshes origin only while viewing 1 (3.0s)
+  ✓  19 [chromium] › e2e/manuscript-preservation.spec.ts:1202:3 › M02 held save after editor unmount refreshes origin only while viewing 2 (3.1s)
+  ✓  20 [chromium] › e2e/manuscript-preservation.spec.ts:1235:3 › M02 live save success only refreshes memory on revision success (1.1s)
+  ✓  21 [chromium] › e2e/manuscript-preservation.spec.ts:1235:3 › M02 live save failure only refreshes memory on revision success (1.2s)
+  ✓  22 [chromium] › e2e/manuscript-preservation.spec.ts:1253:3 › M02 restore success preserves text and refreshes only successful revision (1.2s)
+  ✓  23 [chromium] › e2e/manuscript-preservation.spec.ts:1253:3 › M02 restore late-edit preserves text and refreshes only successful revision (1.5s)
+  ✓  24 [chromium] › e2e/manuscript-preservation.spec.ts:1253:3 › M02 restore failure preserves text and refreshes only successful revision (1.5s)
+  ✓  25 [chromium] › e2e/manuscript-preservation.spec.ts:1288:1 › fixture lifecycle routes pagehide keepalive through context on reload and page close (1.5s)
+  ✓  26 [chromium] › e2e/manuscript-preservation.spec.ts:1305:1 › M02 cache notification exception cannot reclassify an acknowledged UI save (1.3s)
+Owned manuscript fixture closed; no escapes; latch=/tmp/jippeel-manuscript-http-8zGm7p/violations.jsonl
+
+  26 passed (1.3m)

@@ -1,0 +1,11 @@
+{
+  "error": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc7 in position 400355: invalid continuation byte",
+  "exit": 1,
+  "phase": "post-stage whitespace-output text decoding, after all305 blob hashes passed",
+  "failedOperation": "subprocess.run(['git','diff','--cached','--check'], capture_output=True, text=True)",
+  "head": "c1a92c45fe8c16b4ee140a31fe97683ab588ed07",
+  "branch": "main",
+  "stagedDiffSha256": "551d0c7fa008e47e5eb62a6b277e418864bedeae46be3d2acea93ad49cd72830",
+  "indexSha256": "cde5f5125a0c5bb645c99a25a7f31de549e3c9031564ef1f633783873664414d",
+  "disposition": "Preserve staged tree and byte archives. One explicit read-only capture of same Git whitespace check as bytes, with escaped display-only derivative; not a source/test retry or evidence normalization."
+}

@@ -1,0 +1,33 @@
+{
+  "status": "validation-evidence-ready-for-independent-review-not-product-acceptance",
+  "workflow": "4f93edfd-3c8e-4e15-a739-e8c3f3dcbc38",
+  "child": "c1bab7f2-5d2d-4354-ab40-ae5ee68aca3e",
+  "repo": "/mnt/c/Users/wj941/Documents/jippeel",
+  "branch": "main",
+  "HEAD": "c1a92c45fe8c16b4ee140a31fe97683ab588ed07",
+  "evidenceRoot": "verification-0fe42cf5",
+  "directParentHashVerification": {
+    "artifacts": 356,
+    "sources": 29,
+    "protected": 5,
+    "mismatches": [],
+    "stagedEmpty": true
+  },
+  "validation": {
+    "backend": "421 passed, 1 existing skipped, 70 subtests, 19 warnings, violations=[], subprocess_attempts=0",
+    "frontend": "31 memory + 26 preservation + 15 AI fixture = 72 passed; positive no escapes",
+    "static": "app tsc and fixture tsc exit0; production build exit0",
+    "scope": "source-mapped changed line/branch gates met; App and no-added-branch entries N/A; Python literal299 maps to executed Raise297, denominator1",
+    "samples": "72 test identities, 56 raw samples; exact4 expected unique sources each; all runtime entries retained; 15 uninstrumented AI and1 explicit page-close omission documented"
+  },
+  "activeLsp": {
+    "paths": ["frontend/src/pages/MemoryPage.tsx", "frontend/src/lib/queryClient.ts", "frontend/src/lib/manuscriptDrafts.ts", "frontend/src/App.tsx", "backend/app/routers/projects.py"],
+    "waitMs": 1500,
+    "diagnostics": 0,
+    "clean": 1,
+    "inconclusive": 4,
+    "unconfirmedReasons": "3 timeout, 1 push-only silent-on-clean",
+    "limitation": "not an all-files clean result; no file-level assignment exposed in compact tool response"
+  },
+  "remaining": ["two fresh independent reviews", "parent finding disposition and final product acceptance", "canonical status update"]
+}

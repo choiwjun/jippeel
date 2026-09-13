@@ -1,0 +1,29 @@
+{
+  "node": "v22.23.2",
+  "packages": [
+    {
+      "name": "v8-to-istanbul",
+      "version": "9.3.0",
+      "file": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/v8-to-istanbul/package.json",
+      "sha256": "9403e515e7b76070a8c54b064107e06bfb98df3345634c0c405056a13e2c323e"
+    },
+    {
+      "name": "@bcoe/v8-coverage",
+      "version": "1.0.2",
+      "file": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/@bcoe/v8-coverage/package.json",
+      "sha256": "3933b8b0c4a7ef984512050ee5f56726b29da0dac0632913b2bf93ca6bef43f3"
+    },
+    {
+      "name": "istanbul-lib-coverage",
+      "version": "3.2.2",
+      "file": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/istanbul-lib-coverage/package.json",
+      "sha256": "7974dda66b36ee4f2ae12760b0a94752ab735c6977174a30547047f08ff33cf3"
+    },
+    {
+      "name": "@types/node",
+      "version": "22.0.0",
+      "file": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/@types/node/package.json",
+      "sha256": "d033f19e2b594789e8b84e52e399b8de8c999131636566bd349db7578481a37f"
+    }
+  ]
+}

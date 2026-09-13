@@ -1,0 +1,318 @@
+{
+  "sourceSha256": "17efd16a2ffd45cc7faa4861e5303b830122f9296eb156ce36f78cf4c18cd809",
+  "baselineSha256": "353eb79e5b41ca634177d98e804376a21dc4f489cdbf34f22c87691ae0614d7f",
+  "baselineFile": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-implementation-qcUqNm68/before/backend/app/services/quality.py",
+  "changedLines": [
+    27,
+    28,
+    30,
+    32,
+    33,
+    34,
+    35,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    73,
+    83
+  ],
+  "coverageSha256": "7575c27f48483be5be8e3648ab3712c40faf442e56b9e2baea0b573c94592b16",
+  "instrumentedChangedLines": [
+    27,
+    28,
+    30,
+    33,
+    41,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    55,
+    56,
+    73,
+    83
+  ],
+  "executedChangedLines": [
+    27,
+    28,
+    30,
+    33,
+    41,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    55,
+    56,
+    73,
+    83
+  ],
+  "missingChangedLines": [],
+  "changedBranches": [
+    {
+      "from": 45,
+      "to": 46,
+      "covered": true
+    },
+    {
+      "from": 45,
+      "to": 56,
+      "covered": true
+    },
+    {
+      "from": 46,
+      "to": 47,
+      "covered": true
+    },
+    {
+      "from": 46,
+      "to": 49,
+      "covered": true
+    },
+    {
+      "from": 47,
+      "to": 45,
+      "covered": true
+    },
+    {
+      "from": 47,
+      "to": 48,
+      "covered": true
+    },
+    {
+      "from": 49,
+      "to": 45,
+      "covered": true
+    },
+    {
+      "from": 49,
+      "to": 50,
+      "covered": true
+    },
+    {
+      "from": 50,
+      "to": 51,
+      "covered": true
+    },
+    {
+      "from": 50,
+      "to": 55,
+      "covered": true
+    }
+  ],
+  "astStatements": [
+    {
+      "line": 27,
+      "endLine": 27,
+      "kind": "Assign"
+    },
+    {
+      "line": 28,
+      "endLine": 28,
+      "kind": "Assign"
+    },
+    {
+      "line": 30,
+      "endLine": 30,
+      "kind": "Assign"
+    },
+    {
+      "line": 33,
+      "endLine": 35,
+      "kind": "Assign"
+    },
+    {
+      "line": 41,
+      "endLine": 56,
+      "kind": "FunctionDef"
+    },
+    {
+      "line": 42,
+      "endLine": 42,
+      "kind": "Expr"
+    },
+    {
+      "line": 43,
+      "endLine": 43,
+      "kind": "AnnAssign"
+    },
+    {
+      "line": 44,
+      "endLine": 44,
+      "kind": "Assign"
+    },
+    {
+      "line": 45,
+      "endLine": 55,
+      "kind": "For"
+    },
+    {
+      "line": 56,
+      "endLine": 56,
+      "kind": "Return"
+    },
+    {
+      "line": 73,
+      "endLine": 73,
+      "kind": "Assign"
+    },
+    {
+      "line": 83,
+      "endLine": 83,
+      "kind": "Assign"
+    },
+    {
+      "line": 46,
+      "endLine": 55,
+      "kind": "If"
+    },
+    {
+      "line": 47,
+      "endLine": 48,
+      "kind": "If"
+    },
+    {
+      "line": 49,
+      "endLine": 55,
+      "kind": "If"
+    },
+    {
+      "line": 48,
+      "endLine": 48,
+      "kind": "Assign"
+    },
+    {
+      "line": 50,
+      "endLine": 55,
+      "kind": "If"
+    },
+    {
+      "line": 51,
+      "endLine": 51,
+      "kind": "AugAssign"
+    },
+    {
+      "line": 52,
+      "endLine": 52,
+      "kind": "Assign"
+    },
+    {
+      "line": 55,
+      "endLine": 55,
+      "kind": "Assign"
+    }
+  ],
+  "changedNotInstrumented": [
+    {
+      "line": 32,
+      "text": "# Longest alternative wins; finditer consumes each occurrence only once."
+    },
+    {
+      "line": 34,
+      "text": "    re.escape(ending) for ending in sorted(WEAK_ENDINGS + PLAIN_PAST, key=len, reverse=True)"
+    },
+    {
+      "line": 35,
+      "text": "))"
+    },
+    {
+      "line": 39,
+      "text": ""
+    },
+    {
+      "line": 40,
+      "text": ""
+    },
+    {
+      "line": 42,
+      "text": "    \"\"\"One pass over closed spans; preserve mixed families and nonempty interiors.\"\"\""
+    },
+    {
+      "line": 53,
+      "text": "            else:"
+    },
+    {
+      "line": 54,
+      "text": "                # An empty span cannot match, but its ASCII quote may open the next."
+    }
+  ],
+  "wholeModule": {
+    "covered_lines": 128,
+    "num_statements": 135,
+    "percent_covered": 92.34972677595628,
+    "percent_covered_display": "92",
+    "missing_lines": 7,
+    "excluded_lines": 0,
+    "percent_statements_covered": 94.81481481481481,
+    "percent_statements_covered_display": "95",
+    "num_branches": 48,
+    "num_partial_branches": 3,
+    "covered_branches": 41,
+    "missing_branches": 7,
+    "percent_branches_covered": 85.41666666666667,
+    "percent_branches_covered_display": "85"
+  },
+  "conservativeExecutableLines": [
+    27,
+    28,
+    30,
+    33,
+    34,
+    41,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    55,
+    56,
+    73,
+    83
+  ],
+  "uncreditedExecutableLines": [
+    34
+  ],
+  "line34Justification": "New generator expression AST at line34 inside module Assign33\u201335. Native coverage records line33, not34. No inferred parent/function credit: include34 in executable denominator but count it UNcovered. Other non-instrumented changed lines are comments/blank/docstring/delimiter/else (listed verbatim).",
+  "lineGate": {
+    "covered": 19,
+    "total": 20,
+    "percent": 95.0
+  },
+  "branchGate": {
+    "covered": 10,
+    "total": 10,
+    "percent": 100.0
+  }
+}

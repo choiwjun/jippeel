@@ -1,0 +1,189 @@
+Status: B03_IMPLEMENTATION_READY
+
+## Implemented scope
+
+The approved minimal B03 implementation and focused regressions are green. This marker permits the validation phase; it is **not product acceptance**. Approval contract: `docs/superpowers/plans/2026-09-12-quality-metric-corrections.md`. No closed M/P1/C13/B01/B02/B04 scope or canonical status/HANDOFF was reopened.
+
+Evidence/snapshot root (persistent):
+`/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-implementation-qcUqNm68`
+
+Original bytes are in `before/<repo-relative path>`, with `before-source-hashes.txt`, `sources.txt`, `before-repo.txt` and `before-protected-hashes.txt`. The baseline is the **current dirty worktree at implementation start**, NOT HEAD. The two legacy UI selectors were snapshotted immediately before their later edit. Original reproduction artifacts in `b03-reproduction-UsTHFz74` remain untouched. Final original-source/changed-source bytes are in `after/`, and `implementation-baseline.diff` is the review diff against the saved originals (478 lines). `changed-files.txt` and `final-changed-hashes.txt` identify the exact ten changed/new files.
+
+### Backend
+
+- Removed explanatory tildes from the configured weak phrases. Longest-first escaped alternatives plus nonoverlapping `finditer` count each physical occurrence once, including weak phrases containing plain endings. No morphology/sentence-boundary redesign.
+- Replaced capped quote regex with a single forward scanner. Full closed interiors count, including >200 characters. Preserves mixed quote-family compatibility, ASCII single-quote exclusion, nonempty interiors, overlapping ASCII opener/closer behavior and multiple/newline-containing quotes. Unterminated suffixes are never repeatedly rescanned.
+- Denominators, rounding, score formula/weights, empty scores, purpose semantics, persistence, dedup, API shape and essay/fallback adapter remain unchanged. `score_and_suggest` and `try_metrics_v2` function source equality is checked against the snapshot (`frozen-functions.txt`).
+- Used the approved bounded instrumentation exception: **one** `--cov=app.services.quality` item appended to the fixed list, with the exact-list test updated. No runner initialization, argument validation, environment policy, source removal or arbitrary CLI coverage options changed. Fresh native preflight passed after this edit.
+
+### UI
+
+- Existing layout retained. Trigger, heading, progress accessible name and sparkline accessible name now say **문체 신호 참고 점수**.
+- Exact empty warning appears only for `para_count === 0`: **빈 원고 — 점수를 품질 판단에 사용할 수 없습니다**. The numeric score remains visible and requests still record by default.
+- Explains that the rule score is not comprehensive literary quality, character count is Unicode L/N with punctuation excluded, and v2 is **외부 essay 참고치(내장 점수와 별개)**.
+- History copy describes purpose/rule-dependent reference records, not proof of improved writing; discloses current-vs-old score differences and no historical recalculation. No data filtering/rekeying/backfill.
+- Automated formatter inverted one equivalent risk-score ternary in the same component; semantics unchanged, and both defined/undefined external-score cases are covered by focused UI tests. No adapter change.
+
+### Test scope
+
+- Updated only approved bad-behavior assertions in the existing B03 reproduction test; original before bytes and previous RED report are preserved. Both original intended regressions are now GREEN.
+- Added weak overlap/negative cases, full-span/multiple/empty/mixed/malformed quote cases, exhaustive **1,554 short quote combinations** against the legacy short-span regex, and a generous **5-second smoke bound** over two 200k-character malformed/closed inputs. This is a deterministic workload guard, not a literary/performance benchmark.
+- Added API regression showing same-content reanalysis returns corrected 50 while preserving old saved 65 and `recorded=false`. Existing serial/finale/volume-end, legacy-purpose and record=false tests pass.
+- Added isolated Playwright config/spec/HTML entry/coverage helper. Real `QualityDialog`, stores, query client and CSS run at **15229** via existing `fixtureServer`, `reuseExistingServer=false`, no proxy, existing escape tripwire. This is a component-level browser fixture, not a full editor/provider end-to-end acceptance run.
+- The fixture mounts **no editor/save queue**, so no real autosave/unload keepalive is generated. Network interception is context-wide, covers every API/keepalive request, rejects off-origin traffic, and treats unexpected API paths as test failures; source/context controls are real and use the default serial state. No backend server is started.
+- Three browser cases cover empty/nonempty warning branches, numeric/progress accessibility, approved labels, history/no-history, external absent/present and risk_score defined/undefined. Assertions verify default recording request and Escape close.
+- Two existing quality-button selectors in `ai-context-ui.spec.ts` were updated to the approved accessible name. That unrelated larger test file was **not executed** in this implementation pass.
+
+## Changed files
+
+1. `backend/app/services/quality.py`
+2. `backend/tests/test_quality_b03_reproduction.py`
+3. `backend/tests/isolation_guard.py` — only fixed source-list addition
+4. `backend/tests/test_isolation_guard.py` — matching list assertion
+5. `frontend/src/components/editor/QualityDialog.tsx`
+6. `frontend/e2e/quality-dialog.spec.ts` — new
+7. `frontend/e2e/quality-fixture.html` — new test-only entry (not production entry)
+8. `frontend/e2e/quality-scoped-coverage.ts` — new independent collector; M helper unchanged
+9. `frontend/playwright.quality.config.ts` — new
+10. `frontend/e2e/ai-context-ui.spec.ts` — two quality selector strings only
+
+No package/lockfile/dependency/global config changes. Bounded frozen router/schema/model/runner/conftest/config source snapshots match original bytes.
+
+## Commands, exits and logs
+
+Every command has a matching `*-command.txt` with cwd, exact arguments and exit, and a `.log` under evidence. Backend cwd throughout: `/mnt/c/Users/wj941/Documents/jippeel/backend`.
+
+1. `.venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight` → exit0, before any backend app/test import. Repeated after the fixed coverage-list addition → exit0. Both logs show `app_imported=false`, `pytest_imported=false`, `violations=[]`.
+2. `.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -v tests/test_quality_b03_reproduction.py tests/test_isolation_guard.py` → intended RED, exit1: **19 failed, 59 passed, 70 subtests passed**. Failures are the approved missing count/full-span/list contracts, not execution infrastructure failures.
+3. `.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py --isolation-coverage -v tests/test_quality.py tests/test_quality_b03_reproduction.py tests/test_parallel_quality.py tests/test_isolation_guard.py` → first GREEN **89 passed /70 subtests**, final after exhaustive quote/history checks **91 passed /70 subtests**, exit0.
+4. From `frontend/`: `node node_modules/@playwright/test/cli.js test --config playwright.quality.config.ts --output <evidence>/ui-red` → intended RED, exit1, **2 missing-approved-heading failures** before UI product edits.
+5. From `frontend/`: `QUALITY_SCOPED_COVERAGE=1 node node_modules/@playwright/test/cli.js test --config playwright.quality.config.ts --output <evidence>/ui-green` → exit0, **2 passed**. Final three-case run with `--output <evidence>/ui-final` → exit0, **3 passed**, fixture tripwire **no escapes**.
+6. From `frontend/`: `npm run build -- --outDir <evidence>/frontend-build` → exit0: **tsc -b PASS**, Vite **232 modules transformed**, build PASS. Build artifacts are persistent outside repository; no cleanup flag used. Vite only warned that external outDir would not be emptied.
+
+Final native completion: `pytest_exit=0`, `internal_ipc_count=4`, `subprocess_attempts=0`, `fake_keyring_calls=0`, `violations=[]`. Native TEMP SQLite/fake keyring and synthetic external-module fixtures only. No real metrics implementation, provider, credential, operational DB, port8000 or designated device used. All execution stayed on the approved runners; no fallback or installation.
+
+## Raw coverage retained; conversion intentionally deferred
+
+- `native-coverage-final/{coverage.json,test.coverage}` copied from the owned Windows TEMP `jippeel-isolated-1najjkds` (only coverage outputs, no DB/key contents). First-green artifacts separately retained under `native-coverage-green/`.
+- Full quality module: **128/135 statements (94.81%)**, **41/48 branches (85.42%)**, aggregate coverage92.35%. These are whole-module numbers, **not changed-line/branch acceptance**. Other instrumented modules are low because their full suites were deliberately not run.
+- Three final `ui-final/*/quality-scoped-v8.json` files retain raw source/inline map/function ranges and every matching runtime entry. `raw-v8-index.json` records raw file SHA, URL, scriptId/index and JS SHA; one runtime entry per file in this run. No entries merged/dropped and no V8/Istanbul conversion performed. `after/.../QualityDialog.tsx` and original `before/...` are available for exact original-TSX mapping.
+- No package/provenance tooling installs or coverage converter runs occurred. Validation must perform the approved same-hash merge/source-map conversion with already-owned pinned tools, map changed executable lines and changed branches against these exact baseline bytes, separately enforce ≥80% and report all exceptions/N/A. Do not substitute whole-module percentages.
+
+## Policy checkpoint and residual diagnostics
+
+After successful post-instrumentation preflight, automatic tooling emitted an explicit STOP for six duplicate Pyright optional `ModuleSpec`/`loader` entries in the **unchanged frozen v2 adapter**. Work paused; exact diagnostic identities, command/result, partial baseline diff, status/ref and protected hashes were persisted (`lens-blocker.txt`, `checkpoint-partial.diff`, `checkpoint-policy-status.txt`). Supervisor was contacted before proceeding.
+
+Supervisor explicitly authorized continuing the same workflow with those diagnostics documented, **without modifying v2, adding casts/ignores or suppressing tools**. Parent independently verified source equality: original `try_metrics_v2` L173–209 vs current L195–231, SHA256 `c6ba06bace2ec60a088842d85066cd99aa00d902778cce67ce26f9421e1e92c3`. Correct diagnostic mapping is original **187/188/189** → current **209/210/211**, each reported twice (initial checkpoint note's184–186 was corrected). Full decision/identities retained in `supervisor-decision.txt`. This is a recorded inherited residual, **not an LSP-clean claim or a test/coverage waiver**. No new changed-code diagnostic remains reported. No execution infrastructure failure occurred.
+
+## Preservation
+
+main HEAD remains `c1a92c45fe8c16b4ee140a31fe97683ab588ed07`; no staged files (`after-staged.txt` empty). No stage/commit/push/reset/stash/cleanup. `before/after-protected-hashes.txt` compare equal:
+
+- `.coverage`: `a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624`
+- crypto: `5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e`
+- canon: `0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321`
+- bootstrap: `c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c`
+- `.git/index`: `bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00`
+
+`frozen-source-check.txt` confirms all bounded sources outside the ten declared files remained byte-identical. Existing dirty/untracked materials were preserved; review this implementation against `implementation-baseline.diff`, not the large inherited `git diff HEAD`.
+
+## Exact remaining verification / recommended next step
+
+1. Parent-owned validation phase: official isolated broader backend regression as approved, original-source changed-line/branch mapping and ≥80% checks; frontend raw-V8 same-source merge, source-map/Istanbul mapping with approved pinned tools/provenance and exact changed-source hash checks. No such conversion is claimed here.
+2. Type-check fixture/config/helper sources with owned Node types if required; `tsc -b` covers app `src`, while Playwright transpiled/executed the new spec/config/helper. Two updated legacy quality selectors need their focused integration tests in that validation phase, not the entire unrelated browser suite.
+3. Independent review and required accessibility/UI validation. Focused accessible-name/progress/status/Escape assertions passed; **no full axe scan or full editor user-flow acceptance** claimed. Shared Dialog accessibility implementation/layout is unchanged.
+4. Verify artifact hashes/retention and the inherited v2 diagnostic separation; parent records final acceptance/status only after gates. Actual external metrics genre quality and literary calibration remain later V04/G02; no new thresholds or product decisions needed for this approved patch.
+
+Recommended next step: proceed to validation/review using the saved original/final snapshots and raw evidence. Implementation scope and focused regressions are ready; acceptance remains gated.
+
+```acceptance-report
+{
+  "criteriaSatisfied": [
+    {
+      "id": "criterion-1",
+      "status": "satisfied",
+      "evidence": "Approved minimal count/display contract implemented; frozen score/API/purpose/history/adapter unchanged; only listed source/test files and approved coverage constant edited."
+    },
+    {
+      "id": "criterion-2",
+      "status": "satisfied",
+      "evidence": "Original dirty-worktree bytes, baseline-relative diff, exact RED/GREEN commands/logs, protected hashes, raw native/V8 coverage and remaining validation gates preserved."
+    }
+  ],
+  "changedFiles": [
+    "backend/app/services/quality.py",
+    "backend/tests/test_quality_b03_reproduction.py",
+    "backend/tests/isolation_guard.py",
+    "backend/tests/test_isolation_guard.py",
+    "frontend/src/components/editor/QualityDialog.tsx",
+    "frontend/e2e/quality-dialog.spec.ts",
+    "frontend/e2e/quality-fixture.html",
+    "frontend/e2e/quality-scoped-coverage.ts",
+    "frontend/playwright.quality.config.ts",
+    "frontend/e2e/ai-context-ui.spec.ts"
+  ],
+  "testsAddedOrUpdated": [
+    "backend/tests/test_quality_b03_reproduction.py",
+    "backend/tests/test_isolation_guard.py",
+    "frontend/e2e/quality-dialog.spec.ts",
+    "frontend/e2e/ai-context-ui.spec.ts"
+  ],
+  "commandsRun": [
+    {
+      "command": ".venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight",
+      "result": "passed",
+      "summary": "Before app imports, and repeated after approved fixed coverage-list addition."
+    },
+    {
+      "command": ".venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -v tests/test_quality_b03_reproduction.py tests/test_isolation_guard.py",
+      "result": "failed",
+      "summary": "Expected pre-implementation RED:19 failed/59 passed/70 subtests."
+    },
+    {
+      "command": ".venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py --isolation-coverage -v tests/test_quality.py tests/test_quality_b03_reproduction.py tests/test_parallel_quality.py tests/test_isolation_guard.py",
+      "result": "passed",
+      "summary": "Final91 passed/70 subtests; violations=[], subprocess_attempts=0."
+    },
+    {
+      "command": "node node_modules/@playwright/test/cli.js test --config playwright.quality.config.ts --output <evidence>/ui-red",
+      "result": "failed",
+      "summary": "Expected UI RED2 before approved label edits."
+    },
+    {
+      "command": "QUALITY_SCOPED_COVERAGE=1 node node_modules/@playwright/test/cli.js test --config playwright.quality.config.ts --output <evidence>/ui-final",
+      "result": "passed",
+      "summary": "3 passed; fixture15229/no API escapes; raw V8 retained."
+    },
+    {
+      "command": "npm run build -- --outDir <evidence>/frontend-build",
+      "result": "passed",
+      "summary": "tsc -b and Vite build PASS."
+    },
+    {
+      "command": "Protected/source hash comparison; git diff --cached --name-only",
+      "result": "passed",
+      "summary": "Five protected hashes and frozen sources unchanged; no staged files."
+    }
+  ],
+  "validationOutput": [
+    "Focused native91 PASS/70subtests",
+    "Focused Chromium3 PASS",
+    "App TS/build PASS",
+    "Whole quality module:128/135 statements,41/48 branches; changed-source mapping deferred",
+    "Original two B03 REDs now GREEN"
+  ],
+  "residualRisks": [
+    "Independent reviewer/product acceptance pending",
+    "Changed-line/branch mapping and approved >=80% gates remain validation work",
+    "Inherited frozen v2 optional-spec diagnostics remain per explicit supervisor decision; no LSP-clean claim",
+    "Legacy selector tests not executed; no full-editor/axe/V04 evaluation"
+  ],
+  "noStagedFiles": true,
+  "diffSummary": "Two bounded metric corrections, approved reference-score UI copy, focused regressions/fixture/raw collector, one allowed coverage constant and two compatible UI selectors.",
+  "reviewFindings": [
+    "No new changed-code blockers reported; independent review required",
+    "Inherited v2 diagnostics recorded and explicitly excluded from implementation blocker scope by supervisor"
+  ],
+  "manualNotes": "B03_IMPLEMENTATION_READY authorizes validation only, not acceptance. Evidence root: /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-implementation-qcUqNm68"
+}
+```

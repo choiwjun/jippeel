@@ -1,0 +1,138 @@
+# B03 reproduction and proposed contract — PLAN_GATE READY
+
+**Ready for independent plan review and explicit approval, NOT product acceptance.** No production/frontend/status/HANDOFF changes. M/P1/C13 and completed purpose semantics were not reopened. Only `backend/tests/test_quality_b03_reproduction.py` was added, with intentionally failing reproductions preserved.
+
+Evidence root: `/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74`.
+Repository: `/mnt/c/Users/wj941/Documents/jippeel`, main, HEAD `c1a92c45fe8c16b4ee140a31fe97683ab588ed07` unchanged. This report reviews the **current dirty worktree**, not merely HEAD. Before/post snapshots and hashes distinguish inherited changes from this task.
+
+## 1. Trace and current numeric meaning
+
+Source anchors are current worktree paths/lines, preserved under evidence `before/`:
+
+- `backend/app/services/quality.py:28–79`: `analyze_text` strips leading/trailing whitespace (does not normalize Unicode, Markdown or interior whitespace). Empty returns a zero metric vector, false hook, purpose flags. For nonempty text, denominator is stripped Python code-point length, **including** internal spaces, punctuation, quotes and newlines. `/1k` divides by `max(len(text)/1000, .001)`.
+- Dialogue numerator is the sum of captured interiors, excluding quote delimiters; regex accepts any opening `“ " 『 「` with any closing `” " 』 」`, interior length **1–200**, including newlines. Closed longer spans are excluded in tested simple cases, **not truncated to 200**. ASCII single quotes are not included. This is quoted-span detection, not semantic dialogue detection.
+- Paragraph splitting treats each nonblank newline-delimited segment as a paragraph. Average is **whole stripped text length / nonblank segment count**, not mean stripped segment length; opener variety is unique first-two-code-point strings / paragraph count. Rounding: dialogue 4 decimals, paragraph mean 1, ending/connector rates 2, opener variety 3.
+- Endings use independent substring `text.count` sums for `했다, 이었다, 였다` and four tilde-prefixed weak phrases. No sentence-final boundary/morphology. Connectors use six independent substring counts, likewise not sentence boundaries. `~것이었다` and `~기도 했다` count a weak phrase plus its contained plain ending. `이었다` does **not** contain `였다` (different Hangul syllable).
+- `wordcount.py:19–26`: `chars_novelpia` counts Unicode **L/N categories only**, not simply all non-whitespace characters. Punctuation is excluded. The existing UI label “공백제외 글자” hides this distinction.
+- Hook is presence of any configured substring/punctuation in final 300 stripped code points. It is not proof of a narrative hook. Duplicate ellipsis entry has no effect with `any`.
+- `quality.py:82–143`: integer `clamp(100 - penalty, 0, 100)`. Penalties: dialogue <.20:15, >.70:10; ≥5 paragraphs and mean>180:15; endings>12/1k:15; connectors>5/1k:10; ≥5 paragraphs and opener variety<.5:10; **serial only** missing hook:20. `<3000` L/N characters produces advice/preset but **no score deduction**. Maximum configured penalty is 85 (so present rules cannot reach below 15), despite a 0–100 outward scale. Do not change weights/range to make examples “look right.”
+- `quality.py:146–215`: built-in score computed before optional v2; truthy v2 dict nested under `metrics.v2`, never blended into built-in score. Loader uses env path or home default, lazy process-cache, imports a file with sibling path inserted in `sys.path`; missing/load/compute failure falls back to no v2. Invocation uses original/unstripped text (or empty) and **genre="essay"**. Dict passed through; namedtuple `_asdict` or selected `__dict__` fields normalized; no domain range validation of nested scores. These latter branches are source-observed, not all runtime-tested here.
+
+### Reachable API, persistence and UI
+
+- `routers/quality.py:85–121` is the only production caller of `analyze_chapter` found by bounded Python identifier search (`callers.txt`). GET `/api/v1/chapters/{cid}/quality` analyzes **saved** `content_md or ""`. It records by default. A fresh result is returned even if history dedup prevents writing.
+- Dedup searches **all rows** for chapter + raw UTF-8 content SHA256, then matches purpose (`missing purpose -> serial` for legacy). It is not “only previous row” despite the docstring. Raw whitespace changes hashes although stripped metrics can be identical. Algorithm version/external-engine presence are not keys. No backfill, dedup or migration change is authorized.
+- `schemas.py:737–754`, `models.py:222–233`: outward and stored scores are non-null integers; metrics JSON is flexible. History returns latest 100 rows, mixed purposes, descending timestamp/id. UI sparkline reverses them and computes deltas across all rows. A purpose change can therefore create a +20 historical delta without a prose change; this is a comparison-label caveat, **not a request to reopen accepted purpose handling**.
+- `frontend/src/components/editor/QualityDialog.tsx:98–117,169–200,229`: opens purpose-keyed quality GET (records), reloads history, displays score `/100`, progress bar, ≥80 “양호”, ≥60 “보완 필요”, else “개선 권장”. No empty/insufficient-text exception. Dialogue shown as whole percent; v2 shows optional `risk_band/risk_score` independently with “정량 엔진” label, no genre label. Footer already calls metrics reference values and leaves final judgment to writer, but headline remains broad “품질 점수”. Source-backed UI impact, **not browser-executed**.
+- `EditorPage.tsx:209–221`: switching status to 완료 uses `record=false` plus selected purpose, consumes **hook flags**, not numeric score; warns only if applicable and absent. Does not block completion. Retain this contract.
+- Existing `test_quality.py` checks empty safety (`score>=0`), generic good/bad examples, cap, finale hook exclusion, purpose-aware/legacy dedup; these pass, but cannot detect the two mechanical defects. `test_parallel_quality.py` tests scene contracts/meta leakage/review-source assembly, not the metric score. `scripts/evaluate_parallel.py` evaluates SSE protocol/nonempty results/cue hits; offline mode explicitly disclaims prose-quality evaluation. No local metric scoring consumer found there. No evaluation script/provider was executed.
+
+## 2. Fresh observed behavior matrix
+
+All inputs synthetic; default purpose serial unless specified. UTF-8 exact inputs and complete outputs: 41 files in `observations-final/`; test source contains exact constructions. `L` below is stripped code-point length. “Expected” in diagnostic tests means current-source arithmetic, **not desired literary quality**.
+
+| Exact input / construction | Current calculation and observed result | Interpretation |
+|---|---|---|
+| `""`, `" \t\n "` | zero metrics; 100−15 low-dialogue−20 no-hook = **65**, para_count=0 | Confirmed empty numeric availability; product/display issue, not arithmetic error. |
+| `!` | ratio=0, hook=true, chars=0; score **85** | Old claim must not be generalized to every exclamation string. |
+| `'"!"!'` (4 punctuation characters) | ratio=1/4=.25, hook=true, L/N chars=0; no numeric deductions; **100** | Confirms a trivial all-punctuation counterexample to literary-quality interpretation. |
+| `하게 된다`, `일 뿐이다` | L=5, weak count=0, ending rate=0, score **65** | Intended phrase without notation is missed. RED target for first is 1/.005=**200/1k**. |
+| `~하게 된다`, `~일 뿐이다` | L=6, count=1, rate **166.67**, score **50** | Literal notation makes otherwise missing phrase count. |
+| `것이었다` / `~것이었다` | L=4/5, counts=1/2, rates **250/400**, scores **50/50** | Plain ending masks weak miss; tilde adds an overlapping count. |
+| `기도 했다` / `~기도 했다` | L=5/6, counts=1/2, rates **200/333.33**, scores **50/50** | Same overlap caveat; naïvely stripping tildes alone would double-count natural forms. |
+| `고요한 밤` | ending=0, dialogue=0, hook=false; **65** | Negative ending control. |
+| opener + `가 * 199` + closer | 199/201 = **.9900**, score **70** | Tested straight, curly, corner and double-corner pairs. |
+| opener + `가 * 200` + closer | 200/202 = **.9901**, score **70** | Same four quote families. |
+| opener + `가 * 201` or `가 * 400` + closer | **0**, score **65** | Whole span disappears; RED target for 201 is round(201/203,4)=**.9901**, not 200/203. |
+| `가 * 201`; `'"가'`; `"'가'"` | ratios **0/0/0** | Unquoted/unclosed/single-quote controls. |
+| `'“가"'` | ratio **.3333** | Mismatched quote families accepted; defer grammar policy. |
+| `'"용어"는 표제다.'` | ratio **.2** | A quoted term counts despite not being spoken dialogue. Heuristic limitation, not proof of bad prose. |
+| `'"가"\n"나"'` | ratio **.2857** (2/7) | Newline retained in denominator. |
+| `' \t"가 나!"\n\n그리고 끝. \n'` | stripped L=14; dialogue4/14=**.2857**; L/N chars=**6**; paras=2; mean=**7**; connector=**71.43/1k**; variety=1 | Confirms distinct count denominators/normalization. |
+| empty or `고요한 밤`, serial/volume_end/series_finale | scores **65/85/85**; hook applicability true/false/false | Existing purpose contract invariant, no hook preset for nonserial. |
+| `'"!"!'`, all three purposes | **100/100/100** | No difference when hook signal present. |
+| synthetic external module returning `{captured_text, captured_genre, score:7}` | captures original string and **essay**, nested score7, built-in remains **100** | Adapter fact only; not evidence of external engine quality or supported alternate genre. |
+| missing fake module, later created, then explicit loader reset; fake compute raises | missing result cached until reset; then synthetic load; compute failure -> **None** | Safe optional fallback confirmed without real external file import. |
+| synthetic empty chapter GET (`record=false`, default, repeat, finale), then history | **65/65/65/85**; recorded false/true/false/true; history scores **[65,85]** | API/persistence reachability confirmed on isolated TEMP DB. |
+
+**Confirmed mechanical defects:** literal notation defeats two ordinary weak-ending phrases; closed quoted spans vanish above 200. Both have preserved intended-regression RED tests. **Confirmed implementation facts requiring product judgment:** empty65, punctuation100, essay parameter, substring/quote limitations, broad labels. Changing weights, declaring a minimum useful manuscript length, choosing external genre, or pretending these counts measure literary quality is not justified by this evidence.
+
+## 3. Minimal proposed contract — approval required, not implemented
+
+Recommended approval package:
+
+1. **Mechanical count contract:** count configured weak phrases without requiring notation `~`; count each physical ending occurrence once even when a weak phrase contains a plain ending (longest/non-overlapping match, no morphology or sentence-boundary expansion). `하게 된다` should be 200/1k; `것이었다` and `기도 했다` remain single occurrences. Literal tilde may remain an ordinary preceding character; it must not create a second occurrence. Retain denominator/rounding and all score weights.
+2. **Quoted-span contract:** include the complete closed span beyond 200, same current supported quote families; numerator excludes delimiters, denominator unchanged. Retain unrelated single/mismatched quote policies in this patch. Validate malformed/long input performance before selecting implementation; simply removing the cap from a regex without an adversarial test may create poor scanning behavior. No semantic “spoken dialogue” claim.
+3. **Numeric/API compatibility:** preserve integer 0–100 outward/stored score, field names, zero empty metric vector, defaults, raw-content/purpose dedup, no migrations/backfill and no external-score blending. Changes in numeric values due to corrected counts are expected. Previously recorded rows are historical, not recalculated; same-content reanalysis can differ from its stored score after a rule correction. Explicitly accept/document that limitation for this narrow patch rather than quietly adding versioned dedup.
+4. **Minimal display contract (recommended):** rename headline/accessibility label to **“문체 신호 참고 점수”** and explain it is configured-rule deductions, not comprehensive literary quality. For existing `para_count===0`, show an explicit **“빈 원고 — 점수를 품질 판단에 사용할 수 없습니다”** warning; preserve the numeric API and avoid introducing a novel minimum length. Explain L/N-only character count and label v2 as **external/essay-reference, not built-in score** while that parameter remains. Keep current purpose behavior and history data; label historical points as purpose/rule-dependent reference records, not evidence that prose improved. Exact Korean UI copy should receive normal approval.
+5. **External integration:** leave `genre="essay"` and fallback behavior unchanged in this mechanical slice, explicitly disclosed. Switching to novel/fiction without confirming the engine's supported contract would be speculative. V04 remains later; no real external implementation loaded here.
+
+Only genuinely unresolved choices:
+
+- **Empty availability:** preferred minimal proposal above keeps numeric compatibility with a clear warning. If product requires hiding scores, `null`, 422/no result, suppressed history writes, or a minimum-text threshold, separately approve response schema/storage/frontend/history semantics and tests first. This task does not select a threshold or silently use 3000 as one (it currently only drives platform-length advice).
+- **Historical comparability:** explicitly accept unchanged old rows/dedup with disclosure for this bounded patch, or scope/version the analysis records separately. Do not quietly change dedup to force a fresh point, filter purpose history, or imply cross-purpose deltas are prose improvements.
+- **External genre:** retain disclosed legacy essay mode pending V04, or separately approve supported genre validation and its outward source/absence semantics. No evidence here selects a replacement genre or certifies engine accuracy.
+
+## 4. Next smallest implementation/test/doc scope
+
+After parent records plan approval: change only `backend/app/services/quality.py` ending/span matching; corresponding targeted tests; approved `QualityDialog.tsx` labels/warning; concise quality-contract documentation. No router/schema/model changes for the preferred compatibility option. Add UI tests for labels/empty warning only if that display plan is approved. Do not implement the observed-diagnostic assertions as permanent desired behavior: convert affected cases to new intended expectations and retain the two RED regression intentions.
+
+Acceptance criteria for that later patch:
+
+- Two intended REDs become PASS; 199/200/201/400 closed spans remain nonzero and use full interiors; unquoted/unclosed controls remain zero; add multiple/malformed/long-span regression checks with bounded performance.
+- Weak phrases work with/without notation; negative control zero; no duplicate count from contained plain suffix; preserve original denominator/rounding and unrelated connector rules.
+- Existing serial/finale/volume-end and purpose/legacy dedup tests remain PASS; raw API score type/range/field contracts and `record=false` remain unchanged. Add same-content post-rule history documentation/test if compatibility is accepted.
+- Empty/punctuation examples are documented as rule-score limitations, not corrected through arbitrary deductions. Approved visible source/meaning/empty labels have targeted frontend assertions and independent review.
+- Synthetic external loader/fallback tests keep proving adapter behavior only. No V04/provider/production DB, real credentials, port8000, migration, stage/commit/push or whole-suite execution in this stage.
+
+## 5. Execution and preservation evidence
+
+All backend execution used the existing native interpreter and frozen supported runner. Preflight happened **before any backend import/test**:
+
+- cwd `/mnt/c/Users/wj941/Documents/jippeel/backend`
+- `.venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight` -> **exit0**, app/pytest not imported, internal IPC1, violations=[].
+- `.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -v tests/test_quality.py tests/test_parallel_quality.py` -> **11 PASS**, exit0.
+- `.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -v tests/test_quality_b03_reproduction.py` first -> **38 PASS/4 FAIL**, exit1. Two NEW diagnostic arithmetic expectations were wrong (4-code-point `것이었다`, no `였다` overlap); corrected only those newly added expectations, preserving first log/source. Not an infrastructure failure; no production fix.
+- Same full reproduction command after correction/denominator case -> **41 diagnostic PASS/2 intended regression FAIL**, exit1. Exact failures: ending 0 vs200; dialogue0 vs.9901. Retained, not xfailed/skipped.
+- Explicit supported test-node selection plus baseline -> **52 PASS**, exit0; exact long command in `diagnostic-pass-command.txt`. This excludes only intended REDs and does **not** claim product completion.
+- Every test completion: `subprocess_attempts=0`, `fake_keyring_calls=0`, `violations=[]`; synthetic native TEMP DB and fake external module only. No whole suite/coverage/browser run. Windows console renders some failure text in local encoding; exact Unicode inputs/results are independently preserved in UTF-8 test and JSON artifacts.
+
+Evidence index: `before-repo.txt`, `after-repo.txt`, `sources.txt`, `before/`, `*-source-hashes.txt`, `*-protected-hashes.txt`, `*-command.txt`, `*.log`, `observations-first/`, `observations-final/`, `test-first-attempt.py`, `test-only.diff`, `new-test-hash.txt`, `callers.txt`, `repo-status.diff`, `preservation-check.txt`, `staged-files.txt`, `evidence-commands.txt`.
+
+Protected before/post SHA256 unchanged:
+
+- `.coverage`: `a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624`
+- crypto: `5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e`
+- canon: `0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321`
+- bootstrap: `c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c`
+- git index: `bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00`
+
+All bounded source hashes unchanged. Status delta only adds the authorized test file; no staged files. Full inherited-worktree `git diff --check` returned **2** for preexisting unrelated whitespace findings (saved; no cleanup). New-test-only whitespace diagnostics are empty (`git diff --no-index --check /dev/null ...` exit1 indicates new-file diff). No execution infrastructure failure occurred.
+
+Residual evidence gaps: no browser rendering, literary calibration, external engine quality/supported novel genre/version, exhaustive normalization return branches, malformed-span performance, historical rule-version UI migration or independent reviewer verdict. These are not silently marked passed. Parent review/plan approval is the next step; **product implementation remains gated**.
+
+```acceptance-report
+{
+  "criteriaSatisfied": [
+    {"id": "criterion-1", "status": "satisfied", "evidence": "Completed bounded B03 reproduction/plan only; added the sole authorized diagnostic test file; no product or canonical-status edits."},
+    {"id": "criterion-2", "status": "satisfied", "evidence": "Persistent source snapshots/hashes, exact test commands/exits/logs, 41 UTF-8 observations, test-only diff, protected-file/index preservation and explicit unresolved contract choices."}
+  ],
+  "changedFiles": ["backend/tests/test_quality_b03_reproduction.py", "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/1bc674b2-9261-49a3-8ff2-5f4f0f74e57c/b03/reproduction-plan.md"],
+  "testsAddedOrUpdated": ["backend/tests/test_quality_b03_reproduction.py: 41 diagnostic cases and 2 preserved intended-regression REDs"],
+  "commandsRun": [
+    {"command": ".venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight", "result": "passed", "summary": "exit0; pre-import isolation PASS"},
+    {"command": ".venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -v tests/test_quality.py tests/test_parallel_quality.py", "result": "passed", "summary": "11 passed"},
+    {"command": ".venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -v tests/test_quality_b03_reproduction.py", "result": "failed", "summary": "Final: 41 passed, 2 intentional REDs; initial 2 additional NEW arithmetic expectation mistakes corrected and preserved in first-attempt evidence"},
+    {"command": "Exact supported diagnostic-node selection plus baseline in evidence diagnostic-pass-command.txt", "result": "passed", "summary": "52 passed; intended REDs explicitly excluded"},
+    {"command": "diff -u before-source-hashes.txt after-source-hashes.txt; diff -u before-protected-hashes.txt after-protected-hashes.txt", "result": "passed", "summary": "Unchanged source snapshots and five protected hashes"},
+    {"command": "git diff --check", "result": "failed", "summary": "Preexisting unrelated worktree whitespace findings; new-file-only check emitted no whitespace findings"},
+    {"command": "git diff --cached --name-only", "result": "passed", "summary": "Empty index diff; no staged files"}
+  ],
+  "validationOutput": ["Preflight PASS", "Baseline 11 PASS", "Full final reproduction 41 PASS / 2 intended RED", "Diagnostic-only plus baseline 52 PASS", "All test completions: violations=[], subprocess_attempts=0, fake_keyring_calls=0", "main/HEAD and protected hashes unchanged"],
+  "residualRisks": ["Plan approval and independent reviewer gate pending; product defects deliberately unfixed", "Empty/display/history and external genre choices require explicit approval", "No real external engine, browser, literary quality or malformed-span performance validation"],
+  "noStagedFiles": true,
+  "diffSummary": "One new 153-line synthetic reproduction test; external evidence/report only. No existing assertions or application code changed.",
+  "reviewFindings": ["Confirmed: literal weak-ending notation mismatch and closed quote exclusion above 200 characters", "No isolation violation; independent plan review still required"],
+  "manualNotes": "PLAN_GATE READY for review/approval, not product acceptance. Full test-file execution intentionally exits 1. Recovery evidence directory: b03-reproduction-UsTHFz74."
+}
+```

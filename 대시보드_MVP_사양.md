@@ -1,8 +1,13 @@
 # 웹소설 AI 집필 대시보드 — MVP 사양 문서
 
-> **버전**: v0.5
-> **작성일**: 2026-09-11 (v0.5 갱신)
-> **근거 문서**: `HANDOFF.md`, `요구사항_정의서.md`(승인 완료), `부록01_오픈소스_리서치.md`, `부록02_시장_검증.md`, `부록03_플랫폼_정책.md`, `부록04_im-not-ai_평가.md`, `부록05_오픈소스_최적조합.md`, `추천_병행연재_최적장르.md`
+> **버전**: v0.6
+> **작성일**: 2026-09-11 (고정 GPT OAuth 경로 반영)
+> **근거 문서**: `HANDOFF.md`, `기술설계_GPT_OAuth_브릿지_v1.md`, `docs/runbooks/long-memory-governance-release.md`
+
+> **현재 적용 override**: M4 AI 호출은 사용자 endpoint/API key 방식이 아니라 고정 `ChatGPT OAuth`
+> provider를 사용한다. transport는 localhost `http://127.0.0.1:10531/v1`, 기본 모델은
+> `gpt-5.6-luna`, 기본 reasoning effort는 `xhigh`다. 아래의 과거 `AiEndpoint`·API key
+> 요구사항은 역사적 MVP 기록이며 현재 구현에는 적용하지 않는다.
 > **v0.3 개정 사유**: `QA_기획정합성_리포트.md` 반영 (Major M-1~M-5, Minor m-4·m-9 처리)
 > **v0.4 개정 사유**: G3 PRD 게이트 — §9~§13 신규 추가(F-001~F-036 기능 정의, R→F 전수 매핑표, Q1~Q5 결정안, 아키텍처 리스크 C8/C9, Success Metrics)
 > **v0.5 개정 사유**: 장편 기억 거버넌스 후속 기획 — M6/S8 추가, MemoryEntry·project ownership·provenance/stale·수동 승인 계약 반영. 자동 요약/backfill과 운영 적용은 별도 승인 범위로 유지.
@@ -16,7 +21,8 @@
 2. **M-2 해소**: §3 S5 기능에 NFR-201 전송 고지 명시 — AI 패널 상단 Alert 문구 "선택한 회차·카드·로어북 내용은 지정한 LLM 엔드포인트로 전송됩니다".
 3. **M-3 해소**: §3 S7 규정·현황 탭에 NFR-404 안내 문구 추가 + §8 리스크에 명시 — "AI 사용 공개/비공개 판단은 작가의 몫"(앱은 안내 의무만 부담).
 4. **M-4 해소**: §5 윤문 span 스키마의 `category` 식별자를 humanize-korean taxonomy ID(A~J)로 고정, 카테고리 10종 목록을 실제 taxonomy로 교체.
-5. **M-5 해소**: §8.2 api_key 암호화 방식 확정 — Windows DPAPI 우선(Python keyring), 폴백 Fernet 로컬 키 파일 + 한계 문서화 의무(Q6 종결).
+5. **M-5 해소**: 기존 endpoint/API key 설정은 현재 AI 집필 경로에서 사용하지 않는다. `ai_endpoints` 테이블은
+   운영 백업 없는 drop을 피하기 위해 migration 호환용으로 보존하며, OAuth credential은 브릿지가 관리한다.
 6. **m-4 해소**: §4.1 Chapter 엔티티에 `memo TEXT` 필드 추가(FR-108).
 7. **m-9 해소**: §6 UI 가이드라인을 디자인 확정안 기준으로 갱신 — Zustand 4스토어(editor/aiPanel/settings/ui)+TanStack Query 도입 명시, EventSource 표기 삭제(fetch 스트림으로 SSE), package.json 주석 의존성 보강(markdown-it/dompurify/react-router/@tanstack/react-query/jsdiff).
 8. **QA v2 R-3 해소**: §2.2 package.json 주석에 **jszip** 신규 등재 — 변경 사유: 디자인 설계서 v1.1에서 프로젝트 내보내기(전 회차 .zip 묶음, FR-109)용으로 도입된 의존성을 npm 실측(jszip 3.10.1, 라이선스 `(MIT OR GPL-3.0-or-later)` → MIT 선택) 후 부록05 매트릭스와 함께 정식 채택.
@@ -31,7 +37,7 @@
 ## 변경이력
 
 | 버전 | 날짜 | 변경 내용 |
-|------|------|-----------|
+| ------ | ------ | ----------- |
 | v0.1 | 2026-08-25 | 초안 작성 (기획팀) |
 | v0.2 | 2026-08-25 | ① 프론트엔드 React 전환(shadcn/ui + Tailwind, Zustand) ② 요구사항 정의서 FR/NFR 역참조 추가 ③ 부록05 §⑤ 변경 8건 반영(markdown-it+DOMPurify·openai SDK·SQLite 프라그마·윤문 span+jsdiff·ST카드 자체 파서·리스크 갱신) ④ §6 UI 가이드라인 React 스택 재작성 |
 | v0.4 | 2026-08-26 | **G3 PRD 게이트 산출**: ① §9 F-001~F-036 기능 정의(전 기능 MVP 범위) ② §10 R-001~R-054 전수 → F-xxx 매핑표(누락 0건) ③ §11 미결 질문 Q1~Q5 결정안(권 구조 채택, 관계 텍스트 라벨, 프리셋 5종, route_hint 자동 옵션 병행, 자동 백업 백로그 이월) ④ §12 아키텍처 리스크 C8(글자 수 산정)/C9(im-not-ai 호출 검증) 명시 ⑤ §13 Success Metrics 추가 |
@@ -43,10 +49,12 @@
 ## 1. MVP 범위
 
 ### 1.1 목표
+
 한국 웹소설 작가(노벨피아·문피아 병행 연재 전략)가 **기획 → 집필 → AI 보조 → 윤문 → 연재 준비**를 하나의 화면에서 처리할 수 있게 하는 최소 기능 제품.
 
 **원칙**
-- AI는 모델 무관(OpenAI 호환 API). Ollama 불사용 확정 방침 유지.
+
+- AI는 고정 ChatGPT OAuth provider(OpenAI 호환 localhost bridge)만 사용한다. 사용자 endpoint/API key 선택은 없다.
 - AI 사용은 "인간이 검수하는 보조용" — 초안 품질 다듬기 목적, 규정 준수 방향.
 - 로컬 우선: 원고·설정 데이터는 사용자 PC(SQLite 파일)에 저장.
 - MVP에서는 외부 도구(SillyTavern/novelWriter) 연동 없음 → 백로그로.
@@ -56,17 +64,18 @@
 > FR/NFR 번호는 `요구사항_정의서.md`(승인 완료) 기준. 수용 기준은 동 문서 §7.
 
 | # | 모듈 | 핵심 내용 | FR 역참조 |
-|---|------|-----------|-----------|
+| --- | ------ | ----------- | ----------- |
 | M1 | **원고/회차 에디터** | 마크다운 편집기. 프로젝트 → 회차(권 단위 묶음) 계층 관리. 회차별 상태(초고/수정중/완료), 글자 수 실시간 표시(공백 제외 카운트 — 노벨피아 PLUS 3,000자 조건 확인용), 자동 저장, **회차/프로젝트 원고 내보내기(.txt/.md)** | FR-101~109 / NFR-101·201·203·204 |
 | M2 | **캐릭터 카드 관리** | 캐릭터 카드 CRUD. 이름/별칭/역할/외형/성격/말투/배경/관계 필드. SillyTavern 카드 형식과 호환 가능한 구조로 설계(연동은 백로그) | FR-201~205 / NFR-103 |
 | M3 | **세계관/로어북 관리** | 용어·설정·장소·세력·마법체계 등 항목형 로어북. 카테고리 필터 + 키워드 검색. 향후 AI 컨텍스트 자동 주입을 고려한 키(keywords)-내용(content) 구조 | FR-301~305 / NFR-103 |
-| M4 | **AI 패널** | OpenAI 호환 엔드포인트 설정 UI(base_url / api_key / model / temperature). 프리셋 프롬프트(장면 생성·대사 보강·요약 등) 실행 → 결과를 에디터에 삽입/교체. 스트리밍 응답 지원. Ollama 네이티브 미지원(OpenAI 호환 경유만) | FR-401~409 / NFR-102·202·303·501·503 |
+| M4 | **AI 패널** | 고정 ChatGPT OAuth provider(localhost bridge)와 프롬프트 프리셋. 컨텍스트 선택·SSE 스트리밍·결과 삽입/교체를 제공하며 endpoint/API key 입력은 없다. | FR-401~409 / NFR-102·202·303·501·503 |
 | M5 | **윤문 모듈 (im-not-ai 연동)** | 회차 단위 "AI 티 제거 윤문" 버튼. 백엔드에서 im-not-ai 파이프라인(route_hint light/standard/heavy) 호출 → 진단 리포트(span) + 수정본 diff 뷰 → 수락/거절. 변경률 게이트 내장 | FR-501~507 / NFR-401·402 |
 | M6 | **장편 기억 거버넌스** | 작품별 기억 초안 생성·목록·필터·provenance/stale 확인. 작가가 draft를 승인/폐기하며, stale 또는 미승인 기억은 AI context에 자동 주입하지 않음. 자동 요약/backfill은 포함하지 않음 | LM-001~010 |
 
 공통/플랫폼 대응(FR-601 규정 요약 표시, FR-602 노벨피아 PLUS 충족 현황)은 S7 설정 및 S1 홈에 배치한다(Could).
 
 ### 1.3 MVP 제외 (의도적 범위 제한)
+
 - 복수 사용자/인증 (단일 로컬 사용자 가정)
 - 플랫폼(문피아·노벨피아) 직접 발행 API
 - 캘린더/연재 일정 관리
@@ -80,7 +89,7 @@
 ### 2.1 선정 결과
 
 | 레이어 | 선택 | 이유 |
-|--------|------|------|
+| -------- | ------ | ------ |
 | 프론트 | **Vite + React (TypeScript)** | 사용자 최종 결정(2026-08-25)으로 Vue 3 대체. 생태계 최대, CodeMirror 6·jsdiff 등 주변 라이브러리와 프레임워크 무관 호환 (부록05 L1 실측 데이터 참고) |
 | UI 라이브러리 | **shadcn/ui + Tailwind CSS** | React 전환에 따른 조정. 컴포넌트 코드가 프로젝트 내에 복사되어 자유 수정 가능 → 저채도 세리프 톤·다크/라이트 테마 요구에 유리. Radix 기반 접근성 (Naive UI는 Vue 전용이라 무효화) |
 | 상태관리 | **Zustand** | Pinia 대체. 경량·보일러플레이트 최소, 에디터/AI패널/설정 스토어 분리 운용 |
@@ -88,7 +97,7 @@
 | diff | **jsdiff (`diff` npm, BSD-3-Clause)** | 윤문 리포트(S6) 문자 단위 diff — 한국어 조사·어미 변화 대응, 변경률 게이트(FR-505) 계산 (부록05 L8) |
 | 백엔드 | **Python 3.12 + FastAPI** | 비동기 SSE 스트리밍(AI 응답) 지원(sse-starlette 병행). Pydantic 스키마 검증 |
 | DB | **SQLite + SQLAlchemy 2.x (+Alembic)** | 단일 사용자 로컬 앱 최적. 파일 1개 백업(NFR-203). 추후 PostgreSQL 전환 여지 확보 |
-| AI 통신 | 백엔드 경유 프록시 — **openai Python SDK 채택(base_url 오버라이드)** | api_key를 프론트에 노출하지 않음. LM Studio·KoboldCpp·클라우드 즉시 호환(FR-401), SSE 스트리밍 내장(FR-405). httpx는 SDK 비호환 엔드포인트 발견 시 폴백 (부록05 L7) |
+| AI 통신 | 백엔드 경유 — **openai Python SDK + localhost openai-oauth bridge** | OAuth credential은 bridge가 관리하고 Jippeel은 token/API key를 저장하지 않음. 고정 provider·모델로 SSE/JSON 호출 |
 | 윤문 엔진 | im-not-ai 저장소(`~/.agents/im-not-ai`)를 서브프로세스/모듈로 호출 | MIT 라이선스. route_hint 3경로 그대로 활용 |
 
 > **프론트엔드 React 전환 사유**: 부록05의 정량 평가는 Vue 3 우위였으나, 사용자가 2026-08-25 **React를 최종 결정**함에 따라 프레임워크·UI 라이브러리(Naive UI→shadcn/ui + Tailwind)·상태관리(Pinia→Zustand)를 일괄 교체했다. 에디터(CodeMirror 6), diff(jsdiff), 백엔드(FastAPI+SQLAlchemy 2.x+Alembic), SQLite WAL, openai SDK 결정은 프레임워크와 무관하게 유지된다.
@@ -122,7 +131,8 @@ jippeel-dashboard/
 │   │   │   ├── ai_panel.py    # AI 프록시·프롬프트
 │   │   │   └── refine.py      # 윤문(im-not-ai)
 │   │   └── services/
-│   │       ├── ai_client.py   # OpenAI 호환 클라이언트
+│   │       ├── llm.py         # 고정 OAuth bridge용 OpenAI 호환 클라이언트
+│   │       ├── gpt_oauth.py   # provider·localhost 경계 검증
 │   │       └── humanize.py    # im-not-ai 래퍼
 │   └── alembic/               # 마이그레이션
     └── pyproject.toml
@@ -150,14 +160,14 @@ frontend/                       # React + Vite (TypeScript)
 ## 3. 화면 목록 및 핵심 기능
 
 | # | 화면 | URL(예) | 핵심 기능 |
-|---|------|---------|-----------|
+| --- | ------ | --------- | ----------- |
 | S1 | **홈 / 프로젝트 목록** | `/` | 프로젝트(작품) 카드 목록. 생성·열기·삭제. 최근 작업 회차 바로가기 |
 | S2 | **회차 에디터 (메인)** | `/projects/{id}/write` | 좌: 회차 트리(권/화). 중앙: 마크다운 편집기 + 미리보기 탭. 우: 글자 수(공백 포함/제외), 회차 상태, 빠른 메모. 상태 칩(초고→수정중→완료). 에디터 메뉴에 회차/프로젝트 내보내기(.txt/.md) 제공(FR-109) |
 | S3 | **캐릭터 갤러리** | `/projects/{id}/characters` | 캐릭터 카드 그리드. 클릭 시 상세 드로어(외형·성격·말투·배경·관계 편집). 관계 링크 표시(MVP는 텍스트 필드 수준) |
 | S4 | **세계관/로어북** | `/projects/{id}/lore` | 항목 리스트(카테고리별 필터: 용어/장소/세력/기타). 키워드 태그 편집. 검색창. 항목 ↔ 회차 참조 표시(선택) |
-| S5 | **AI 패널 (사이드 패널)** | S2/S3/S4 어디서든 열림 | 엔드포인트 설정 폼(base_url, api_key, model 목록 조회, temperature, max_tokens). 프롬프트 프리셋 선택 → 컨텍스트(현재 회차/선택 캐릭터/로어북 항목) 체크박스로 포함. 스트리밍 출력 영역. 결과 "에디터 끼워넣기 / 선택 교체 / 복사" 버튼. **패널 상단 전송 고지 Alert 고정 표시**(NFR-201): "선택한 회차·카드·로어북 내용은 지정한 LLM 엔드포인트로 전송됩니다" |
+| S5 | **AI 패널 (사이드 패널)** | S2/S3/S4 어디서든 열림 | 고정 ChatGPT OAuth provider·모델 표시, max_tokens, 프롬프트 프리셋 선택 → 컨텍스트(현재 회차/선택 캐릭터/로어북 항목) 체크박스로 포함. 스트리밍 출력 영역. 결과 "에디터 끼워넣기 / 선택 교체 / 복사" 버튼. **패널 상단 전송 고지 Alert 고정 표시**(NFR-201): "선택한 회차·카드·로어북 내용은 ChatGPT OAuth 브릿지로 전송됩니다" |
 | S6 | **윤문 리포트** | S2에서 진입 (모달/전용 뷰) | route_hint 경로 표시(light/standard/heavy). 카테고리별 탐지 span 하이라이트. 원문↔수정본 diff. 변경률 게이트(30% 경고 / 50% 차단) 안내. 수락 시 에디터 반영 |
-| S7 | **설정** | `/settings` | AI 엔드포인트 전역 기본값 관리(프로젝트별 오버라이드 가능). im-not-ai 경로·윤문 강도 기본값. 자동 저장 주기. **규정·현황 탭에 NFR-404 안내 문구 고정 표시**: "AI 사용 여부의 공개/비공개 판단은 작가의 몫입니다"(앱은 안내 의무만 부담 — 권장 방침 유도 수준) |
+| S7 | **설정** | `/settings` | ChatGPT OAuth 브릿지 로그인·기동 안내와 프롬프트 프리셋. im-not-ai 경로·윤문 강도 기본값. 자동 저장 주기. **규정·현황 탭에 NFR-404 안내 문구 고정 표시**: "AI 사용 여부의 공개/비공개 판단은 작가의 몫입니다"(앱은 안내 의무만 부담 — 권장 방침 유도 수준) |
 | S8 | **장편 기억 관리** | `/projects/{id}/memory` | 작품 정보와 수동 관리 안내. 종류·상태·stale·근거 회차 필터. body/provenance/source revision/hash/effective range 표시. 초안 추가, 승인·폐기 확인, stale 경고와 자동 주입 제외 사유 표시(LM-001~010) |
 
 ---
@@ -179,8 +189,7 @@ Relationship   관계 (from_character_id FK, to_character_id FK,
                      label 예: "주군-가신", note)          [MVP: 단순 텍스트 링크]
 LoreEntry      로어북 항목 (project_id FK, category[용어|장소|세력|기타],
                      title, content, keywords[])
-AiEndpoint     AI 엔드포인트 (name, base_url, api_key_encrypted,
-                     default_model, temperature, is_default)
+AiEndpoint     기존 DB 보존·마이그레이션 호환용 legacy 행 (신규 AI 경로는 조회하지 않음)
 PromptPreset   프롬프트 프리셋 (name, template_text,
                      context_flags[]  ← chapter/characters/lore 포함 여부)
 RefineRun      윤문 실행 기록 (chapter_id FK, route_hint, changed_ratio,
@@ -198,7 +207,7 @@ Project 1───N Chapter
 Project 1───N Character
 Character N───N Character   (via Relationship)
 Project 1───N LoreEntry
-AiEndpoint, PromptPreset : 전역 테이블 (프로젝트 독립)
+AiEndpoint(legacy), PromptPreset : 전역 테이블 (프로젝트 독립)
 RefineRun N───1 Chapter
 Project 1───N MemoryEntry
 Chapter 1───N MemoryEntry (provenance source; 연결 회차 삭제는 409)
@@ -215,6 +224,7 @@ Chapter 1───N MemoryEntry (provenance source; 연결 회차 삭제는 409)
 공통 prefix: `/api/v1`. 인증 없음(로컬 단일 사용자).
 
 ### 프로젝트·회차 (M1)
+
 ```
 GET    /api/v1/projects                        # 프로젝트 목록
 POST   /api/v1/projects                        # 생성
@@ -231,6 +241,7 @@ PATCH  /api/v1/projects/{pid}/chapters/order   # 순서/권 이동 (bulk)
 ```
 
 ### 캐릭터 (M2)
+
 ```
 GET    /api/v1/projects/{pid}/characters
 POST   /api/v1/projects/{pid}/characters
@@ -241,6 +252,7 @@ POST   /api/v1/projects/{pid}/characters/relations     # 관계 링크 생성/�
 ```
 
 ### 로어북 (M3)
+
 ```
 GET    /api/v1/projects/{pid}/lore             # ?category=&q= 필터/검색
 POST   /api/v1/projects/{pid}/lore
@@ -250,21 +262,21 @@ DELETE /api/v1/lore/{lid}
 ```
 
 ### AI 패널 (M4)
-```
-GET    /api/v1/ai/endpoints                    # 저장된 엔드포인트 목록 (key 마스킹)
-POST   /api/v1/ai/endpoints
-PATCH  /api/v1/ai/endpoints/{eid}
-DELETE /api/v1/ai/endpoints/{eid}
-GET    /api/v1/ai/endpoints/{eid}/models       # GET {base_url}/models 프록시 → 모델 목록
 
+```
 GET    /api/v1/ai/presets                      # 프롬프트 프리셋 목록
-POST   /api/v1/ai/generate                     # POST → SSE 스트리밍
-       body: { endpoint_id, preset_id, prompt_override?,
+POST   /api/v1/ai/generate                     # 고정 OAuth provider → SSE 스트리밍
+POST   /api/v1/ai/generate-parallel            # 고정 OAuth provider → 병렬 SSE 스트리밍
+POST   /api/v1/ai/review                       # 고정 OAuth provider → 감수 SSE
+       body: { preset_id?, prompt_override?,
                context: { chapter_id?, character_ids?, lore_ids? },
-               params: { temperature?, max_tokens? } }
+               params: { max_tokens? }, review?: { reasoning_effort? } }
+
+# /ai/endpoints 및 /models는 신규 OpenAPI/UI에서 제거된 migration compatibility route다.
 ```
 
 ### 장편 기억 (M6)
+
 ```text
 GET    /api/v1/projects/{pid}/memories
        # kind/visibility/chapter_id/stale/limit 필터
@@ -280,6 +292,7 @@ PATCH  /api/v1/projects/{pid}/memories/{mid}
 - memory가 연결된 chapter 삭제는 409로 거부해 provenance row를 보존한다.
 
 ### 윤문 (M5)
+
 ```text
 POST   /api/v1/refine                          # 회차 본문 윤문 실행
        body: { chapter_id, force_route?: "light"|"standard"|"heavy" }
@@ -309,6 +322,7 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 아래 내용을 그대로 프론트엔드 디자인 세션(`prime-agent --provider minimax --model MiniMaxAI/MiniMax-M3`)에 전달한다.
 
 > ### UI 가이드라인 요약
+>
 > - **제품**: 한국 웹소설 작가용 데스크톱 우선 웹 대시보드. 긴 글(회차당 5천~1만 자)을 오래 쓰는 환경이므로 **눈 피로 최소화와 집중 모드가 최우선**.
 > - **기술 스택(확정)**: **React + Vite (TypeScript)**, **shadcn/ui + Tailwind CSS**, 상태관리 **Zustand**(스토어 4종: editor / aiPanel / settings / ui), 서버 상태 **TanStack Query(@tanstack/react-query)**, 라우팅 react-router, 에디터 CodeMirror 6(+lang-markdown), 미리보기 markdown-it+DOMPurify, diff jsdiff. Vue/Pinia/Naive UI는 폐기(v0.2 결정). AI 응답 스트리밍은 **fetch 스트림으로 SSE 수신**(EventSource 미사용 — POST 불가).
 > - **레이아웃**: 3분할 기준 — 좌측 사이드바(회차 트리/카테고리), 중앙 에디터(최대 폭 ~720px, 장문 가독 행길이), 우측 패널(AI 패널·윤문 리포트가 겹쳐 열리는 Sheet/Drawer).
@@ -327,7 +341,11 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 
 ---
 
-## 7. 백로그 (MVP 이후)
+## 7. 백로그 분류 이력 (MVP 이후)
+
+> **2026-09-12 상태 대조:** 아래는 최초 분류를 보존한 표이며 현재 미완료 목록이 아니다.
+> 로어 자동 주입·장면·기본 연속성 검사는 구현되었고, 자동 요약은 provider-free planner만 완료했다.
+> 현재 완료/잔여/선택 확장과 우선순위는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md)을 따른다.
 
 | 우선순위 | 항목 | 비고 |
 | :---: | :--- | :--- |
@@ -348,7 +366,8 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 ## 8. 리스크·유의사항 (사양 결정에 반영됨)
 
 1. **AI 규정**: 문피아 일반 연재 AI 전면 금지, 노벨피아 순수 창작 원칙 (부록03). → 윤문 모듈은 "품질 다듬기 보조" 위치로 설계, AI 자동 생성→무검수 게시 흐름을 만들지 않음.
-2. **API 키 보안**: api_key는 백엔드에만 저장(DB 암호화), 프론트 전송 시 마스킹. **암호화 방식 확정(v0.3)**: Windows DPAPI 우선(Python `keyring` 사용), DPAPI 불가 환경의 폴백은 **Fernet 로컬 키 파일**. 폴백 사용 시 키 파일 저장 위치와 한계(동일 PC 로컬 공격자에 대한 방어 한계 등 위협 모델)를 문서화할 의무.
+2. **OAuth credential 보안**: OAuth token은 `openai-oauth` 브릿지와 그 로컬 credential 저장소의 책임이다.
+   Jippeel은 token/API key를 DB·프론트·로그에 저장하지 않는다. 기존 `ai_endpoints` 행은 migration 호환용으로만 보존한다.
 3. **im-not-ai 게이트**: 변경률 30% 경고/50% 강제 중단 규칙을 윤문 리포트 UI에 그대로 노출 — 과윤문 방지.
 4. **규정 변동**: 플랫폼 AI 규정은 수시 변경(HANDOFF §5) — 대시보드에 직접 관여하는 기능(자동 발행 등)은 보류.
 5. **CodeMirror 6 저장소 이전**: codemirror 조직 GitHub 저장소가 2026-04 중 아카이브(read-only) 확인. npm 배포는 @codemirror/view 6.43.9(2026-08-16)까지 지속되며 개발 인프라가 `code.haverbeke.berlin`으로 이전된 것으로 판단 → **분기별 npm 배포 여부 모니터링** 필요 (부록05 §④-1).
@@ -357,7 +376,7 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 8. **AI 사용 공개 여부 (NFR-404)**: AI 사용 공개/비공개 판단은 작가의 몫 — 앱은 S7 규정·현황 탭에서 이를 안내할 의무만 진다. 탐지 회피 기능 영구 제외(FR-W5) 원칙은 유지.
 
 ---
-*다음 단계: ① v0.5 장편 기억 기획·수용 기준 검토 → ② 운영 migration/provider/Windows QA 승인 게이트 확정 → ③ 자동 요약/backfill 별도 설계 승인 후 dry-run 구현. 현재 M6/S8 governance slice는 구현·검증 완료 상태다.*
+*현재 진행 순서: [전체 작업 현황 §8](docs/handoffs/2026-09-08-remaining-work.md#8-진행-순서--제안이지-실행-승인이-아님) 참조. M6/S8 기반·승인 P1 보정과 provider-free planner는 완료이며, 잔여 P2·worker 구현·운영 승인은 별도 항목이다. v0.5 기획이나 planner 구현을 다시 시작하지 않는다.*
 
 ---
 
@@ -367,7 +386,7 @@ POST   /api/v1/refine/runs/{run_id}/reject     # 거절 → 기록만 남김
 MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여 대상이다.
 
 | F-ID | 기능명 | 설명 | 모듈 | 범위 |
-|------|--------|------|------|:---:|
+| ------ | -------- | ------ | ------ | :---: |
 | F-001 | 프로젝트 관리 | 작품(프로젝트) 생성·열기·삭제, 목록(S1 홈). 삭제 확인 대화상자 | M1 | MVP |
 | F-002 | 회차·권 관리 | 회차 생성·정렬·삭제, 권(volume) 묶음 및 권 간 회차 이동. volume은 NULL 허용(평면 회차 지원) | M1 | MVP |
 | F-003 | 마크다운 에디터·미리보기 | CodeMirror 6 편집기 + markdown-it(+DOMPurify) 미리보기. 3~5만 자 원고에서 입력 반영 100ms 미만 성능 기준 내장 | M1 | MVP |
@@ -384,14 +403,14 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 | F-014 | 로어북 키워드 태그 | 엔트리당 다중 키워드 부여. M4 컨텍스트 선택 목록에 노출 | M3 | MVP |
 | F-015 | 로어북 검색 | 키워드·제목·본문 검색(FTS5 선택 적용). 수백 건 기준 1초 이내 | M3 | MVP |
 | F-016 | 로어북↔회차 참조 조회 | 특정 엔트리 참조 회차 목록 표시(선택 기능) | M3 | MVP |
-| F-017 | AI 엔드포인트 연결(OpenAI 호환 전용) | base_url/api_key/model/temperature UI 설정. S2/S3/S4 어디서든 AI 패널 호출 가능. Ollama 네이티브 경로 없음(OpenAI 호환 경유만 — 제약 C3). 프로파일 교체만으로 모델 전환 | M4 | MVP |
-| F-018 | api_key 암호화·마스킹 | DPAPI 우선(keyring)+Fernet 폴백, 화면 마스킹, 저장 파일 평문 0건 | M4 | MVP |
+| F-017 | 고정 GPT OAuth provider 연결 | localhost `openai-oauth` 브릿지·고정 모델·고정 계정으로 S2/S3/S4 AI 패널 호출 | M4 | MVP |
+| F-018 | OAuth credential 경계 | OAuth token은 브릿지 소유. Jippeel DB·프론트·로그에 저장하지 않으며 API key 입력도 제공하지 않음 | M4 | MVP |
 | F-019 | 프롬프트 프리셋 실행 | 초기 5종 한국어 프리셋(장면 생성·대사 보강·요약·전개 브레인스토밍·설정 질의) + 사용자 정의 편집 | M4 | MVP |
 | F-020 | 컨텍스트 선택 + 전송 고지 | 현재 회차/선택 캐릭터/선택 로어북 체크박스. 패널 상단 전송 고지 Alert 고정(NFR-201) | M4 | MVP |
 | F-021 | 스트리밍 응답 | SSE(fetch 스트림) 실시간 출력. 출력 중 에디터 편집 가능(UI 비차단) | M4 | MVP |
 | F-022 | AI 결과 삽입/교체/복사 | 끼워넣기(커서 위치)/선택 교체/클립보드 복사 — 자동 삽입 없음 | M4 | MVP |
-| F-023 | 엔드포인트 프로파일 다중·기본값 | 프로파일 2개 이상 저장·전환·기본값 지정, 재시작 유지 | M4 | MVP |
-| F-024 | API 오류 안내 | 엔드포인트 불일치·인증 실패·타임아웃 3종 한국어 안내 | M4 | MVP |
+| F-023 | OAuth 브릿지 상태 안내 | 연결·로그인·기동 명령을 안내하되 자동 로그인·자동 설치는 하지 않음 | M4 | MVP |
+| F-024 | OAuth 브릿지 오류 안내 | 연결 실패·인증 실패·timeout·rate limit을 credential 비노출 한국어로 안내 | M4 | MVP |
 | F-025 | 윤문 실행(im-not-ai 연동) | 회차 단위 AI 티 제거 윤문 버튼 → im-not-ai 파이프라인 서브프로세스/모듈 호출 | M5 | MVP |
 | F-026 | 윤문 강도 route_hint | light/standard/heavy 사용자 선택 + '자동'(진단 기반 판정, 판정 근거 표시) | M5 | MVP |
 | F-027 | 진단 리포트(span) | 10대 카테고리(taxonomy A~J)별 탐지 위치 span 하이라이트 | M5 | MVP |
@@ -405,7 +424,7 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 | F-035 | 한국어 UI·원클릭 실행·무문서 사용성 | 전 화면 한국어, Jippeel실행.bat 더블클릭 구동, 비개발자 무문서 핵심 흐름(집필→AI→윤문→저장) | 기반 | MVP |
 | F-036 | 오픈소스 라이선스 고지 | im-not-ai(MIT) 등 출처·라이선스를 About에 고지 | 기반 | MVP |
 
-**백로그(MVP 밖)**: §7 표 참조 — SillyTavern PNG 카드 임포트/익스포트(P1), 로어북 자동 컨텍스트 주입(P1), novelWriter 임포트(P2), 장면 단위 분해(P2), 연속성 검사(P2), KoboldCpp 네이티브(P3), 플랫폼 발행 API(P3), 연재 캘린더(P3), 멀티 프로젝트 통계(P3), 주기적 자동 백업(P2 — Q5 결정안). 대응 R이 없는 순수 확장 기능이므로 F-ID 미부여한다. **영구 제외(Won't)**: FR-W1~W6 — AI 탐지 회피 등, ID 미부여.
+**백로그 분류 이력(MVP 밖; 현재 상태는 §7의 원장 링크 참조)**: SillyTavern PNG 카드 임포트/익스포트(P1), 로어북 자동 컨텍스트 주입(P1), novelWriter 임포트(P2), 장면 단위 분해(P2), 연속성 검사(P2), KoboldCpp 네이티브(P3), 플랫폼 발행 API(P3), 연재 캘린더(P3), 멀티 프로젝트 통계(P3), 주기적 자동 백업(P2 — Q5 결정안). 대응 R이 없는 순수 확장 기능이므로 F-ID 미부여한다. **영구 제외(Won't)**: FR-W1~W6 — AI 탐지 회피 등, ID 미부여.
 
 ---
 
@@ -414,7 +433,7 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 > 전체 54건(R-001~R-054)이 정확히 하나 이상의 F-xxx에 매핑됨. 괄호 안은 기존 문서 호환용 FR/NFR 병기.
 
 | R-ID | 요구사항 요지 | 우선순위 | → F-xxx |
-|------|--------------|:---:|---------|
+| ------ | -------------- | :---: | --------- |
 | R-001 (FR-101) | 프로젝트 생성·열기·삭제 | Must | F-001 |
 | R-002 (FR-102) | 회차 생성·정렬·삭제 + 권 관리 | Should | F-002 |
 | R-003 (FR-103) | 마크다운 에디터+미리보기 | Must | F-003 |
@@ -434,15 +453,15 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 | R-017 (FR-303) | 키워드 태그 | Must | F-014 |
 | R-018 (FR-304) | 로어북 검색 | Must | F-015 |
 | R-019 (FR-305) | 엔트리 참조 회차 조회 | Could | F-016 |
-| R-020 (FR-401) | OpenAI 호환 엔드포인트 UI 설정 | Must | F-017 |
-| R-021 (FR-402) | api_key DPAPI+Fernet 암호화 | Must | F-018 |
+| R-020 (FR-401) | 고정 GPT OAuth bridge 호출 | Must | F-017 |
+| R-021 (FR-402) | OAuth credential 비저장 경계 | Must | F-018 |
 | R-022 (FR-403) | 프롬프트 프리셋 실행 | Must | F-019 |
 | R-023 (FR-404) | 컨텍스트 체크박스 | Should | F-020 |
 | R-024 (FR-405) | 스트리밍 응답 | Should | F-021 |
 | R-025 (FR-406) | 결과 삽입/교체/복사 | Must | F-022 |
-| R-026 (FR-407) | 프로파일 다중·기본값 | Should | F-023 |
-| R-027 (FR-408) | API 오류 안내 | Must | F-024 |
-| R-028 (FR-409) | Ollama 네이티브 미지원(제약) | Must | F-017 |
+| R-026 (FR-407) | OAuth bridge 상태 안내 | Should | F-023 |
+| R-027 (FR-408) | OAuth bridge 오류 안내 | Must | F-024 |
+| R-028 (FR-409) | 임의 endpoint/model redirect 금지 | Must | F-017 |
 | R-029 (FR-501) | 회차 단위 윤문 실행 | Must | F-025 |
 | R-030 (FR-502) | 윤문 강도 선택/자동 | Should | F-026 |
 | R-031 (FR-503) | 카테고리별 span 리포트 | Should | F-027 |
@@ -456,7 +475,7 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 | R-039 (NFR-102) | 스트리밍 중 UI 비차단 | Must* | F-021 |
 | R-040 (NFR-103) | 검색 <1s(수백 건) | Must* | F-015 |
 | R-041 (NFR-201) | 로컬 저장+AI 전송 고지 | Must* | F-020, F-034 |
-| R-042 (NFR-202) | api_key 평문 노출 금지 | Must* | F-018 |
+| R-042 (NFR-202) | OAuth token/API key 평문 노출 금지 | Must* | F-018 |
 | R-043 (NFR-203) | 파일 단위 백업/복원 | Must* | F-034 |
 | R-044 (NFR-204) | 강제 종료 시 마지막 저장 보존 | Must* | F-006 |
 | R-045 (NFR-301) | 무문서 핵심 흐름 수행 | Must* | F-035 |
@@ -468,7 +487,7 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 | R-051 (NFR-404) | AI 공개 판단 주체 안내 | Must* | F-032 |
 | R-052 (NFR-501) | 외부 AI 장애 시 로컬 동작 | Must* | F-034 |
 | R-053 (NFR-502) | bat 더블클릭 실행 | Must* | F-035 |
-| R-054 (NFR-503) | 설정만으로 모델 교체 | Must* | F-017 |
+| R-054 (NFR-503) | 고정 provider 모델·transport 유지 | Must* | F-017 |
 
 > \* NFR(R-038~R-054)은 요구사항 정의서 §4에 우선순위 열이 없어 MVP 기반 필수(Must)로 처리했다.
 > 매핑 누락 R: **없음**. status=dropped 처리한 R도 없다(전 항목 MVP 구현 대상).
@@ -478,7 +497,7 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 ## 11. 기획 단계 미결 질문(Q1~Q5) 결정안 — v0.4
 
 | # | 질문 | 결정안 | 근거 |
-|---|------|--------|------|
+| --- | ------ | -------- | ------ |
 | Q1 | 회차 "권(volume)" 개념 필요 여부 | **MVP 채택** — Chapter.volume nullable. 권 없는 평면 회차 목록도 허용 | R-002(Should) + 장편 연재 관행(부록02). 데이터 모델에 이미 반영(v0.3 §4.1)이라 제거 비용이 더 큼 |
 | Q2 | 캐릭터 관계 표현 방식 | **MVP는 텍스트 라벨 확정**(Relationship.label). 양방향 링크·그래프는 백로그(FR-W2와 일치) | R-012 수용기준이 "텍스트 라벨 수준"으로 명시. 최소 구현 비용 |
 | Q3 | 프리셋 초기 세트 | **한국어 기본 5종**: 장면 생성·대사 보강·요약(요구사항 명시 3종) + 전개 브레인스토밍·설정 질의(추가 2종). 사용자 편집·삭제 가능 | R-022(Must) 최소 3종 충족 + 집필 루틴 보조 가치. 추가 2종은 프리셋 편집으로 언제든 제거 가능해 리스크 낮음 |
@@ -490,7 +509,7 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 ## 12. 아키텍처 리스크·제약 반영 (G3 → G4 인수)
 
 | # | 리스크 | PRD 반영 내용 | 후속 조치 |
-|---|--------|--------------|-----------|
+| --- | -------- | -------------- | ----------- |
 | C8 (A2) | 노벨피아 공백 제외 글자 수 산정 방식과 앱 카운트 불일치 가능 | F-004에 "플랫폼 카운트 검증 샘플 필요" 주석 내장. 수용기준(R-004, §7 M1③)도 검증 샘플 1건 이상 일치를 요구 | QA 단계(G7)에서 실측 샘플 비교 검증 |
 | C9 (A3) | im-not-ai 스킬의 앱 프로세스 내 호출 가능 여부 미검증(가정 A3) | F-025/F-026은 서브프로세스/모듈 호출을 전제로 설계하되, 이 전제가 성립하지 않으면 M5 설계 변경 필요 | **G4 아키텍처 진입 시 최우선 검증 과제**: 스크립트/모듈 호출 실측 → 실패 시 래퍼 설계 재검토 |
 
@@ -501,15 +520,15 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 > 출처: 요구사항_정의서.md §7 수용 기준 + 개별 R 수용기준. 전부 충족 시 MVP 완료로 판정한다.
 
 | 구분 | 지표 | 목표값 |
-|------|------|--------|
+| ------ | ------ | -------- |
 | 성능 | 타이핑 입력 화면 반영 (3~5만 자 원고) | 100ms 미만 (R-007/R-038) |
 | 성능 | 로어북·캐릭터 수백 건 검색 반환 | 1초 이내 (R-018/R-040) |
 | 성능 | 글자 수 갱신 | 타이핑 중 1초 이내, 공백 제외 카운트가 플랫폼 검증 샘플과 일치 (R-004, C8) |
 | 신뢰성 | 편집 입력 정지 후 자동 저장 | 5초 이내, 저장 실패 시 안내 표시 (R-006) |
 | 신뢰성 | 강제 종료(kill) 후 원고 복구 | 마지막 자동 저장 시점까지 보존 (R-044) |
 | 신뢰성 | 외부 AI 차단 상태 | 편집·저장·윤문(로컬분) 정상 동작 (R-041/R-052) |
-| AI 연동 | 실측 응답 수신 엔드포인트 | 로컬(LM Studio 등)+클라우드 각 1곳 이상 (R-020) |
-| 보안 | api_key 평문 노출 | 저장 파일 덤프 0건 + 화면 마스킹 (R-021/R-042) |
+| AI 연동 | 고정 OAuth bridge 응답 수신 | fake bridge 회귀 통과; 실제 provider 품질·호환성은 별도 수용 게이트 (R-020) |
+| 보안 | OAuth token/API key 노출 | Jippeel DB·프론트·로그에 credential 0건 (R-021/R-042) |
 | AI 패널 | 스트리밍 중 에디터 편집 | 가능(수동 조작 응답 <100ms) (R-024/R-039) |
 | 윤문 | 진단→윤문→diff→수락 흐름 | AI 티 샘플에서 1회 이상 완결 (R-029) |
 | 윤문 | 변경률 게이트 | 30% 경고 / 50% 중단 동작 확인 (R-033) |
@@ -518,4 +537,4 @@ MVP 밖 항목은 §7 백로그로 관리되며, Won't(FR-W1~W6)는 ID 미부여
 | 사용성 | 한국어 UI 커버리지 | 화면·메뉴·오류 메시지 100% (R-046) |
 | 운영 | 실행 방법 | Jippeel실행.bat 더블클릭만으로 구동 (R-053) |
 | 데이터 | 백업→신규 환경 복원 | 전체 데이터 동일성 확인 (R-043) |
-| 데이터 | 프로파일 교체로 모델 전환 | 설정 변경만 가능, 창작 데이터 변경 0건 (R-054) |
+| 데이터 | 고정 provider 경로 유지 | AI 호출이 지정 localhost bridge·고정 모델을 사용하고 창작 데이터 변경 0건 (R-054) |

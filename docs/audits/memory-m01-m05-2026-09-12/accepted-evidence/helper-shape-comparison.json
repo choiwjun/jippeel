@@ -1,0 +1,286 @@
+{
+  "note": "Fresh-run counterfactual measurement only, not original lost raw evidence; final coverage still includes all tests",
+  "withoutFault": [
+    {
+      "location": {
+        "type": "branch",
+        "line": 14,
+        "loc": {
+          "start": {
+            "line": 14,
+            "column": 0
+          },
+          "end": {
+            "line": 21,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 14,
+              "column": 0
+            },
+            "end": {
+              "line": 21,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        19
+      ]
+    },
+    {
+      "location": {
+        "type": "branch",
+        "line": 15,
+        "loc": {
+          "start": {
+            "line": 15,
+            "column": 47
+          },
+          "end": {
+            "line": 18,
+            "column": 10
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 15,
+              "column": 47
+            },
+            "end": {
+              "line": 18,
+              "column": 10
+            }
+          }
+        ]
+      },
+      "counts": [
+        18
+      ]
+    },
+    {
+      "location": {
+        "type": "branch",
+        "line": 15,
+        "loc": {
+          "start": {
+            "line": 15,
+            "column": 47
+          },
+          "end": {
+            "line": 15,
+            "column": 54
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 15,
+              "column": 47
+            },
+            "end": {
+              "line": 15,
+              "column": 54
+            }
+          }
+        ]
+      },
+      "counts": [
+        1
+      ]
+    },
+    {
+      "location": {
+        "type": "branch",
+        "line": 18,
+        "loc": {
+          "start": {
+            "line": 18,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 18,
+              "column": 2
+            },
+            "end": {
+              "line": 20,
+              "column": 3
+            }
+          }
+        ]
+      },
+      "counts": [
+        0
+      ]
+    }
+  ],
+  "withFault": [
+    {
+      "location": {
+        "type": "branch",
+        "line": 14,
+        "loc": {
+          "start": {
+            "line": 14,
+            "column": 0
+          },
+          "end": {
+            "line": 21,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 14,
+              "column": 0
+            },
+            "end": {
+              "line": 21,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        21
+      ]
+    },
+    {
+      "location": {
+        "type": "branch",
+        "line": 15,
+        "loc": {
+          "start": {
+            "line": 15,
+            "column": 47
+          },
+          "end": {
+            "line": 18,
+            "column": 10
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 15,
+              "column": 47
+            },
+            "end": {
+              "line": 18,
+              "column": 10
+            }
+          }
+        ]
+      },
+      "counts": [
+        20
+      ]
+    },
+    {
+      "location": {
+        "type": "branch",
+        "line": 15,
+        "loc": {
+          "start": {
+            "line": 15,
+            "column": 47
+          },
+          "end": {
+            "line": 15,
+            "column": 54
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 15,
+              "column": 47
+            },
+            "end": {
+              "line": 15,
+              "column": 54
+            }
+          }
+        ]
+      },
+      "counts": [
+        1
+      ]
+    },
+    {
+      "location": {
+        "type": "branch",
+        "line": 17,
+        "loc": {
+          "start": {
+            "line": 17,
+            "column": 77
+          },
+          "end": {
+            "line": 18,
+            "column": 10
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 17,
+              "column": 77
+            },
+            "end": {
+              "line": 18,
+              "column": 10
+            }
+          }
+        ]
+      },
+      "counts": [
+        19
+      ]
+    },
+    {
+      "location": {
+        "type": "branch",
+        "line": 18,
+        "loc": {
+          "start": {
+            "line": 18,
+            "column": 2
+          },
+          "end": {
+            "line": 20,
+            "column": 3
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 18,
+              "column": 2
+            },
+            "end": {
+              "line": 20,
+              "column": 3
+            }
+          }
+        ]
+      },
+      "counts": [
+        1
+      ]
+    }
+  ]
+}

@@ -56,6 +56,18 @@ def create_memory_entry(
         raise ValueError("source chapter belongs to another project")
     if source_revision is not None and chapter is None:
         raise ValueError("source_revision requires source chapter")
+    for label, value in (
+        ("effective_from_sort_order", effective_from_sort_order),
+        ("effective_to_sort_order", effective_to_sort_order),
+    ):
+        if value is None:
+            continue
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{label} must be a number") from exc
+        if not math.isfinite(numeric_value):
+            raise ValueError(f"{label} must be finite")
     if (effective_from_sort_order is not None and effective_to_sort_order is not None
             and effective_from_sort_order > effective_to_sort_order):
         raise ValueError("memory effective range is reversed")
@@ -135,6 +147,6 @@ def select_context_memory(
 def format_context_memory(entries: list[MemoryEntry]) -> str:
     if not entries:
         return ""
-    lines = ["[장편 기억 — 승인된 provenance 기억]"]
-    lines.extend(f"- ({entry.kind}) {entry.body}" for entry in entries)
+    lines = ["[장편 기억 — 컨텍스트에 포함된 provenance 기억]"]
+    lines.extend(f"- ({entry.kind}) [{entry.visibility}] {entry.body}" for entry in entries)
     return "\n".join(lines)

@@ -1,0 +1,51 @@
+# B03 retained-review E1 closure
+
+**Verdict: PASS — E1 resolved.**  
+**New findings: 0.** No gate was waived.
+
+## Review linkage and paths
+
+This closes only the current-support execution blocker in the original independent security review:
+
+`/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/84829b6d-2417-43e9-84d7-f8ef4d414eb7/b03/integrity-review.md`
+
+Closure report output:
+
+`/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/09e505c0-bd83-4743-aade-9c8d41d24fb5/b03/integrity-e1-closure.md`
+
+Evidence root **P**:
+
+`/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e`
+
+The original bounded product-security and independently reconstructed coverage review remains retained; it was not repeated or broadened.
+
+## Independently checked closure evidence
+
+- **Authorized disposition:** `P/resource-disposition.json` explicitly authorizes one same-protocol serial retry after reviewer completion and naturally improved memory availability, without process termination, cleanup, configuration changes or installation.
+- **Failure retained:** `P/checkpoint.json`, `P/quality-command.txt` and `P/quality.log` still record the original ENOMEM, secondary “No tests found,” exit **1**, and unexecuted helper TypeScript step. The failure was not relabelled as success.
+- **Fresh browser execution:** `P/retry-1/quality-command.txt` and `quality.log` show the existing quality config, one worker, **5 passed in 40.0s**, exit **0**, and fixture teardown **“no escapes.”**
+- **Fresh helper TypeScript:** `P/retry-1/helper-ts-command.txt` records exit **0**; `helper-ts.log` is exactly **0 bytes**. Independently verified the referenced config’s SHA256:
+  `f844f86168be6114711b72f774eb1aef52637ae69c3d5641b7335a7e4fe6a3f9`.
+  It retains strict ES2020/noEmit checking and includes the current spec, collector and quality config. The previously verified owned Node types still match version **22.0.0** and their recorded package hash.
+- **Exact-current support identities:** current bytes equal retry before/after hashes:
+  - Spec: `919432b8f87f7fbc5415220228fb09538ff4090580c873eb5596d128cdcb3de4`
+  - Collector: `309ac3a64f92ac09f8d5a2a1765d1d81b168ba2843679d0238a76623362b0475`
+- **Preservation:** all **16** source/protected hashes agree across retry before, after, manifest and current files. Main/HEAD remain `c1a92c45fe8c16b4ee140a31fe97683ab588ed07`; staged paths are empty.
+- **Artifact integrity:** independently verified all **25 retry artifact** hashes/byte sizes and all **218 original validation artifact** hashes/byte sizes.
+- **Accessibility:** read all three fresh complete `quality-axe.json` files. Each has `violations=[]` and `incomplete=[]`; pass counts are **36, 37, 37**.
+- **Raw source boundary:** independently checked **5 raw samples, 10 runtime entries and 2 exact identity groups**, including runtime index, script ID, raw hash, generated-JS hash, decoded-map-byte hash and original-source/current-source equality. Fresh raw samples remain separate; no conversion, merge or substitution into original coverage was performed.
+
+The original validation manifest still contains the **older two helper hashes**. That historical mismatch is acknowledged, not silently corrected. The successful retry now supplies the missing exact-current execution evidence.
+
+## Limits and disposition
+
+The prior review found no new product-security defect. This PASS closes its specific E1 challenge using fresh evidence, without reopening completed work or changing earlier coverage claims.
+
+No tests/application/provider processes, file edits or Git mutations were performed by this reviewer. Literary calibration, real external-engine quality, operational resources, inherited diagnostics and broader application acceptance retain their original limits. Parent owns final publication and acceptance.
+
+SECURITY VERDICT: PASS  
+BLOCKING:
+  None — E1 resolved.
+ADVISORY:
+  None new.
+COVERAGE: checked retained failure history, authorized retry, current-support execution, typed configuration, raw accessibility/source identities and preservation; not-checked new product scope or operational/literary acceptance.

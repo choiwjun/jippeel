@@ -1,11 +1,114 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
-## 현재 기준 상태 — 2026-09-11
+## 현재 작업 기준 — 2026-09-13
+
+**새 순차 진행 승인:** M01~M05 기억 화면 → B03 품질 지표 → 회차 목표/완결·재개/summary worker → 추가 검증 → 실제 자원 수용 순서로 진행한다. M01~M05와 B03은 수용 완료했고 다음은 D01/D03/D04의 상세 계약·기획이며 [승인·실행 계약](docs/superpowers/plans/2026-09-12-remaining-sequence.md)을 따른다. 완료된 P1/C13은 재개하지 않고 실제 자원은 필수 환경·예산·접근 승인 확보 전 사용하지 않는다.
+
+**완료·미완료·다음 작업·승인 대기는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md) 한 곳에서 관리한다.**
+기존 9월 8일 인계를 9월 13일 결과까지 대조했고, 완료·잔여·검증·운영 승인·선택 확장을 분리했다.
+문서 탐색은 [문서 상태 인덱스](docs/DOCUMENT_STATUS.md)를 사용한다.
+
+### 최종 인계·커밋·푸시 명시 승인 — 2026-09-13
+
+- 사용자 요청 **“핸드오프에 모두 남기고 커밋 푸시해”**에 따라 누적 프로젝트 변경·정식 문서·선별 증거 305개를 검토했다. 코드·게시 보안 **2PASS/차단0** 후 결과 문서 보강만 더해 `main`에 게시한다. [통합 인계·검증·미결정·보존 경계](docs/handoffs/2026-09-13-commit-handoff.md)에 모두 모았다.
+- D01의 핵심 해결책은 **목표 영구 저장·재진입 복원**, 추가 추천은 **이력 보존·조회·복원**이다. “어떤게 문제야?/해결방안이야?”는 설명 확인이며 선택·개발 승인이 아니다. D01은 조사만 완료했다.
+- 아래 과거 기록의 “Git 미승인/미실행”은 당시 사실이다. 이번 Git 승인이 이를 대체하지만 운영 DB/provider/credential/장치/migration·배포 gate는 유지한다. 초기 로컬/원격 `main`은 모두 `c1a92c4`로 확인했다.
+- `.eval_tmp`·에이전트 작업폴더·`.coverage`·과거 미추적 원시 자료는 보존하되 일괄 게시하지 않는다. 실제 커밋은 통합 인계 파일의 Git 이력에서, 원격 반영은 `HEAD`와 원격 `main` 대조로 확인한다.
+
+- [게시 검토·원시 근거](docs/audits/publication-2026-09-13/manifest.json)를 보존했다. 기존 provider 일반 오류 메시지 전달의 낮은 위험도 A1은 통합 인계·원장에 후속 참고로 남겼고, 새 회귀나 실제 유출로 단정하지 않았다. 인코딩/`python` 명령 실패와 제한된 재개, CRLF-aware 공백검사 exit0도 인계에 기록했다.
+
+### D01 목표 저장 조사 완료·이력 요구 결정 대기 — 2026-09-13
+
+- 읽기 전용으로 EpisodeBrief/단일 메모리 store/Chapter.memo/원고 revision과 현재 요청 동결을 대조했다. 목표 영속 모델·과거 내용/버전 연결은 미구현이며 소스·schema·실제 자원을 건드리지 않았다.
+- [요구 선택·근거](docs/superpowers/plans/2026-09-13-d01-contract-questions.md): 최신 목표만 저장(A) 또는 과거 목표도 조회·복원(B). 장기 근거 연결을 위해 B를 권장하지만 아직 승인되지 않았다.
+- 선택 후 상세 저장/복원/purpose/생성 연계 계약을 명시하고 승인 후 개발한다. D03/D04는 후속, 완료된 B03은 재개하지 않는다.
+
+### B03 품질 지표 최소 보정 최종 수용 — 2026-09-13
+
+- 두 계수 결함을 보정하고 문체 참고점수·빈 원고/글자/essay/이력 설명, 선택적 대화상자 접근성 이름을 반영했다. 가중치/API/purpose/기존 이력·외부 adapter는 유지했다.
+- 공식 격리 backend **482P/기존 skip1/70subtests**, 서로 다른 frontend **77P**, fullaxe3회 violations/incomplete0, app/helper TS·build 및 제품3개 변경범위 line/branch80% 이상을 확인했다. [최종 수용·검증·실패 이력](docs/audits/quality-b03-2026-09-12/acceptance.md).
+- fresh 독립 검토의 제품 지적은0이었다. 자동 formatter 이후 보조 파일 실행 증거 E1은 부모의 exact-current5P/helperTS0로 보강하고 retained 검토2건 **PASS·새 지적0**으로 종결했다. 처음 BLOCKED·ENOMEM·504·axe/계측 실패를 고쳐 쓰지 않았다.
+- [선별 사본·원본 경로 manifest](docs/audits/quality-b03-2026-09-12/accepted-evidence/manifest.json): 원래218+retry25 artifact와 현재16source/protected hashes 확인. stage/commit/push·운영 자원 사용 없음. 다음은 승인된 순서의 **D01/D03/D04 요구·저장/상태/job 계약·기획**이며 상세 미결정은 구현 전 승인받는다.
+
+### M01~M05 최종 수용 완료 — 2026-09-12
+
+- 기억 화면 5건을 새 backend 421P/기존 skip1·frontend 72P, TS/helper TS/build·변경범위 coverage 검증과 fresh 독립 검토 2건 PASS 후 수용했다.
+- [수용 기록·근거·복구 한계](docs/audits/memory-m01-m05-2026-09-12/acceptance.md)를 보존했다. 원래 /tmp 소실, worker timeout과 결과 직렬화/측정 오류는 별도 이력이며 완료된 검증을 반복하거나 실패 기록을 소급 PASS로 바꾸지 않았다.
+- 검토 종료 후 제품·테스트·보호 대상 hash 불변을 확인했다. 상태 문서만 갱신하며 stage/commit/push·운영 적용은 없다. 전체 프론트 V01과 실기기 수용은 별도다.
+- 당시 다음 단계였던 B03도 위 기록으로 수용 완료했다. 완료한 P1/C13/M01~M05/B03을 다시 열지 않는다.
+
+### 실행 규칙 정정 — 2026-09-12
+
+사용자가 “prime-agent는 사용하지 않는 agent”라고 명시했다. `AGENTS.md`의 prime-agent 강제 경로와
+전용 라우팅은 과거 기록으로 전환했다. 현재 Pi 도구로 진행하며 prime-agent 설치/예외 승인을
+다시 요구하지 않는다. 앱의 고정 OAuth 계약, 운영/외부 접근·배포·Git 변경 승인 경계는 변경하지 않았다.
+
+### B01/B02/B04 최종 수용 완료 — 2026-09-12
+
+- canon 실패 응답 계약, bootstrap 슬롯·metadata 정합성, 테스트 전역 격리 보강을 수용했다. **419 passed / 기존 외부 비교 1 skipped / 70 subtests / 19 warnings**, 독립 재검토 2건 PASS.
+- 공식 실행은 `backend/scripts/run_backend_pytest.py`를 사용한다. [실행 가이드](docs/runbooks/isolated-backend-tests.md), [최종 수용·원시 증거](docs/audits/failure-contracts-2026-09-12/b04-review-fixes.md)를 보존했다.
+- 검토 후 제품·테스트 소스 및 보존 대상 hash 불변을 확인했다. stage/commit/push·운영 적용 없음. B04 종료 당시 실행 중인 worker/reviewer 없음.
+- 옛 `.coverage` 미복구·당시 credential 영향 미확정은 역사적 한계다. 유지 승인된 a8db… 생성본은 보존했다. LSP는 inconclusive이며 실제 provider/지정 기기 재검증은 하지 않았다.
+- 원장의 **C13 완료 / V04 외부 비교 미검증**으로 반영했다. M01~M05, B03, D/V/G/U/O는 별도 범위이며 자동 착수하지 않는다. 아래 사고 당시 상태를 현재 blocker로 다시 올리지 않는다.
+
+### 사고 당시 이력 — B01/B02 구현·401개 통과, 수용 차단 (이후 위 기록으로 종결)
+
+- 실제 helper/direct fake에서 canon 오류 응답과 bootstrap 권/회차 정규화 문제를 재현했다.
+- [재현·원본 증거](docs/audits/failure-contracts-2026-09-12/reproduction.md)와
+  [최소 수정 계획](docs/superpowers/plans/2026-09-12-failure-contracts.md)을 프로젝트에 보존했다.
+- **사용자 승인 완료**: 유효 번호 보존·중복 첫 유효 항목 유지·빈 슬롯 템플릿 보충 기준으로 수정→회귀→독립 검토를 진행한다.
+- B01 구조 전체 검증·기존 1회 repair와 B02 슬롯·metadata 선택 정합성을 구현했다. 새 회귀 84건 포함 전체 **401 passed**이나 **격리·보존 gate가 실패하여 완료가 아니다**.
+- 사용자의 한정 허용 정책 적용은 확인됐다. 별개로 WSL 셸 환경변수가 Windows Python에 전달되지 않아 기존 `.coverage`가 갱신되고 테스트 키 경로도 미적용된 문제가 확인됐다.
+- DB는 runner가 Windows 내부에서 TEMP로 설정했다. 그러나 crypto는 keyring을 먼저 호출하므로 기본 키 저장소 접근 가능성을 배제할 수 없다. 실제 키 내용·저장소 상태는 조회하지 않았으며 부수 효과는 미확정이다.
+- 원래 `.coverage`의 정확한 사본을 알려진 범위에서 찾지 못했다. [격리 실패·증거·처리 제안](docs/audits/failure-contracts-2026-09-12/validation-isolation-incident.md)에 따라 생성물 처리 결정과 테스트 전역 격리 보정 후 재검증해야 한다.
+- workflow `c3560081-9458-4464-b041-1e41518a0244`는 `blocked-before-review`로 종료했다. **실행 중인 worker 없음 / 독립 검토 미착수**. 이전 부모 JSON 직렬화 오류는 이번 흐름에서 재발하지 않았다.
+- 실행·잔여 상태는 전체 작업 원장의 B01/B02에서 관리한다.
+
+- 승인된 기억 P1 네 건은 완료. 원래 P2 다섯 건은 별도 잔여이며, canon/bootstrap은 후속 C13에서 종결했다.
+- 원고 보존·공통 맥락·관리 무결성·Vite/AnyIO·임시 백업/복원·memory rollback을 다시 미완료로 올리지 않는다.
+- 실제 provider/운영 DB/credential/지정 Windows QA는 별도 승인 대기다. 문서 정리는 실행 승인이 아니다.
+- **후속 승인:** 사용자가 현재 `.coverage` 생성본 유지와 테스트 격리 보강·재검증에 “진행해”로 승인했다. [계획 §8](docs/superpowers/plans/2026-09-12-failure-contracts.md)에 따라 보안 사전검토→단일 테스트 writer→안전한 회귀→fresh 독립 검토를 재개한다. 기존 원본 복원·실제 키 저장소 조회/수정은 하지 않는다.
+  운영 DB·실제 provider·새 migration 파일·배포·commit/stage/push는 계속 제외한다. credential 무접근을 확인했다고 주장하지 않는다.
+
+## 아래는 작업 당시 이력 — 현재 실행 목록 아님
+
+아래에 반복되는 “최신/다음 작업/남은 게이트”와 예전 테스트 수치는 **각 기록 당시 상태**다.
+현재 판정은 위 전체 작업 현황의 ID 및 종결·이관표가 우선하며, 옛 승인이나 명령을 재사용하지 않는다.
+
+## 2026-09-11 기준 기록
+
+### 승인된 장편 기억 P1 네 건 보정 — 2026-09-11 추가
+
+- 사용자 승인 범위: draft 폐기 오전송, POST pending 입력 보호, memory PATCH 경쟁,
+  chapter DELETE/기억 생성 경쟁만 수정했다. 이번에 한해 unavailable prime-agent 대신
+  native Pi 단일 writer·로컬 pytest/Playwright를 사용하도록 승인받았다.
+- 확인 state에 id/target visibility를 함께 보관하며 동작별 안내를 표시한다.
+  POST 중 제출 폼의 모든 입력과 제출을 잠그고, 실패하면 입력을 보존한다.
+- PATCH visibility+양쪽 nullable 범위 CAS 실패는 409; 기존 invalid transition/range는 422.
+  빈 PATCH는 무쓰기, 같은 값 재요청은 현재 상태에서 200. stale 경합은 자동 재시도하지 않는다.
+- chapter DELETE는 SQLite writer lock을 참조 조회 전에 확보한다. 이미 committed memory는
+  409로 보존한다. DELETE가 먼저 이기면 pending POST는 busy/FK 409, 이후 생성은 404다.
+  deliberate whole-project cascade, provenance/schema/원고 revision 정책은 변경하지 않았다.
+- 검증: RED backend 6 실패·frontend 3 실패 → 최종 전체 backend **317 passed**,
+  targeted **64 passed**, memory Playwright/axe **6 passed**, frontend TS/Vite build 통과.
+  branch 포함 coverage: memories **93%**, projects **85%**, long_memory **93%**, 합산 **90%**.
+  frontend source-mapped coverage %는 계측 부재로 미측정이다.
+- 이번 full suite에서 과거 im-not-ai 외부 script 실패는 재현되지 않았다. 관련 파일을 수정하거나
+  실패를 제외하지 않았다. 증거: `/tmp/jippeel-memory-p1.Ge5TLu/{red-backend,red-full-frontend,coverage-final-backend,full-final-backend,final-frontend,final-build}.txt`.
+- baseline 대비 승인된 파일만 변경했다. 기존 OAuth 등 dirty 변경, untracked artifacts,
+  backend/.coverage는 보존했다. commit/stage/push, 운영 DB/provider/keyring/migration은 실행하지 않았다.
+- 독립 review 완료(2026-09-12): 무결성/security PASS, UI PASS with notes. UI의 상태 assertion이
+  버튼 텍스트와 혼동되는 지적은 부모가 상태 span 및 폐기 후 action 부재 검사로 보강했고,
+  `parent-reviewed-frontend.txt`에서 memory Playwright/axe **6 passed**를 재확인했다.
+- 최초 worker는 최종 보고 중 30분 timeout으로 종료됐으나 diff/검증 로그를 보존하고 동일 Pi
+  recovery workflow `2c5a47a8-9c26-4766-8b62-2b1981a198ac`로 보고·독립 검토를 완료했다.
+  재구현·외부 실행 방식 전환 없이 복구했다. 승인된 P1 네 건은 완료했으며,
+  P2 다섯 건과 기존 운영 적용 게이트는 이번 완료 범위가 아니다.
 
 ### 저장소
 
 - 브랜치: `main`
-- 로컬/원격: `HEAD=44d9ca6`, `origin/main=44d9ca6`
+- 로컬/원격: `HEAD=c1a92c4`, `origin/main=c1a92c4` (커밋·push 금지 상태에서 working tree 직접 수정 중)
 - 장편 기억 거버넌스 구현, native integration fixture 보강, stale bound 보정, MVP v0.5 기획 반영을 추적 커밋했다.
 - 미추적 감사·평가 산출물은 보존 중이며, 일괄 삭제·stage하지 않는다.
 
@@ -33,33 +136,50 @@
 7. 장편 기억 거버넌스 API/UI 후속 구현
    - project-scoped 생성/목록/필터, provenance/stale 표시, draft 승인·폐기
    - 다른 작품 memory/chapter 격리, 연결 회차 삭제 409 보존 게이트
-   - 임시 SQLite backend 289 passed, frontend build, memory Playwright/axe E2E 통과
-   - Python stdlib trace 기준 핵심 모듈 line coverage 80% 이상 확인
+   - 임시 SQLite backend 292 passed, frontend build, memory Playwright/axe E2E 통과
+   - pytest-cov 기준 핵심 모듈 coverage 80% 이상 확인
    - stale 필터가 500건 이후 항목도 limit까지 찾도록 내부 batch scan 보정
 8. 격리 integration fixture·E2E 보강
    - native Windows Python fixture가 cross-project invalid foreshadow negative case를 실제 SQLite에 구성
    - parallel-writing E2E가 임시 backend에 자체 fake endpoint를 등록해 독립 실행 가능
    - 실제 provider/운영 DB/keyring 없이 AI-context 3개, manuscript-preservation 1개, 기본 a11y/app-flow/parallel/memory 11개 E2E 통과
-9. MVP v0.5 기획 반영
-   - `대시보드_MVP_사양.md`에 M6 장편 기억 거버넌스와 S8 화면/API/데이터 불변식/수용 기준 반영
+9. MVP v0.6 기획 반영
+   - `대시보드_MVP_사양.md`에 고정 GPT OAuth provider 및 M6 장편 기억 override 반영
    - 상세 제품 사양: `docs/superpowers/specs/2026-09-11-long-memory-governance.md`
+10. 고정 GPT OAuth provider 전환(오프라인 계약)
 
-### 검증 증거
+- `gpt_oauth.py`가 localhost bridge, 고정 모델(`gpt-5.6-luna`), 기본 `xhigh`를 검증
+- 집필·감수·병렬·부트스트랩·canon·복선 제안은 `AiEndpoint` row를 읽지 않음
+- S5/S7에서 endpoint/API key/base URL 입력과 모델 선택을 제거하고 bridge 상태만 안내
+- legacy `ai_endpoints` CRUD/models route는 migration 호환용 hidden route로만 보존
 
-- 백엔드 전체: **289 passed** (임시 SQLite runner)
-- `-W error::DeprecationWarning` 전체 backend: **289 passed**
-- stdlib trace 핵심 모듈 coverage: memories router 88.2%, schemas 99.4%, long_memory 86.0%
-- 프론트: `npm run build` 성공
+### 당시 검증 증거 — P1 최종 수용 전 기록
+
+아래 외부 script 9건 실패는 이후 전체 317 passed 실행에서 재현되지 않았다.
+현재 검증 근거·범위는 [전체 현황 §9](docs/handoffs/2026-09-08-remaining-work.md#9-검증-수치의-최신성과-근거)를 따른다.
+
+- OAuth 변경 전 기준선: backend **292 passed** (임시 SQLite runner)
+- OAuth 변경 후 변경 범위 회귀: backend **108 passed** (gpt_oauth·long_memory·memories·AI·bootstrap·canon·legacy compatibility 선택집합)
+- 전체 suite 재실행 결과 **294 passed, 9 failed, 1 skipped**; 9건은 현재 환경에 없는
+  `~/.agents/im-not-ai/scripts/{prepare_monolith_input.py,verify_gates.py}` 의존 실패로,
+  제품 변경과 분리했다. fixed provider/memory 선택집합은 아래 108 passed로 확인했다.
+- pytest-cov 변경범위 coverage 재수집: memories router 80%, schemas 98%, long_memory 92%, summary_jobs 85%
+  (827 statements 중 53 misses, 합산 line **93.59%**, 표시 94%; branch 전체 **91%**)
+- 프론트: `cd frontend && npm run build` 성공(TS + Vite)
 - 장편 기억 Playwright/axe E2E: **1 passed**
 - native Windows isolated AI-context integration: **3 passed**
 - native Windows isolated manuscript-preservation integration: **1 passed**
 - native Windows isolated default E2E: **11 passed** (a11y, app-flow, memory, parallel-writing)
 - AI-context/preservation fixture 직접 실행: 각각 `seeded` / `passed`
-- 실제 provider는 fake provider만 사용했고, 운영 DB·keyring·지정 Windows 실기기 QA에는 접근하지 않았다.
+- 실제 OAuth/provider·운영 DB·keyring·지정 Windows 실기기 QA에는 접근하지 않았다. fake bridge만 사용했다.
 - 독립 reviewer가 확인한 이전 P1/P2 지적(교차 project PATCH, chapter 삭제 cascade, 500건 bound 정렬)은 각각 project-bound PATCH/422, chapter 삭제 409, stale batch scan으로 보정했고 회귀 테스트를 통과했다.
-- reviewer 재실행은 현재 provider cold-start 문제로 결과를 받지 못해, 최신 diff·LSP·전체 회귀를 수동 재확인했다.
+- reviewer 재실행은 기존 Luna provider cold-start로 결과를 받지 못했으나, 글로벌
+  `~/.pi/agent/settings.json`에서 서브에이전트 기본을 `openai-codex/gpt-6-astra`,
+  reviewer fallback을 `openai-codex/gpt-5.6-sol`로 라우팅했고 smoke test를 통과했다.
 
-### 남은 작업과 실행 게이트
+### 당시 남은 작업과 실행 게이트 — 현재 목록은 전체 현황 참조
+
+다음 항목들은 작성 당시 기록이다. 특히 완료된 임시 검증과 실제 운영 검증을 합쳐 재개하지 않는다.
 
 #### 1. 운영 DB migration — 실행 전 승인 필요
 
@@ -74,13 +194,14 @@
 
 #### 2. 장편 기억 후속 범위의 후속 게이트
 
-- 자동 요약·backfill 설계안(`docs/superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md`)은 작성했지만 구현·provider 호출은 별도 승인 후 진행
+- 자동 요약·backfill의 provider-free deterministic planner는 구현·검증했다. `summary_jobs` schema/worker/provider 호출은 별도 승인 후 진행
+- Astra 결정 기록: `docs/decisions/2026-09-11-astra-long-memory-release.md`
 - 운영 DB migration 후 기존 데이터 negative corpus 검증
 - 실제 모델 품질 평가와 prompt block 길이·우선순위는 provider/비용 상한 확정 후 진행
 
 #### 3. 백업·복원 운영 준비
 
-- key recovery plan 확정
+- OAuth bridge credential 복구·로그아웃/rollback 절차 확인 필요(이번 작업에서는 credential에 접근하지 않음)
 - 임시 DB failure injection 추가
 - 실제 restore rollback runbook 작성 완료: `docs/runbooks/long-memory-governance-release.md`
 - 운영 DB/암호화 keyring에는 승인 전 접근하지 않음
@@ -88,7 +209,7 @@
 #### 4. 실제 모델 품질 평가
 
 - 실제 승인 사례 6개와 source owner 확정
-- provider/endpoint/model/가격표 확정
+- 고정 `ChatGPT OAuth` / `gpt-5.6-luna`의 availability·정책·비용을 확인하고 별도 승인
 - 독립 평가자 2명 배정
 - raw usage와 비용 증거 확보
 - USD 20 hard cap 내에서 별도 승인 후 실행
@@ -97,7 +218,7 @@
 #### 5. Windows 실기기 QA
 
 - 정적 사전 점검은 통과했다.
-- 지정 Windows 장치, 전용 port, test DB/key가 필요하다.
+- Windows 11 x64 지정 장치, 전용 port, test DB/key, QA 시간 창이 필요하다.
 - DPAPI/keyring, batch 실행, 브라우저, NVDA, 성능, 복원 시나리오를 장치에서 수동 검증한다.
 
 ### 주요 산출물
@@ -110,8 +231,13 @@
 - `docs/runbooks/long-memory-governance-release.md`
 - `docs/audits/long-memory-evaluation-manifest.template.json`
 - `docs/superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md`
-- `대시보드_MVP_사양.md` v0.5
+- `대시보드_MVP_사양.md` v0.6
+- `기술설계_GPT_OAuth_브릿지_v1.md`
 - `docs/superpowers/specs/2026-09-11-long-memory-governance.md`
+- `docs/decisions/2026-09-11-astra-long-memory-release.md`
+- `backend/requirements-dev.txt`
+- `backend/app/services/summary_jobs.py`
+- `backend/tests/test_summary_jobs.py`
 - `docs/audits/anyio-starlette-httpx-compatibility-2026-09-10.md`
 - `docs/superpowers/plans/2026-09-10-long-memory.md`
 
@@ -286,6 +412,12 @@
 > **작성 목적**: 지금까지의 조사·검증·결정 사항을 다음 세션/작업자가 이어갈 수 있도록 핸드오프화
 
 ---
+
+> **아카이브 구간 안내:** 아래 `## 1` 이후의 초기 요구사항·Sprint·LM Studio/다중
+> endpoint 기록은 작성 당시의 historical log다. 현재 구현과 다음 작업의 기준은 문서
+> 상단의 최신 인계, `docs/DOCUMENT_STATUS.md`, `대시보드_MVP_사양.md` v0.6 및
+> `기술설계_GPT_OAuth_브릿지_v1.md`이며, 과거 API key/endpoint·실 provider 실측은
+> 현재 release evidence가 아니다.
 
 ## 1. 프로젝트 개요
 
@@ -517,30 +649,17 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 
 ---
 
-## GPT OAuth 연결 완료 + 전수 재검증 (2026-09-05 추가)
+## GPT OAuth 초기 조사 기록 — 현재 설계로 대체됨 (2026-09-05 historical)
 
-**✅ ChatGPT 구독(OAuth)으로 실모델 집필 가능 — 설계·구현·실측 완료** (`기술설계_GPT_OAuth_브릿지_v1.md`)
+> 아래 기록은 endpoint 등록과 실제 provider 실측을 전제로 한 과거 메모다. 현재 구현의
+> canonical 기준은 `기술설계_GPT_OAuth_브릿지_v1.md`이며, 실제 OAuth 수용은 아직 승인 대기다.
 
-- 방식: `npx openai-oauth`(Apache-2.0) 프록시 사이드카(:10531) → 앱 코드 수정 최소화, OpenAI 호환 엔드포인트로 등록
-- 토큰: `~/.codex/auth.json` 재사용(자동 갱신), 브라우저 로그인 불필요
-- 현재 설정: 엔드포인트 id=2 "ChatGPT 구독(OAuth)" = **gpt-5.6-luna + reasoning_effort xhigh** (기본 엔드포인트)
-- 앱 패치(2건): ① ai_endpoints.temperature nullable(None→미전송, Codex 거부 대응, 마이그레이션 c5d6e7f8a9b0)
-  ② reasoning_effort 컬럼+전달(d7e8f9a0b1c2) — pytest **118 passed** 회귀 없음
-- 실측: S5 스트리밍(gpt-5.6-luna xhigh, 98 델타 정상)·부트스트랩(200 OK 100초, 제목/목차/캐릭터5/관계6/로어11) 품질 양호
-- 부트스트랩 품질: 이전 fake 모델 대비 실사용 수준 — 다만 3콜 간 캐릭터 이름 교차 불일치 가능(백로그: 주인공 이름 강제 전달)
+**과거 조사 결론(현재는 superseded)**
 
-**✅ 전수 재검증 (이 머신에서 직접 실측)**
-
-- backend pytest **118 passed**(초기 9 failed → 원인은 `~/.agents/im-not-ai` 스킬 유실, 재클론으로 복원)
-- 프론트 빌드 통과(tsc+vite) — **Windows에서는 node_modules가 WSL용이라 WSL에서 실행할 것**
-- E2E **6/6 passed**(45s) — 이전 QA v2의 환경 블록 E-1 해소: chromium 라이브러리는 `~/.local/pwlibs` + `LD_LIBRARY_PATH` 방식
-- F-036 라이선스 고지 구현 확인(SettingsPage + LICENSES.md) — 릴리스 블로커 해소 상태 유지
-
-**운영 메모**
-
-- AI 스택 기동: 백엔드(:8000) + `npx openai-oauth --detach`(:10531) + vite(:5173) — `scripts/dev.sh`가 :10531 미감지(미등록 시 S7에서 수동 등록 필요)
-- 모델 변경: S7 설정 또는 `PATCH /api/v1/ai/endpoints/2 {"default_model": "...", "reasoning_effort": "..."}` (temperature는 null 유지)
-- 미커밋 변경분 다수(PLUS 위젯·volume nullable·F-036·OAuth 패치) — 커밋 필요
+- 당시에는 OAuth bridge를 일반 endpoint로 등록하고 실 provider를 호출하는 방안을 기록했다.
+- 현재 구현은 endpoint 등록·모델 변경·OAuth token 재사용을 전제로 하지 않는다.
+- 실제 OAuth/ChatGPT 구독 호환성, 비용, 계정 정책은 검증하지 않았으며 승인된 수용 게이트로 남아 있다.
+- 현재의 고정 provider 계약은 `기술설계_GPT_OAuth_브릿지_v1.md`와 이 문서 상단의 상태를 기준으로 한다.
 
 ---
 

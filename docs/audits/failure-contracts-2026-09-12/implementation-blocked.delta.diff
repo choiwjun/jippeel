@@ -1,0 +1,128 @@
+--- baseline/backend/tests/test_foreshadows_canon.py
++++ current/backend/tests/test_foreshadows_canon.py
+@@ -140,9 +140,7 @@
+             return _Response(json.dumps({
+                 "issues": [{"quote": "그는 어릴 때부터 검을 배웠다",
+                             "reason": "캐릭터 설정: 검을 배운 적 없음",
+-                            "severity": "error"},
+-                           {"quote": "", "reason": "빈 발췌는 무시",
+-                            "severity": "warn"}]}, ensure_ascii=False))
++                            "severity": "error"}]}, ensure_ascii=False))
+ 
+     class _FakeClient:
+         def __init__(self, base_url=None, api_key_encrypted=None):
+@@ -160,7 +158,7 @@
+     resp = client.post("/api/v1/canon-check", json={"chapter_id": chapter["id"]})
+     assert resp.status_code == 200, resp.text
+     body = resp.json()
+-    assert len(body["issues"]) == 1  # 빈 quote 필터링
++    assert len(body["issues"]) == 1
+     assert body["issues"][0]["severity"] == "error"
+     for key, value in {"characters": 0, "lore": 0, "foreshadows": 0, "audience_known": 0}.items():
+         assert body["checked_context"][key] == value
+--- baseline/backend/tests/test_canon_failure_contract.py
++++ current/backend/tests/test_canon_failure_contract.py
+@@ -0,0 +1,103 @@
++"""canon.parse_issues and repair: malformed structure must never persist success."""
++import asyncio
++import hashlib
++import json
++
++import pytest
++
++from app.services import canon
++from tests.test_bootstrap_api import fake_llm  # noqa: F401
++
++VALID_ISSUE = {"quote": "원본", "reason": "설정과 모순", "severity": "error"}
++INVALID_PAYLOADS = [
++    {}, {"other": []},
++    *({"issues": value} for value in (None, {}, 7, True, "oops")),
++    *({"issues": [value]} for value in (None, [], 7, "oops", {})),
++    *({"issues": [{"quote": value, "reason": "이유"}]}
++      for value in (None, 7, True, [], {}, "", " \n\t")),
++    *({"issues": [{"quote": "본문", "reason": value}]}
++      for value in (None, 7, False, [], {}, "", " \n\t")),
++    {"issues": [{"quote": "본문"}]}, {"issues": [{"reason": "이유"}]},
++    {"issues": [VALID_ISSUE, {"quote": "", "reason": "이유"}]},
++]
++
++
++@pytest.mark.parametrize("payload", INVALID_PAYLOADS)
++def test_parse_issues_rejects_entire_malformed_structure(payload):
++    with pytest.raises(ValueError):
++        canon.parse_issues(json.dumps(payload))
++
++
++@pytest.mark.parametrize("severity", [None, "unknown", "", 1, [], {}, True])
++def test_parse_issues_preserves_trim_clip_and_unknown_severity(severity):
++    payload = {"issues": [{"quote": "  " + "가" * 501 + " ",
++                           "reason": "\n" + "나" * 501 + "\t",
++                           "severity": severity, "extra": "ignored"}]}
++    assert canon.parse_issues(json.dumps(payload)) == [
++        {"quote": "가" * 500, "reason": "나" * 500, "severity": "warn"}]
++
++
++@pytest.mark.parametrize("severity", ["info", "warn", "error"])
++def test_parse_issues_preserves_valid_severity(severity):
++    issue = {**VALID_ISSUE, "severity": severity}
++    assert canon.parse_issues(json.dumps({"issues": [issue]})) == [issue]
++
++
++def test_parse_issues_keeps_empty_missing_severity_and_shared_json_extraction():
++    assert canon.parse_issues('{"issues": []}') == []
++    raw = json.dumps({"issues": [{"quote": " q ", "reason": " r "}]})
++    for wrapped in (raw, f"```json\n{raw}\n```", f"prefix {raw} suffix"):
++        assert canon.parse_issues(wrapped) == [{"quote": "q", "reason": "r", "severity": "warn"}]
++
++
++@pytest.mark.parametrize("first", ['{}', '{"issues": null}', 'broken JSON',
++                                  json.dumps({"issues": [VALID_ISSUE, {}]})])
++@pytest.mark.parametrize("repair_succeeds", [True, False])
++def test_canon_structure_repair_api_and_history(client, fake_llm, first, repair_succeeds):
++    pid = client.post("/api/v1/projects", json={"title": "합성"}).json()["id"]
++    chapter = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
++    cid = chapter["id"]
++    client.put(f"/api/v1/chapters/{cid}/content",
++               json={"content_md": "원본", "expected_revision": 0})
++    before = client.get(f"/api/v1/chapters/{cid}").json()
++    fake_llm["queue"] = [first, json.dumps({"issues": [VALID_ISSUE]}) if repair_succeeds else first]
++
++    response = client.post("/api/v1/canon-check", json={
++        "chapter_id": cid, "expected_revision": before["revision"]})
++
++    assert len(fake_llm["calls"]) == 2
++    repair_messages = fake_llm["calls"][1]["messages"]
++    assert repair_messages[-2] == {"role": "assistant", "content": first}
++    assert "JSON" in repair_messages[-1]["content"]
++    assert "구조" in repair_messages[-1]["content"]
++    runs = client.get("/api/v1/canon-check/runs", params={"chapter_id": cid}).json()
++    after = client.get(f"/api/v1/chapters/{cid}").json()
++    assert (after["content_md"], after["revision"]) == ("원본", before["revision"])
++    if not repair_succeeds:
++        assert response.status_code == 502, response.text
++        assert response.json() == {"detail": "canon 검사 실패: ValueError"}
++        assert runs == []
++        return
++    assert response.status_code == 200, response.text
++    assert response.json()["issues"] == [VALID_ISSUE]
++    assert len(runs) == 1
++    assert runs[0]["id"] == response.json()["run_id"]
++    assert runs[0]["issues_json"] == [VALID_ISSUE]
++    context = runs[0]["context_json"]
++    assert context == response.json()["checked_context"]
++    assert context["checked_input_revision"] == before["revision"]
++    assert context["checked_input_hash"] == hashlib.sha256("원본".encode()).hexdigest()
++
++
++def test_run_canon_check_does_not_repair_unrelated_exception(monkeypatch):
++    calls = []
++
++    async def fail(*args, **kwargs):
++        calls.append(args)
++        raise TypeError("internal failure")
++
++    monkeypatch.setattr(canon.llm, "complete_chat", fail)
++    with pytest.raises(TypeError, match="internal failure"):
++        asyncio.run(canon.run_canon_check(
++            None, None, None, "fake", None, messages_context=([], {})))
++    assert len(calls) == 1

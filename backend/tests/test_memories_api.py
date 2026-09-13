@@ -1,6 +1,8 @@
 """장편 기억 거버넌스 API 계약 테스트."""
 import hashlib
 
+import pytest
+
 
 def _create_project(client, title: str) -> int:
     response = client.post("/api/v1/projects", json={"title": title})
@@ -131,16 +133,34 @@ def test_list_is_project_scoped_filterable_and_reports_stale_memory(client):
     assert [row["body"] for row in other_project.json()] == ["다른 작품 기억"]
 
 
-def test_chapter_delete_preserves_memory_by_rejecting_the_delete(client):
+@pytest.mark.parametrize("visibility", ["draft", "approved", "retired"])
+def test_chapter_delete_preserves_memory_by_rejecting_the_delete(client, visibility):
     pid = _create_project(client, "기억 보존")
     chapter = _create_chapter(client, pid)
     memory = _create_memory(client, pid, chapter_id=chapter["id"])
+    if visibility != "draft":
+        updated = client.patch(
+            f"/api/v1/projects/{pid}/memories/{memory['id']}",
+            json={"visibility": visibility},
+        )
+        assert updated.status_code == 200
+    chapter_before = client.get(f"/api/v1/chapters/{chapter['id']}").json()
+    memories_before = client.get(f"/api/v1/projects/{pid}/memories").json()
 
     response = client.delete(f"/api/v1/chapters/{chapter['id']}")
 
     assert response.status_code == 409
-    assert client.get(f"/api/v1/chapters/{chapter['id']}").status_code == 200
-    assert client.get(f"/api/v1/projects/{pid}/memories").json()[0]["id"] == memory["id"]
+    assert response.json()["detail"] == (
+        "장편 기억이 연결된 회차는 근거 이력 보존을 위해 삭제할 수 없습니다. "
+        "폐기된 기억도 연결이 유지됩니다."
+    )
+    preserved_chapter = client.get(f"/api/v1/chapters/{chapter['id']}")
+    assert preserved_chapter.status_code == 200
+    assert preserved_chapter.json() == chapter_before
+    preserved_memories = client.get(f"/api/v1/projects/{pid}/memories").json()
+    assert preserved_memories == memories_before
+    assert preserved_memories[0]["id"] == memory["id"]
+    assert preserved_memories[0]["visibility"] == visibility
 
 
 def test_memory_list_orders_by_source_before_applying_the_bound(client):
@@ -198,3 +218,25 @@ def test_memory_list_missing_project_is_not_a_global_query(client):
     assert client.patch(
         "/api/v1/projects/9999/memories/9999", json={"visibility": "retired"}
     ).status_code == 404
+
+
+def test_memory_filters_and_patch_validation_keep_existing_contract(client):
+    pid = _create_project(client, "CAS 주변 계약")
+    chapter = _create_chapter(client, pid)
+    memory = _create_memory(
+        client, pid, chapter_id=chapter["id"],
+        effective_from_sort_order=0, effective_to_sort_order=10,
+    )
+    filtered = client.get(
+        f"/api/v1/projects/{pid}/memories",
+        params={"kind": "fact", "chapter_id": chapter["id"], "visibility": "draft"},
+    )
+    assert filtered.status_code == 200
+    assert [row["id"] for row in filtered.json()] == [memory["id"]]
+    for filters in ({"kind": "invalid"}, {"visibility": "invalid"}):
+        assert client.get(f"/api/v1/projects/{pid}/memories", params=filters).status_code == 422
+    for patch in ({"visibility": None}, {"effective_from_sort_order": 11}):
+        response = client.patch(f"/api/v1/projects/{pid}/memories/{memory['id']}", json=patch)
+        assert response.status_code == 422
+    assert client.patch(f"/api/v1/projects/{pid}/memories/99999", json={}).status_code == 404
+    assert client.get(f"/api/v1/projects/{pid}/memories").json()[0]["visibility"] == "draft"

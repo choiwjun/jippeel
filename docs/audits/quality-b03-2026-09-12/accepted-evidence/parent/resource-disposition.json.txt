@@ -1,0 +1,14 @@
+{
+  "decision": "one bounded same-protocol serial retry after both independent reviewer children completed",
+  "workflowCompleted": "84829b6d-2417-43e9-84d7-f8ef4d414eb7",
+  "initialFailure": "quality.log: ENOMEM: not enough memory, read; secondary No tests found; exit1 before test discovery; helper tsc not executed",
+  "initialAvailableMiB": 560,
+  "postReviewAvailableMiB": 1931,
+  "postReviewTotalMiB": 7804,
+  "postReviewSwapUsedMiB": 2031,
+  "postReviewSwapTotalMiB": 2048,
+  "basis": "Both child reviewers have completed. Main/HEAD/index unchanged. Sixteen source/protected hashes unchanged during failure; original218 evidence artifacts verified. Resource pressure reduced naturally, with no process termination or cache/config/dependency changes.",
+  "scope": "Same QUALITY_SCOPED_COVERAGE=1 local Playwright quality config on15229, five tests, fresh retry-1 output; on success same contextual helper tsc. No parallel browser/agent runs during retry.",
+  "stop": "Any new startup/test/type/isolation failure stops immediately with its original log/exit; no further automatic retry or cleanup. All previous failed and successful evidence stays immutable.",
+  "acceptance": "No waiver. Require fresh exact-current helper/test execution and stable before/post hashes before closing E1. Reviewed production coverage remains separately bound to unchanged source, not overwritten by new raw collection."
+}

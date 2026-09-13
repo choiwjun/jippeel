@@ -195,7 +195,7 @@ def test_bootstrap_success_creates_full_structure(client, fake_llm, default_endp
 
     # LLM 4회 호출 확인(제목·목차·캐릭터·관계/로어)
     assert len(fake_llm["calls"]) == 4
-    assert all(c["model"] == "test-model" for c in fake_llm["calls"])
+    assert all(c["model"] == "gpt-5.6-luna" for c in fake_llm["calls"])
 
     db = _db(client)
     project = db.get(Project, body["project_id"])
@@ -308,10 +308,14 @@ def test_bootstrap_use_ai_false_skips_llm(client, fake_llm):
     assert fake_llm["calls"] == []  # LLM 호출 없음
 
 
-def test_bootstrap_use_ai_without_endpoint_returns_400(client, fake_llm):
+def test_bootstrap_rejects_invalid_oauth_bridge_configuration(client, fake_llm, monkeypatch):
+    monkeypatch.setenv("JIPPEEL_GPT_OAUTH_BASE_URL", "https://example.invalid/v1")
+
     resp = client.post("/api/v1/projects/bootstrap", json={"genre": "판타지"})
-    assert resp.status_code == 400
-    assert "엔드포인트" in resp.json()["detail"]
+
+    assert resp.status_code == 503
+    assert "localhost" in resp.json()["detail"]
+    assert fake_llm["calls"] == []
 
 
 def test_bootstrap_request_validation(client):

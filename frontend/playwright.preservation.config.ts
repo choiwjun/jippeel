@@ -17,10 +17,4 @@ export default defineConfig({
     locale: 'ko-KR',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: 'npx vite --host 127.0.0.1 --port 15225 --strictPort',
-    url: 'http://127.0.0.1:15225',
-    reuseExistingServer: false,
-    timeout: 60_000,
-  },
 });

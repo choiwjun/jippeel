@@ -1,0 +1,4 @@
+Error: ENOMEM: not enough memory, read
+Error: No tests found
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-Fx3TcE/violations.jsonl; no escapes
+

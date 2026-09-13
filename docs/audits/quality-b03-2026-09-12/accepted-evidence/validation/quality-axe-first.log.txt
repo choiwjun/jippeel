@@ -1,0 +1,280 @@
+
+Running 3 tests using 1 worker
+
+  ✘  1 [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog empty preserves numeric records and explains reference signals (6.8s)
+  ✘  2 [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog nonempty preserves numeric records and explains reference signals (1.3s)
+  ✘  3 [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog external-without-score preserves numeric records and explains reference signals (1.3s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-4iLpNF/violations.jsonl; no escapes
+
+
+  1) [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog empty preserves numeric records and explains reference signals 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 53
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "description": "Ensure every ARIA dialog and alertdialog node has an accessible name",
+    +     "help": "ARIA dialog and alertdialog nodes should have an accessible name",
+    +     "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-dialog-name?application=playwright",
+    +     "id": "aria-dialog-name",
+    +     "impact": "serious",
+    +     "nodes": Array [
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "aria-label",
+    +             "impact": "serious",
+    +             "message": "aria-label attribute does not exist or is empty",
+    +             "relatedNodes": Array [],
+    +           },
+    +           Object {
+    +             "data": null,
+    +             "id": "aria-labelledby",
+    +             "impact": "serious",
+    +             "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty",
+    +             "relatedNodes": Array [],
+    +           },
+    +           Object {
+    +             "data": Object {
+    +               "messageKey": "noAttr",
+    +             },
+    +             "id": "non-empty-title",
+    +             "impact": "serious",
+    +             "message": "Element has no title attribute",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   aria-label attribute does not exist or is empty
+    +   aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty
+    +   Element has no title attribute",
+    +         "html": "<div role=\"dialog\" aria-modal=\"true\" class=\"relative z-10 w-full max-w-lg\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".relative",
+    +         ],
+    +       },
+    +     ],
+    +     "tags": Array [
+    +       "cat.aria",
+    +       "best-practice",
+    +     ],
+    +   },
+    + ]
+
+      151 |       body: JSON.stringify(axe, null, 2), contentType: "application/json",
+      152 |     });
+    > 153 |     expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual([]);
+          |                                                                                             ^
+      154 |     await page.keyboard.press("Escape");
+      155 |     await expect(
+      156 |       page.getByRole("heading", { name: "문체 신호 참고 점수", exact: true }),
+        at /mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/quality-dialog.spec.ts:153:93
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: quality-scoped-v8 (application/json) ────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/attachments/quality-scoped-v8-e60a8a9c98ee0b05456d5bf3540a6985af259244.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog nonempty preserves numeric records and explains reference signals 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 53
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "description": "Ensure every ARIA dialog and alertdialog node has an accessible name",
+    +     "help": "ARIA dialog and alertdialog nodes should have an accessible name",
+    +     "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-dialog-name?application=playwright",
+    +     "id": "aria-dialog-name",
+    +     "impact": "serious",
+    +     "nodes": Array [
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "aria-label",
+    +             "impact": "serious",
+    +             "message": "aria-label attribute does not exist or is empty",
+    +             "relatedNodes": Array [],
+    +           },
+    +           Object {
+    +             "data": null,
+    +             "id": "aria-labelledby",
+    +             "impact": "serious",
+    +             "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty",
+    +             "relatedNodes": Array [],
+    +           },
+    +           Object {
+    +             "data": Object {
+    +               "messageKey": "noAttr",
+    +             },
+    +             "id": "non-empty-title",
+    +             "impact": "serious",
+    +             "message": "Element has no title attribute",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   aria-label attribute does not exist or is empty
+    +   aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty
+    +   Element has no title attribute",
+    +         "html": "<div role=\"dialog\" aria-modal=\"true\" class=\"relative z-10 w-full max-w-lg\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".relative",
+    +         ],
+    +       },
+    +     ],
+    +     "tags": Array [
+    +       "cat.aria",
+    +       "best-practice",
+    +     ],
+    +   },
+    + ]
+
+      151 |       body: JSON.stringify(axe, null, 2), contentType: "application/json",
+      152 |     });
+    > 153 |     expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual([]);
+          |                                                                                             ^
+      154 |     await page.keyboard.press("Escape");
+      155 |     await expect(
+      156 |       page.getByRole("heading", { name: "문체 신호 참고 점수", exact: true }),
+        at /mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/quality-dialog.spec.ts:153:93
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: quality-scoped-v8 (application/json) ────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/attachments/quality-scoped-v8-e9824d52993098ad58bd686b47372a2684d09a44.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog external-without-score preserves numeric records and explains reference signals 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 53
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "description": "Ensure every ARIA dialog and alertdialog node has an accessible name",
+    +     "help": "ARIA dialog and alertdialog nodes should have an accessible name",
+    +     "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-dialog-name?application=playwright",
+    +     "id": "aria-dialog-name",
+    +     "impact": "serious",
+    +     "nodes": Array [
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "aria-label",
+    +             "impact": "serious",
+    +             "message": "aria-label attribute does not exist or is empty",
+    +             "relatedNodes": Array [],
+    +           },
+    +           Object {
+    +             "data": null,
+    +             "id": "aria-labelledby",
+    +             "impact": "serious",
+    +             "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty",
+    +             "relatedNodes": Array [],
+    +           },
+    +           Object {
+    +             "data": Object {
+    +               "messageKey": "noAttr",
+    +             },
+    +             "id": "non-empty-title",
+    +             "impact": "serious",
+    +             "message": "Element has no title attribute",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   aria-label attribute does not exist or is empty
+    +   aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty
+    +   Element has no title attribute",
+    +         "html": "<div role=\"dialog\" aria-modal=\"true\" class=\"relative z-10 w-full max-w-lg\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           ".relative",
+    +         ],
+    +       },
+    +     ],
+    +     "tags": Array [
+    +       "cat.aria",
+    +       "best-practice",
+    +     ],
+    +   },
+    + ]
+
+      151 |       body: JSON.stringify(axe, null, 2), contentType: "application/json",
+      152 |     });
+    > 153 |     expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual([]);
+          |                                                                                             ^
+      154 |     await page.keyboard.press("Escape");
+      155 |     await expect(
+      156 |       page.getByRole("heading", { name: "문체 신호 참고 점수", exact: true }),
+        at /mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/quality-dialog.spec.ts:153:93
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: quality-scoped-v8 (application/json) ────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/attachments/quality-scoped-v8-4f92a980ff50eca0845bfc1ee18395ec03e8421d.json
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog empty preserves numeric records and explains reference signals 
+    [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog nonempty preserves numeric records and explains reference signals 
+    [chromium] › e2e/quality-dialog.spec.ts:33:3 › QualityDialog external-without-score preserves numeric records and explains reference signals 

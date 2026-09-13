@@ -14,6 +14,8 @@ Reviewer scope: final whole-branch SPEC review of `git diff b6a9ee6...fbdb796` a
 
 ## Parent final native repeat — source 42fad7c
 
+> Historical commands/results below describe 2026-09-08, not the current runner contract. Since 2026-09-12 use [the supported isolated runner](../runbooks/isolated-backend-tests.md); direct pytest/DB-only environment instructions below are superseded. This does not retroactively establish credential isolation for the historical run.
+
 After final Spec approval, the parent reran the native commands without feature-source edits:
 - Backend: `cmd.exe /C "cd /d C:\Users\wj941\Documents\jippeel\backend && .venv\Scripts\python.exe ..\.eval_tmp\run_backend_pytest.py -q"` — exit0, 222 passed. The inspected runner creates a new Windows temp DB and sets DATABASE_URL and JIPPEEL_ALLOW_TEMP_CREATE_ALL before importing pytest. Full output: `preservation-final-root-backend.txt`. This helper is local evidence; the earlier cmd.exe environment commands remain the portable project run instructions.
 - Frontend: `cmd.exe /C "cd /d C:\Users\wj941\Documents\jippeel\frontend && npm run build && npx playwright test --config playwright.preservation.config.ts --reporter=list && npx playwright test --config playwright.preservation.integration.config.ts --reporter=list"` — exit0, build passed, fixture17 passed, real integration1 passed. Full output: `preservation-final-root-frontend.txt`.

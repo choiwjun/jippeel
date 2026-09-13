@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+  <head><meta charset="UTF-8"><title>B03 synthetic quality fixture</title></head>
+  <body>
+    <main id="root"></main>
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+      import { QualityDialog } from "/src/components/editor/QualityDialog.tsx";
+      import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "/src/components/ui/dialog.tsx";
+      import { Toaster } from "/src/components/ui/toast.tsx";
+      import "/src/index.css";
+      function UnnamedCompatibilityFixture() {
+        const [open, setOpen] = React.useState(true);
+        return React.createElement(Dialog, { open, onOpenChange: setOpen },
+          React.createElement(DialogContent, null,
+            React.createElement(DialogHeader, null, React.createElement(DialogTitle, null, "compatibility")),
+            React.createElement(DialogDescription, null, "optional name omitted"),
+            React.createElement(DialogFooter, null, "unchanged footer")));
+      }
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      createRoot(document.getElementById("root")).render(
+        React.createElement(QueryClientProvider, { client },
+          React.createElement(new URLSearchParams(location.search).has("bare") ? UnnamedCompatibilityFixture : QualityDialog, { chapterId: 10 }), React.createElement(Toaster)));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+# B03 behavior review — BLOCKED
+
+## Review
+
+**Behavior/contract findings: 0. No issues found.**
+
+- **Correct — ending counts:** `backend/app/services/quality.py:27–35,83–84` removes explanatory tildes and uses escaped, longest-first alternatives with nonoverlapping matching. Nested plain endings count once; updated expectations agree with the approved contract.
+- **Correct — quotes:** `quality.py:41–56,73–74` counts complete closed interiors in one pass while retaining mixed-family, empty-span and stray-quote compatibility. Regressions cover199/200/201/400 characters, malformed/multiple quotes, exhaustive short-input legacy equivalence and bounded long-input work (`backend/tests/test_quality_b03_reproduction.py:48–73,168–208`).
+- **Correct — preservation:** original-relative comparison leaves denominators, rounding, score weights, empty values, purposes and essay adapter unchanged. The frozen router retains raw-content/purpose deduplication (`backend/app/routers/quality.py:98–121`). The added regression preserves historical65 while returning corrected50 with `recorded=false` (`test_quality_b03_reproduction.py:211–234`).
+- **Correct — presentation:** `frontend/src/components/editor/QualityDialog.tsx:69–73,191–255,341–394,437–442` implements the approved accessible names, exact zero-paragraph warning, visible numeric score, Unicode L/N explanation, separate essay reference and historical-score disclaimer.
+- **Correct — shared dialog:** the authorized optional name forwards only to the existing dialog element (`frontend/src/components/ui/dialog.tsx:5–9,13–18,36–40`). Portal, Escape and backdrop behavior remain unchanged.
+- **Fixed by reviewer:** none; review remained read-only.
+
+### Finding — P0 acceptance-evidence gate, not a product defect
+
+Two current support sources differ from the successful validation snapshot:
+
+| File | Validated SHA prefix | Current SHA prefix |
+|---|---|---|
+| `frontend/e2e/quality-dialog.spec.ts` | `5cce168f` | `919432b8` |
+| `frontend/e2e/quality-scoped-coverage.ts` | `83c53269` | `309ac3a6` |
+
+Direct source comparison shows wrapping changes around the spec’s dialog-name/axe/preset assertions and collector’s source-path list. I found no semantic change in those inspected differences. Nevertheless, that inspection does **not** establish complete parsed-token equivalence or exact-current execution.
+
+The queued parent update proposes a separate parsed-token supplement. Its path/evidence has not been supplied or reviewed, so it does not yet close this boundary. Original identities and raw evidence remain distinct and preserved.
+
+The subsequent parent exact-current fixture attempt failed before collection:
+
+```text
+Error: ENOMEM: not enough memory, read
+Error: No tests found
+```
+
+Its command exited1 and tripwire reported no escapes. Supervisor confirmed no tests executed; helper TypeScript was deliberately not run afterward.
+
+**Smallest resolution:** explicitly dispose of the infrastructure failure and complete the authorized current-support verification, or provide an explicitly authorized equivalence supplement for independent assessment. Do not silently substitute formatting inspection for either gate.
+
+**Merge verdict: BLOCK.** Bounded production behavior review passes; final acceptance remains pending.
+
+## Checked evidence
+
+Persistent roots under `/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/`:
+
+- `b03-implementation-qcUqNm68`: original dirty-worktree snapshots and frozen-function evidence.
+- `b03-validation-3RBooW2W`: approved original-relative diff, shared-dialog baseline, manifest, snapshots, command records and raw validation logs.
+- `b03-parent-final-ayGuen4e`: current-source hashes, failed current-source command/log and artifact verification.
+
+Directly inspected records show:
+
+- Native preflight passed without app/pytest imports.
+- Full backend: **482 passed, 1 skipped, 70 subtests**, exit0; `subprocess_attempts=0`, `violations=[]`.
+- Retained quality fixture: **5 passed**; three raw axe JSON files each contain `violations: []`.
+- Affected AI-context regressions: **15 passed**, including quality-purpose integration and updated selectors. Memory/preservation logs report **31/26 passed**.
+- App build passed, transforming232 modules.
+- All three production hashes still match validated sources. Shared-suite formatting boundaries are recorded rather than claimed byte-identical.
+- Protected before/after hashes agree; `after-staged.txt` is empty. Parent’s later checkpoint retains matching protected/index hashes.
+- Parent verification reports **218 original artifacts, zero mismatches**.
+
+## Residual limits
+
+This is technical contract review, not literary calibration, actual external-engine verification, device testing or operational acceptance. Frozen-v2 diagnostics remain outside this diff. Coverage artifacts were inspected, not regenerated. No tests, applications, providers, Git commands or writes were performed by this reviewer.

@@ -1,0 +1,24 @@
+const fs = require('fs');
+const ts = require('/mnt/c/Users/wj941/Documents/jippeel/frontend/node_modules/typescript');
+const root = '/mnt/c/Users/wj941/Documents/jippeel/';
+const manifest = JSON.parse(fs.readFileSync(__dirname+'/changed-lines-frozen.json'));
+for (const [file, entry] of Object.entries(manifest)) {
+  if (file.endsWith('.py')) { entry.executableLines = entry.changedLines; entry.branchCandidates = []; continue; }
+  const source = ts.createSourceFile(file,fs.readFileSync(root+file,'utf8'),ts.ScriptTarget.Latest,true);
+  const lines = new Set(); const branches = [];
+  function visit(node) {
+    if (ts.isTypeNode(node) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node) || ts.isImportDeclaration(node)) return;
+    const start = source.getLineAndCharacterOfPosition(node.getStart(source)).line+1;
+    const end = source.getLineAndCharacterOfPosition(node.getEnd()).line+1;
+    if ((ts.isStatement(node) && !ts.isBlock(node)) || ts.isExpression(node) || ts.isJsxAttribute(node)) lines.add(start);
+    if (ts.isIfStatement(node) || ts.isConditionalExpression(node) || (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken,ts.SyntaxKind.BarBarToken,ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind))) {
+      if(entry.changedLines.some(line=>line>=start && line<=end)) branches.push({start,end,kind:ts.SyntaxKind[node.kind],text:node.getText(source)});
+    }
+    ts.forEachChild(node,visit);
+  }
+  visit(source);
+  entry.executableLines = entry.changedLines.filter(line=>lines.has(line));
+  entry.branchCandidates = branches;
+}
+fs.writeFileSync(__dirname+'/coverage-scope-frozen.json',JSON.stringify(manifest,null,2));
+console.log(Object.fromEntries(Object.entries(manifest).map(([f,e])=>[f,{changedLines:e.changedLines,executableLines:e.executableLines,branchCandidates:e.branchCandidates.length}])));

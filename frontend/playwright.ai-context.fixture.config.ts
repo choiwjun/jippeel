@@ -1,3 +1,4 @@
+import { fixtureServer } from "./e2e/fixture-server";
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
@@ -17,10 +18,5 @@ export default defineConfig({
     locale: 'ko-KR',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: 'npx vite --host 127.0.0.1 --port 15227 --strictPort --config vite.ai-context.fixture.config.ts',
-    url: 'http://127.0.0.1:15227',
-    reuseExistingServer: false,
-    timeout: 60_000,
-  },
+  ...fixtureServer(15227),
 });

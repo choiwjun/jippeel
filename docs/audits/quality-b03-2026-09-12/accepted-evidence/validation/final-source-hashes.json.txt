@@ -1,0 +1,13 @@
+{
+  "backend/app/services/quality.py": "17efd16a2ffd45cc7faa4861e5303b830122f9296eb156ce36f78cf4c18cd809",
+  "backend/tests/test_quality_b03_reproduction.py": "63c794f374237b8ad61f7a50871df8da670b40682901105dc9427fe3e6e35315",
+  "backend/tests/isolation_guard.py": "6599632132f650d6fea1426cfe6130a427ad7d229fa062dc7934905f89f6c3d5",
+  "backend/tests/test_isolation_guard.py": "a39913db4b51df38c760ec50366372fa6c5f47fa5be7554e632dc0a1a5af52c4",
+  "frontend/src/components/editor/QualityDialog.tsx": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+  "frontend/e2e/quality-dialog.spec.ts": "5cce168f13e7c839bd5c52cf61d7981f7c72706f96610d5a4a6110eb38d35f2d",
+  "frontend/e2e/quality-fixture.html": "bd5e891cd9e42000e6f7033f8d85fbca5c52951106188e4dc2889eb9196b15db",
+  "frontend/e2e/quality-scoped-coverage.ts": "83c5326900ec89336c0fbac5d47f086e059c91257d871945e6ffc539deb3892e",
+  "frontend/playwright.quality.config.ts": "ee30e9a0ae75d18597438cdb6ab1437e431e3ef8e0f24495720b7e18b8526fc8",
+  "frontend/e2e/ai-context-ui.spec.ts": "8914b141436410db7ac3e18196eb4e60a1a5258d3189d9b4bce77fbd18adea79",
+  "frontend/src/components/ui/dialog.tsx": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f"
+}

@@ -1,0 +1,61 @@
+
+Running 15 tests using 1 worker
+
+  ✘   1 [chromium] › e2e/ai-context-ui.spec.ts:574:5 › AI-context Task3 fixture UI boundaries › generation waits for flush and sends one complete pre-await snapshot with saved revision (14.4s)
+  -   2 [chromium] › e2e/ai-context-ui.spec.ts:631:5 › AI-context Task3 fixture UI boundaries › failed flush, close, and navigation cancel pending provider starts
+  -   3 [chromium] › e2e/ai-context-ui.spec.ts:670:5 › AI-context Task3 fixture UI boundaries › result from another chapter blocks insert and replace but keeps copy enabled
+  -   4 [chromium] › e2e/ai-context-ui.spec.ts:693:5 › AI-context Task3 fixture UI boundaries › active editor preview tab remains editor-bound while respecting body opt-out
+  -   5 [chromium] › e2e/ai-context-ui.spec.ts:722:5 › AI-context Task3 fixture UI boundaries › canon and quality use shared purpose, payoff, relationship, flush revision, and hook applicability
+  -   6 [chromium] › e2e/ai-context-ui.spec.ts:762:5 › AI-context Task3 fixture UI boundaries › canon relationship opt-in is project-level with zero selected generation characters
+  -   7 [chromium] › e2e/ai-context-ui.spec.ts:787:5 › AI-context Task3 fixture UI boundaries › canon relationship opt-in is project-level with one selected generation character
+  -   8 [chromium] › e2e/ai-context-ui.spec.ts:816:5 › AI-context Task3 fixture UI boundaries › generation relationship control stays disabled with zero or one selected character
+  -   9 [chromium] › e2e/ai-context-ui.spec.ts:839:5 › AI-context Task3 fixture UI boundaries › quality dialog is purpose-only and does not expose relationship controls
+  -  10 [chromium] › e2e/ai-context-ui.spec.ts:859:5 › AI-context Task3 fixture UI boundaries › character standalone AI after unresolved editor recovery does not flush or inherit stale chapter identity
+  -  11 [chromium] › e2e/ai-context-ui.spec.ts:925:5 › AI-context Task3 fixture UI boundaries › lore standalone AI after same-project editor visit does not flush or inherit stale chapter identity
+  -  12 [chromium] › e2e/ai-context-ui.spec.ts:963:5 › AI-context Task3 fixture UI boundaries › cross-project lore standalone AI uses explicit page project and not stale editor project or chapter
+  -  13 [chromium] › e2e/ai-context-ui.spec.ts:997:5 › AI-context Task3 fixture UI boundaries › delayed canon result from chapter A is ignored after navigating to chapter B
+  -  14 [chromium] › e2e/ai-context-ui.spec.ts:1021:5 › AI-context Task3 fixture UI boundaries › closing A, visiting B, and returning A does not revive a cancelled canon result
+  -  15 [chromium] › e2e/ai-context-ui.spec.ts:1047:5 › AI-context Task3 fixture UI boundaries › older delayed canon success or failure cannot override a newer completed canon result
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-UfJt1Z/violations.jsonl; no escapes
+
+
+  1) [chromium] › e2e/ai-context-ui.spec.ts:574:5 › AI-context Task3 fixture UI boundaries › generation waits for flush and sends one complete pre-await snapshot with saved revision 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('.cm-content')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('.cm-content')
+
+
+      577 |       const state = await setupFixture(page);
+      578 |       await page.goto(`/projects/${PROJECT_ID}/write`);
+    > 579 |       await expect(page.locator(".cm-content")).toBeVisible();
+          |                                                 ^
+      580 |       await page.locator(".cm-content").click();
+      581 |       await page.locator(".cm-content").fill("flush 전 로컬 원고");
+      582 |       await page.getByRole("button", { name: "AI 패널" }).click();
+        at /mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/ai-context-ui.spec.ts:579:49
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-ui/ai-context-ui-AI-context-T-1e77c-napshot-with-saved-revision-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-ui/ai-context-ui-AI-context-T-1e77c-napshot-with-saved-revision-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-ui/ai-context-ui-AI-context-T-1e77c-napshot-with-saved-revision-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-ui/ai-context-ui-AI-context-T-1e77c-napshot-with-saved-revision-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/ai-context-ui.spec.ts:574:5 › AI-context Task3 fixture UI boundaries › generation waits for flush and sends one complete pre-await snapshot with saved revision 
+  14 did not run

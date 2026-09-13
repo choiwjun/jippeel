@@ -1,0 +1,1301 @@
+--- B03-original/backend/app/services/quality.py
++++ B03-current/backend/app/services/quality.py
+@@ -24,13 +24,36 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
+-_DIALOGUE_RE = re.compile(r'[“"『「]([^”"』」]{1,200}?)[”"』」]')
++_DIALOGUE_OPENERS = frozenset('“"『「')
++_DIALOGUE_CLOSERS = frozenset('”"』」')
+ CONNECTORS = ("그러나", "하지만", "한편", "그리고", "그래서", "그런데")
+-WEAK_ENDINGS = ("~하게 된다", "~것이었다", "~일 뿐이다", "~기도 했다")
++WEAK_ENDINGS = ("하게 된다", "것이었다", "일 뿐이다", "기도 했다")
+ PLAIN_PAST = ("했다", "이었다", "였다")
++# Longest alternative wins; finditer consumes each occurrence only once.
++_ENDING_RE = re.compile("|".join(
++    re.escape(ending) for ending in sorted(WEAK_ENDINGS + PLAIN_PAST, key=len, reverse=True)
++))
+ HOOK_SIGNALS = ("?", "!", "…", "…", "순간", "눈을 떠", "소리가", "돌아서", "참견",
+                 "알아차리", "들려왔다", "나타났", "움켜쥐", "훅", "덮치", "말이었다",
+                 "그런데 그", "반짝", "번개", "빙글")
++
++
++def _count_dialogue_chars(text: str) -> int:
++    """One pass over closed spans; preserve mixed families and nonempty interiors."""
++    start: int | None = None
++    total = 0
++    for index, char in enumerate(text):
++        if start is None:
++            if char in _DIALOGUE_OPENERS:
++                start = index
++        elif char in _DIALOGUE_CLOSERS:
++            if index > start + 1:
++                total += index - start - 1
++                start = None
++            else:
++                # An empty span cannot match, but its ASCII quote may open the next.
++                start = index if char in _DIALOGUE_OPENERS else None
++    return total
+ 
+ 
+ def analyze_text(text: str, episode_purpose: EpisodePurpose = "serial") -> dict:
+@@ -47,7 +70,7 @@
+     per_1k = max(len(text) / 1000, 0.001)
+ 
+     # 1) 대사 비율
+-    dialogue_chars = sum(len(m) for m in _DIALOGUE_RE.findall(text))
++    dialogue_chars = _count_dialogue_chars(text)
+     metrics["dialogue_ratio"] = round(dialogue_chars / len(text), 4)
+     metrics["chars_novelpia"] = count_novelpia_chars(text)
+ 
+@@ -57,8 +80,7 @@
+     metrics["avg_para_chars"] = round(len(text) / max(len(paras), 1), 1)
+ 
+     # 3) 어미 반복 (1,000자당)
+-    ending_count = sum(text.count(w) for w in PLAIN_PAST)
+-    ending_count += sum(text.count(w) for w in WEAK_ENDINGS)
++    ending_count = sum(1 for _ in _ENDING_RE.finditer(text))
+     metrics["ending_repeat_per_1k"] = round(ending_count / per_1k, 2)
+ 
+     # 4) 전환 접속사 (1,000자당)
+--- B03-original/backend/tests/test_quality_b03_reproduction.py
++++ B03-current/backend/tests/test_quality_b03_reproduction.py
+@@ -1,4 +1,4 @@
+-"""B03 evidence only: observed PASS cases and two explicit intended-regression REDs.
++"""B03 approved count contract; original RED evidence is preserved in recovery.
+ 
+ No literary-quality threshold is asserted. External metrics are synthetic only.
+ Run only through scripts/run_backend_pytest.py; conftest requires isolation.
+@@ -27,14 +27,14 @@
+     (" \t\n ", 65, 0.0, 0.0),
+     ("!", 85, 0.0, 0.0),
+     ('"!"!', 100, 0.25, 0.0),
+-    ("하게 된다", 65, 0.0, 0.0),
++    ("하게 된다", 50, 0.0, 200.0),
+     ("~하게 된다", 50, 0.0, 166.67),
+-    ("일 뿐이다", 65, 0.0, 0.0),
++    ("일 뿐이다", 50, 0.0, 200.0),
+     ("~일 뿐이다", 50, 0.0, 166.67),
+     ("것이었다", 50, 0.0, 250.0),
+-    ("~것이었다", 50, 0.0, 400.0),
++    ("~것이었다", 50, 0.0, 200.0),
+     ("기도 했다", 50, 0.0, 200.0),
+-    ("~기도 했다", 50, 0.0, 333.33),
++    ("~기도 했다", 50, 0.0, 166.67),
+     ("고요한 밤", 65, 0.0, 0.0),
+ ])
+ def test_observed_short_text_and_endings(tmp_path, text, score, ratio, ending):
+@@ -47,13 +47,13 @@
+ 
+ @pytest.mark.parametrize("length", [199, 200, 201, 400])
+ @pytest.mark.parametrize("quotes", [('"', '"'), ("“", "”"), ("「", "」"), ("『", "』")])
+-def test_observed_quoted_span_cutoff(tmp_path, length, quotes):
++def test_closed_quoted_spans_include_full_interior(tmp_path, length, quotes):
+     text = quotes[0] + "가" * length + quotes[1]
+     result = quality.analyze_chapter(text)
+     save_observation(tmp_path, "quoted", {"input": text, "result": result})
+-    expected = round(length / (length + 2), 4) if length <= 200 else 0.0
++    expected = round(length / (length + 2), 4)
+     assert result["metrics"]["dialogue_ratio"] == expected
+-    assert result["score"] == (70 if length <= 200 else 65)
++    assert result["score"] == 70
+ 
+ 
+ @pytest.mark.parametrize("text,ratio", [
+@@ -129,12 +129,12 @@
+ 
+ 
+ def test_intended_regression_weak_ending_without_notation_is_counted():
+-    """RED: documented ending should be detected without a literal notation tilde."""
++    """Regression: documented ending should be detected without a literal notation tilde."""
+     assert quality.analyze_text("하게 된다")["ending_repeat_per_1k"] == 200.0
+ 
+ 
+ def test_intended_regression_complete_201_character_quote_is_counted():
+-    """RED: full closed span must not disappear at the undocumented 200-char cap."""
++    """Regression: full closed span must not disappear at the undocumented 200-char cap."""
+     assert quality.analyze_text('"' + "가" * 201 + '"')["dialogue_ratio"] == 0.9901
+ 
+ 
+@@ -151,3 +151,83 @@
+     assert metrics["connector_per_1k"] == 71.43  # 1 / (14 / 1000)
+     assert metrics["para_opener_variety"] == 1.0
+     assert quality.try_metrics_v2(text) is None
++
++
++@pytest.mark.parametrize("text,expected_count", [
++    ("하게 된다 것이라면 일 뿐이다 기도 했다 것이었다 했다 이었다 였다", 7),
++    ("~하게 된다 ~일 뿐이다 ~기도 했다 ~것이었다", 4),
++    ("기도 했다기도 했다", 2),
++    ("고요한 밤", 0),
++])
++def test_configured_endings_are_longest_first_nonoverlapping(text, expected_count):
++    assert quality.analyze_text(text)["ending_repeat_per_1k"] == round(
++        expected_count * 1000 / len(text), 2
++    )
++
++
++@pytest.mark.parametrize("text,dialogue_chars", [
++    ('""', 0), ('""가"', 1), ('“”가', 0), ('“「가”', 2),
++    ('“가"', 1), ('"가”', 1), ('"가" "나"', 2),
++    ('"가""나"', 2), ('“”"가"', 1), ('"가\n나"', 3),
++    ('“' + "가" * 401 + '」', 401),
++])
++def test_closed_span_compatibility_and_multiple_quotes(text, dialogue_chars):
++    assert quality.analyze_text(text)["dialogue_ratio"] == round(
++        dialogue_chars / len(text), 4
++    )
++
++
++def test_long_malformed_quotes_have_bounded_work():
++    from time import perf_counter
++
++    # Many potential openers with no closer must not repeatedly rescan the suffix.
++    text = "“「『가" * 50_000
++    started = perf_counter()
++    assert quality.analyze_text(text)["dialogue_ratio"] == 0.0
++    assert quality.analyze_text(text + "”")["dialogue_ratio"] == 1.0
++    # Generous smoke bound, not a performance benchmark; 400k code points total.
++    assert perf_counter() - started < 5.0
++
++
++
++def test_short_quote_selection_matches_legacy_family_policy():
++    import itertools
++    import re
++
++    legacy = re.compile(r'[“"『「]([^”"』」]{1,200}?)[”"』」]')
++    # Exhaustive short malformed/mixed/empty cases establish family compatibility,
++    # independently of the new single-pass implementation (all below old cap).
++    for length in range(1, 5):
++        for chars in itertools.product('“”"「」가', repeat=length):
++            text = "".join(chars)
++            expected = round(sum(map(len, legacy.findall(text))) / length, 4)
++            assert quality.analyze_text(text)["dialogue_ratio"] == expected, text
++
++
++def test_reanalysis_keeps_old_score_and_content_purpose_dedup(client):
++    import hashlib
++
++    from app.database import get_db
++    from app.models import QualityCheck
++
++    project = client.post("/api/v1/projects", json={"title": "B03 history"}).json()
++    chapter = client.post(f"/api/v1/projects/{project['id']}/chapters",
++                          json={"title": "same text"}).json()
++    text = "하게 된다"
++    assert client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
++        "content_md": text, "expected_revision": 0,
++    }).status_code == 200
++    db = next(iter(client.app.dependency_overrides[get_db]()))
++    db.add(QualityCheck(
++        chapter_id=chapter["id"], score=65,
++        content_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
++        metrics_json={"episode_purpose": "serial"},
++        suggestions_json=[], presets_json=[],
++    ))
++    db.commit()
++    url = f"/api/v1/chapters/{chapter['id']}/quality"
++    response = client.get(url)
++    assert response.status_code == 200
++    assert response.json()["score"] == 50
++    assert response.json()["recorded"] is False
++    assert [row["score"] for row in client.get(url + "/history").json()] == [65]
+--- B03-original/backend/tests/isolation_guard.py
++++ B03-current/backend/tests/isolation_guard.py
+@@ -237,7 +237,8 @@
+                    "-o", "cache_dir=" + str(state.root / "pytest-cache")]
+     if "--isolation-coverage" in args:
+         pytest_args += ["-p", "pytest_cov", "--cov=app.services.canon", "--cov=app.services.bootstrap",
+-                        "--cov=app.routers.projects", "--cov=tests.isolation_guard", "--cov-branch", "--cov-config=" + str(cov_config),
++                        "--cov=app.routers.projects", "--cov=tests.isolation_guard",
++                        "--cov=app.services.quality", "--cov-branch", "--cov-config=" + str(cov_config),
+                         "--cov-report=term-missing", "--cov-report=json:" + str(state.root / "coverage.json")]
+     pytest_args += [arg for arg in args if arg not in ("--isolation-coverage", "--isolation-preflight")]
+     print(json.dumps({"isolation": "ready-before-pytest", "root": str(state.root),
+--- B03-original/backend/tests/test_isolation_guard.py
++++ B03-current/backend/tests/test_isolation_guard.py
+@@ -232,7 +232,8 @@
+             self.assertEqual(
+                 [arg for arg in args if arg.startswith("--cov=")],
+                 ["--cov=app.services.canon", "--cov=app.services.bootstrap",
+-                 "--cov=app.routers.projects", "--cov=tests.isolation_guard"],
++                 "--cov=app.routers.projects", "--cov=tests.isolation_guard",
++                 "--cov=app.services.quality"],
+             )
+             self.assertIn("--cov-config=" + str(state.root / "coverage.ini"), args)
+             self.assertIn("--cov-report=json:" + str(state.root / "coverage.json"), args)
+--- B03-original/frontend/src/components/editor/QualityDialog.tsx
++++ B03-current/frontend/src/components/editor/QualityDialog.tsx
+@@ -3,235 +3,448 @@
+  * 규칙 기반(로컬, LLM 호출 없음) 지표 + 개선 제안 + 제안 프리셋 바로가기.
+  * 제안 프리셋 클릭 시 AI 패널 프리셋을 선택해 열어준다(자동 실행 아님).
+  */
+-import { useEffect, useState } from 'react';
+-import { useQuery, useQueryClient } from '@tanstack/react-query';
+-import { api } from '@/lib/api';
+-import { useAiPanelStore } from '@/stores/aiPanelStore';
+-import { useEditorStore } from '@/stores/editorStore';
+-import { AiContextControls } from '@/components/editor/AiContextControls';
+-import { Button } from '@/components/ui/button';
++import { useEffect, useState } from "react";
++import { useQuery, useQueryClient } from "@tanstack/react-query";
++import { api } from "@/lib/api";
++import { useAiPanelStore } from "@/stores/aiPanelStore";
++import { useEditorStore } from "@/stores/editorStore";
++import { AiContextControls } from "@/components/editor/AiContextControls";
++import { Button } from "@/components/ui/button";
+ import {
+-  Dialog, DialogContent, DialogHeader, DialogTitle,
+-} from '@/components/ui/dialog';
+-import { Progress } from '@/components/ui/progress';
+-import { toast } from '@/components/ui/toast';
++      Dialog,
++      DialogContent,
++      DialogHeader,
++      DialogTitle,
++} from "@/components/ui/dialog";
++import { Progress } from "@/components/ui/progress";
++import { toast } from "@/components/ui/toast";
+ export interface QualityMetrics {
+-  chars_novelpia: number;
+-  dialogue_ratio: number;
+-  avg_para_chars: number;
+-  ending_repeat_per_1k: number;
+-  connector_per_1k: number;
+-  para_opener_variety: number;
+-  hook_present: boolean;
+-  hook_score_applicable?: boolean;
+-  para_count: number;
+-  /** im-not-ai 정량 엔진 병합분 (G-071) — 스킬 미설치 시 없음 */
+-  v2?: { risk_band?: string; risk_score?: number };
++      chars_novelpia: number;
++      dialogue_ratio: number;
++      avg_para_chars: number;
++      ending_repeat_per_1k: number;
++      connector_per_1k: number;
++      para_opener_variety: number;
++      hook_present: boolean;
++      hook_score_applicable?: boolean;
++      para_count: number;
++      /** im-not-ai 정량 엔진 병합분 (G-071) — 스킬 미설치 시 없음 */
++      v2?: { risk_band?: string; risk_score?: number };
+ }
+ 
+ export interface ChapterQuality {
+-  chapter_id: number;
+-  score: number;
+-  metrics: QualityMetrics;
+-  suggestions: string[];
+-  suggested_preset_names: string[];
++      chapter_id: number;
++      score: number;
++      metrics: QualityMetrics;
++      suggestions: string[];
++      suggested_preset_names: string[];
+ }
+ 
+ /** G-061 — 품질 점수 추이(quality_checks 이력, 최신순 → 시간순 변환) */
+ export interface QualityHistoryEntry {
+-  id: number;
+-  chapter_id: number;
+-  score: number;
+-  created_at: string;
++      id: number;
++      chapter_id: number;
++      score: number;
++      created_at: string;
+ }
+ 
+ function ScoreSparkline({ entries }: { entries: QualityHistoryEntry[] }) {
+-  const pts = [...entries].reverse(); // 시간순
+-  if (pts.length < 2) return null;
+-  const W = 240;
+-  const H = 56;
+-  const maxScore = 100;
+-  const step = W / (pts.length - 1);
+-  const points = pts
+-    .map((e, i) => `${(i * step).toFixed(1)},${(H - 4 - (e.score / maxScore) * (H - 10)).toFixed(1)}`)
+-    .join(' ');
+-  const last = pts[pts.length - 1];
+-  const prev = pts[pts.length - 2];
+-  const delta = last.score - prev.score;
+-  return (
+-    <div className="flex items-center gap-3">
+-      <svg
+-        viewBox={`0 0 ${W} ${H}`}
+-        className="h-14 w-full flex-1"
+-        role="img"
+-        aria-label={`품질 점수 추이 — ${pts.length}회 기록, 최근 ${last.score}점`}
+-      >
+-        {/* 60/80 기준선 */}
+-        <line x1="0" x2={W} y1={H - 4 - 0.6 * (H - 10)} y2={H - 4 - 0.6 * (H - 10)}
+-          className="stroke-border" strokeDasharray="3 3" strokeWidth="1" />
+-        <line x1="0" x2={W} y1={H - 4 - 0.8 * (H - 10)} y2={H - 4 - 0.8 * (H - 10)}
+-          className="stroke-border" strokeDasharray="3 3" strokeWidth="1" />
+-        <polyline points={points} fill="none" className="stroke-primary" strokeWidth="2" />
+-        <circle
+-          cx={(pts.length - 1) * step} cy={H - 4 - (last.score / maxScore) * (H - 10)}
+-          r="3" className="fill-primary"
+-        />
+-      </svg>
+-      <span className={
+-        `shrink-0 text-xs font-semibold ${delta >= 0 ? 'text-success' : 'text-destructive'}`
+-      }>
+-        {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}점
+-      </span>
+-    </div>
+-  );
++      const pts = [...entries].reverse(); // 시간순
++      if (pts.length < 2) return null;
++      const W = 240;
++      const H = 56;
++      const maxScore = 100;
++      const step = W / (pts.length - 1);
++      const points = pts
++            .map(
++                  (e, i) =>
++                        `${(i * step).toFixed(1)},${(H - 4 - (e.score / maxScore) * (H - 10)).toFixed(1)}`,
++            )
++            .join(" ");
++      const last = pts[pts.length - 1];
++      const prev = pts[pts.length - 2];
++      const delta = last.score - prev.score;
++      return (
++            <div className="flex items-center gap-3">
++                  <svg
++                        viewBox={`0 0 ${W} ${H}`}
++                        className="h-14 w-full flex-1"
++                        role="img"
++                        aria-label={`문체 신호 참고 점수 추이 — ${pts.length}회 기록, 최근 ${last.score}점`}
++                  >
++                        {/* 60/80 기준선 */}
++                        <line
++                              x1="0"
++                              x2={W}
++                              y1={H - 4 - 0.6 * (H - 10)}
++                              y2={H - 4 - 0.6 * (H - 10)}
++                              className="stroke-border"
++                              strokeDasharray="3 3"
++                              strokeWidth="1"
++                        />
++                        <line
++                              x1="0"
++                              x2={W}
++                              y1={H - 4 - 0.8 * (H - 10)}
++                              y2={H - 4 - 0.8 * (H - 10)}
++                              className="stroke-border"
++                              strokeDasharray="3 3"
++                              strokeWidth="1"
++                        />
++                        <polyline
++                              points={points}
++                              fill="none"
++                              className="stroke-primary"
++                              strokeWidth="2"
++                        />
++                        <circle
++                              cx={(pts.length - 1) * step}
++                              cy={H - 4 - (last.score / maxScore) * (H - 10)}
++                              r="3"
++                              className="fill-primary"
++                        />
++                  </svg>
++                  <span
++                        className={`shrink-0 text-xs font-semibold ${delta >= 0 ? "text-success" : "text-destructive"}`}
++                  >
++                        {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)}점
++                  </span>
++            </div>
++      );
+ }
+ 
+ export function QualityDialog({ chapterId }: { chapterId: number | null }) {
+-  const [open, setOpen] = useState(false);
+-  const setPreset = useAiPanelStore((s) => s.setPreset);
+-  const presets = useAiPanelStore((s) => s.presetId);
+-  const openAiPanel = useAiPanelStore((s) => s.open);
+-  const queryClient = useQueryClient();
+-  const projectId = useEditorStore((s) => s.projectId);
+-  const directives = useAiPanelStore((s) => s.getDirectives(projectId, chapterId));
+-  void presets;
+-
+-  const qualityQuery = useQuery({
+-    queryKey: ['quality', chapterId, directives.episodePurpose],
+-    queryFn: () => api.get<ChapterQuality>(`/chapters/${chapterId}/quality?episode_purpose=${directives.episodePurpose}`),
+-    enabled: chapterId !== null && open,
+-  });
+-  const q = qualityQuery.data;
+-
+-  // 진단 GET이 이력 기록을 동반하므로(해시 변화 시) 조회 후 추이를 갱신한다
+-  useEffect(() => {
+-    if (open && qualityQuery.isSuccess) {
+-      void queryClient.invalidateQueries({ queryKey: ['quality-history', chapterId] });
+-    }
+-  }, [open, qualityQuery.isSuccess, chapterId, queryClient]);
+-
+-  const historyQuery = useQuery({
+-    queryKey: ['quality-history', chapterId],
+-    queryFn: () => api.get<QualityHistoryEntry[]>(`/chapters/${chapterId}/quality/history`),
+-    enabled: chapterId !== null && open,
+-  });
+-  const history = historyQuery.data ?? [];
+-
+-  /** 제안 프리셋을 AI 패널 프리셋 셀렉트에 반영(실행은 작가가 직접) */
+-  const usePreset = async (name: string) => {
+-    try {
+-      const all = await api.get<Array<{ id: number; name: string }>>('/ai/presets');
+-      const found = all.find((p) => p.name === name);
+-      if (!found) {
+-        toast(`프리셋 "${name}"을 찾을 수 없습니다.`, 'warning');
+-        return;
+-      }
+-      setPreset(found.id);
+-      openAiPanel();
+-      toast(`프리셋 "${name}"을 선택했습니다 — AI 패널에서 실행하세요.`, 'info');
+-    } catch (e) {
+-      toast(`프리셋 조회 실패: ${(e as Error).message}`, 'error');
+-    }
+-  };
+-
+-  const scoreColor = q == null ? '' : q.score >= 80 ? 'text-success' : q.score >= 60 ? 'text-warning' : 'text-destructive';
+-
+-  return (
+-    <>
+-      <Button
+-        size="sm"
+-        variant="outline"
+-        disabled={chapterId === null}
+-        onClick={() => setOpen(true)}
+-        aria-label="회차 품질 진단"
+-      >
+-        품질 진단
+-      </Button>
+-      <Dialog open={open} onOpenChange={setOpen}>
+-        <DialogContent className="max-w-lg">
+-        <DialogHeader>
+-          <DialogTitle>회차 품질 진단 (로컬 규칙 기반)</DialogTitle>
+-        </DialogHeader>
+-        <AiContextControls
+-          projectId={projectId}
+-          chapterId={chapterId}
+-          relationshipPolicy={{ kind: 'hidden' }}
+-          showForeshadows={false}
+-        />
+-        {qualityQuery.isPending && (
+-          <p className="text-sm text-muted-foreground">계산 중…</p>
+-        )}
+-        {qualityQuery.isError && (
+-          <p className="text-sm text-destructive">{(qualityQuery.error as Error).message}</p>
+-        )}
+-        {q && (
+-          <div className="flex flex-col gap-3">
+-            <div className="flex items-center gap-3">
+-              <span className="text-2xl font-bold">{q.score}</span>
+-              <span className="text-xs text-muted-foreground">/ 100</span>
+-              <Progress value={q.score} className="flex-1" aria-label="품질 점수" />
+-              <span className={`text-xs font-semibold ${scoreColor}`}>
+-                {q.score >= 80 ? '양호' : q.score >= 60 ? '보완 필요' : '개선 권장'}
+-              </span>
+-            </div>
+-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+-              <div className="flex justify-between"><dt className="text-muted-foreground">대사 비율</dt><dd>{(q.metrics.dialogue_ratio * 100).toFixed(0)}%</dd></div>
+-              <div className="flex justify-between"><dt className="text-muted-foreground">평균 문단</dt><dd>{q.metrics.avg_para_chars}자</dd></div>
+-              <div className="flex justify-between"><dt className="text-muted-foreground">어미 반복/1k</dt><dd>{q.metrics.ending_repeat_per_1k}회</dd></div>
+-              <div className="flex justify-between"><dt className="text-muted-foreground">접속사/1k</dt><dd>{q.metrics.connector_per_1k}회</dd></div>
+-              <div className="flex justify-between"><dt className="text-muted-foreground">후크(끝 300자)</dt><dd>{q.metrics.hook_score_applicable === false ? '해당 없음' : q.metrics.hook_present ? '있음' : '없음'}</dd></div>
+-              <div className="flex justify-between"><dt className="text-muted-foreground">공백제외 글자</dt><dd>{q.metrics.chars_novelpia.toLocaleString()}자</dd></div>
+-            </dl>
+-            {q.metrics.v2?.risk_band && (
+-              <p className="text-[11px] text-muted-foreground">
+-                정량 엔진(metrics_v2) 리스크 밴드: <span className="font-semibold">{q.metrics.v2.risk_band}</span>
+-                {q.metrics.v2.risk_score !== undefined ? ` · 점수 ${q.metrics.v2.risk_score}` : ''}
+-                <span className="ml-1">(comma·어휘 다양성·수동태 등)</span>
+-              </p>
+-            )}
+-            {/* G-061 점수 추이 */}
+-            {history.length >= 2 ? (
+-              <div className="rounded-md border border-border p-2">
+-                <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
+-                  점수 추이 (본문이 바뀔 때마다 기록 · {history.length}회)
+-                </p>
+-                <ScoreSparkline entries={history} />
+-              </div>
+-            ) : (
+-              <p className="text-[11px] text-muted-foreground">
+-                본문을 수정하면 품질 점수가 기록되고 추이 그래프가 표시됩니다.
+-              </p>
+-            )}
+-            {q.suggestions.length > 0 && (
+-              <ul className="flex flex-col gap-1.5 rounded-md border border-border p-2">
+-                {q.suggestions.map((s, i) => (
+-                  <li key={i} className="text-xs leading-snug">· {s}</li>
+-                ))}
+-              </ul>
+-            )}
+-            {q.suggested_preset_names.length > 0 && (
+-              <div className="flex flex-wrap items-center gap-1.5">
+-                <span className="text-[11px] text-muted-foreground">추천 프리셋:</span>
+-                {q.suggested_preset_names.map((name) => (
++      const [open, setOpen] = useState(false);
++      const setPreset = useAiPanelStore((s) => s.setPreset);
++      const presets = useAiPanelStore((s) => s.presetId);
++      const openAiPanel = useAiPanelStore((s) => s.open);
++      const queryClient = useQueryClient();
++      const projectId = useEditorStore((s) => s.projectId);
++      const directives = useAiPanelStore((s) =>
++            s.getDirectives(projectId, chapterId),
++      );
++      void presets;
++
++      const qualityQuery = useQuery({
++            queryKey: ["quality", chapterId, directives.episodePurpose],
++            queryFn: () =>
++                  api.get<ChapterQuality>(
++                        `/chapters/${chapterId}/quality?episode_purpose=${directives.episodePurpose}`,
++                  ),
++            enabled: chapterId !== null && open,
++      });
++      const q = qualityQuery.data;
++
++      // 진단 GET이 이력 기록을 동반하므로(해시 변화 시) 조회 후 추이를 갱신한다
++      useEffect(() => {
++            if (open && qualityQuery.isSuccess) {
++                  void queryClient.invalidateQueries({
++                        queryKey: ["quality-history", chapterId],
++                  });
++            }
++      }, [open, qualityQuery.isSuccess, chapterId, queryClient]);
++
++      const historyQuery = useQuery({
++            queryKey: ["quality-history", chapterId],
++            queryFn: () =>
++                  api.get<QualityHistoryEntry[]>(
++                        `/chapters/${chapterId}/quality/history`,
++                  ),
++            enabled: chapterId !== null && open,
++      });
++      const history = historyQuery.data ?? [];
++
++      /** 제안 프리셋을 AI 패널 프리셋 셀렉트에 반영(실행은 작가가 직접) */
++      const usePreset = async (name: string) => {
++            try {
++                  const all =
++                        await api.get<Array<{ id: number; name: string }>>(
++                              "/ai/presets",
++                        );
++                  const found = all.find((p) => p.name === name);
++                  if (!found) {
++                        toast(
++                              `프리셋 "${name}"을 찾을 수 없습니다.`,
++                              "warning",
++                        );
++                        return;
++                  }
++                  setPreset(found.id);
++                  openAiPanel();
++                  toast(
++                        `프리셋 "${name}"을 선택했습니다 — AI 패널에서 실행하세요.`,
++                        "info",
++                  );
++            } catch (e) {
++                  toast(`프리셋 조회 실패: ${(e as Error).message}`, "error");
++            }
++      };
++
++      const scoreColor =
++            q == null
++                  ? ""
++                  : q.score >= 80
++                    ? "text-success"
++                    : q.score >= 60
++                      ? "text-warning"
++                      : "text-destructive";
++
++      return (
++            <>
+                   <Button
+-                    key={name}
+-                    size="sm"
+-                    variant="outline"
+-                    className="h-6 px-2 text-[11px]"
+-                    onClick={() => void usePreset(name)}
++                        size="sm"
++                        variant="outline"
++                        disabled={chapterId === null}
++                        onClick={() => setOpen(true)}
++                        aria-label="문체 신호 참고 점수"
+                   >
+-                    {name}
++                        문체 신호 참고 점수
+                   </Button>
+-                ))}
+-              </div>
+-            )}
+-            <p className="text-[11px] text-muted-foreground">
+-              지표는 웹소설 연재 관례 기준 참고값입니다 — 최종 판단은 작가의 몫입니다.
+-            </p>
+-          </div>
+-        )}
+-        </DialogContent>
+-      </Dialog>
+-    </>
+-  );
++                  <Dialog
++                        open={open}
++                        onOpenChange={setOpen}
++                        aria-label="문체 신호 참고 점수"
++                  >
++                        <DialogContent className="max-w-lg">
++                              <DialogHeader>
++                                    <DialogTitle>
++                                          문체 신호 참고 점수
++                                    </DialogTitle>
++                              </DialogHeader>
++                              <AiContextControls
++                                    projectId={projectId}
++                                    chapterId={chapterId}
++                                    relationshipPolicy={{ kind: "hidden" }}
++                                    showForeshadows={false}
++                              />
++                              {qualityQuery.isPending && (
++                                    <p className="text-sm text-muted-foreground">
++                                          계산 중…
++                                    </p>
++                              )}
++                              {qualityQuery.isError && (
++                                    <p className="text-sm text-destructive">
++                                          {
++                                                (qualityQuery.error as Error)
++                                                      .message
++                                          }
++                                    </p>
++                              )}
++                              {q && (
++                                    <div className="flex flex-col gap-3">
++                                          {q.metrics.para_count === 0 && (
++                                                <p
++                                                      role="status"
++                                                      className="text-sm text-warning"
++                                                >
++                                                      빈 원고 — 점수를 품질
++                                                      판단에 사용할 수 없습니다
++                                                </p>
++                                          )}
++                                          <div className="flex items-center gap-3">
++                                                <span className="text-2xl font-bold">
++                                                      {q.score}
++                                                </span>
++                                                <span className="text-xs text-muted-foreground">
++                                                      / 100
++                                                </span>
++                                                <Progress
++                                                      value={q.score}
++                                                      className="flex-1"
++                                                      aria-label="문체 신호 참고 점수"
++                                                />
++                                                <span
++                                                      className={`text-xs font-semibold ${scoreColor}`}
++                                                >
++                                                      {q.score >= 80
++                                                            ? "양호"
++                                                            : q.score >= 60
++                                                              ? "보완 필요"
++                                                              : "개선 권장"}
++                                                </span>
++                                          </div>
++                                          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
++                                                <div className="flex justify-between">
++                                                      <dt className="text-muted-foreground">
++                                                            대사 비율
++                                                      </dt>
++                                                      <dd>
++                                                            {(
++                                                                  q.metrics
++                                                                        .dialogue_ratio *
++                                                                  100
++                                                            ).toFixed(0)}
++                                                            %
++                                                      </dd>
++                                                </div>
++                                                <div className="flex justify-between">
++                                                      <dt className="text-muted-foreground">
++                                                            평균 문단
++                                                      </dt>
++                                                      <dd>
++                                                            {
++                                                                  q.metrics
++                                                                        .avg_para_chars
++                                                            }
++                                                            자
++                                                      </dd>
++                                                </div>
++                                                <div className="flex justify-between">
++                                                      <dt className="text-muted-foreground">
++                                                            어미 반복/1k
++                                                      </dt>
++                                                      <dd>
++                                                            {
++                                                                  q.metrics
++                                                                        .ending_repeat_per_1k
++                                                            }
++                                                            회
++                                                      </dd>
++                                                </div>
++                                                <div className="flex justify-between">
++                                                      <dt className="text-muted-foreground">
++                                                            접속사/1k
++                                                      </dt>
++                                                      <dd>
++                                                            {
++                                                                  q.metrics
++                                                                        .connector_per_1k
++                                                            }
++                                                            회
++                                                      </dd>
++                                                </div>
++                                                <div className="flex justify-between">
++                                                      <dt className="text-muted-foreground">
++                                                            후크(끝 300자)
++                                                      </dt>
++                                                      <dd>
++                                                            {q.metrics
++                                                                  .hook_score_applicable ===
++                                                            false
++                                                                  ? "해당 없음"
++                                                                  : q.metrics
++                                                                            .hook_present
++                                                                    ? "있음"
++                                                                    : "없음"}
++                                                      </dd>
++                                                </div>
++                                                <div className="flex justify-between">
++                                                      <dt className="text-muted-foreground">
++                                                            문자·숫자 수
++                                                      </dt>
++                                                      <dd>
++                                                            {q.metrics.chars_novelpia.toLocaleString()}
++                                                            자
++                                                      </dd>
++                                                </div>
++                                          </dl>
++                                          <p className="text-[11px] text-muted-foreground">
++                                                글자 수는 Unicode 문자/숫자(L/N)
++                                                기준입니다. 공백뿐 아니라
++                                                문장부호도 제외합니다.
++                                          </p>
++                                          {q.metrics.v2?.risk_band && (
++                                                <p className="text-[11px] text-muted-foreground">
++                                                      외부 essay 참고치(내장
++                                                      점수와 별개) — metrics_v2
++                                                      리스크 밴드:{" "}
++                                                      <span className="font-semibold">
++                                                            {
++                                                                  q.metrics.v2
++                                                                        .risk_band
++                                                            }
++                                                      </span>
++                                                      {q.metrics.v2
++                                                            .risk_score ===
++                                                      undefined
++                                                            ? ""
++                                                            : ` · 점수 ${q.metrics.v2.risk_score}`}
++                                                      <span className="ml-1">
++                                                            (comma·어휘
++                                                            다양성·수동태 등)
++                                                      </span>
++                                                </p>
++                                          )}
++                                          {/* G-061 점수 추이 */}
++                                          {history.length >= 2 ? (
++                                                <div className="rounded-md border border-border p-2">
++                                                      <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
++                                                            참고 점수 이력 (
++                                                            {history.length}회)
++                                                      </p>
++                                                      <ScoreSparkline
++                                                            entries={history}
++                                                      />
++                                                </div>
++                                          ) : (
++                                                <p className="text-[11px] text-muted-foreground">
++                                                      진단 시 본문·목적이 같은
++                                                      기록은 중복 저장하지
++                                                      않습니다. 기록이 2회
++                                                      이상이면 추이를
++                                                      표시합니다.
++                                                </p>
++                                          )}
++                                          <p className="text-[11px] text-muted-foreground">
++                                                이력은 목적·규칙에 의존하는 참고
++                                                기록입니다. 목적 전환에 따른
++                                                점수차는 문장 개선의 증거가
++                                                아닙니다. 계산 규칙 보정 후 같은
++                                                본문도 현재 분석 값과 과거 저장
++                                                점수가 다를 수 있습니다. 과거
++                                                기록은 재계산하지 않습니다.
++                                          </p>
++                                          {q.suggestions.length > 0 && (
++                                                <ul className="flex flex-col gap-1.5 rounded-md border border-border p-2">
++                                                      {q.suggestions.map(
++                                                            (s, i) => (
++                                                                  <li
++                                                                        key={i}
++                                                                        className="text-xs leading-snug"
++                                                                  >
++                                                                        · {s}
++                                                                  </li>
++                                                            ),
++                                                      )}
++                                                </ul>
++                                          )}
++                                          {q.suggested_preset_names.length >
++                                                0 && (
++                                                <div className="flex flex-wrap items-center gap-1.5">
++                                                      <span className="text-[11px] text-muted-foreground">
++                                                            추천 프리셋:
++                                                      </span>
++                                                      {q.suggested_preset_names.map(
++                                                            (name) => (
++                                                                  <Button
++                                                                        key={
++                                                                              name
++                                                                        }
++                                                                        size="sm"
++                                                                        variant="outline"
++                                                                        className="h-6 px-2 text-[11px]"
++                                                                        onClick={() =>
++                                                                              void usePreset(
++                                                                                    name,
++                                                                              )
++                                                                        }
++                                                                  >
++                                                                        {name}
++                                                                  </Button>
++                                                            ),
++                                                      )}
++                                                </div>
++                                          )}
++                                          <p className="text-[11px] text-muted-foreground">
++                                                로컬 규칙에 따른 문체 신호
++                                                참고값이며 종합 문학 품질 점수가
++                                                아닙니다 — 최종 판단은 작가의
++                                                몫입니다.
++                                          </p>
++                                    </div>
++                              )}
++                        </DialogContent>
++                  </Dialog>
++            </>
++      );
+ }
+--- B03-original/frontend/e2e/quality-dialog.spec.ts
++++ B03-current/frontend/e2e/quality-dialog.spec.ts
+@@ -0,0 +1,184 @@
++import { writeFile } from "node:fs/promises";
++import AxeBuilder from "@axe-core/playwright";
++import { expect } from "@playwright/test";
++import { test } from "./quality-scoped-coverage";
++
++// Component fixture uses real stores/query client. No editor/save queue is mounted:
++// API interception is context-wide (including fetch keepalive), with no backend.
++for (const scenario of [
++  {
++    name: "empty",
++    paragraphs: 0,
++    score: 65,
++    history: 2,
++    external: true,
++    riskScore: 7,
++  },
++  {
++    name: "nonempty",
++    paragraphs: 1,
++    score: 100,
++    history: 0,
++    external: false,
++    riskScore: undefined,
++  },
++  {
++    name: "external-without-score",
++    paragraphs: 1,
++    score: 50,
++    history: 2,
++    external: true,
++    riskScore: undefined,
++  },
++]) {
++  test(`QualityDialog ${scenario.name} preserves numeric records and explains reference signals`, async ({
++    page,
++  }, testInfo) => {
++    let requests: string[] = [];
++    let unexpected: string[] = [];
++    await page.context().route("**/*", async (route) => {
++      const url = new URL(route.request().url());
++      if (url.origin !== "http://127.0.0.1:15229") {
++        unexpected = [...unexpected, url.href];
++        return route.abort();
++      }
++      if (!url.pathname.startsWith("/api/")) return route.continue();
++      requests = [...requests, url.pathname + url.search];
++      if (
++        route.request().method() === "GET" &&
++        url.pathname === "/api/v1/chapters/10/quality"
++      ) {
++        return route.fulfill({
++          json: {
++            chapter_id: 10,
++            score: scenario.score,
++            recorded: true,
++            metrics: {
++              chars_novelpia: scenario.paragraphs * 4,
++              dialogue_ratio: 0.25,
++              avg_para_chars: 4,
++              ending_repeat_per_1k: 0,
++              connector_per_1k: 0,
++              para_opener_variety: 1,
++              para_count: scenario.paragraphs,
++              hook_present: false,
++              hook_score_applicable: true,
++              episode_purpose: "serial",
++              ...(scenario.external
++                ? {
++                    v2: {
++                      risk_band: "synthetic",
++                      risk_score: scenario.riskScore,
++                    },
++                  }
++                : {}),
++            },
++            suggestions: ["합성 제안"],
++            suggested_preset_names: ["합성 프리셋"],
++          },
++        });
++      }
++      if (
++        route.request().method() === "GET" &&
++        url.pathname === "/api/v1/chapters/10/quality/history"
++      ) {
++        return route.fulfill({
++          json: scenario.history
++            ? [
++                {
++                  id: 2,
++                  chapter_id: 10,
++                  score: 65,
++                  created_at: "2026-09-12T00:00:00Z",
++                },
++                {
++                  id: 1,
++                  chapter_id: 10,
++                  score: 50,
++                  created_at: "2026-09-11T00:00:00Z",
++                },
++              ]
++            : [],
++        });
++      }
++      if (url.pathname === "/api/v1/ai/presets" && route.request().method() === "GET") {
++        if (scenario.name === "nonempty") return route.fulfill({ status: 500, json: { detail: "synthetic preset failure" } });
++        return route.fulfill({ json: scenario.name === "empty" ? [{ id: 1, name: "합성 프리셋" }] : [] });
++      }
++      unexpected = [
++        ...unexpected,
++        route.request().method() + " " + url.pathname,
++      ];
++      return route.fulfill({
++        status: 500,
++        json: { detail: "unexpected B03 fixture API" },
++      });
++    });
++    await page.goto("/e2e/quality-fixture.html");
++    await page.getByRole("button").click();
++    await expect(
++      page.getByRole("heading", { name: "문체 신호 참고 점수", exact: true }),
++    ).toBeVisible();
++    await expect(
++      page.getByRole("button", { name: "문체 신호 참고 점수", exact: true }),
++    ).toBeVisible();
++    await expect(
++      page.getByRole("progressbar", { name: "문체 신호 참고 점수" }),
++    ).toHaveAttribute("aria-valuenow", String(scenario.score));
++    await expect(page.getByRole("dialog", { name: "문체 신호 참고 점수", exact: true })).toBeVisible();
++    const warning = page.getByText(
++      "빈 원고 — 점수를 품질 판단에 사용할 수 없습니다",
++      { exact: true },
++    );
++    if (scenario.paragraphs === 0) await expect(warning).toBeVisible();
++    else await expect(warning).toHaveCount(0);
++    await expect(
++      page.getByText(/종합 문학 품질 점수가 아닙니다/),
++    ).toBeVisible();
++    await expect(page.getByText(/Unicode 문자\/숫자\(L\/N\)/)).toBeVisible();
++    await expect(
++      page.getByText(/목적·규칙에 의존하는 참고 기록/),
++    ).toBeVisible();
++    await expect(
++      page.getByText(
++        /같은 본문도 현재 분석 값과 과거 저장 점수가 다를 수 있습니다/,
++      ),
++    ).toBeVisible();
++    const external = page.getByText(/외부 essay 참고치\(내장 점수와 별개\)/);
++    if (scenario.external) await expect(external).toBeVisible();
++    else await expect(external).toHaveCount(0);
++    expect(requests).toContain(
++      "/api/v1/chapters/10/quality?episode_purpose=serial",
++    );
++    expect(requests.some((url) => url.includes("record=false"))).toBe(false);
++    expect(unexpected).toEqual([]);
++    const axe = await new AxeBuilder({ page }).analyze();
++    const axeFile = testInfo.outputPath("quality-axe.json");
++    await writeFile(axeFile, JSON.stringify(axe, null, 2));
++    await testInfo.attach("quality-axe", { path: axeFile, contentType: "application/json" });
++    expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual([]);
++    await page.getByRole("button", { name: "합성 프리셋", exact: true }).click();
++    const notice = scenario.name === "empty" ? /선택했습니다/ : scenario.name === "nonempty" ? /프리셋 조회 실패/ : /찾을 수 없습니다/;
++    await expect(page.getByText(notice)).toBeVisible();
++    expect(unexpected).toEqual([]);
++    await page.keyboard.press("Escape");
++    await expect(
++      page.getByRole("heading", { name: "문체 신호 참고 점수", exact: true }),
++    ).toHaveCount(0);
++  });
++}
++
++
++for (const close of ["escape", "backdrop"]) {
++  test(`Dialog omitted optional name preserves ${close} close`, async ({ page }) => {
++    await page.context().route("**/api/**", (route) => route.abort());
++    await page.goto("/e2e/quality-fixture.html?bare=1");
++    await expect(page.getByRole("dialog")).not.toHaveAttribute("aria-label");
++    await expect(page.getByText("optional name omitted")).toBeVisible();
++    await page.keyboard.press("a");
++    await expect(page.getByRole("dialog")).toBeVisible();
++    if (close === "escape") await page.keyboard.press("Escape");
++    else await page.mouse.click(5, 5);
++    await expect(page.getByRole("dialog")).toHaveCount(0);
++  });
++}
+--- B03-original/frontend/e2e/quality-fixture.html
++++ B03-current/frontend/e2e/quality-fixture.html
+@@ -0,0 +1,28 @@
++<!doctype html>
++<html lang="ko">
++  <head><meta charset="UTF-8"><title>B03 synthetic quality fixture</title></head>
++  <body>
++    <main id="root"></main>
++    <script type="module">
++      import React from "react";
++      import { createRoot } from "react-dom/client";
++      import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++      import { QualityDialog } from "/src/components/editor/QualityDialog.tsx";
++      import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "/src/components/ui/dialog.tsx";
++      import { Toaster } from "/src/components/ui/toast.tsx";
++      import "/src/index.css";
++      function UnnamedCompatibilityFixture() {
++        const [open, setOpen] = React.useState(true);
++        return React.createElement(Dialog, { open, onOpenChange: setOpen },
++          React.createElement(DialogContent, null,
++            React.createElement(DialogHeader, null, React.createElement(DialogTitle, null, "compatibility")),
++            React.createElement(DialogDescription, null, "optional name omitted"),
++            React.createElement(DialogFooter, null, "unchanged footer")));
++      }
++      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
++      createRoot(document.getElementById("root")).render(
++        React.createElement(QueryClientProvider, { client },
++          React.createElement(new URLSearchParams(location.search).has("bare") ? UnnamedCompatibilityFixture : QualityDialog, { chapterId: 10 }), React.createElement(Toaster)));
++    </script>
++  </body>
++</html>
+--- B03-original/frontend/e2e/quality-scoped-coverage.ts
++++ B03-current/frontend/e2e/quality-scoped-coverage.ts
+@@ -0,0 +1,25 @@
++import { writeFile } from "node:fs/promises";
++import { test as base } from "@playwright/test";
++
++// Independent B03 collector: retain all runtime entries/maps for later source-hash merge.
++export const test = base.extend({
++  page: async ({ page }, use, testInfo) => {
++    const enabled = process.env.QUALITY_SCOPED_COVERAGE === "1";
++    if (enabled)
++      await page.coverage.startJSCoverage({ resetOnNavigation: false });
++    await use(page);
++    if (enabled && !page.isClosed()) {
++      const entries = (await page.coverage.stopJSCoverage()).filter(
++        (entry) =>
++          entry.url &&
++          ["/src/components/editor/QualityDialog.tsx", "/src/components/ui/dialog.tsx"].includes(new URL(entry.url).pathname),
++      );
++      const file = testInfo.outputPath("quality-scoped-v8.json");
++      await writeFile(file, JSON.stringify(entries));
++      await testInfo.attach("quality-scoped-v8", {
++        path: file,
++        contentType: "application/json",
++      });
++    }
++  },
++});
+--- B03-original/frontend/playwright.quality.config.ts
++++ B03-current/frontend/playwright.quality.config.ts
+@@ -0,0 +1,22 @@
++import { defineConfig, devices } from "@playwright/test";
++import { fixtureServer } from "./e2e/fixture-server";
++
++export default defineConfig({
++  testDir: "./e2e",
++  testMatch: /quality-dialog\.spec\.ts/,
++  timeout: 30_000,
++  expect: { timeout: 5_000 },
++  workers: 1,
++  retries: 0,
++  reporter: [["list"]],
++  use: {
++    baseURL: "http://127.0.0.1:15229",
++    trace: "retain-on-failure",
++    screenshot: "only-on-failure",
++    viewport: { width: 1440, height: 1000 },
++    locale: "ko-KR",
++    serviceWorkers: "block",
++  },
++  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
++  ...fixtureServer(15229),
++});
+--- B03-original/frontend/e2e/ai-context-ui.spec.ts
++++ B03-current/frontend/e2e/ai-context-ui.spec.ts
+@@ -731,7 +731,7 @@
+       await page.getByLabel(/이번 요청에서 회수\/공개 허용/).check();
+       await page.getByRole("button", { name: "패널 닫기" }).click();
+ 
+-      await page.getByRole("button", { name: "품질 진단" }).click();
++      await page.getByRole("button", { name: "문체 신호 참고 점수" }).click();
+       await expect(page.getByText("해당 없음")).toBeVisible();
+       expect(
+         state.qualityRequests.some((q) =>
+@@ -842,7 +842,7 @@
+       const state = await setupFixture(page);
+       await page.goto(`/projects/${PROJECT_ID}/write`);
+       await expect(page.locator(".cm-content")).toBeVisible();
+-      await page.getByRole("button", { name: "품질 진단" }).click();
++      await page.getByRole("button", { name: "문체 신호 참고 점수" }).click();
+ 
+       await expect(page.getByLabel("회차 목적")).toBeVisible();
+       await expect(page.getByLabel("선택 인물 관계 포함")).not.toBeVisible();
+--- B03-original/frontend/src/components/ui/dialog.tsx
++++ B03-current/frontend/src/components/ui/dialog.tsx
+@@ -1,22 +1,28 @@
+-import { useEffect, type HTMLAttributes, type ReactNode } from 'react';
+-import { createPortal } from 'react-dom';
+-import { cn } from '@/lib/utils';
++import { useEffect, type HTMLAttributes, type ReactNode } from "react";
++import { createPortal } from "react-dom";
++import { cn } from "@/lib/utils";
+ 
+ interface DialogProps {
++  "aria-label"?: string;
+   open: boolean;
+   onOpenChange: (open: boolean) => void;
+   children: ReactNode;
+ }
+ 
+ /** shadcn/ui Dialog 수동 구현 — Portal + Esc 닫기 (Radix 포커스트랩은 Sprint 4b 과제) */
+-export function Dialog({ open, onOpenChange, children }: DialogProps) {
++export function Dialog({
++  open,
++  onOpenChange,
++  children,
++  "aria-label": ariaLabel,
++}: DialogProps) {
+   useEffect(() => {
+     if (!open) return;
+     const onKey = (e: KeyboardEvent) => {
+-      if (e.key === 'Escape') onOpenChange(false);
++      if (e.key === "Escape") onOpenChange(false);
+     };
+-    window.addEventListener('keydown', onKey);
+-    return () => window.removeEventListener('keydown', onKey);
++    window.addEventListener("keydown", onKey);
++    return () => window.removeEventListener("keydown", onKey);
+   }, [open, onOpenChange]);
+ 
+   if (!open) return null;
+@@ -27,7 +33,12 @@
+         onClick={() => onOpenChange(false)}
+         aria-hidden="true"
+       />
+-      <div role="dialog" aria-modal="true" className="relative z-10 w-full max-w-lg">
++      <div
++        role="dialog"
++        aria-label={ariaLabel}
++        aria-modal="true"
++        className="relative z-10 w-full max-w-lg"
++      >
+         {children}
+       </div>
+     </div>,
+@@ -35,27 +46,56 @@
+   );
+ }
+ 
+-export function DialogContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
++export function DialogContent({
++  className,
++  ...props
++}: HTMLAttributes<HTMLDivElement>) {
+   return (
+     <div
+-      className={cn('rounded-lg border border-border bg-card p-6 text-card-foreground shadow-soft', className)}
++      className={cn(
++        "rounded-lg border border-border bg-card p-6 text-card-foreground shadow-soft",
++        className,
++      )}
+       {...props}
+     />
+   );
+ }
+ 
+-export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+-  return <div className={cn('mb-4 flex flex-col gap-1.5', className)} {...props} />;
++export function DialogHeader({
++  className,
++  ...props
++}: HTMLAttributes<HTMLDivElement>) {
++  return (
++    <div className={cn("mb-4 flex flex-col gap-1.5", className)} {...props} />
++  );
+ }
+ 
+-export function DialogTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
+-  return <h2 className={cn('text-lg font-semibold leading-none', className)} {...props} />;
++export function DialogTitle({
++  className,
++  ...props
++}: HTMLAttributes<HTMLHeadingElement>) {
++  return (
++    <h2
++      className={cn("text-lg font-semibold leading-none", className)}
++      {...props}
++    />
++  );
+ }
+ 
+-export function DialogDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+-  return <p className={cn('text-sm text-muted-foreground', className)} {...props} />;
++export function DialogDescription({
++  className,
++  ...props
++}: HTMLAttributes<HTMLParagraphElement>) {
++  return (
++    <p className={cn("text-sm text-muted-foreground", className)} {...props} />
++  );
+ }
+ 
+-export function DialogFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+-  return <div className={cn('mt-4 flex justify-end gap-2', className)} {...props} />;
++export function DialogFooter({
++  className,
++  ...props
++}: HTMLAttributes<HTMLDivElement>) {
++  return (
++    <div className={cn("mt-4 flex justify-end gap-2", className)} {...props} />
++  );
+ }

@@ -1,0 +1,3 @@
+cwd=/mnt/c/Users/wj941/Documents/jippeel/backend
+command=.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -v tests/test_quality_b03_reproduction.py
+exit=1

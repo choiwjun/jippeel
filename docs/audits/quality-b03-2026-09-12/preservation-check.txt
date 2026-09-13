@@ -1,0 +1,4 @@
+git diff --no-index /dev/null backend/tests/test_quality_b03_reproduction.py exit=1 (1 means new-file diff)
+repo-status diff exit=1 (expected 1: only new reproduction file)
+new test whitespace check exit=1
+full preexisting-worktree git diff --check exit=2; unrelated preexisting whitespace findings captured in diff-check.txt; no cleanup performed. This is a validation failure, not test/isolation infrastructure failure.

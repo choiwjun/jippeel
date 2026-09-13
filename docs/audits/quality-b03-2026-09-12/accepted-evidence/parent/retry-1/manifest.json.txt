@@ -1,0 +1,157 @@
+{
+  "status": "CURRENT_SUPPORT_VERIFICATION_PASSED_INDEPENDENT_CHALLENGE_PENDING",
+  "supersedesFailureForAcceptanceOnly": "checkpoint.json (failure evidence retained unchanged)",
+  "resourceDecision": "resource-disposition.json",
+  "head": "c1a92c45fe8c16b4ee140a31fe97683ab588ed07",
+  "stagedFiles": [],
+  "sourceAndProtectedHashes": {
+    "backend/app/services/quality.py": "17efd16a2ffd45cc7faa4861e5303b830122f9296eb156ce36f78cf4c18cd809",
+    "backend/tests/test_quality_b03_reproduction.py": "63c794f374237b8ad61f7a50871df8da670b40682901105dc9427fe3e6e35315",
+    "backend/tests/isolation_guard.py": "6599632132f650d6fea1426cfe6130a427ad7d229fa062dc7934905f89f6c3d5",
+    "backend/tests/test_isolation_guard.py": "a39913db4b51df38c760ec50366372fa6c5f47fa5be7554e632dc0a1a5af52c4",
+    "frontend/src/components/editor/QualityDialog.tsx": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+    "frontend/e2e/quality-dialog.spec.ts": "919432b8f87f7fbc5415220228fb09538ff4090580c873eb5596d128cdcb3de4",
+    "frontend/e2e/quality-fixture.html": "bd5e891cd9e42000e6f7033f8d85fbca5c52951106188e4dc2889eb9196b15db",
+    "frontend/e2e/quality-scoped-coverage.ts": "309ac3a64f92ac09f8d5a2a1765d1d81b168ba2843679d0238a76623362b0475",
+    "frontend/playwright.quality.config.ts": "ee30e9a0ae75d18597438cdb6ab1437e431e3ef8e0f24495720b7e18b8526fc8",
+    "frontend/e2e/ai-context-ui.spec.ts": "8914b141436410db7ac3e18196eb4e60a1a5258d3189d9b4bce77fbd18adea79",
+    "frontend/src/components/ui/dialog.tsx": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+    "backend/.coverage": "a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624",
+    "backend/app/services/crypto.py": "5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e",
+    "backend/app/services/canon.py": "0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321",
+    "backend/app/services/bootstrap.py": "c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c",
+    ".git/index": "bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00"
+  },
+  "beforeAfterHashEquality": true,
+  "qualityTests": 5,
+  "qualityExit": 0,
+  "helperTypeScriptExit": 0,
+  "helperTypeScriptLogBytes": 0,
+  "helperTsConfig": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/tsconfig.fixture.json",
+  "helperTsConfigSha256": "f844f86168be6114711b72f774eb1aef52637ae69c3d5641b7335a7e4fe6a3f9",
+  "axeFullScans": [
+    {
+      "path": "retry-1/quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-axe.json",
+      "sha256": "be129cf3bf21899257bf837eb9c6e780ab90cdb15daeb478879f46b03c4ed385",
+      "violations": []
+    },
+    {
+      "path": "retry-1/quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-axe.json",
+      "sha256": "f85d676c8e34c0a03d2bb2ac1a13bb7e8409f8db73cf13928ced5a289c9522d8",
+      "violations": []
+    },
+    {
+      "path": "retry-1/quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-axe.json",
+      "sha256": "cb6d82f2c437a8f0d8b0991e7fd259c5cc734e40f3ce8b9063f82f58edd4159b",
+      "violations": []
+    }
+  ],
+  "rawSamples": 5,
+  "runtimeEntries": 10,
+  "exactSourceJsMapGroups": 2,
+  "rawEvidence": [
+    {
+      "rawPath": "retry-1/quality/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/quality-scoped-v8.json",
+      "rawSha256": "6accc08496f86fc976987899df17670010c304bf93e1a6aca242a423ca1ca237",
+      "runtimeIndex": 0,
+      "scriptId": "16",
+      "sourceFile": "frontend/src/components/editor/QualityDialog.tsx",
+      "sourceSha256": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+      "generatedJsSha256": "bf554a2c343b5c7e2d6461b0c8d844ca7091c1de0036dbd15198cea53bb349f4",
+      "decodedRawMapBytesSha256": "10534be4642ebef8c5d1ae1819c5fa41565dd7dc1c7727b449bbe47f8e35ec5f"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/quality-scoped-v8.json",
+      "rawSha256": "6accc08496f86fc976987899df17670010c304bf93e1a6aca242a423ca1ca237",
+      "runtimeIndex": 1,
+      "scriptId": "17",
+      "sourceFile": "frontend/src/components/ui/dialog.tsx",
+      "sourceSha256": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+      "generatedJsSha256": "cc8f0d7d6d3926cc132819a4d47b02334d0c27d69b28f7e51fa115a14956ef62",
+      "decodedRawMapBytesSha256": "fce57f3e8bf8a95f24514aee40c95713133bb1cd9c261f99f52c8c22646ca74d"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/quality-scoped-v8.json",
+      "rawSha256": "e0cd4eef2537b233623f44a29fee75124578ead9f7c722d6c1363d353959a2d0",
+      "runtimeIndex": 0,
+      "scriptId": "18",
+      "sourceFile": "frontend/src/components/editor/QualityDialog.tsx",
+      "sourceSha256": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+      "generatedJsSha256": "bf554a2c343b5c7e2d6461b0c8d844ca7091c1de0036dbd15198cea53bb349f4",
+      "decodedRawMapBytesSha256": "10534be4642ebef8c5d1ae1819c5fa41565dd7dc1c7727b449bbe47f8e35ec5f"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/quality-scoped-v8.json",
+      "rawSha256": "e0cd4eef2537b233623f44a29fee75124578ead9f7c722d6c1363d353959a2d0",
+      "runtimeIndex": 1,
+      "scriptId": "17",
+      "sourceFile": "frontend/src/components/ui/dialog.tsx",
+      "sourceSha256": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+      "generatedJsSha256": "cc8f0d7d6d3926cc132819a4d47b02334d0c27d69b28f7e51fa115a14956ef62",
+      "decodedRawMapBytesSha256": "fce57f3e8bf8a95f24514aee40c95713133bb1cd9c261f99f52c8c22646ca74d"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "rawSha256": "61b0d36bd6ecc8b02fbf7a9318bf50e9d5ebbc561818c8cc928d76524391e334",
+      "runtimeIndex": 0,
+      "scriptId": "17",
+      "sourceFile": "frontend/src/components/editor/QualityDialog.tsx",
+      "sourceSha256": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+      "generatedJsSha256": "bf554a2c343b5c7e2d6461b0c8d844ca7091c1de0036dbd15198cea53bb349f4",
+      "decodedRawMapBytesSha256": "10534be4642ebef8c5d1ae1819c5fa41565dd7dc1c7727b449bbe47f8e35ec5f"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "rawSha256": "61b0d36bd6ecc8b02fbf7a9318bf50e9d5ebbc561818c8cc928d76524391e334",
+      "runtimeIndex": 1,
+      "scriptId": "18",
+      "sourceFile": "frontend/src/components/ui/dialog.tsx",
+      "sourceSha256": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+      "generatedJsSha256": "cc8f0d7d6d3926cc132819a4d47b02334d0c27d69b28f7e51fa115a14956ef62",
+      "decodedRawMapBytesSha256": "fce57f3e8bf8a95f24514aee40c95713133bb1cd9c261f99f52c8c22646ca74d"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "rawSha256": "8cfd80b942bce45f359569b25d6c3ebaa6772b2b9a6e256c3102b15ed4c7bef6",
+      "runtimeIndex": 0,
+      "scriptId": "17",
+      "sourceFile": "frontend/src/components/editor/QualityDialog.tsx",
+      "sourceSha256": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+      "generatedJsSha256": "bf554a2c343b5c7e2d6461b0c8d844ca7091c1de0036dbd15198cea53bb349f4",
+      "decodedRawMapBytesSha256": "10534be4642ebef8c5d1ae1819c5fa41565dd7dc1c7727b449bbe47f8e35ec5f"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "rawSha256": "8cfd80b942bce45f359569b25d6c3ebaa6772b2b9a6e256c3102b15ed4c7bef6",
+      "runtimeIndex": 1,
+      "scriptId": "19",
+      "sourceFile": "frontend/src/components/ui/dialog.tsx",
+      "sourceSha256": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+      "generatedJsSha256": "cc8f0d7d6d3926cc132819a4d47b02334d0c27d69b28f7e51fa115a14956ef62",
+      "decodedRawMapBytesSha256": "fce57f3e8bf8a95f24514aee40c95713133bb1cd9c261f99f52c8c22646ca74d"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "rawSha256": "8dead2b40c080cb7f46704b164d0e3817154bc17a8567b42a8644fb0bf516f5c",
+      "runtimeIndex": 0,
+      "scriptId": "17",
+      "sourceFile": "frontend/src/components/editor/QualityDialog.tsx",
+      "sourceSha256": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+      "generatedJsSha256": "bf554a2c343b5c7e2d6461b0c8d844ca7091c1de0036dbd15198cea53bb349f4",
+      "decodedRawMapBytesSha256": "10534be4642ebef8c5d1ae1819c5fa41565dd7dc1c7727b449bbe47f8e35ec5f"
+    },
+    {
+      "rawPath": "retry-1/quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "rawSha256": "8dead2b40c080cb7f46704b164d0e3817154bc17a8567b42a8644fb0bf516f5c",
+      "runtimeIndex": 1,
+      "scriptId": "18",
+      "sourceFile": "frontend/src/components/ui/dialog.tsx",
+      "sourceSha256": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+      "generatedJsSha256": "cc8f0d7d6d3926cc132819a4d47b02334d0c27d69b28f7e51fa115a14956ef62",
+      "decodedRawMapBytesSha256": "fce57f3e8bf8a95f24514aee40c95713133bb1cd9c261f99f52c8c22646ca74d"
+    }
+  ],
+  "oldArtifactsReverified": 218,
+  "productionCoverage": "Original converted-final artifacts remain independently reconstructed against identical production source. New raw parent samples are separate and not merged into old coverage.",
+  "remaining": "Both retained reviewers must assess closure of their single E1/current-helper evidence finding; no product changes."
+}

@@ -1,5 +1,6 @@
 """Pydantic 스키마 — 프로젝트·회차 (Sprint 1 범위)."""
 from datetime import datetime
+import math
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -135,6 +136,12 @@ class MemoryEntryCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_effective_range(self):
+        for label, value in (
+            ("effective_from_sort_order", self.effective_from_sort_order),
+            ("effective_to_sort_order", self.effective_to_sort_order),
+        ):
+            if value is not None and not math.isfinite(value):
+                raise ValueError(f"{label} must be finite")
         if (
             self.effective_from_sort_order is not None
             and self.effective_to_sort_order is not None
@@ -154,6 +161,22 @@ class MemoryEntryUpdate(BaseModel):
     visibility: MemoryVisibility | None = None
     effective_from_sort_order: float | None = None
     effective_to_sort_order: float | None = None
+
+    @model_validator(mode="after")
+    def validate_effective_values(self):
+        for label, value in (
+            ("effective_from_sort_order", self.effective_from_sort_order),
+            ("effective_to_sort_order", self.effective_to_sort_order),
+        ):
+            if value is not None and not math.isfinite(value):
+                raise ValueError(f"{label} must be finite")
+        if (
+            self.effective_from_sort_order is not None
+            and self.effective_to_sort_order is not None
+            and self.effective_from_sort_order > self.effective_to_sort_order
+        ):
+            raise ValueError("memory effective range is reversed")
+        return self
 
 
 class MemoryEntryOut(BaseModel):
@@ -315,7 +338,9 @@ class ChaptersReorder(BaseModel):
     items: list[ReorderItem] = Field(min_length=1)
 
 
-# ---- AiEndpoint (M4, Sprint 3) — NFR-202: 평문 api_key는 어떤 응답에도 미반환 ----
+# ---- Legacy AiEndpoint compatibility (read/write only for migration) ----
+# 집필 경로는 이 모델을 조회하지 않는다. 기존 로컬 DB와 구버전 도구가
+# 안전하게 종료될 수 있도록 API 계약만 임시 유지하며 신규 UI에는 노출하지 않는다.
 class AiEndpointCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     base_url: str = Field(min_length=1, max_length=512)
@@ -329,7 +354,7 @@ class AiEndpointCreate(BaseModel):
 class AiEndpointUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     base_url: str | None = Field(default=None, min_length=1, max_length=512)
-    api_key: str | None = Field(default=None, max_length=4096)  # 전달 시 재암호화
+    api_key: str | None = Field(default=None, max_length=4096)
     default_model: str | None = Field(default=None, max_length=255)
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh"] | None = None
@@ -337,8 +362,6 @@ class AiEndpointUpdate(BaseModel):
 
 
 class AiEndpointOut(BaseModel):
-    """api_key는 has_api_key 플래그로만 노출한다 (FR-402)."""
-
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -450,20 +473,20 @@ class GenerateContext(BaseModel):
 
 
 class GenerateParams(BaseModel):
-    model: str | None = Field(default=None, max_length=255)  # endpoint.default_model 대체
-    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    """Fixed GPT OAuth request controls; temperature is intentionally unsupported."""
+
+    model: str | None = Field(default=None, max_length=255)  # fixed provider ignores hint
     max_tokens: int | None = Field(default=None, ge=1)
 
 
 class GenerateReviewOptions(BaseModel):
-    """생성 직후 자동 감수 패스 — 기존 /ai/generate SSE 계약을 유지한다.
+    """생성 직후 자동 감수 패스 — GPT OAuth provider를 재사용한다.
 
-    endpoint_id 미지정 시 생성 엔드포인트를 재사용하고, reasoning_effort 미지정 시
-    감수 엔드포인트의 설정값을 따른다. 감수만 실패해도 초안은 이미 수신 완료된
-    상태이므로 review_error 이벤트로 통보하고 스트림은 정상 종료한다.
+    provider와 계정은 서버의 고정 OAuth 설정으로 결정하며, 클라이언트가
+    endpoint나 API key를 선택하지 않는다. 감수만 실패해도 초안은 이미 수신
+    완료된 상태이므로 review_error 이벤트로 통보하고 스트림은 정상 종료한다.
     """
 
-    endpoint_id: int | None = None
     model: str | None = Field(default=None, max_length=255)
     reasoning_effort: str | None = Field(default=None, max_length=20)
     max_tokens: int | None = Field(default=None, ge=1)
@@ -499,9 +522,8 @@ class ParallelPlan(BaseModel):
 
 
 class ParallelGenerateRequest(BaseModel):
-    """Medium 장면 병렬 집필 + xhigh 전체 감수 요청."""
+    """Medium 장면 병렬 집필 + GPT OAuth provider 감수 요청."""
 
-    endpoint_id: int
     preset_id: int | None = None
     prompt_override: str | None = None
     context: GenerateContext = Field(default_factory=GenerateContext)
@@ -515,11 +537,10 @@ class ParallelGenerateRequest(BaseModel):
 class ReviewRequest(BaseModel):
     """감수 패스 요청 — /ai/generate와 분리된 독립 엔드포인트.
 
-    초안 스트림이 끝난 뒤 별도 호출할 수 있다. 기존 /ai/generate의
-    인라인 감수 계약과 병행해 클라이언트 마이그레이션을 지원한다.
+    초안 스트림이 끝난 뒤 별도 호출할 수 있다. provider는 고정 GPT OAuth
+    계정이며 클라이언트가 endpoint를 선택하지 않는다.
     """
 
-    endpoint_id: int
     model: str | None = Field(default=None, max_length=255)
     reasoning_effort: str | None = Field(default=None, max_length=20)
     max_tokens: int | None = Field(default=None, ge=1)
@@ -527,7 +548,8 @@ class ReviewRequest(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    endpoint_id: int
+    """GPT OAuth provider를 사용하는 집필 요청."""
+
     preset_id: int | None = None
     prompt_override: str | None = None
     context: GenerateContext = Field(default_factory=GenerateContext)

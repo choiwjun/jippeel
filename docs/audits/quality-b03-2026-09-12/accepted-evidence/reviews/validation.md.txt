@@ -1,0 +1,182 @@
+Status: B03_VALIDATION_READY
+
+Validation gates below passed with independently reconstructable evidence. **Not final product acceptance:** parent owns canonical status and reviewer acceptance.
+
+## Evidence and scope
+
+Persistent root: `/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W` (abbreviated **E** below).
+
+- Machine manifest: `E/validation-manifest.json`; current hashes: `final-source-hashes.json`; complete original-baseline B03 diff: `b03-baseline-relative.diff`.
+- Original dirty-worktree baseline: `recovery/b03-implementation-qcUqNm68/before/`, not HEAD. Shared primitive original bytes/hash were additionally captured **before its authorized edit** in `E/original-additions/frontend/src/components/ui/dialog.tsx` and `dialog-original-hash.txt`.
+- Validation-start snapshot: `E/before/`; final snapshots: `E/after/` and `final-current-source/`. Earlier reproduction/implementation evidence was not overwritten.
+
+**Prominent validation-stage change:** full quality-dialog axe exposed an unnamed shared `role=dialog`. Supervisor explicitly authorized an optional standard `aria-label` prop in `frontend/src/components/ui/dialog.tsx`, forwarded only to its existing dialog element, with the approved name supplied only by `QualityDialog`. No generic fallback, other caller edits, focus/portal/Escape redesign or API changes. Added exact dialog-name assertion and omitted-prop Escape/backdrop compatibility tests. Full original axe failures remain in `quality-axe-first/` and its log.
+
+Additional validation edits are confined to quality fixture/support tests: full axe JSON persistence, preset success/missing/error coverage (including catch), primitive coverage selection and omitted-name fixture. Production/backend score formula, purpose/history/API/essay adapter remain unchanged. `changed-files.txt` lists all11 files for the **combined** implementation+validation diff; this does not imply all11 changed during validation.
+
+## Test and safety results
+
+Exact cwd, command and exits are in individual `*-command.txt`; logs retain full native completion and Playwright teardown output. Backend cwd was `/mnt/c/Users/wj941/Documents/jippeel/backend`; browser/build cwd was `frontend/`.
+
+| Gate | Result / evidence |
+|---|---|
+| Fresh native preflight | `.venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight`: exit0; app/pytest not imported, violations=[] |
+| Full native backend | `.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py --isolation-coverage -q`: **482 passed, 1 skipped, 70 subtests, 19 warnings**, exit0 (`backend-full.log`) |
+| Native completion | `pytest_exit=0`, internal_ipc_count237, **subprocess_attempts=0, violations=[]**, fake_keyring_calls7 (fake-keyring regression calls, not real credentials) |
+| Final quality fixture | `QUALITY_SCOPED_COVERAGE=1 node node_modules/@playwright/test/cli.js test --config playwright.quality.config.ts --output E/quality-artifacts`: **5 passed**, exit0, no escapes |
+| Relevant axe | Three full named-quality-dialog scans: **all violations=[]**, not merely filtered serious/critical0. Full JSON in `quality-artifacts/*/quality-axe.json`. Offending node/rule was not excluded. Omitted-name compatibility tests intentionally preserve the old unnamed-call contract; these are not claimed as accessible caller examples. |
+| Shared memory consumers | `playwright.memory.config.ts`: **31 passed**, no escapes (`memory-current.log`) |
+| Manuscript preservation | `playwright.preservation.config.ts`: **26 passed**, owned server closed/no escapes, includes unload keepalive regression (`preservation-current.log`) |
+| AI context fixture | `playwright.ai-context.fixture.config.ts`: **15 passed**, no escapes (`ai-current.log`) |
+| Final helper TypeScript | `node node_modules/typescript/bin/tsc --project E/tsconfig.fixture.json`: exit0, empty error log; includes collector/spec/config and existing support using verified owned Node22 types |
+| Final app TypeScript/build | `npm run build -- --outDir E/frontend-current-build`: **tsc -b PASS**, Vite232 modules/build PASS, exit0 (`current-build.log`) |
+
+Final shared suites ran **serially**, ports15228/15225/15227; quality used15229. All used existing no-proxy/tripwire fixture mechanisms, reuse=false, no operational backend/provider. Dedicated ports do not isolate Vite's optimizer cache; future suites in this cwd must remain serial. No actual external metrics implementation, production DB/key, port8000, device, migration/deployment, installation, stage/commit/push or cleanup occurred.
+
+Native raw files were copied only from returned owned Windows TEMP `jippeel-isolated-krgfu0gp`: `backend-raw/{coverage.json,test.coverage,pytest.log}`. The native guard completion is a stdout JSON record, not a separately emitted guard file; its exact last line is retained as `backend-raw/guard-report.raw.json`. No DB/key contents were inspected/copied. Warnings include existing unclosed SQLite ResourceWarnings; skip/warnings are retained, not relabeled PASS tests.
+
+## Current-source coverage gates
+
+| Production file | Changed executable lines | Corresponding instrumented branch arms | Whole-module coverage (separate) |
+|---|---:|---:|---|
+| `backend/app/services/quality.py` | **19/20 =95%** | **10/10 =100%** | native128/135 statements94.81%;41/48 branches85.42%; aggregate92.35% |
+| `frontend/src/components/editor/QualityDialog.tsx` | **278/284 =97.89%** | **42/48 =87.5%** | mapped442/450 line/statements98.22%;42/48 branches87.5%;7/7 functions |
+| `frontend/src/components/ui/dialog.tsx` | **41/41 =100%** | **14/14 =100%** | mapped101/101 line/statements;17/17 branches;8/8 functions |
+
+Every file independently exceeds80% for both gates; no zero denominator here. Missing lines/arms are retained in JSON, not removed to reach thresholds.
+
+### Backend reconstruction / uninstrumented expression
+
+`python-changed-coverage.json` contains source SHA, raw coverage SHA, exact original-relative changed lines, AST statement spans, executed/missing line sets, all selected native arcs and whole-module counters. Native instrumented changed lines are19/19 hit. New generator-expression line34 inside assignment33–35 is **not independently recorded by native coverage.py**. Rather than inventing parent-function/literal execution credit, the conservative executable denominator includes it as **one uncovered line**:19/20. Comments, blanks, docstring, closing delimiter and `else:` are explicitly listed, not counted as executable statements. This is not a claim to have mapped line34 execution to line33. Native source bytes remained unchanged after full-suite execution.
+
+### Frontend reconstruction / branches and catches
+
+- Original-relative raw line differences are in `changed-lines-frozen.json`. `freeze-scope.cjs` uses the installed TypeScript AST to identify executable statement/expression/JSX-attribute starts, excluding type/import-only nodes. `coverage-scope-frozen.json` records exact current source SHA and all denominator lines. Formatting-only differences remain in this conservative denominator; they were **not discarded**.
+- Five final test raw files retain **all10 matching runtime entries**, including scriptId/index, original TSX source, generated JS and inline map. `converted-final/evidence.json` records each raw/log/source/JS/map SHA, URL, sample and group identity.
+- Version/provenance checks passed for existing owned `v8-to-istanbul9.3.0`, `@bcoe/v8-coverage1.0.2`, `istanbul-lib-coverage3.2.2`, `@types/node22.0.0` (`tool-provenance.json`). No installation.
+- Raw V8 entries merge **before conversion**, only within exact same original-source/JS/map identities:2 groups. Each merged group, generated JS, map and mapped Istanbul JSON is preserved under `converted-final/`. Converter enforces original-map/frozen/current source equality and mapped path identity. No previous source-different run entered the final merge.
+- Branch selection is conservative: select every instrumented branch record whose location **or arm location range** intersects a changed line, retaining every count including zero/catch arms. `all-branch-arms.json` contains all IDs, ranges, counts and selected flags; `changed-branches.cjs` is replayable. All48 QualityDialog arms are selected, including preset failure/catch coverage.
+- Dialog's whole-module17 arms versus scoped14 is explicit: unselected IDs **2** (line28 columns13–25), **6** (line20 columns15–22), **11** (line33 columns17–43) have no changed-line intersection; counts8/8/1 respectively, so none hides a missed branch. Remaining14 are all hit. Full coverage map independently reconstructs this.
+- Latest source hashes: QualityDialog **6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb**; Dialog **a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f**. These equal final raw source maps, frozen scope, current bytes and post-check hashes.
+
+### Precise shared-regression source boundary
+
+Serial shared31/26/15 regressions ran after the accessible-name fix, before the formatter merely wrapped that `<Dialog>` opening tag's props onto4 additional lines. Their tested QualityDialog SHA was6c728…; they are **not claimed to have run byte-identical698883… source**. `second-formatter-drift.diff` records the exact wrap. Supervisor authorized a replayable syntax-only equivalence check for this boundary: `check-format-equivalence.cjs`, exit0, both parseDiagnostics0. It excludes **SourceFile container.text only**, retaining descendant literal/identifier/JSX/token text. Negative in-memory label, JSX-text and operator changes were all rejected. This supports reuse of shared regressions, not coverage normalization. Fresh final quality5/axe/TypeScript/build and mapped coverage use exact698883… source.
+
+## Historical failures and authorized dispositions
+
+All original failures remain separate; none is renamed PASS.
+
+1. **AI fixture infrastructure:** first run1FAIL/14notrun, exit1, React/jsx/react-dom HTTP504 `Outdated Optimize Dep`. Preservation and AI had been launched concurrently; optimizer contention is probable, not proven. Stopped, retained log/raw trace/projection/status/protected hashes, obtained permission for **one** sequential same-config rerun without cleanup/config changes. Rerun15PASS. After primitive fix all shared suites again ran serially and passed. See `ai-ui*`, `ai-failure-trace-projection.json`, checkpoints.
+2. **Actual accessibility RED:** quality3FAIL with serious aria-dialog-name. Stopped for scope approval, applied only the authorized optional prop/caller name, then full axe violations=[] and omitted-prop regressions passed. Original failure log/trace retained in `quality-axe-first`.
+3. **Wrong-context tooling:** fallback LSP complained collector lacked Node/process/Promise/includes types. Explicit approved strict/noEmit ES2020 helper config with verified Node22 types passed. Supervisor allowed this contextual disposition, no ignores/global suppression. `helper-lsp-fallback.txt`, helper config/logs retained. No active LSP tool was available; no substitute CLI was launched to claim LSP-clean.
+4. **Inherited frozen v2 diagnostics:** original optional ModuleSpec/loader diagnostics remain per prior explicit supervisor decision; adapter source unchanged. Not an all-clean LSP claim or a new B03 defect.
+5. **Correct fail-closed coverage mismatch:** first converter exit1 because shared Dialog autoformatted after collection (rawf7ab… vs currenta1f8…). Stopped and received permission for fresh same-protocol run/new conversion; old `converted-first`, raw files and identity diff retained. Later QualityDialog wrapping has its own raw identity records. Final converter accepts only the final exact-source run.
+6. **Support-check bug:** first syntax serializer accidentally compared SourceFile.text (whole raw file), causing exit1 on formatting. Stopped and received one bounded corrected pass. Failure note/checkpoint preserved; corrected replayable script and3 negative controls pass. No application changes or hash bypass resulted.
+
+Checkpoints were sent before the target deadline. Supervisor authorized a short bounded extension for final support correction/report. No open execution failure remains undisposed; no repeated hidden retries or dependency/protocol fallback.
+
+## Preservation and remaining review limits
+
+Main HEAD stays `c1a92c45fe8c16b4ee140a31fe97683ab588ed07`; index unchanged; `after-staged.txt` empty. Before/post protected files compare byte-identical (`protected-diff.txt` empty):
+
+- `.coverage`: `a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624`
+- crypto: `5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e`
+- canon: `0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321`
+- bootstrap: `c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c`
+- index: `bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00`
+
+Existing dirty/untracked materials and old failure evidence preserved. No canonical status/HANDOFF/acceptance.md changes. Remaining: required independent reviewer gate and parent acceptance; real external-engine quality/V04, literary calibration, designated devices and operational resources remain intentionally outside scope. Full application-wide axe/active-LSP cleanliness is not claimed; relevant quality scans and existing fixture accessibility regressions passed.
+
+**Recommended next step:** independent review of the original-relative diff, machine manifest, all branch-arm ledger and scoped shared-primitive approval; parent records acceptance only after that gate.
+
+```acceptance-report
+{
+  "criteriaSatisfied": [
+    {
+      "id": "criterion-1",
+      "status": "satisfied",
+      "evidence": "Validated approved B03 scope; only supervisor-authorized dialog-name acceptance fix and bounded fixture support added."
+    },
+    {
+      "id": "criterion-2",
+      "status": "satisfied",
+      "evidence": "Original baseline/current snapshots, machine manifest, raw-source-hash coverage, full branch ledger, exact run logs and preservation evidence retained."
+    }
+  ],
+  "changedFiles": [
+    "backend/app/services/quality.py",
+    "backend/tests/test_quality_b03_reproduction.py",
+    "backend/tests/isolation_guard.py",
+    "backend/tests/test_isolation_guard.py",
+    "frontend/src/components/editor/QualityDialog.tsx",
+    "frontend/e2e/quality-dialog.spec.ts",
+    "frontend/e2e/quality-fixture.html",
+    "frontend/e2e/quality-scoped-coverage.ts",
+    "frontend/playwright.quality.config.ts",
+    "frontend/e2e/ai-context-ui.spec.ts",
+    "frontend/src/components/ui/dialog.tsx"
+  ],
+  "testsAddedOrUpdated": [
+    "frontend/e2e/quality-dialog.spec.ts",
+    "frontend/e2e/quality-fixture.html",
+    "frontend/e2e/quality-scoped-coverage.ts"
+  ],
+  "commandsRun": [
+    {
+      "command": ".venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight",
+      "result": "passed",
+      "summary": "Fresh pre-import isolation PASS."
+    },
+    {
+      "command": ".venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py --isolation-coverage -q",
+      "result": "passed",
+      "summary": "482 passed,1 skipped,70subtests,19warnings; violations=[],subprocess_attempts=0."
+    },
+    {
+      "command": "Serial safe quality/memory/preservation/AI Playwright fixture configs",
+      "result": "passed",
+      "summary": "5/31/26/15 passed; final quality axe3 full scans violations=[]."
+    },
+    {
+      "command": "Current helper tsc and npm run build -- --outDir <persistent evidence>/frontend-current-build",
+      "result": "passed",
+      "summary": "Helper/app TypeScript and Vite build PASS."
+    },
+    {
+      "command": "Frozen-scope V8 merge/conversion, coverage gates and corrected format equivalence controls",
+      "result": "passed",
+      "summary": "Three production files individually >=80% changed lines and branch arms; exact final map/source hashes."
+    },
+    {
+      "command": "Historical initial AI/axe/converter/support-check attempts",
+      "result": "failed",
+      "summary": "Failures retained separately; explicit supervisor decisions and successful corrected runs documented, no hidden retries."
+    },
+    {
+      "command": "Protected hashes/current source hashes/frozen source comparison; git diff --cached --name-only",
+      "result": "passed",
+      "summary": "Protected hashes/ref unchanged, no staged files."
+    }
+  ],
+  "validationOutput": [
+    "quality.py19/20 changedlines and10/10arms",
+    "QualityDialog278/284 changedlines and42/48arms",
+    "Dialog41/41 changedlines and14/14arms (17/17 whole-module arms)",
+    "Final5 raw browser samples/10entries/2exact-identity groups"
+  ],
+  "residualRisks": [
+    "Independent review and parent acceptance pending",
+    "Inherited v2 diagnostics and unavailable active LSP explicitly documented",
+    "Shared regression source differed only by verified syntax-equivalent formatting; final quality/map/TS/build use exact current source",
+    "Real external metrics/literary calibration/operational resources excluded"
+  ],
+  "noStagedFiles": true,
+  "diffSummary": "Combined11-file B03 diff retained; validation adds narrowly approved optional dialog accessible-name prop and quality coverage/a11y fixture support.",
+  "reviewFindings": [
+    "No outstanding claimed validation gate failure; reviewer gate required",
+    "Historical failures, uninstrumented Python expression and all missed branch arms retained honestly"
+  ],
+  "manualNotes": "B03_VALIDATION_READY is review readiness, not parent product acceptance. Evidence: /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W"
+}
+```

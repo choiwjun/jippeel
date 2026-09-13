@@ -5,7 +5,7 @@ POST /ai/generate의 context.auto_foreshadow로 자동 주입된다(G-022).
 suggest 엔드포인트(G-046)는 회차 본문에서 복선으로 보이는 떡밥을
 LLM 1콜로 추출해 후보만 반환한다(자동 등록 없음 — 작가가 선택해 등록).
 """
-import openai
+import openai  # type: ignore[import-not-found]
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,9 +14,8 @@ from app.database import get_db
 from app.models import Chapter, Foreshadow, Project
 from app.schemas import (ForeshadowCreate, ForeshadowOut, ForeshadowSuggestRequest,
                          ForeshadowSuggestResponse, ForeshadowUpdate)
-from app.services import injection, llm, usage as usage_service
-from app.services.bootstrap import (NoEndpointError, _extract_json,
-                                    resolve_endpoint)
+from app.services import gpt_oauth, injection, llm, usage as usage_service
+from app.services.bootstrap import _extract_json
 
 router = APIRouter()
 
@@ -133,9 +132,10 @@ async def suggest_foreshadows(pid: int, payload: ForeshadowSuggestRequest,
         raise HTTPException(status_code=422, detail="본문이 비어 있습니다")
 
     try:
-        endpoint, model = resolve_endpoint(db)
-    except NoEndpointError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        provider = gpt_oauth.get_provider()
+    except gpt_oauth.OAuthProviderConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    model = provider.default_model
 
     # 기존 복선 제목을 제외 대상으로 전달 — 중복 후보 방지
     existing = db.scalars(
@@ -149,23 +149,24 @@ async def suggest_foreshadows(pid: int, payload: ForeshadowSuggestRequest,
             '{"candidates": [{"title": "복선 제목", "content": "어떤 떡밥인지 1~2문장", '
             '"keywords": ["본문 매칭용 키워드"]}]}')},
     ]
-    client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+    client = llm.make_client(provider.base_url, None)
     raw = ""
     try:
         raw = await llm.complete_chat(client, model, messages,
-                                      temperature=endpoint.temperature,
-                                      reasoning_effort=endpoint.reasoning_effort)
+                                      reasoning_effort=provider.reasoning_effort)
         data = _extract_json(raw)
     except openai.APIError as exc:
+        message = getattr(exc, "message", None)
+        if not message:
+            message = type(exc).__name__
         raise HTTPException(status_code=502,
-                            detail="엔드포인트 오류: "
-                                   f"{getattr(exc, 'message', None) or type(exc).__name__}") from exc
-    except (ValueError, Exception) as exc:  # noqa: BLE001 — JSON 파싱 실패
+                            detail=f"GPT OAuth 브릿지 오류: {message}") from exc
+    except Exception as exc:  # noqa: BLE001 — JSON 파싱·응답 정규화 실패
         raise HTTPException(status_code=502,
                             detail=f"복선 추출 실패: {type(exc).__name__}") from exc
 
     usage_service.record(kind="foreshadow_suggest", model=model,
-                         endpoint_name=endpoint.name,
+                         endpoint_name=provider.name,
                          prompt_chars=sum(len(m["content"]) for m in messages),
                          completion_chars=len(raw or ""))
 

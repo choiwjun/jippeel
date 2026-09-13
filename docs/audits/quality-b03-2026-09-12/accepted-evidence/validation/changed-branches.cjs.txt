@@ -1,0 +1,6 @@
+function changedBranches(cov, scope) {
+  return Object.entries(cov.branchMap).filter(([id,b]) =>
+    [b.loc, ...(b.locations || [])].some(loc => scope.changedLines.some(line => line >= loc.start.line && line <= loc.end.line)))
+    .map(([id,b]) => ({id, location:b, counts:cov.b[id]}));
+}
+module.exports = {changedBranches};

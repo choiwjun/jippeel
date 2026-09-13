@@ -1,0 +1,49 @@
+# M01–M05 integrity review
+
+**REVIEW_GATE PASS**
+
+## Review
+
+- **Correct:** The reviewed baseline, measurement, isolation and preservation evidence supports the approved M01–M05 scope.
+- **Fixed:** None; this review was read-only.
+- **Findings:** No issues found.
+- **Merge verdict:** OK with the limitations below. Parent acceptance and canonical status updates remain separate.
+
+Evidence paths below are relative to `verification-0fe42cf5/` under the supplied recovery root unless stated otherwise.
+
+### Baseline and frozen scope
+
+`original-baseline-manifest.json`, `final-original-M-production.diff`, historical source outputs and `historical-commands/session-L42-1.sh` / `session-L72-1.sh` provide a coherent five-production-file reconstruction, not a HEAD substitute. MemoryPage retains the pinned pre-M `2e09129…` identity; App’s existing QueryClient configuration moves intact into the explicitly new helper; drafts adds only the import and two acknowledgement notifications; projects changes only the deletion-response literal. Current source seams agree: `frontend/src/lib/manuscriptDrafts.ts:353,507`, `frontend/src/lib/queryClient.ts:1–21`, and `backend/app/routers/projects.py:297–300`.
+
+`historical-output/session-L89-0.txt`, the frozen arrays and `scope-reproduction-proof.json` agree on executable denominators: MemoryPage 60, drafts 2, helper 11, App 0, projects 1. `changed-branches.cjs:1–4` selects branches from all changed source lines, independently of executable-line selection. Its synthetic test preserves an uncovered catch. The final scoped results are 60/60 lines and 33/33 branches for MemoryPage, 2/2 and branch N/A for drafts, 11/11 and 5/5 for the helper, and App N/A—not an omitted unloaded module.
+
+### V8, source maps and sample identity
+
+`merge-convert-coverage-corrected.cjs:15–56` requires successful safe-run records, checks embedded and current source identities, groups by original/generated/map hashes, raw-merges with pinned `@bcoe/v8-coverage`, converts each group separately, verifies its mapped destination, then uses standard Istanbul merge. `coverage-utils.test.cjs` and its successful log verify nested-range reconciliation, a genuinely unexecuted range remaining zero, identity separation and input preservation.
+
+The three full logs contain 31 memory, 26 preservation and 15 AI tests. `package-provenance.cjs` validates 72 logged identities, 56 samples, exact four unique expected source identities per sample, every raw entry and complete sample linkage. `source-transform-groups.json` accounts for 228 instances across eight groups. The duplicate sample at `samples-to-tests.json:1764–1827` retains drafts scriptIds 50 and 295, with different function collections but identical source/JS/map identities. Parent raw-entry projections independently expose these instances; they are not different transforms. The 15 uninstrumented AI tests and one explicitly closed-page lifecycle omission are disclosed, not counted as coverage samples.
+
+The helper’s fresh counterfactual in `helper-shape-comparison.json` correctly distinguishes 3/4 without the fault sample from 5/5 with it. Raw helper ranges, generated JS, decoded source map and `mapped-recovery-full/5.merged-v8.json` support both the executed catch and additional mapped normal-await range L17:77–18:10. `frontend/e2e/manuscript-preservation.spec.ts:1305–1364` injects the fault at the real save acknowledgement, asserts the exact write/revision/error, unsubscribes, and verifies ordinary subsequent saving. It does not manually invalidate the cache to manufacture success.
+
+### Backend mapping and execution
+
+The parent’s bounded projection of raw coverage SHA `2c0d379…` confirms coverage.py 7.16.0 records L297, while L299 is absent from executed, missing and excluded lists. Current source makes L299 the direct string Constant of the HTTPException Raise at L297–300. `python_literal_mapping.py` checks hash, exact AST shape/range/literal and executed statement; its eight-test successful log includes fail-closed negative cases. `backend/tests/test_memories_api.py:136–163` checks exact 409 wording and unchanged chapter/memory data for draft, approved and retired states. Thus the approved result is one changed literal mapped to one executed statement, with branch N/A—not raw L299 coverage.
+
+The official runner installs isolation before pytest import (`backend/scripts/run_backend_pytest.py:8–17`). The fixed projects instrumentation entry at `backend/tests/isolation_guard.py:239–241` matches the newer explicit approval. Preflight and full-run logs show pre-import protection, owned native TEMP/fake keyring, **421 passed, one skip, 70 subtests, 19 warnings, zero violations and zero subprocess attempts**.
+
+### Fixture, static and preservation evidence
+
+`frontend/vite.fixture.config.ts:8–28` rejects resolved proxies and durably latches escaped API requests. `frontend/e2e/manuscript-http-fixture.ts:20–101` shares per-context handlers, restricts HTTP fallback to the known PUT endpoint, drains in-flight work before unregistering ownership, and fails on retained violations. Positive full logs report no escapes; the separate negative log and retained JSONL record the expected unknown GET and suite exit 1. Lifecycle assertions at `frontend/e2e/manuscript-preservation.spec.ts:1288–1302` verify reload/document-unload bodies, chapter identity and revisions before closing the page.
+
+App and independent fixture tsc command records are exit 0 with empty diagnostic logs; production build finishes successfully. Axe provenance is the executed assertions at `frontend/e2e/memory-governance.spec.ts:124–130,412–413` and passing full-suite rows, not an invented scan artifact.
+
+`final-protection.json` and the independent parent readiness record agree on main/HEAD, empty staging, protected/index hashes and preserved source/artifact identities. The parent independently rehashed 356 artifacts, 29 sources and five protected entries; this reviewer inspected the relevant records and source seams, but did not execute a second hash sweep.
+
+## Blockers, limitations and exclusions
+
+- **Valid blockers:** None identified.
+- **Nonblocking limitations:** This was source/log review, not another test execution. The single-line 70KB backend JSON exceeded the read tool’s 50KB limit; verification used the parent’s separate hash-linked, field-equality-checked raw projection. Selected V8 entries were similarly projected without rewriting originals. These projections are outside the final 356-artifact manifest.
+- The original whole baseline and historical raw coverage did not survive; only the documented five-source reconstruction and fresh validation support this gate. No historical raw-survival claim is made.
+- Active LSP reports zero diagnostics but only one clean and four inconclusive results—not all-files clean. The existing skip/warnings remain; drafts whole-module branch coverage is 75%. None is represented as whole-frontend V01 completion or an OS sandbox guarantee.
+- **Stale concerns:** The old runbook’s three-module wording is superseded by the approved fixed projects entry. Prior unsafe proxy runs, rejected counters, measurement/packaging failures and intentional negatives are not final positive evidence. The timeout followed completed conversion; the later wrapper serialization failure launched no reviews and is not a product failure.
+- **Out of scope:** Completed C13/B01/B02/B04/P1, later B/D/V/G gates, real providers, production DB, credentials, deployment and designated-device acceptance were not reopened or exercised.

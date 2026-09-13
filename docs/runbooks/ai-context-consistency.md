@@ -60,23 +60,15 @@ npx.cmd playwright test --config playwright.ai-context.config.ts
 - `holding`은 fixture 보고서의 상태 값으로, 서버를 유지하며 테스트를 기다린다는 뜻이다. Windows Playwright가 소유 webServer 프로세스 트리를 종료하면 이 값이 종료 상태로 갱신되지 않고 남을 수 있다. 이때 별도 PID·포트 확인 결과를 근거로 남긴다.
 - 기본 `.eval_tmp/ai-context-task-4/`는 새 실행이 갱신하는 fixture 포인터·증거 경로이고, `frontend/test-results/`는 브라우저 산출물 경로다. 둘 다 다음 실행에서 교체될 수 있다. 보존할 결과는 먼저 별도 폴더로 복사한다. 이번 최종 부모 검증의 보존 사본은 `.eval_tmp/ai-context-final-parent/`이며, 새 실행의 기본 출력 위치가 아니다.
 
-전체 backend pytest는 `backend/`를 작업 디렉터리로 하고, Python에서 앱/pytest를 import하기 **전에** 새 임시 DB를 지정한다. 아래는 기존 환경 변수를 종료 시 복원한다. 단위 테스트용 create-all 우회는 실제 통합에 사용하지 않는다.
+전체 backend pytest는 [격리 실행기](isolated-backend-tests.md)를 사용한다. 앱/pytest import 전에 Windows 내부에서 DB·키·coverage 경로와 fake keyring을 설정한다. 충돌하는 기존 테스트 환경변수는 거부하며 직접 pytest 호출은 지원하지 않는다. 단위 테스트용 create-all 우회는 위 실제 브라우저 통합에 사용하지 않는다.
 
 ```powershell
 # 저장소 루트에서 별도로 실행
 cd backend
-$oldDb = $env:DATABASE_URL
-$oldBypass = $env:JIPPEEL_ALLOW_TEMP_CREATE_ALL
-try {
-  $db = Join-Path ([System.IO.Path]::GetTempPath()) ("jippeel-ai-unit-" + [guid]::NewGuid().ToString("N") + ".db")
-  $env:DATABASE_URL = "sqlite:///" + $db.Replace('\', '/')
-  $env:JIPPEEL_ALLOW_TEMP_CREATE_ALL = "1"
-  & .\.venv\Scripts\python.exe -m pytest tests -q
-  if ($LASTEXITCODE -ne 0) { throw "backend tests failed" }
-} finally {
-  $env:DATABASE_URL = $oldDb
-  $env:JIPPEEL_ALLOW_TEMP_CREATE_ALL = $oldBypass
-}
+& .\.venv\Scripts\python.exe -I -S -B scripts\run_backend_pytest.py --isolation-preflight
+if ($LASTEXITCODE -ne 0) { throw "backend isolation preflight failed" }
+& .\.venv\Scripts\python.exe -I -B scripts\run_backend_pytest.py -q
+if ($LASTEXITCODE -ne 0) { throw "backend tests failed" }
 ```
 
 ## 검증하지 않은 것

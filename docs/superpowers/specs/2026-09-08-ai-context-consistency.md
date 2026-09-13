@@ -1,5 +1,9 @@
 # AI Context Consistency Specification
 
+> Historical implementation specification (2026-09-08). The context ownership and directive
+> contracts remain active, but provider selection now follows `기술설계_GPT_OAuth_브릿지_v1.md`
+> and long-memory behavior follows `docs/superpowers/specs/2026-09-11-long-memory-governance.md`.
+
 ## 1. Goal
 
 Make every AI-facing path use the same current project/chapter identity and the same request-scoped story directives before any provider call starts.
@@ -45,9 +49,11 @@ This phase fixes context consistency only. It does not add a new long-term story
 - New package dependencies.
 - Frontend redesign.
 
-## 3. Current source facts
+## 3. Historical baseline facts
 
-The implementation must preserve these facts from the current branch `feat/ai-context-consistency` at `70ec67e`:
+The following facts describe the pre-implementation branch `feat/ai-context-consistency` at
+`70ec67e`; they are retained as rationale and negative-corpus provenance, not as a current
+source snapshot. Current source is `main` at the handoff revision and must be checked before edits.
 
 - `backend/app/routers/ai_panel.py` builds generation context in `_build_context_blocks()` and `_build_messages()`.
 - Current generation adds the chapter body whenever `context.chapter_id` is supplied.
@@ -68,7 +74,6 @@ Implementation tests must reproduce the native intercepted-message negative corp
 - Probe A2: explicit `project_id` from project B mixed with chapter A body plus project B style/auto lore/foreshadow.
 - Probe B: selected relationship data was omitted even when both endpoint characters were selected.
 - Probe C: style profile reached single generation but not parallel planner/worker/reviewer phases.
-
 
 ## 4. Domain terms
 
@@ -604,7 +609,7 @@ The controls share state by `(project_id, chapter_id)` inside `aiPanelStore` onl
 ## 10. Error matrix
 
 | Case | Request | Expected response before provider call |
-|---|---|---|
+| --- | --- | --- |
 | Legacy chapter generation | `chapter_id`, no `include_chapter_content`, no revision | 200; includes chapter body |
 | Body opt-out generation | `chapter_id`, `include_chapter_content=false` | 200; does not include chapter body; metadata has identity |
 | Project/chapter mismatch | `project_id=A`, `chapter_id` belongs to B | 422 |

@@ -1,0 +1,72 @@
+# Selected-tree publication security review
+
+**Publication result: PASS — bounded pre-commit review, not deployment acceptance.**
+
+No blocking live credential, private-key, database/export, or concrete new injection/ownership regression was identified in the inspected candidate. No application, test, provider, database, keyring, environment-credential, network, or Git operation was executed. Product and archived evidence bytes were not edited.
+
+## Exact scope and provenance
+
+- Repository: `/mnt/c/Users/wj941/Documents/jippeel`.
+- Base: `c1a92c45fe8c16b4ee140a31fe97683ab588ed07`; candidate staged tree: `747b420f6b5bcc1286ffb8570a886295fd149a2f`.
+- Read authoritative `candidate-ready.json`, `stage-summary.json`, `staged-stat.txt`, selected portions of `staged.diff`, and `security-scanner-recovery.json` under the supplied recovery directory.
+- Independently read and SHA-256/size-verified **305/305 selected worktree files, 4,408,478 bytes**, twice. Both passes had zero mismatches. The stage-to-candidate equivalence is supported by the supplied stage summary and the parent's recovery checkpoint, not a new Git/index inspection by this reviewer.
+- All selected source/test/docs/archive bytes received static byte-pattern scanning. Targeted source review included OAuth configuration/client wiring, provider error handling, memory ownership/concurrency, canon output validation, summary planning, pre-import isolation, supported runner, frontend injection sinks, and relevant tracked `ai_context.py` ownership imports.
+- Read the final commit handoff. Its deployment exclusions, retained historical failures, D01 pending decision, immutable archive boundary, and local-only historical links are explicit. Did not re-run or re-certify prior accepted C13/P1/M/B03 validation.
+
+## Publication threat model
+
+Trust boundaries: excluded workstation/private data versus the selected public Git objects; audit output versus distributable evidence; request project/chapter identifiers versus local database records; provider configuration/responses versus the application; test process versus actual credentials, databases, and sockets. Privileged operations in scope are publishing bytes and potential application provider/DB access reviewed statically, never exercised.
+
+| Rank | Threat / asset | Impact × likelihood before inspection | Inspected control / disposition |
+| --- | --- | --- | --- |
+| 1 | Archived diagnostics or fixtures disclose live OAuth/API/key material | High × medium | Whole-candidate byte scan plus decoded JSON scan; no unresolved credential signature. |
+| 2 | Excluded raw manuscripts, DB/WAL/SHM, or private harness material enters publication | High × medium | Exact selected-path allowlist, file hashes, SQLite magic/path checks, archive structure/prose triage; no selected prohibited payload identified. |
+| 3 | Fixed OAuth URL redirects manuscript requests to arbitrary hosts | High × low | `gpt_oauth.py:33-61` restricts HTTP loopback, userinfo, query/fragment and exact `/v1`; new writing clients receive no stored credential. |
+| 4 | Cross-project IDs or concurrent memory updates corrupt/disclose manuscript-derived data | High × low | `memories.py:50-65,108,245-248`, `summary_jobs.py:111`, and tracked context resolver enforce ownership; update predicates retain conflict checks. |
+| 5 | Isolation contract permits real keyring/DB/network access during validation | High × low | Guard precedes app/pytest imports; owned paths, case-folded sensitive aliases, fake keyring and audit hooks inspected. No runtime safety claim made. |
+| 6 | Provider error text exposes sensitive upstream details | Medium × low | Known errors use fixed messages; inherited generic-message fallback remains advisory A1, not a new publication regression. |
+
+## Secret and private-data inspection
+
+Byte scans checked private-key PEM headers; common OpenAI/GitHub/AWS/Slack token shapes; JWTs; credential/password assignments; bearer headers; URL userinfo; key-like base64; cookie/session literals; SQLite headers and selected SQL-data-dump shapes. Additional decoded-JSON traversal inspected **44,010 strings** for strong credential signatures, with **zero matches**. Non-UTF-8 historical bytes were scanned as bytes; any displayed text used explicit UTF-8 replacement only, without rewriting originals.
+
+Seven credential-assignment hits were resolved as explicit SDK placeholder or synthetic tests, with no values reproduced:
+
+- `backend/app/services/llm.py:25` — noncredential SDK placeholder.
+- `backend/tests/test_ai_generate_stream.py:99,116` — fake-client/fixture credential markers.
+- `backend/tests/test_ai_panel_api.py:32,112` — synthetic endpoint/encryption and masked-output test inputs.
+- `backend/tests/test_bootstrap_api.py:160` — synthetic fixture credential.
+- `backend/tests/test_summary_jobs.py:110` — credential-option rejection sentinel.
+
+Extended triage found no base64-key assignment, cookie secret, private-key header, raw OAuth-auth JSON, SQLite magic, or NUL-bearing selected file. Sixteen email-shaped matches were decorator syntax or GitHub noreply attribution, not personal mailbox credentials. One long-token heuristic hit was an audit JSON status label. Eleven long-Korean-prose archive hits were V8 source/coverage or a `QualityDialog.tsx` source map; these were structurally examined rather than mistaken for manuscripts. No raw private manuscript/export was identified; this is heuristic/static inspection, not proof of authorship or exhaustive semantic review of every prose passage.
+
+### Excluded material boundary
+
+The authoritative selected list has zero paths in `.eval_tmp`, `.cc-safety-net`, `.omo`, `.pi-conductor`, or `.coverage`, and zero matching DB/SQLite/WAL/SHM/key/PEM/credential-file candidates. The separate excluded-untracked list contains 1,700 `.eval_tmp` entries, 1 `.cc-safety-net`, 3 `.omo`, 4 `.pi-conductor`, and 1 `.coverage` entry. Excluded contents were **not opened**. References to these paths inside selected historical evidence are references, not inclusion of the referenced private files.
+
+Therefore these excluded paths cannot be added by the reviewed exact 305-file publication set. This conclusion depends on retaining the recorded staged tree; it does not certify older tracked objects, repository history, or any subsequent broad staging command. No immutable archive was normalized or redacted.
+
+## Targeted source findings
+
+**Blocking: none.**
+
+**[A1] LOW — `backend/app/routers/ai_panel.py:280` — inherited provider-error reflection.**
+Attack scenario: a local bridge returning sensitive details in an otherwise unclassified API error can have that message relayed to the local UI/SSE consumer. The staged diff demonstrates the fallback already existed; this change substitutes the provider label and does not newly expose OAuth tokens. No live leaking response was observed. Suggested follow-up: return a stable generic message for unclassified provider errors and retain only explicitly sanitized diagnostics; add a fake-error test containing a synthetic sentinel. This is not a publication blocker or a request for unrelated deployment redesign.
+
+Other checked controls: the fixed provider does not load OAuth credentials; loopback configuration errors are fixed text; writing/canon/bootstrap use `make_client(provider.base_url, None)`; legacy endpoint compatibility remains separate. Canon consumes JSON with shape checks rather than evaluation. Memory writes use SQLAlchemy expressions, project ownership checks and conditional update predicates. Isolation handles Windows case/stream/trailing-name aliases at `backend/tests/isolation_guard.py:149`; supported tracked entrypoint installs isolation before pytest. The changed dev requirements declare coverage tools only; no vulnerability-feed query, installed-package audit, or broader dependency certification was performed.
+
+## Execution evidence and limitations
+
+1. Initial native Bash invocation of `python` failed **exit 127** with `python: command not found`, before scanning. Stopped and contacted the supervisor. Explicit approval permitted existing `python3` for read-only stdlib scanning only; this is recorded in `security-scanner-recovery.json`. No installation, alias, global configuration, alternate CLI, application import, or test-runner bypass followed.
+2. Authorized native `python3` inline stdlib commands: candidate SHA-256/size scan; path exclusions; byte signature/category scan; literal-context redaction/triage; bounded staged-diff/source reads; archive JSON structure analysis; decoded-JSON signature scan; final 305-file hash recheck. All completed successfully.
+3. `functions.read`/`functions.grep`: bounded metadata, handoff and selected/relevant source reads. No tests were added or run. Prior suite counts remain historical evidence, not fresh results from this review.
+4. Only this out-of-repository report was written. The existing 305 staged files were deliberately retained; **noStagedFiles is false** because the task starts with a staged publication candidate. This reviewer did not stage, unstage, commit, or push anything.
+
+Not checked: whole repository/history and pre-existing tracked sensitive files; excluded credentials/raw data/private logs; actual OAuth sidecar behavior, redirects/proxy/runtime deployment; live provider/DB/keyring operations; tests/build/coverage execution; devices, migrations, network services, full dependency advisories; complete semantic authorship/private-data classification of every archive sentence. Static signatures can miss novel, obfuscated or split secrets. Revalidate the exact candidate boundary if staging changes.
+
+SECURITY VERDICT: PASS
+BLOCKING:
+  None within the selected-tree publication scope.
+ADVISORY:
+  [A1] low backend/app/routers/ai_panel.py:280 — inherited generic provider-message reflection → stable generic response plus sanitized diagnostics and fake-error regression test in a follow-up.
+COVERAGE: checked all 305 selected file bytes/hashes, credential/export/path signatures, decoded JSON strings, targeted OAuth/failure/ownership/isolation source and handoff boundary; not-checked repository/history-wide secrets, excluded files, live operations, runtime tests, deployment and exhaustive prose provenance.

@@ -14,13 +14,12 @@ import json
 import logging
 from dataclasses import dataclass, field
 
-import openai
-from sqlalchemy import select
+import openai  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
 
-from app.models import (AiEndpoint, Chapter, Character, Foreshadow, LoreEntry,
-                        Project, Relationship, VolumeNote)
-from app.services import llm, usage as usage_service
+from app.models import (Chapter, Character, Foreshadow, LoreEntry, Project,
+                        Relationship, VolumeNote)
+from app.services import gpt_oauth, llm, usage as usage_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +31,6 @@ OUTLINE_ANCHOR_MAX_CHARS = 12_000
 _OUTLINE_ANCHOR_TITLE_MAX_CHARS = 200
 _OUTLINE_ANCHOR_FIELD_MAX_CHARS = 600
 
-# LLM 호출 온도 — 엔드포인트 설정 값을 그대로 사용한다.
-# None이면 temperature 파라미터를 전송하지 않는다(Codex 계열 모델은 거부함).
-
 LORE_CATEGORIES = ("용어", "장소", "세력", "기타")
 
 
@@ -43,7 +39,7 @@ class BootstrapAIError(Exception):
 
 
 class NoEndpointError(Exception):
-    """use_ai=True인데 사용 가능한 AI 엔드포인트/모델이 없음 → 400."""
+    """기존 클라이언트 호환용 이름 — GPT OAuth provider 설정 오류 → 400/503."""
 
 
 # --------------------------------------------------------------------------
@@ -63,16 +59,21 @@ def _extract_json(text: str) -> dict:
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1 or end <= start:
         raise ValueError("JSON 객체를 찾지 못했습니다")
-    return json.loads(text[start:end + 1])
+    try:
+        parsed = json.loads(text[start:end + 1])
+    except json.JSONDecodeError as exc:
+        raise ValueError("JSON 객체를 파싱하지 못했습니다") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("JSON 최상위 값은 객체여야 합니다")
+    return parsed
 
 
 async def _call_json(client, model: str, messages: list[dict],
-                     temperature: float | None,
                      reasoning_effort: str | None = None) -> dict:
     """1회 호출 + 파싱. 실패 시 repair prompt로 1회 재시도."""
     raw = ""
     try:
-        raw = await llm.complete_chat(client, model, messages, temperature=temperature,
+        raw = await llm.complete_chat(client, model, messages,
                                       reasoning_effort=reasoning_effort)
         return _extract_json(raw)
     except (openai.APIError, ValueError, json.JSONDecodeError) as first_err:
@@ -85,8 +86,7 @@ async def _call_json(client, model: str, messages: list[dict],
         ]
         try:
             raw = await llm.complete_chat(
-                client, model, repaired_messages, temperature=temperature,
-                reasoning_effort=reasoning_effort)
+                client, model, repaired_messages, reasoning_effort=reasoning_effort)
             return _extract_json(raw)
         except (openai.APIError, ValueError, json.JSONDecodeError) as second_err:
             raise BootstrapAIError(f"JSON 재시도 실패: {second_err}") from second_err
@@ -260,36 +260,42 @@ def _as_list(value) -> list:
     return value if isinstance(value, list) else []
 
 
+def _safe_sort_order(value: int) -> float:
+    try:
+        return float(value)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError("회차 정렬 순서가 유효한 범위를 벗어났습니다") from exc
+
+
+def _select_outline_slots(items, id_field: str, count: int) -> dict[int, dict]:
+    """Reserve explicit IDs first; only absent/null IDs may take vacant slots."""
+    candidates = [item for item in _as_list(items) if isinstance(item, dict)]
+    selected: dict[int, dict] = {}
+    for item in candidates:
+        slot = item.get(id_field)
+        if type(slot) is int and 1 <= slot <= count and slot not in selected:
+            selected = {**selected, slot: item}
+    vacant = (slot for slot in range(1, count + 1) if slot not in selected)
+    unnumbered = (item for item in candidates if item.get(id_field) is None)
+    return {**selected, **dict(zip(vacant, unnumbered))}
+
+
 def _coerce_outline(data: dict, volume_count: int, cpv: int) -> list[OutlineChapter]:
+    volumes = _select_outline_slots(data.get("volumes"), "volume", volume_count)
     chapters: list[OutlineChapter] = []
-    for vol in _as_list(data.get("volumes"))[:volume_count]:
-        if not isinstance(vol, dict):
-            continue
-        v_raw = vol.get("volume")
-        v = v_raw if isinstance(v_raw, int) and v_raw >= 1 else len(chapters) // max(cpv, 1) + 1
-        pos = 0
-        for ch in _as_list(vol.get("chapters"))[:cpv]:
-            if not isinstance(ch, dict):
-                continue
-            order_raw = ch.get("order")
-            order = order_raw if isinstance(order_raw, int) and order_raw >= 1 else pos + 1
+    for v in range(1, volume_count + 1):
+        slots = _select_outline_slots(volumes.get(v, {}).get("chapters"), "order", cpv)
+        for order in range(1, cpv + 1):
+            chapter = slots.get(order, {})
             chapters.append(OutlineChapter(
                 volume=v,
                 order=order,
-                sort_order=float((v - 1) * cpv + pos),
-                title=_as_str(ch.get("title"), f"{v}권 {order}화"),
-                synopsis=_as_str(ch.get("synopsis")),
-                key_event=_as_str(ch.get("key_event")),
+                sort_order=_safe_sort_order((v - 1) * cpv + order - 1),
+                title=_as_str(chapter.get("title"), f"{v}권 {order}화"),
+                synopsis=_as_str(chapter.get("synopsis")),
+                key_event=_as_str(chapter.get("key_event")),
             ))
-            pos += 1
-    # 권·회차 수 보정 — 부족분은 템플릿으로 채운다
-    while len(chapters) < volume_count * cpv:
-        n = len(chapters)
-        v, i = divmod(n, cpv)
-        chapters.append(OutlineChapter(
-            volume=v + 1, order=i + 1, sort_order=float(n),
-            title=f"{v + 1}권 {i + 1}화", synopsis="", key_event=""))
-    return chapters[:volume_count * cpv]
+    return chapters
 
 
 def _summarize_outline(chapters: list[OutlineChapter], volumes_index: dict) -> str:
@@ -533,10 +539,8 @@ def persist_structure(db: Session, genre: str, premise: str | None,
     logline = _as_str(structure.get("logline"))
     theme = _as_str(structure.get("theme")) or None
 
-    volumes_index: dict[int, str] = {}
-    for vol in _as_list(structure.get("volumes")):
-        if isinstance(vol, dict):
-            volumes_index[vol.get("volume")] = _as_str(vol.get("title"))
+    volumes = _select_outline_slots(structure.get("volumes"), "volume", volume_count)
+    volumes_index = {v: _as_str(vol.get("title")) for v, vol in volumes.items()}
 
     outline = _coerce_outline(structure, volume_count, chapters_per_volume)
     characters = _coerce_characters(structure)
@@ -597,15 +601,7 @@ def persist_structure(db: Session, genre: str, premise: str | None,
 
     # 권 개요 — 부트스트랩과 동시 생성(G-050 확장: 목차 콜에서 함께 설계)
     volume_note_count = 0
-    seen_volumes: set[int] = set()
-    for vol in _as_list(structure.get("volumes")):
-        if not isinstance(vol, dict):
-            continue
-        v_raw = vol.get("volume")
-        v = v_raw if isinstance(v_raw, int) and v_raw >= 1 else None
-        if v is None or v in seen_volumes:
-            continue
-        seen_volumes.add(v)
+    for v, vol in sorted(volumes.items()):
         project.volume_notes.append(VolumeNote(
             volume=v,
             title=_as_str(vol.get("title"))[:255],
@@ -649,56 +645,58 @@ def persist_structure(db: Session, genre: str, premise: str | None,
 # 오케스트레이션
 # --------------------------------------------------------------------------
 
-def resolve_endpoint(db: Session) -> tuple[AiEndpoint, str]:
-    """기본 엔드포인트(is_default) → 아무 엔드포인트 순으로 선택한다."""
-    endpoint = db.scalars(
-        select(AiEndpoint).where(AiEndpoint.is_default.is_(True))).first()
-    if endpoint is None:
-        endpoint = db.query(AiEndpoint).first()
-    model = endpoint.default_model if endpoint else None
-    if endpoint is None or not model:
-        raise NoEndpointError(
-            "AI 엔드포인트 또는 기본 모델이 설정되지 않았습니다. "
-            "설정에서 엔드포인트를 등록하거나 use_ai=false로 재요청하세요.")
-    return endpoint, model
+def resolve_provider() -> gpt_oauth.GptOAuthProvider:
+    """고정 GPT OAuth provider를 검증하고 반환한다.
+
+    OAuth token과 계정 상태는 openai-oauth 사이드카의 책임이다. 앱은 DB의
+    AiEndpoint row를 조회하지 않으며, 잘못된 로컬 transport 설정만 거부한다.
+    """
+    try:
+        return gpt_oauth.get_provider()
+    except gpt_oauth.OAuthProviderConfigError as exc:
+        raise NoEndpointError(str(exc)) from exc
 
 
 async def generate_structure(genre: str, premise: str | None, title_style: str,
                              volume_count: int, chapters_per_volume: int,
                              client, model: str,
-                             temperature: float | None = None,
                              reasoning_effort: str | None = None) -> dict:
     """LLM 4회 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
 
-    temperature/reasoning_effort가 None이면 파라미터를 전송하지 않는다
-    (Codex 계열 reasoning 모델은 temperature를 거부한다).
+    고정 reasoning provider 계약에 맞춰 temperature는 지원·전송하지 않는다.
     """
     idea = await _call_json(
         client, model,
-        _idea_messages(genre, premise, title_style), temperature,
+        _idea_messages(genre, premise, title_style),
         reasoning_effort=reasoning_effort)
 
     outline_msgs = _outline_messages(genre, idea, volume_count, chapters_per_volume)
-    outline_data = await _call_json(client, model, outline_msgs, temperature,
+    outline_data = await _call_json(client, model, outline_msgs,
                                     reasoning_effort=reasoning_effort)
     preview = _coerce_outline(outline_data, volume_count, chapters_per_volume)
     summary = _outline_anchor_summary(preview, {
-        v.get("volume"): _as_str(v.get("title"))
-        for v in _as_list(outline_data.get("volumes")) if isinstance(v, dict)
+        v: _as_str(vol.get("title"))
+        for v, vol in _select_outline_slots(
+            outline_data.get("volumes"), "volume", volume_count).items()
     })
 
     # 콜 3 — 캐릭터 심층 설계
     characters_data = await _call_json(
         client, model,
-        _characters_messages(genre, idea, summary), temperature,
+        _characters_messages(genre, idea, summary),
         reasoning_effort=reasoning_effort)
 
     # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
-    names = [c.get("name") for c in _as_list(characters_data.get("characters"))
-             if isinstance(c, dict) and _as_str(c.get("name"))]
+    names = []
+    for character in _as_list(characters_data.get("characters")):
+        if not isinstance(character, dict):
+            continue
+        name = _as_str(character.get("name"))
+        if name:
+            names.append(name)
     rellore_data = await _call_json(
         client, model,
-        _relations_lore_messages(genre, idea, summary, names), temperature,
+        _relations_lore_messages(genre, idea, summary, names),
         reasoning_effort=reasoning_effort)
 
     return {

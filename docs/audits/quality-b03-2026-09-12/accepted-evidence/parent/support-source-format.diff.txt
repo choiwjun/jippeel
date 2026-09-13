@@ -1,0 +1,92 @@
+--- validated-snapshot/frontend/e2e/quality-dialog.spec.ts
++++ current/frontend/e2e/quality-dialog.spec.ts
+@@ -101,9 +101,19 @@
+             : [],
+         });
+       }
+-      if (url.pathname === "/api/v1/ai/presets" && route.request().method() === "GET") {
+-        if (scenario.name === "nonempty") return route.fulfill({ status: 500, json: { detail: "synthetic preset failure" } });
+-        return route.fulfill({ json: scenario.name === "empty" ? [{ id: 1, name: "합성 프리셋" }] : [] });
++      if (
++        url.pathname === "/api/v1/ai/presets" &&
++        route.request().method() === "GET"
++      ) {
++        if (scenario.name === "nonempty")
++          return route.fulfill({
++            status: 500,
++            json: { detail: "synthetic preset failure" },
++          });
++        return route.fulfill({
++          json:
++            scenario.name === "empty" ? [{ id: 1, name: "합성 프리셋" }] : [],
++        });
+       }
+       unexpected = [
+         ...unexpected,
+@@ -125,7 +135,9 @@
+     await expect(
+       page.getByRole("progressbar", { name: "문체 신호 참고 점수" }),
+     ).toHaveAttribute("aria-valuenow", String(scenario.score));
+-    await expect(page.getByRole("dialog", { name: "문체 신호 참고 점수", exact: true })).toBeVisible();
++    await expect(
++      page.getByRole("dialog", { name: "문체 신호 참고 점수", exact: true }),
++    ).toBeVisible();
+     const warning = page.getByText(
+       "빈 원고 — 점수를 품질 판단에 사용할 수 없습니다",
+       { exact: true },
+@@ -155,10 +167,24 @@
+     const axe = await new AxeBuilder({ page }).analyze();
+     const axeFile = testInfo.outputPath("quality-axe.json");
+     await writeFile(axeFile, JSON.stringify(axe, null, 2));
+-    await testInfo.attach("quality-axe", { path: axeFile, contentType: "application/json" });
+-    expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual([]);
+-    await page.getByRole("button", { name: "합성 프리셋", exact: true }).click();
+-    const notice = scenario.name === "empty" ? /선택했습니다/ : scenario.name === "nonempty" ? /프리셋 조회 실패/ : /찾을 수 없습니다/;
++    await testInfo.attach("quality-axe", {
++      path: axeFile,
++      contentType: "application/json",
++    });
++    expect(
++      axe.violations.filter(
++        (v) => v.impact === "serious" || v.impact === "critical",
++      ),
++    ).toEqual([]);
++    await page
++      .getByRole("button", { name: "합성 프리셋", exact: true })
++      .click();
++    const notice =
++      scenario.name === "empty"
++        ? /선택했습니다/
++        : scenario.name === "nonempty"
++          ? /프리셋 조회 실패/
++          : /찾을 수 없습니다/;
+     await expect(page.getByText(notice)).toBeVisible();
+     expect(unexpected).toEqual([]);
+     await page.keyboard.press("Escape");
+@@ -168,9 +194,10 @@
+   });
+ }
+ 
+-
+ for (const close of ["escape", "backdrop"]) {
+-  test(`Dialog omitted optional name preserves ${close} close`, async ({ page }) => {
++  test(`Dialog omitted optional name preserves ${close} close`, async ({
++    page,
++  }) => {
+     await page.context().route("**/api/**", (route) => route.abort());
+     await page.goto("/e2e/quality-fixture.html?bare=1");
+     await expect(page.getByRole("dialog")).not.toHaveAttribute("aria-label");
+--- validated-snapshot/frontend/e2e/quality-scoped-coverage.ts
++++ current/frontend/e2e/quality-scoped-coverage.ts
+@@ -12,7 +12,10 @@
+       const entries = (await page.coverage.stopJSCoverage()).filter(
+         (entry) =>
+           entry.url &&
+-          ["/src/components/editor/QualityDialog.tsx", "/src/components/ui/dialog.tsx"].includes(new URL(entry.url).pathname),
++          [
++            "/src/components/editor/QualityDialog.tsx",
++            "/src/components/ui/dialog.tsx",
++          ].includes(new URL(entry.url).pathname),
+       );
+       const file = testInfo.outputPath("quality-scoped-v8.json");
+       await writeFile(file, JSON.stringify(entries));

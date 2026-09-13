@@ -24,13 +24,17 @@ npx playwright test --config playwright.preservation.config.ts
 npm run build
 ```
 
-For backend pytest, set a unique temp DB before app import:
+For backend pytest, use the [supported isolated runner](isolated-backend-tests.md). It installs Windows-local TEMP DB/key/coverage paths and fake keyring before app imports. Direct pytest and inherited conflicting test variables fail closed; a DB variable alone is insufficient.
 
 ```cmd
 cd /d C:\Users\wj941\Documents\jippeel\backend
-set DATABASE_URL=sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-pytest-<unique>.db
-set JIPPEEL_ALLOW_TEMP_CREATE_ALL=1
-.venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\python.exe -I -S -B scripts\run_backend_pytest.py --isolation-preflight
+```
+
+Only after the preflight exits successfully:
+
+```cmd
+.venv\Scripts\python.exe -I -B scripts\run_backend_pytest.py -q
 ```
 
 ## Pre-deploy checks

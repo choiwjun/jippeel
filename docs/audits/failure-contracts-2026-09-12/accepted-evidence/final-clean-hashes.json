@@ -1,0 +1,17 @@
+{
+  ".eval_tmp/run_backend_pytest.py": "9cd2a5e80e4bd8ba69388877849396e3cb348ebcb22a2cb61bb99649ca93a594",
+  "backend/tests/isolation_guard.py": "879011f4c9bccaf8a05b1b016c2edbe85ecf05dcd8bec0b390ee4be78ce9167e",
+  "backend/tests/test_isolation_guard.py": "4c4467cd4ee40d3933a6ba65098695f37c07e342715de050a99153fcb8a6919c",
+  "backend/tests/conftest.py": "d6cc61fdb35df0349eadd3ab39e361c6c3d36f351d5284dffc92d1deb2153c9f",
+  "docs/runbooks/ai-context-consistency.md": "2aad82541feda14a247f7fb2e05cfe5fbf663bb8f100ade01067694d1b44e1db",
+  "docs/runbooks/manuscript-preservation.md": "a5d9fef4cb14cb0badf0c53d2dc0c292f4f4d2270c8f49638a416840309fc924",
+  "docs/audits/preservation-final-validation.md": "bddc612d81a5f328bf2af4c0831e0b9ed1191216a90aa9d27cf03280ae7e8125",
+  "docs/superpowers/plans/2026-09-12-failure-contracts.md": "15986f8747728971454d2dff42ab0a5938526b3f0856bdd0213d0ef19e2432e0",
+  "backend/.coverage": "a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624",
+  "backend/app/services/crypto.py": "5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e",
+  "backend/app/services/canon.py": "0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321",
+  "backend/app/services/bootstrap.py": "c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c",
+  ".git/index": "bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00",
+  "backend/scripts/run_backend_pytest.py": "7d43470da4a970084cacbca352a9e1b1edc8616810f7c698c5723f06ecc0a882",
+  "docs/runbooks/isolated-backend-tests.md": "7ccbe030f5fdadcc7b2ebc5e75247a0b7972c50f4daf7e83d4a2eba46ed77de3"
+}

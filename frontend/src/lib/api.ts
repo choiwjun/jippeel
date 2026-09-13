@@ -273,41 +273,7 @@ export interface LoreEntryUpdate {
   content?: string | null;
 }
 
-// ---- AiEndpoint / PromptPreset (Sprint 3 M4) ----
-export interface AiEndpoint {
-  /** NFR-202 — api_key 평문은 응답에 절대 없음. has_api_key 플래그만 노출 */
-  id: number;
-  name: string;
-  base_url: string;
-  default_model: string | null;
-  /** null이면 요청에 temperature를 전송하지 않음 — Codex 계열 모델이 거부 */
-  temperature: number | null;
-  /** 미설정(null)이면 전송하지 않음 — minimal|low|medium|high|xhigh */
-  reasoning_effort: string | null;
-  is_default: boolean;
-  has_api_key: boolean;
-}
-
-export interface AiEndpointCreate {
-  name: string;
-  base_url: string;
-  api_key?: string | null;
-  default_model?: string | null;
-  temperature?: number | null;
-  reasoning_effort?: string | null;
-  is_default?: boolean;
-}
-
-export interface AiEndpointUpdate {
-  name?: string;
-  base_url?: string;
-  api_key?: string | null;
-  default_model?: string | null;
-  temperature?: number | null;
-  reasoning_effort?: string | null;
-  is_default?: boolean;
-}
-
+// ---- PromptPreset (M4) ----
 export type ContextFlag = "chapter" | "characters" | "lore";
 
 export interface PromptPreset {

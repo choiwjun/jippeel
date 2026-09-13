@@ -6,11 +6,15 @@
 """
 from __future__ import annotations
 
+import logging
 import math
+import sqlite3
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -32,6 +36,7 @@ from app.services.long_memory import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 _MAX_QUERY_ROWS = 500
 
 
@@ -135,36 +140,40 @@ def list_memories(
     if chapter_id is not None:
         _get_chapter_for_project(pid, chapter_id, db)
 
-    chapters = {
-        chapter.id: chapter
-        for chapter in db.scalars(select(Chapter).where(Chapter.project_id == pid)).all()
-    }
-    items: list[MemoryEntryOut] = []
-    offset = 0
-    while len(items) < limit:
-        rows = _list_rows(
-            db,
-            pid=pid,
-            kind=kind,
-            visibility=visibility,
-            chapter_id=chapter_id,
-            offset=offset,
-        )
-        if not rows:
-            break
-        rows_with_source = [
-            (row, chapters.get(row.chapter_id) if row.chapter_id is not None else None)
-            for row in rows
-        ]
-        rows_with_source.sort(key=lambda pair: _memory_sort_key(*pair))
-        page_items = [_to_out(row, source) for row, source in rows_with_source]
-        if stale is not None:
-            page_items = [item for item in page_items if item.stale is stale]
-        items.extend(page_items)
-        if stale is None or len(rows) < _MAX_QUERY_ROWS:
-            break
-        offset += len(rows)
-    return items[:limit]
+    try:
+        chapters = {
+            chapter.id: chapter
+            for chapter in db.scalars(select(Chapter).where(Chapter.project_id == pid)).all()
+        }
+        items: list[MemoryEntryOut] = []
+        offset = 0
+        while len(items) < limit:
+            rows = _list_rows(
+                db,
+                pid=pid,
+                kind=kind,
+                visibility=visibility,
+                chapter_id=chapter_id,
+                offset=offset,
+            )
+            if not rows:
+                break
+            rows_with_source = [
+                (row, chapters.get(row.chapter_id) if row.chapter_id is not None else None)
+                for row in rows
+            ]
+            rows_with_source.sort(key=lambda pair: _memory_sort_key(*pair))
+            page_items = [_to_out(row, source) for row, source in rows_with_source]
+            if stale is not None:
+                page_items = [item for item in page_items if item.stale is stale]
+            items.extend(page_items)
+            if stale is None or len(rows) < _MAX_QUERY_ROWS:
+                break
+            offset += len(rows)
+        return items[:limit]
+    except SQLAlchemyError as exc:
+        logger.exception("memory list database failure: project_id=%s", pid)
+        raise HTTPException(status_code=500, detail="기억 목록을 불러오는 중 오류가 발생했습니다.") from exc
 
 
 @router.post("/projects/{pid}/memories", response_model=MemoryEntryOut, status_code=status.HTTP_201_CREATED)
@@ -190,6 +199,17 @@ def create_memory(pid: int, payload: MemoryEntryCreate, db: Session = Depends(ge
     except ValueError as exc:
         db.rollback()
         raise _validation_error(str(exc)) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        error_code = getattr(getattr(exc, "orig", None), "sqlite_errorcode", None)
+        if error_code == sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY or (
+            error_code is not None and error_code & 0xFF == sqlite3.SQLITE_BUSY
+        ):
+            raise HTTPException(
+                status_code=409, detail="근거 회차 또는 작품이 변경 중이거나 삭제되었습니다. 새로고침 후 다시 시도하세요."
+            ) from exc
+        logger.exception("memory create database failure: project_id=%s", pid)
+        raise HTTPException(status_code=500, detail="기억 저장 중 오류가 발생했습니다.") from exc
     return _to_out(entry, source)
 
 
@@ -215,8 +235,33 @@ def update_memory(pid: int, mid: int, payload: MemoryEntryUpdate, db: Session = 
         source = db.get(Chapter, entry.chapter_id) if entry.chapter_id is not None else None
         return _to_out(entry, source)
 
-    db.execute(update(MemoryEntry).where(MemoryEntry.id == entry.id).values(**changes))
-    db.commit()
-    db.refresh(entry)
+    try:
+        # Compare every value used to validate the transition/range, including NULL bounds.
+        result = cast(
+            CursorResult,
+            db.execute(
+                update(MemoryEntry).where(
+                    MemoryEntry.id == entry.id,
+                    MemoryEntry.project_id == pid,
+                    MemoryEntry.visibility == entry.visibility,
+                    MemoryEntry.effective_from_sort_order == entry.effective_from_sort_order,
+                    MemoryEntry.effective_to_sort_order == entry.effective_to_sort_order,
+                ).values(**changes)
+            ),
+        )
+        if result.rowcount != 1:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="기억이 다른 요청에서 변경되었습니다. 새로고침 후 다시 검토하세요.")
+        db.commit()
+        db.refresh(entry)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        error_code = getattr(getattr(exc, "orig", None), "sqlite_errorcode", None)
+        if error_code is not None and error_code & 0xFF == sqlite3.SQLITE_BUSY:
+            raise HTTPException(status_code=409, detail="기억이 변경 중입니다. 새로고침 후 다시 검토하세요.") from exc
+        logger.exception(
+            "memory update database failure: project_id=%s memory_id=%s", pid, mid
+        )
+        raise HTTPException(status_code=500, detail="기억 수정 중 오류가 발생했습니다.") from exc
     source = db.get(Chapter, entry.chapter_id) if entry.chapter_id is not None else None
     return _to_out(entry, source)

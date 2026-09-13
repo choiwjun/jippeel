@@ -1,0 +1,127 @@
+[
+  {
+    "path": "helper-ts-command.txt",
+    "sha256": "59556bb8fb7a152608e1d07f4560a7881d97520825970dec4d7dc4719a8fcca8",
+    "bytes": 235
+  },
+  {
+    "path": "helper-ts.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "manifest.json",
+    "sha256": "a8478ecec8bc4693da8ceca6f2977c3789228aca59a96278d8ec050666b5f8e4",
+    "bytes": 9990
+  },
+  {
+    "path": "memory-before.txt",
+    "sha256": "c60373be91872b50fcdaf372faca7b3b22d42674dac6721b7020b968f93c6167",
+    "bytes": 207
+  },
+  {
+    "path": "quality/.last-run.json",
+    "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903",
+    "bytes": 45
+  },
+  {
+    "path": "quality/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/attachments/quality-scoped-v8-88b5db77b898f69b552759db0b62d1f3fc15f7ee.json",
+    "sha256": "6accc08496f86fc976987899df17670010c304bf93e1a6aca242a423ca1ca237",
+    "bytes": 93241
+  },
+  {
+    "path": "quality/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/quality-scoped-v8.json",
+    "sha256": "6accc08496f86fc976987899df17670010c304bf93e1a6aca242a423ca1ca237",
+    "bytes": 93241
+  },
+  {
+    "path": "quality/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/attachments/quality-scoped-v8-37de298f52aa1ab0013a3208aa7c1ebc66c1fe1d.json",
+    "sha256": "e0cd4eef2537b233623f44a29fee75124578ead9f7c722d6c1363d353959a2d0",
+    "bytes": 93240
+  },
+  {
+    "path": "quality/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/quality-scoped-v8.json",
+    "sha256": "e0cd4eef2537b233623f44a29fee75124578ead9f7c722d6c1363d353959a2d0",
+    "bytes": 93240
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/attachments/quality-axe-c1b2df118002f5e2be550dbe8a19bfcfecf51729.json",
+    "sha256": "be129cf3bf21899257bf837eb9c6e780ab90cdb15daeb478879f46b03c4ed385",
+    "bytes": 139746
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/attachments/quality-scoped-v8-de28e762688ad33ce5fb4ca6f8f22c32ea3c0ad7.json",
+    "sha256": "61b0d36bd6ecc8b02fbf7a9318bf50e9d5ebbc561818c8cc928d76524391e334",
+    "bytes": 95711
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-axe.json",
+    "sha256": "be129cf3bf21899257bf837eb9c6e780ab90cdb15daeb478879f46b03c4ed385",
+    "bytes": 139746
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-scoped-v8.json",
+    "sha256": "61b0d36bd6ecc8b02fbf7a9318bf50e9d5ebbc561818c8cc928d76524391e334",
+    "bytes": 95711
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/attachments/quality-axe-c36a765b3f25a7317f5f273bb7aca220324c4045.json",
+    "sha256": "f85d676c8e34c0a03d2bb2ac1a13bb7e8409f8db73cf13928ced5a289c9522d8",
+    "bytes": 161622
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/attachments/quality-scoped-v8-f023a127e25c2b9da368750e5b711f0042cbe12c.json",
+    "sha256": "8cfd80b942bce45f359569b25d6c3ebaa6772b2b9a6e256c3102b15ed4c7bef6",
+    "bytes": 96051
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-axe.json",
+    "sha256": "f85d676c8e34c0a03d2bb2ac1a13bb7e8409f8db73cf13928ced5a289c9522d8",
+    "bytes": 161622
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-scoped-v8.json",
+    "sha256": "8cfd80b942bce45f359569b25d6c3ebaa6772b2b9a6e256c3102b15ed4c7bef6",
+    "bytes": 96051
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/attachments/quality-axe-dc4f1731fb845a82be8fb4b0402ac4a078a0daed.json",
+    "sha256": "cb6d82f2c437a8f0d8b0991e7fd259c5cc734e40f3ce8b9063f82f58edd4159b",
+    "bytes": 157492
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/attachments/quality-scoped-v8-ef668349393ed63fb4fe1327e4aa8c661f10afe9.json",
+    "sha256": "8dead2b40c080cb7f46704b164d0e3817154bc17a8567b42a8644fb0bf516f5c",
+    "bytes": 96054
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-axe.json",
+    "sha256": "cb6d82f2c437a8f0d8b0991e7fd259c5cc734e40f3ce8b9063f82f58edd4159b",
+    "bytes": 157492
+  },
+  {
+    "path": "quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-scoped-v8.json",
+    "sha256": "8dead2b40c080cb7f46704b164d0e3817154bc17a8567b42a8644fb0bf516f5c",
+    "bytes": 96054
+  },
+  {
+    "path": "quality-command.txt",
+    "sha256": "5fadd77127cedf9808470fd5af6541b89bd4cf550ffcda78a456f9881c227ce0",
+    "bytes": 304
+  },
+  {
+    "path": "quality.log",
+    "sha256": "89c267912dd3c8a05998d102acaec4825589decfda52925e82513f9f22269e1f",
+    "bytes": 838
+  },
+  {
+    "path": "source-after.json",
+    "sha256": "7156717ba132eddad907e9d671a241a4ecbd30d9b84c48ce66a2e344e9b6c0c9",
+    "bytes": 1715
+  },
+  {
+    "path": "source-before.json",
+    "sha256": "7156717ba132eddad907e9d671a241a4ecbd30d9b84c48ce66a2e344e9b6c0c9",
+    "bytes": 1715
+  }
+]

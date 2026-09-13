@@ -1,0 +1,15 @@
+--- frozen-source
++++ current
+@@ -200,7 +200,11 @@
+                   >
+                         문체 신호 참고 점수
+                   </Button>
+-                  <Dialog open={open} onOpenChange={setOpen} aria-label="문체 신호 참고 점수">
++                  <Dialog
++                        open={open}
++                        onOpenChange={setOpen}
++                        aria-label="문체 신호 참고 점수"
++                  >
+                         <DialogContent className="max-w-lg">
+                               <DialogHeader>
+                                     <DialogTitle>

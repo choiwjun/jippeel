@@ -1,0 +1,139 @@
+"""Read-only direct-helper probes. New run directory and guards precede app imports."""
+import os
+import sys
+import json
+import pathlib
+import tempfile
+import hashlib
+import dataclasses
+from collections import Counter
+from unittest.mock import patch
+
+ROOT = pathlib.Path(__file__).resolve().parent
+RUN = pathlib.Path(tempfile.mkdtemp(prefix="execution-", dir=ROOT))
+os.environ["DATABASE_URL"] = "sqlite:///" + (RUN / "never-opened.db").as_posix()
+os.environ["JIPPEEL_KEY_FILE"] = str(RUN / "never-opened-dummy.key")
+os.environ.pop("JIPPEEL_ALLOW_TEMP_CREATE_ALL", None)
+sys.dont_write_bytecode = True
+BLOCKED = []
+
+def audit(event, args):
+    forbidden = event.startswith("sqlite3.connect") or event in {"socket.connect", "socket.connect_ex", "socket.getaddrinfo", "socket.bind", "subprocess.Popen", "os.system"}
+    if event == "import" and str(args[0]).split(".")[0] == "keyring":
+        forbidden = True
+    if event == "open":
+        name = str(args[0]).replace("\\", "/").lower()
+        forbidden = forbidden or name.endswith((".db", ".sqlite", ".sqlite3", ".key")) or "/.codex/" in name or "/.jippeel/" in name or name.endswith("auth.json")
+        mode = args[1]
+        flags = args[2]
+        writing = (isinstance(mode, str) and any(c in mode for c in "wax+")) or (isinstance(flags, int) and bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC)))
+        if writing:
+            try:
+                pathlib.Path(args[0]).resolve().relative_to(RUN)
+            except (ValueError, TypeError):
+                forbidden = True
+    if forbidden:
+        BLOCKED.append(event)
+        raise RuntimeError("PROBE_GUARD: " + event)
+
+sys.addaudithook(audit)
+REPO = pathlib.Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(REPO / "backend"))
+from app.services import canon, bootstrap
+
+VALID = {"quote": " original ", "reason": " conflict ", "severity": "error"}
+canon_inputs = [
+    ("C01-empty", '{"issues": []}', "accept"),
+    ("C02-valid", json.dumps({"issues": [VALID]}), "accept"),
+    ("C03-missing", '{}', "reject"),
+    ("C04-null", '{"issues": null}', "reject"),
+    ("C05-number", '{"issues": 7}', "reject"),
+    ("C06-string", '{"issues": "oops"}', "reject"),
+    ("C07-object", '{"issues": {"quote": "q", "reason": "r"}}', "reject"),
+    ("C08-invalid-items", '{"issues": [null, 7, "bad"]}', "reject"),
+    ("C09-missing-fields", '{"issues": [{}]}', "reject"),
+    ("C10-blank-field", '{"issues": [{"quote": " ", "reason": "r"}]}', "reject"),
+    ("C11-wrong-field-types", '{"issues": [{"quote": 123, "reason": ["bad"]}]}', "reject"),
+    ("C12-mixed", json.dumps({"issues": [VALID, {}]}), "reject"),
+    ("C13-severity-compat", '{"issues": [{"quote": "q", "reason": "r", "severity": "unknown"}]}', "accept"),
+    ("C14-broken-json", '{"issues":', "reject"),
+]
+
+def outcome(call):
+    try:
+        return {"output": call()}
+    except (ValueError, TypeError) as exc:
+        return {"exception": type(exc).__name__, "message": str(exc)}
+
+canon_results = []
+for name, raw, expected in canon_inputs:
+    result = outcome(lambda: canon.parse_issues(raw))
+    meets = ("output" in result) if expected == "accept" else result.get("exception") == "ValueError"
+    canon_results.append({"id": name, "input_raw": raw, "expected": expected + " (invalid schema must raise ValueError for repair)", **result, "verdict": "PASS" if meets else "RED"})
+
+# All awaits finish inline in the deterministic fake; no event loop/network is created.
+def finish_inline(coroutine):
+    try:
+        coroutine.send(None)
+    except StopIteration as exc:
+        return exc.value
+    finally:
+        coroutine.close()
+    raise RuntimeError("PROBE_INFRA: unexpected suspended await")
+
+run_results = []
+context = {"checked_input_revision": 7, "checked_input_hash": hashlib.sha256(b"synthetic-original").hexdigest()}
+messages = [{"role": "system", "content": "synthetic canon contract"}, {"role": "user", "content": "synthetic-original"}]
+for name, first, expected in canon_inputs:
+    queue = [first, '{"issues": []}']
+    calls = []
+    async def fake_complete(client, model, prompt, **kwargs):
+        calls.append({"model": model, "messages": prompt, **kwargs})
+        return queue[len(calls) - 1]
+    with patch.object(canon.llm, "complete_chat", fake_complete):
+        result = outcome(lambda: finish_inline(canon.run_canon_check(None, None, None, "fake-model", None, messages_context=(messages, dict(context)))))
+    expected_calls = 1 if expected == "accept" else 2
+    meets = "output" in result and len(calls) == expected_calls
+    run_results.append({"id": name, "responses": queue, "input_messages_context": [messages, context], "expected_calls": expected_calls, "calls": calls, **result, "context_preserved": result.get("output", [None, None])[1] == context, "verdict": "PASS" if meets else "RED"})
+
+def vol(v, orders):
+    return {"volume": v, "title": f"V{v}", "chapters": [{"order": order, "title": f"V{v}C{i}", "synopsis": f"S{i}", "key_event": f"K{i}"} for i, order in enumerate(orders, 1)]}
+
+outline_inputs = [
+    ("O01-normal", {"volumes": [vol(1, [1, 2]), vol(2, [1, 2])]}),
+    ("O02-missing-earlier-volume", {"volumes": [vol(2, [1, 2])]}),
+    ("O03-uneven-volumes", {"volumes": [vol(1, [1]), vol(2, [1, 2])]}),
+    ("O04-duplicate-volume", {"volumes": [vol(1, [1, 2]), vol(1, [1, 2])]}),
+    ("O05-out-of-range-volume", {"volumes": [vol(3, [1, 2]), vol(2, [1, 2])]}),
+    ("O06-duplicate-order", {"volumes": [vol(1, [1, 1]), vol(2, [1, 2])]}),
+    ("O07-out-of-range-order", {"volumes": [vol(1, [99, 2]), vol(2, [1, 2])]}),
+    ("O08-all-missing", {}),
+    ("O09-short-last-volume", {"volumes": [vol(1, [1, 2]), vol(2, [1])]}),
+    ("O10-reversed-order", {"volumes": [vol(1, [2, 1]), vol(2, [1, 2])]}),
+    ("O11-reversed-volumes", {"volumes": [vol(2, [1, 2]), vol(1, [1, 2])]}),
+    ("O12-invalid-volume-after-short", {"volumes": [vol(1, [1]), vol(0, [1, 2])]}),
+    ("O13-boolean-identifiers", {"volumes": [vol(True, [True, 2]), vol(2, [1, 2])]}),
+]
+outline_results = []
+for name, data in outline_inputs:
+    before = json.dumps(data)
+    chapters = bootstrap._coerce_outline(data, 2, 2)
+    result = [dataclasses.asdict(c) for c in chapters]
+    checks = {
+        "total_count_4": len(chapters) == 4,
+        "volume_distribution_1_2_each_2": dict(Counter(c.volume for c in chapters)) == {1: 2, 2: 2},
+        "volume_order_grid_unique_complete": sorted((c.volume, c.order) for c in chapters) == [(1, 1), (1, 2), (2, 1), (2, 2)],
+        "sort_orders_unique_0_to_3": sorted(c.sort_order for c in chapters) == [0.0, 1.0, 2.0, 3.0],
+        "sort_matches_volume_order": all(c.sort_order == (c.volume - 1) * 2 + c.order - 1 for c in chapters),
+        "identifiers_are_int_not_bool": all(type(c.volume) is int and type(c.order) is int for c in chapters),
+        "input_unchanged": before == json.dumps(data),
+    }
+    outline_results.append({"id": name, "input": data, "volume_count": 2, "cpv": 2, "output": result, "checks": checks, "verdict": "PASS" if all(checks.values()) else "RED"})
+
+result = {"runtime": sys.version, "repo": str(REPO), "run": str(RUN), "database_url": os.environ["DATABASE_URL"], "dummy_key": os.environ["JIPPEEL_KEY_FILE"], "guard_events": BLOCKED, "canon_parse": canon_results, "canon_run_fake": run_results, "outline": outline_results, "db_exists": (RUN / "never-opened.db").exists(), "key_exists": (RUN / "never-opened-dummy.key").exists(), "app_main_imported": "app.main" in sys.modules}
+(RUN / "results.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+print(json.dumps({k: result[k] for k in ("runtime", "run", "guard_events", "db_exists", "key_exists", "app_main_imported")}, indent=2))
+for group in ("canon_parse", "canon_run_fake", "outline"):
+    print(group, ", ".join(c["id"] + "=" + c["verdict"] for c in result[group]))
+if BLOCKED:
+    raise RuntimeError("PROBE_INFRA: forbidden attempts recorded")

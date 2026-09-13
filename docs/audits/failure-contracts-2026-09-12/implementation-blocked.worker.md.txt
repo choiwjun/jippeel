@@ -1,0 +1,69 @@
+IMPLEMENTATION_GATE: BLOCKED
+
+## 구현 상태
+B01 회귀 테스트 작성만 수행했다. **B01/B02 제품 코드는 변경하지 않았다.** 실제 테스트 실행·행동 RED·GREEN·전체 회귀·커버리지 측정·독립 검토는 진행하지 못했다. 테스트 통과 또는 구현 완료를 의미하지 않는다.
+
+Safety Net이 격리 테스트용 credential 경로를 차단했고 supervisor가 즉시 중단·체크포인트·최종 보고를 지시했다. 경로 변경, 필터 우회, 다른 실행 도구는 사용하지 않았다.
+
+## 변경 파일과 의도
+- `backend/tests/test_canon_failure_contract.py` 신규 103행: 잘못된 issues 컨테이너/항목/필수 문자열의 전체 실패, trim/500자 제한/severity/공유 JSON 추출 호환성, fake-provider TestClient repair 횟수 및 CanonRun 저장/미저장·revision/hash 보존, 비검증 예외 전파 테스트 작성. **아직 실행하지 않아 테스트 자체의 정확성도 검증 전이다.**
+- `backend/tests/test_foreshadows_canon.py`: 기존 정상 응답 fixture에서 빈 quote 항목을 제거. 승인된 정책에서는 이 항목이 더 이상 무시 가능한 정상 응답이 아니기 때문이다. 대체 신규 테스트에는 valid+invalid 혼합 응답의 전체 거부를 명시했다. 기존 정상 결과 assertion은 유지했다.
+- `canon.py`, `bootstrap.py`, `test_bootstrap_api.py`는 baseline 그대로다. B02 테스트와 metadata winner mismatch 재현은 미수행.
+
+## 증거 경로
+공통 TEMP evidence: `/tmp/jippeel-b01-b02-impl-yFgEeob6`
+- baseline 상대 변경 전체(신규 테스트 포함): `tests-only.delta.diff`
+- 초기 상태: `status.before`, `head.before`, `ref.before`, `index.before.diff`, `worktree.before.diff`, `baseline/`
+- 최종 상태: `status.after`, `head.after`, `ref.after`, `index.after.diff`
+- hash: `checkpoint.sha256.json`, `protected.before.sha256`, `protected.after.sha256.json`
+- 제한된 소스 inventory: `files.before.retry.json`, `hash-exclusions.json`, `bounded-manifest-changes.json`
+- 차단 명령/메시지/승인 경과: `infrastructure.txt`
+
+### SHA-256
+| 파일 | 최종 hash |
+|---|---|
+| test_foreshadows_canon.py | `1157009eaabe204951542e38d34649a9c747e847fd33ac70e707d4bbe2d92f11` |
+| test_canon_failure_contract.py | `e5fecee34613c7300505636d00733553e1a938c5999003ac29d50d699bf00a86` |
+| canon.py (미변경) | `52d46194c071d0efa6b319eb34d8140c76e6d18bbc7ca5cf7277cce5afb5e8c5` |
+| bootstrap.py (미변경) | `4cdbd4bda13112279aadc459a3d15d0d2f70fe7e0c0d00ae94faab58882f61cf` |
+
+## 실행·차단 기록
+1. 초기 광범위 hash 명령이 30초 timeout. 변경 전이며 행동 RED가 아니다. 빈 `files.before.json`을 실패 시도 증거로 보존했다. supervisor 승인 후 180초 제한의 안전한 bounded manifest 재시도 성공: 364개 소스/설정/문서/테스트 hash, 1714개 제외. DB/credential/외부 symlink/대용량 생성물 등을 제외했으므로 전체 파일 내용 보존을 주장하지 않는다.
+2. 테스트 작성+`bash $D/run-tests.sh ...` 결합 명령이 실행 전 차단: `shell execution source cannot be verified safely`. wrapper 미생성. supervisor 승인으로 테스트 작성과 기존 runner 직접 실행을 분리했다.
+3. 직접 실행 시도는 `cd backend && PYTHONPATH=... JIPPEEL_KEY_FILE=... PYTHONDONTWRITEBYTECODE=1 .venv/Scripts/python.exe -B ../.eval_tmp/run_backend_pytest.py -q tests/test_canon_failure_contract.py tests/test_foreshadows_canon.py`였다. 전체 literal 명령은 `infrastructure.txt`에 있다. 실행 전 `Access to a sensitive path is not allowed`, 규칙 `secret.ext-pattern.key`로 차단됐다. 대상은 새 Windows TEMP의 `dummy.key`였다. **pytest 로그나 결과는 생성되지 않았다.**
+4. 이후 supervisor 중단 지시에 따라 증거 파일만 작성했다.
+
+RED/GREEN/full: 각각 **미실행, 0건 실행**. 커버리지 line/branch: **미측정, 분모 미산출, >=80% 증거 없음**. 브라우저 E2E 미실행. API 테스트 작성만으로 E2E 커버리지를 주장하지 않는다.
+
+정적 도구 피드백: 신규 테스트 102행에서 `run_canon_check`의 Session/Chapter 인자로 None을 전달해 타입 오류 2건. Mock(spec=Session/Chapter) 수정 계획은 차단된 명령에 포함되어 실행되지 않았으며 supervisor가 수정 없이 체크포인트하도록 지시했다. 재개 시 먼저 수정해야 한다.
+
+## 안전·보존 확인
+HEAD `c1a92c45fe8c16b4ee140a31fe97683ab588ed07`, `refs/heads/main` 유지. staged diff 전후 모두 비어 있음. `.git/index` 및 기존 `backend/.coverage` hash 동일. 제한된 기존 파일 manifest에서 변경은 승인된 `test_foreshadows_canon.py` 하나뿐. status 기존 항목 삭제 없음, 신규 회귀 테스트만 추가. 기존 unrelated dirty/untracked 항목을 지우거나 stage/commit하지 않았다. 부모 관리 문서도 수정하지 않았다.
+새 Windows TEMP는 `C:\Users\wj941\AppData\Local\Temp\jippeel-b01-b02-impl-cnt860x8`. runner와 conftest를 사전 확인했지만 **앱 import/DB 생성/provider 호출은 실행하지 않았다**. 초기 broad hash timeout은 전체 순회 완료 여부를 주장할 수 없으며 이후 bounded retry에는 supervisor 지정 제외를 적용했다.
+
+## 남은 위험 및 권고
+현재는 테스트만 존재하는 불완전 작업이다. **소유자가 지원되는 방식으로 disposable 테스트 credential 경로/프로토콜에 한정한 권한을 허용해야 재개할 수 있다.** 우회 경로 변경은 권고하지 않는다. 이후 정적 테스트 수정 → 실제 B01 RED → 최소 구현/GREEN/checkpoint → B02 재현/구현 → 전체 backend suite와 모듈 line/branch >=80% → 독립 검토 순서가 남아 있다. 제품 승인·배포·부모 acceptance는 아니다.
+
+```acceptance-report
+{
+  "criteriaSatisfied": [
+    {"id": "criterion-1", "status": "not-satisfied", "evidence": "테스트만 작성; B01/B02 구현 전 Safety Net credential 경로 차단으로 중단"},
+    {"id": "criterion-2", "status": "not-satisfied", "evidence": "baseline/delta/hash/차단 증거는 보존했으나 실제 RED/GREEN/full/coverage 증거 없음"}
+  ],
+  "changedFiles": ["backend/tests/test_foreshadows_canon.py", "backend/tests/test_canon_failure_contract.py"],
+  "testsAddedOrUpdated": ["backend/tests/test_canon_failure_contract.py: 구조 거부/repair/이력 보존 회귀 작성, 미실행", "backend/tests/test_foreshadows_canon.py: malformed success fixture 정상화, 미실행"],
+  "commandsRun": [
+    {"command": "baseline whole-file hashing, timeout=30s", "result": "failed", "summary": "filesystem timeout; 행동 RED 아님"},
+    {"command": "bounded baseline manifest retry, timeout=180s", "result": "passed", "summary": "364 hashed, 1714 excluded"},
+    {"command": "bash $D/run-tests.sh b01-red -q tests/test_canon_failure_contract.py tests/test_foreshadows_canon.py", "result": "not-run", "summary": "Safety Net unverifiable shell source 차단; wrapper 미생성"},
+    {"command": ".venv/Scripts/python.exe -B ../.eval_tmp/run_backend_pytest.py -q tests/test_canon_failure_contract.py tests/test_foreshadows_canon.py (TEMP credential env; exact command in infrastructure.txt)", "result": "not-run", "summary": "Safety Net secret.ext-pattern.key 차단"},
+    {"command": "post-checkpoint HEAD/ref/status/index/protected hashes/bounded source manifest comparison", "result": "passed", "summary": "HEAD/ref/index/.coverage 보존; 허용된 기존 테스트 하나만 bounded manifest 변경"}
+  ],
+  "validationOutput": ["No behavioral RED/GREEN/full test execution", "Line/branch coverage not measured; denominators unavailable", "tests-only.delta.diff and checkpoint.sha256.json saved under /tmp/jippeel-b01-b02-impl-yFgEeob6"],
+  "residualRisks": ["B01/B02 미구현", "신규 회귀 테스트 미검증 및 102행 Session/Chapter None 정적 타입 오류 2건", "독립 검토 미진행", "1714 파일 hash 제외; 전체 파일 내용 검증 아님"],
+  "noStagedFiles": true,
+  "diffSummary": "기존 canon 정상 fixture의 빈 quote 항목 제거; 구조 검증/repair/이력 회귀 테스트 신규 작성. 제품 코드 변화 없음.",
+  "reviewFindings": ["blocker: disposable credential path rejected by Safety Net secret.ext-pattern.key", "blocker: implementation and automated gates not executed"],
+  "manualNotes": "Supervisor ordered checkpoint and finalize without further edits. Need owner-supported scoped permission, not a workaround. Report is blocked implementation evidence, not acceptance or deployment."
+}
+```

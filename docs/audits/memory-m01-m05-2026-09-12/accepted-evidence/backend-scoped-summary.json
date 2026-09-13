@@ -1,0 +1,51 @@
+{
+  "sourceSha256": "3953fd5e4e60e292c9d936e269f12066de74975ffd1ddcfd2402394abc330c95",
+  "sourceChangedLine": 299,
+  "literalRawInstrumented": false,
+  "mappedExecutedStatement": 297,
+  "astPath": [
+    "Raise",
+    "Call(HTTPException)",
+    "keyword(detail)",
+    "Constant(str)"
+  ],
+  "statementRange": [
+    297,
+    300
+  ],
+  "covered": 1,
+  "denominator": 1,
+  "rawCoverageSha256": "2c0d379678e4427b4a3563b250a30a8db6429c9ced3eaaad59620556ab5cb5c9",
+  "moduleSummary": {
+    "covered_lines": 196,
+    "num_statements": 201,
+    "percent_covered": 96.59574468085107,
+    "percent_covered_display": "97",
+    "missing_lines": 5,
+    "excluded_lines": 0,
+    "percent_statements_covered": 97.51243781094527,
+    "percent_statements_covered_display": "98",
+    "num_branches": 34,
+    "num_partial_branches": 3,
+    "covered_branches": 31,
+    "missing_branches": 3,
+    "percent_branches_covered": 91.17647058823529,
+    "percent_branches_covered_display": "91"
+  },
+  "changedBranches": {
+    "covered": 0,
+    "total": 0,
+    "percentage": null
+  },
+  "responseRegression": {
+    "file": "backend/tests/test_memories_api.py",
+    "sha256": "b5f6441c2c2973b445913e7b5c2f3a0bd02a52481821cc8f28189a3b36906b46",
+    "node": "test_chapter_delete_preserves_memory_by_rejecting_the_delete",
+    "states": [
+      "draft",
+      "approved",
+      "retired"
+    ],
+    "fullRunLog": "backend-recovery-full.log"
+  }
+}

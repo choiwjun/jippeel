@@ -1,0 +1,11 @@
+{
+  "status": "D01_RESEARCH_COMPLETE_DECISIONS_PENDING",
+  "recordedAt": "2026-09-13T00:31:17.839060+09:00",
+  "workflow": "8876be55-7fea-42b2-900e-4026aaf1c837",
+  "child": "f05ef827-7431-4ca8-871b-aa53d2b711f4",
+  "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/8876be55-7fea-42b2-900e-4026aaf1c837/d01/contract-research.md",
+  "file": "research.md.txt",
+  "sha256": "9e79c5c1aeb931164a8857be3be09208be637e58b4215f56fec15be3b36d67e3",
+  "bytes": 14018,
+  "scope": "Read-only repository/requirements research; no test/application/DB/provider execution. Parent confirmed B03 current16 source/protected hashes unchanged."
+}

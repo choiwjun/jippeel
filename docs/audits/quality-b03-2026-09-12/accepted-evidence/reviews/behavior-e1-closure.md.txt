@@ -1,0 +1,43 @@
+# B03 retained-review E1 closure
+
+**Verdict: PASS — E1 resolved.**  
+**New findings: 0. No issues found.**
+
+## Review
+
+- **Correct:** the authorized retry supplies actual current-support execution, not a formatting-equivalence waiver.
+- **Resolved:** the sole evidence blocker in the original behavior review.
+- **Merge verdict:** **OK for this bounded challenge**, together with the retained product review. Parent still owns final publication.
+
+## Evidence checked
+
+Evidence root **P**:  
+`/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e`
+
+1. **Failure preserved and explicitly disposed:** `P/checkpoint.json`, original `quality-command.txt` and `quality.log` still retain ENOMEM, secondary “No tests found,” exit1 and skipped helper checking. `resource-disposition.json` authorizes one serial, same-protocol retry after naturally improved memory availability; it does not waive gates.
+
+2. **Current fixture executed successfully:** `P/retry-1/quality-command.txt` records the same quality config with `QUALITY_SCOPED_COVERAGE=1`, exit0. Raw `quality.log` records **5 passed in40.0s**, one worker and no escapes. Its omitted-name tests reference current spec line198, consistent with the inspected worktree—not the earlier line173 snapshot.
+
+3. **Current identities preserved:** retry `source-before.json` and `source-after.json` agree across all16 source/protected entries, including:
+   - Spec: `919432b8f87f7fbc5415220228fb09538ff4090580c873eb5596d128cdcb3de4`
+   - Collector: `309ac3a64f92ac09f8d5a2a1765d1d81b168ba2843679d0238a76623362b0475`
+
+   These remain **different from the original validation helper hashes**. All three production identities remain unchanged.
+
+4. **Contextual TypeScript passed:** `retry-1/helper-ts-command.txt` records exit0; `helper-ts.log` is empty. The referenced config includes both current support files and uses strict, noEmit, ES2020 with the previously verified owned Node22 types. Its recorded SHA `f844f861…` matches the original validation artifact ledger.
+
+5. **Raw accessibility results passed:** directly inspected all three retry `quality-axe.json` files: each contains `violations: []`, at lines4603,5303 and5172 respectively, for the dedicated15229 fixture.
+
+6. **Evidence separation retained:** retry manifest and artifact ledger identify five raw samples, ten runtime entries and two consistent source/JS/decoded-map hash groups. They remain separate from original reconstructed coverage. The original-artifact verification records218 entries with no mismatches.
+
+## Linkage and limits
+
+Original review:  
+`/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/84829b6d-2417-43e9-84d7-f8ef4d414eb7/b03/behavior-review.md`
+
+This closes only its E1/current-support execution boundary. It neither reopens the completed product review nor replaces the previously reviewed coverage and shared-suite formatting evidence. Literary, real external-engine, device and operational acceptance remain excluded.
+
+Review was read-only. No processes were launched, files edited, coverage reconstructed or hashes independently recomputed; recorded identities were cross-checked against commands, logs, source locations and artifact ledgers.
+
+Closure output:  
+`/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/09e505c0-bd83-4743-aade-9c8d41d24fb5/b03/behavior-e1-closure.md`

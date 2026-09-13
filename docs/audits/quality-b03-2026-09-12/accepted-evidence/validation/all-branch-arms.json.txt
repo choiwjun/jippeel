@@ -1,0 +1,2151 @@
+{
+  "frontend/src/components/editor/QualityDialog.tsx": [
+    {
+      "id": "0",
+      "location": {
+        "type": "branch",
+        "line": 51,
+        "loc": {
+          "start": {
+            "line": 51,
+            "column": 0
+          },
+          "end": {
+            "line": 114,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 51,
+              "column": 0
+            },
+            "end": {
+              "line": 114,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "1",
+      "location": {
+        "type": "branch",
+        "line": 53,
+        "loc": {
+          "start": {
+            "line": 53,
+            "column": 26
+          },
+          "end": {
+            "line": 53,
+            "column": 38
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 53,
+              "column": 26
+            },
+            "end": {
+              "line": 53,
+              "column": 38
+            }
+          }
+        ]
+      },
+      "counts": [
+        0
+      ],
+      "selected": true
+    },
+    {
+      "id": "2",
+      "location": {
+        "type": "branch",
+        "line": 108,
+        "loc": {
+          "start": {
+            "line": 108,
+            "column": 82
+          },
+          "end": {
+            "line": 108,
+            "column": 117
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 108,
+              "column": 82
+            },
+            "end": {
+              "line": 108,
+              "column": 117
+            }
+          }
+        ]
+      },
+      "counts": [
+        0
+      ],
+      "selected": true
+    },
+    {
+      "id": "3",
+      "location": {
+        "type": "branch",
+        "line": 110,
+        "loc": {
+          "start": {
+            "line": 110,
+            "column": 38
+          },
+          "end": {
+            "line": 110,
+            "column": 48
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 110,
+              "column": 38
+            },
+            "end": {
+              "line": 110,
+              "column": 48
+            }
+          }
+        ]
+      },
+      "counts": [
+        0
+      ],
+      "selected": true
+    },
+    {
+      "id": "4",
+      "location": {
+        "type": "branch",
+        "line": 60,
+        "loc": {
+          "start": {
+            "line": 60,
+            "column": 18
+          },
+          "end": {
+            "line": 61,
+            "column": 107
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 60,
+              "column": 18
+            },
+            "end": {
+              "line": 61,
+              "column": 107
+            }
+          }
+        ]
+      },
+      "counts": [
+        8
+      ],
+      "selected": true
+    },
+    {
+      "id": "5",
+      "location": {
+        "type": "branch",
+        "line": 116,
+        "loc": {
+          "start": {
+            "line": 116,
+            "column": 7
+          },
+          "end": {
+            "line": 450,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 116,
+              "column": 7
+            },
+            "end": {
+              "line": 450,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        16
+      ],
+      "selected": true
+    },
+    {
+      "id": "6",
+      "location": {
+        "type": "branch",
+        "line": 155,
+        "loc": {
+          "start": {
+            "line": 155,
+            "column": 35
+          },
+          "end": {
+            "line": 155,
+            "column": 46
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 155,
+              "column": 35
+            },
+            "end": {
+              "line": 155,
+              "column": 46
+            }
+          }
+        ]
+      },
+      "counts": [
+        8
+      ],
+      "selected": true
+    },
+    {
+      "id": "7",
+      "location": {
+        "type": "branch",
+        "line": 184,
+        "loc": {
+          "start": {
+            "line": 184,
+            "column": 17
+          },
+          "end": {
+            "line": 185,
+            "column": 22
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 184,
+              "column": 17
+            },
+            "end": {
+              "line": 185,
+              "column": 22
+            }
+          }
+        ]
+      },
+      "counts": [
+        6
+      ],
+      "selected": true
+    },
+    {
+      "id": "8",
+      "location": {
+        "type": "branch",
+        "line": 185,
+        "loc": {
+          "start": {
+            "line": 185,
+            "column": 20
+          },
+          "end": {
+            "line": 190,
+            "column": 43
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 185,
+              "column": 20
+            },
+            "end": {
+              "line": 190,
+              "column": 43
+            }
+          }
+        ]
+      },
+      "counts": [
+        10
+      ],
+      "selected": true
+    },
+    {
+      "id": "9",
+      "location": {
+        "type": "branch",
+        "line": 186,
+        "loc": {
+          "start": {
+            "line": 186,
+            "column": 31
+          },
+          "end": {
+            "line": 187,
+            "column": 36
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 186,
+              "column": 31
+            },
+            "end": {
+              "line": 187,
+              "column": 36
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "10",
+      "location": {
+        "type": "branch",
+        "line": 187,
+        "loc": {
+          "start": {
+            "line": 187,
+            "column": 22
+          },
+          "end": {
+            "line": 190,
+            "column": 43
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 187,
+              "column": 22
+            },
+            "end": {
+              "line": 190,
+              "column": 43
+            }
+          }
+        ]
+      },
+      "counts": [
+        7
+      ],
+      "selected": true
+    },
+    {
+      "id": "11",
+      "location": {
+        "type": "branch",
+        "line": 188,
+        "loc": {
+          "start": {
+            "line": 188,
+            "column": 33
+          },
+          "end": {
+            "line": 189,
+            "column": 38
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 188,
+              "column": 33
+            },
+            "end": {
+              "line": 189,
+              "column": 38
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "12",
+      "location": {
+        "type": "branch",
+        "line": 189,
+        "loc": {
+          "start": {
+            "line": 189,
+            "column": 24
+          },
+          "end": {
+            "line": 190,
+            "column": 43
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 189,
+              "column": 24
+            },
+            "end": {
+              "line": 190,
+              "column": 43
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "13",
+      "location": {
+        "type": "branch",
+        "line": 220,
+        "loc": {
+          "start": {
+            "line": 220,
+            "column": 44
+          },
+          "end": {
+            "line": 223,
+            "column": 40
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 220,
+              "column": 44
+            },
+            "end": {
+              "line": 223,
+              "column": 40
+            }
+          }
+        ]
+      },
+      "counts": [
+        6
+      ],
+      "selected": true
+    },
+    {
+      "id": "14",
+      "location": {
+        "type": "branch",
+        "line": 225,
+        "loc": {
+          "start": {
+            "line": 225,
+            "column": 44
+          },
+          "end": {
+            "line": 231,
+            "column": 40
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 225,
+              "column": 44
+            },
+            "end": {
+              "line": 231,
+              "column": 40
+            }
+          }
+        ]
+      },
+      "counts": [
+        0
+      ],
+      "selected": true
+    },
+    {
+      "id": "15",
+      "location": {
+        "type": "branch",
+        "line": 233,
+        "loc": {
+          "start": {
+            "line": 233,
+            "column": 31
+          },
+          "end": {
+            "line": 444,
+            "column": 42
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 233,
+              "column": 31
+            },
+            "end": {
+              "line": 444,
+              "column": 42
+            }
+          }
+        ]
+      },
+      "counts": [
+        10
+      ],
+      "selected": true
+    },
+    {
+      "id": "16",
+      "location": {
+        "type": "branch",
+        "line": 235,
+        "loc": {
+          "start": {
+            "line": 235,
+            "column": 68
+          },
+          "end": {
+            "line": 242,
+            "column": 52
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 235,
+              "column": 68
+            },
+            "end": {
+              "line": 242,
+              "column": 52
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "17",
+      "location": {
+        "type": "branch",
+        "line": 259,
+        "loc": {
+          "start": {
+            "line": 259,
+            "column": 66
+          },
+          "end": {
+            "line": 260,
+            "column": 66
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 259,
+              "column": 66
+            },
+            "end": {
+              "line": 260,
+              "column": 66
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "18",
+      "location": {
+        "type": "branch",
+        "line": 260,
+        "loc": {
+          "start": {
+            "line": 260,
+            "column": 62
+          },
+          "end": {
+            "line": 263,
+            "column": 72
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 260,
+              "column": 62
+            },
+            "end": {
+              "line": 263,
+              "column": 72
+            }
+          }
+        ]
+      },
+      "counts": [
+        7
+      ],
+      "selected": true
+    },
+    {
+      "id": "19",
+      "location": {
+        "type": "branch",
+        "line": 261,
+        "loc": {
+          "start": {
+            "line": 261,
+            "column": 73
+          },
+          "end": {
+            "line": 262,
+            "column": 71
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 261,
+              "column": 73
+            },
+            "end": {
+              "line": 262,
+              "column": 71
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "20",
+      "location": {
+        "type": "branch",
+        "line": 262,
+        "loc": {
+          "start": {
+            "line": 262,
+            "column": 64
+          },
+          "end": {
+            "line": 263,
+            "column": 72
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 262,
+              "column": 64
+            },
+            "end": {
+              "line": 263,
+              "column": 72
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "21",
+      "location": {
+        "type": "branch",
+        "line": 323,
+        "loc": {
+          "start": {
+            "line": 323,
+            "column": 60
+          },
+          "end": {
+            "line": 324,
+            "column": 75
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 323,
+              "column": 60
+            },
+            "end": {
+              "line": 324,
+              "column": 75
+            }
+          }
+        ]
+      },
+      "counts": [
+        0
+      ],
+      "selected": true
+    },
+    {
+      "id": "22",
+      "location": {
+        "type": "branch",
+        "line": 326,
+        "loc": {
+          "start": {
+            "line": 326,
+            "column": 77
+          },
+          "end": {
+            "line": 327,
+            "column": 74
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 326,
+              "column": 77
+            },
+            "end": {
+              "line": 327,
+              "column": 74
+            }
+          }
+        ]
+      },
+      "counts": [
+        0
+      ],
+      "selected": true
+    },
+    {
+      "id": "23",
+      "location": {
+        "type": "branch",
+        "line": 346,
+        "loc": {
+          "start": {
+            "line": 346,
+            "column": 53
+          },
+          "end": {
+            "line": 346,
+            "column": 71
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 346,
+              "column": 53
+            },
+            "end": {
+              "line": 346,
+              "column": 71
+            }
+          }
+        ]
+      },
+      "counts": [
+        7
+      ],
+      "selected": true
+    },
+    {
+      "id": "24",
+      "location": {
+        "type": "branch",
+        "line": 346,
+        "loc": {
+          "start": {
+            "line": 346,
+            "column": 57
+          },
+          "end": {
+            "line": 366,
+            "column": 52
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 346,
+              "column": 57
+            },
+            "end": {
+              "line": 366,
+              "column": 52
+            }
+          }
+        ]
+      },
+      "counts": [
+        7
+      ],
+      "selected": true
+    },
+    {
+      "id": "25",
+      "location": {
+        "type": "branch",
+        "line": 359,
+        "loc": {
+          "start": {
+            "line": 359,
+            "column": 54
+          },
+          "end": {
+            "line": 360,
+            "column": 64
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 359,
+              "column": 54
+            },
+            "end": {
+              "line": 360,
+              "column": 64
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "26",
+      "location": {
+        "type": "branch",
+        "line": 360,
+        "loc": {
+          "start": {
+            "line": 360,
+            "column": 62
+          },
+          "end": {
+            "line": 361,
+            "column": 97
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 360,
+              "column": 62
+            },
+            "end": {
+              "line": 361,
+              "column": 97
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "27",
+      "location": {
+        "type": "branch",
+        "line": 369,
+        "loc": {
+          "start": {
+            "line": 369,
+            "column": 61
+          },
+          "end": {
+            "line": 378,
+            "column": 54
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 369,
+              "column": 61
+            },
+            "end": {
+              "line": 378,
+              "column": 54
+            }
+          }
+        ]
+      },
+      "counts": [
+        6
+      ],
+      "selected": true
+    },
+    {
+      "id": "28",
+      "location": {
+        "type": "branch",
+        "line": 378,
+        "loc": {
+          "start": {
+            "line": 378,
+            "column": 48
+          },
+          "end": {
+            "line": 386,
+            "column": 52
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 378,
+              "column": 48
+            },
+            "end": {
+              "line": 386,
+              "column": 52
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "29",
+      "location": {
+        "type": "branch",
+        "line": 118,
+        "loc": {
+          "start": {
+            "line": 118,
+            "column": 40
+          },
+          "end": {
+            "line": 118,
+            "column": 58
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 118,
+              "column": 40
+            },
+            "end": {
+              "line": 118,
+              "column": 58
+            }
+          }
+        ]
+      },
+      "counts": [
+        50
+      ],
+      "selected": true
+    },
+    {
+      "id": "30",
+      "location": {
+        "type": "branch",
+        "line": 119,
+        "loc": {
+          "start": {
+            "line": 119,
+            "column": 38
+          },
+          "end": {
+            "line": 119,
+            "column": 55
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 119,
+              "column": 38
+            },
+            "end": {
+              "line": 119,
+              "column": 55
+            }
+          }
+        ]
+      },
+      "counts": [
+        50
+      ],
+      "selected": true
+    },
+    {
+      "id": "31",
+      "location": {
+        "type": "branch",
+        "line": 120,
+        "loc": {
+          "start": {
+            "line": 120,
+            "column": 42
+          },
+          "end": {
+            "line": 120,
+            "column": 55
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 120,
+              "column": 42
+            },
+            "end": {
+              "line": 120,
+              "column": 55
+            }
+          }
+        ]
+      },
+      "counts": [
+        50
+      ],
+      "selected": true
+    },
+    {
+      "id": "32",
+      "location": {
+        "type": "branch",
+        "line": 122,
+        "loc": {
+          "start": {
+            "line": 122,
+            "column": 39
+          },
+          "end": {
+            "line": 122,
+            "column": 57
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 122,
+              "column": 39
+            },
+            "end": {
+              "line": 122,
+              "column": 57
+            }
+          }
+        ]
+      },
+      "counts": [
+        48
+      ],
+      "selected": true
+    },
+    {
+      "id": "33",
+      "location": {
+        "type": "branch",
+        "line": 123,
+        "loc": {
+          "start": {
+            "line": 123,
+            "column": 41
+          },
+          "end": {
+            "line": 124,
+            "column": 50
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 123,
+              "column": 41
+            },
+            "end": {
+              "line": 124,
+              "column": 50
+            }
+          }
+        ]
+      },
+      "counts": [
+        50
+      ],
+      "selected": true
+    },
+    {
+      "id": "34",
+      "location": {
+        "type": "branch",
+        "line": 130,
+        "loc": {
+          "start": {
+            "line": 130,
+            "column": 21
+          },
+          "end": {
+            "line": 133,
+            "column": 20
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 130,
+              "column": 21
+            },
+            "end": {
+              "line": 133,
+              "column": 20
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "35",
+      "location": {
+        "type": "branch",
+        "line": 139,
+        "loc": {
+          "start": {
+            "line": 139,
+            "column": 16
+          },
+          "end": {
+            "line": 145,
+            "column": 9
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 139,
+              "column": 16
+            },
+            "end": {
+              "line": 145,
+              "column": 9
+            }
+          }
+        ]
+      },
+      "counts": [
+        12
+      ],
+      "selected": true
+    },
+    {
+      "id": "36",
+      "location": {
+        "type": "branch",
+        "line": 140,
+        "loc": {
+          "start": {
+            "line": 140,
+            "column": 16
+          },
+          "end": {
+            "line": 140,
+            "column": 48
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 140,
+              "column": 16
+            },
+            "end": {
+              "line": 140,
+              "column": 48
+            }
+          }
+        ]
+      },
+      "counts": [
+        6
+      ],
+      "selected": true
+    },
+    {
+      "id": "37",
+      "location": {
+        "type": "branch",
+        "line": 140,
+        "loc": {
+          "start": {
+            "line": 140,
+            "column": 48
+          },
+          "end": {
+            "line": 144,
+            "column": 13
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 140,
+              "column": 48
+            },
+            "end": {
+              "line": 144,
+              "column": 13
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "38",
+      "location": {
+        "type": "branch",
+        "line": 149,
+        "loc": {
+          "start": {
+            "line": 149,
+            "column": 21
+          },
+          "end": {
+            "line": 152,
+            "column": 20
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 149,
+              "column": 21
+            },
+            "end": {
+              "line": 152,
+              "column": 20
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "39",
+      "location": {
+        "type": "branch",
+        "line": 158,
+        "loc": {
+          "start": {
+            "line": 158,
+            "column": 24
+          },
+          "end": {
+            "line": 181,
+            "column": 8
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 158,
+              "column": 24
+            },
+            "end": {
+              "line": 181,
+              "column": 8
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "40",
+      "location": {
+        "type": "branch",
+        "line": 163,
+        "loc": {
+          "start": {
+            "line": 163,
+            "column": 24
+          },
+          "end": {
+            "line": 178,
+            "column": 21
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 163,
+              "column": 24
+            },
+            "end": {
+              "line": 178,
+              "column": 21
+            }
+          }
+        ]
+      },
+      "counts": [
+        2
+      ],
+      "selected": true
+    },
+    {
+      "id": "41",
+      "location": {
+        "type": "branch",
+        "line": 165,
+        "loc": {
+          "start": {
+            "line": 165,
+            "column": 30
+          },
+          "end": {
+            "line": 178,
+            "column": 21
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 165,
+              "column": 30
+            },
+            "end": {
+              "line": 178,
+              "column": 21
+            }
+          }
+        ]
+      },
+      "counts": [
+        1
+      ],
+      "selected": true
+    },
+    {
+      "id": "42",
+      "location": {
+        "type": "branch",
+        "line": 178,
+        "loc": {
+          "start": {
+            "line": 178,
+            "column": 12
+          },
+          "end": {
+            "line": 180,
+            "column": 13
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 178,
+              "column": 12
+            },
+            "end": {
+              "line": 180,
+              "column": 13
+            }
+          }
+        ]
+      },
+      "counts": [
+        1
+      ],
+      "selected": true
+    },
+    {
+      "id": "43",
+      "location": {
+        "type": "branch",
+        "line": 164,
+        "loc": {
+          "start": {
+            "line": 164,
+            "column": 41
+          },
+          "end": {
+            "line": 164,
+            "column": 63
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 164,
+              "column": 41
+            },
+            "end": {
+              "line": 164,
+              "column": 63
+            }
+          }
+        ]
+      },
+      "counts": [
+        1
+      ],
+      "selected": true
+    },
+    {
+      "id": "44",
+      "location": {
+        "type": "branch",
+        "line": 198,
+        "loc": {
+          "start": {
+            "line": 198,
+            "column": 33
+          },
+          "end": {
+            "line": 198,
+            "column": 53
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 198,
+              "column": 33
+            },
+            "end": {
+              "line": 198,
+              "column": 53
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    },
+    {
+      "id": "45",
+      "location": {
+        "type": "branch",
+        "line": 400,
+        "loc": {
+          "start": {
+            "line": 400,
+            "column": 60
+          },
+          "end": {
+            "line": 406,
+            "column": 71
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 400,
+              "column": 60
+            },
+            "end": {
+              "line": 406,
+              "column": 71
+            }
+          }
+        ]
+      },
+      "counts": [
+        10
+      ],
+      "selected": true
+    },
+    {
+      "id": "46",
+      "location": {
+        "type": "branch",
+        "line": 418,
+        "loc": {
+          "start": {
+            "line": 418,
+            "column": 60
+          },
+          "end": {
+            "line": 433,
+            "column": 75
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 418,
+              "column": 60
+            },
+            "end": {
+              "line": 433,
+              "column": 75
+            }
+          }
+        ]
+      },
+      "counts": [
+        10
+      ],
+      "selected": true
+    },
+    {
+      "id": "47",
+      "location": {
+        "type": "branch",
+        "line": 426,
+        "loc": {
+          "start": {
+            "line": 426,
+            "column": 81
+          },
+          "end": {
+            "line": 429,
+            "column": 79
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 426,
+              "column": 81
+            },
+            "end": {
+              "line": 429,
+              "column": 79
+            }
+          }
+        ]
+      },
+      "counts": [
+        3
+      ],
+      "selected": true
+    }
+  ],
+  "frontend/src/components/ui/dialog.tsx": [
+    {
+      "id": "0",
+      "location": {
+        "type": "branch",
+        "line": 13,
+        "loc": {
+          "start": {
+            "line": 13,
+            "column": 7
+          },
+          "end": {
+            "line": 47,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 13,
+              "column": 7
+            },
+            "end": {
+              "line": 47,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        20
+      ],
+      "selected": true
+    },
+    {
+      "id": "1",
+      "location": {
+        "type": "branch",
+        "line": 28,
+        "loc": {
+          "start": {
+            "line": 28,
+            "column": 13
+          },
+          "end": {
+            "line": 47,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 28,
+              "column": 13
+            },
+            "end": {
+              "line": 47,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        18
+      ],
+      "selected": true
+    },
+    {
+      "id": "2",
+      "location": {
+        "type": "branch",
+        "line": 28,
+        "loc": {
+          "start": {
+            "line": 28,
+            "column": 13
+          },
+          "end": {
+            "line": 28,
+            "column": 25
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 28,
+              "column": 13
+            },
+            "end": {
+              "line": 28,
+              "column": 25
+            }
+          }
+        ]
+      },
+      "counts": [
+        8
+      ],
+      "selected": false
+    },
+    {
+      "id": "3",
+      "location": {
+        "type": "branch",
+        "line": 28,
+        "loc": {
+          "start": {
+            "line": 28,
+            "column": 20
+          },
+          "end": {
+            "line": 47,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 28,
+              "column": 20
+            },
+            "end": {
+              "line": 47,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        12
+      ],
+      "selected": true
+    },
+    {
+      "id": "4",
+      "location": {
+        "type": "branch",
+        "line": 19,
+        "loc": {
+          "start": {
+            "line": 19,
+            "column": 12
+          },
+          "end": {
+            "line": 26,
+            "column": 5
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 19,
+              "column": 12
+            },
+            "end": {
+              "line": 26,
+              "column": 5
+            }
+          }
+        ]
+      },
+      "counts": [
+        13
+      ],
+      "selected": true
+    },
+    {
+      "id": "5",
+      "location": {
+        "type": "branch",
+        "line": 20,
+        "loc": {
+          "start": {
+            "line": 20,
+            "column": 15
+          },
+          "end": {
+            "line": 25,
+            "column": 62
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 20,
+              "column": 15
+            },
+            "end": {
+              "line": 25,
+              "column": 62
+            }
+          }
+        ]
+      },
+      "counts": [
+        11
+      ],
+      "selected": true
+    },
+    {
+      "id": "6",
+      "location": {
+        "type": "branch",
+        "line": 20,
+        "loc": {
+          "start": {
+            "line": 20,
+            "column": 15
+          },
+          "end": {
+            "line": 20,
+            "column": 22
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 20,
+              "column": 15
+            },
+            "end": {
+              "line": 20,
+              "column": 22
+            }
+          }
+        ]
+      },
+      "counts": [
+        8
+      ],
+      "selected": false
+    },
+    {
+      "id": "7",
+      "location": {
+        "type": "branch",
+        "line": 20,
+        "loc": {
+          "start": {
+            "line": 20,
+            "column": 15
+          },
+          "end": {
+            "line": 25,
+            "column": 62
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 20,
+              "column": 15
+            },
+            "end": {
+              "line": 25,
+              "column": 62
+            }
+          }
+        ]
+      },
+      "counts": [
+        5
+      ],
+      "selected": true
+    },
+    {
+      "id": "8",
+      "location": {
+        "type": "branch",
+        "line": 21,
+        "loc": {
+          "start": {
+            "line": 21,
+            "column": 18
+          },
+          "end": {
+            "line": 23,
+            "column": 6
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 21,
+              "column": 18
+            },
+            "end": {
+              "line": 23,
+              "column": 6
+            }
+          }
+        ]
+      },
+      "counts": [
+        6
+      ],
+      "selected": true
+    },
+    {
+      "id": "9",
+      "location": {
+        "type": "branch",
+        "line": 22,
+        "loc": {
+          "start": {
+            "line": 22,
+            "column": 30
+          },
+          "end": {
+            "line": 22,
+            "column": 50
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 22,
+              "column": 30
+            },
+            "end": {
+              "line": 22,
+              "column": 50
+            }
+          }
+        ]
+      },
+      "counts": [
+        4
+      ],
+      "selected": true
+    },
+    {
+      "id": "10",
+      "location": {
+        "type": "branch",
+        "line": 25,
+        "loc": {
+          "start": {
+            "line": 25,
+            "column": 11
+          },
+          "end": {
+            "line": 25,
+            "column": 62
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 25,
+              "column": 11
+            },
+            "end": {
+              "line": 25,
+              "column": 62
+            }
+          }
+        ]
+      },
+      "counts": [
+        5
+      ],
+      "selected": true
+    },
+    {
+      "id": "11",
+      "location": {
+        "type": "branch",
+        "line": 33,
+        "loc": {
+          "start": {
+            "line": 33,
+            "column": 17
+          },
+          "end": {
+            "line": 33,
+            "column": 43
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 33,
+              "column": 17
+            },
+            "end": {
+              "line": 33,
+              "column": 43
+            }
+          }
+        ]
+      },
+      "counts": [
+        1
+      ],
+      "selected": false
+    },
+    {
+      "id": "12",
+      "location": {
+        "type": "branch",
+        "line": 49,
+        "loc": {
+          "start": {
+            "line": 49,
+            "column": 7
+          },
+          "end": {
+            "line": 62,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 49,
+              "column": 7
+            },
+            "end": {
+              "line": 62,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        12
+      ],
+      "selected": true
+    },
+    {
+      "id": "13",
+      "location": {
+        "type": "branch",
+        "line": 64,
+        "loc": {
+          "start": {
+            "line": 64,
+            "column": 7
+          },
+          "end": {
+            "line": 71,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 64,
+              "column": 7
+            },
+            "end": {
+              "line": 71,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        12
+      ],
+      "selected": true
+    },
+    {
+      "id": "14",
+      "location": {
+        "type": "branch",
+        "line": 73,
+        "loc": {
+          "start": {
+            "line": 73,
+            "column": 7
+          },
+          "end": {
+            "line": 83,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 73,
+              "column": 7
+            },
+            "end": {
+              "line": 83,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        12
+      ],
+      "selected": true
+    },
+    {
+      "id": "15",
+      "location": {
+        "type": "branch",
+        "line": 85,
+        "loc": {
+          "start": {
+            "line": 85,
+            "column": 7
+          },
+          "end": {
+            "line": 92,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 85,
+              "column": 7
+            },
+            "end": {
+              "line": 92,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        2
+      ],
+      "selected": true
+    },
+    {
+      "id": "16",
+      "location": {
+        "type": "branch",
+        "line": 94,
+        "loc": {
+          "start": {
+            "line": 94,
+            "column": 7
+          },
+          "end": {
+            "line": 101,
+            "column": 1
+          }
+        },
+        "locations": [
+          {
+            "start": {
+              "line": 94,
+              "column": 7
+            },
+            "end": {
+              "line": 101,
+              "column": 1
+            }
+          }
+        ]
+      },
+      "counts": [
+        2
+      ],
+      "selected": true
+    }
+  ]
+}

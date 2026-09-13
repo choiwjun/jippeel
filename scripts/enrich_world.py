@@ -14,34 +14,60 @@ import json
 import sys
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
-from sqlalchemy import select  # noqa: E402
-
-from app.database import SessionLocal  # noqa: E402
-from app.models import AiEndpoint, Project  # noqa: E402
-from app.services import bootstrap as bs  # noqa: E402
-from app.services import llm  # noqa: E402
+from app.database import SessionLocal  # noqa: E402  # pyright: ignore[reportMissingImports]
+from app.models import Project  # noqa: E402  # pyright: ignore[reportMissingImports]
+from app.services import bootstrap as bs  # noqa: E402  # pyright: ignore[reportMissingImports]
+from app.services import gpt_oauth, llm  # noqa: E402  # pyright: ignore[reportMissingImports]
 
 API = "http://localhost:8000/api/v1"
-PID = int(sys.argv[1]) if len(sys.argv) > 1 else 2
+
+
+def _project_id_from_argv() -> int:
+    if len(sys.argv) <= 1:
+        return 2
+    try:
+        project_id = int(sys.argv[1])
+    except ValueError as exc:
+        raise SystemExit("project_id는 양의 정수여야 합니다.") from exc
+    if project_id < 1:
+        raise SystemExit("project_id는 양의 정수여야 합니다.")
+    return project_id
+
+
+PID = _project_id_from_argv()
 CACHE = Path.home() / ".jippeel-logs" / f"enrich_cache_{PID}.json"
 
 
-def api(path, method="GET", body=None):
+def api(path, method="GET", body=None) -> Any:
     req = urllib.request.Request(
         API + path, method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Content-Type": "application/json"})
     raw = urllib.request.urlopen(req).read()
-    return json.loads(raw) if raw else None
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"API 응답이 JSON이 아닙니다: {path}") from exc
 
 
 async def generate(db):
     project = db.get(Project, PID)
     genre = project.genre or "판타지"
-    memo = json.loads(project.memo or "{}").get("bootstrap", {})
+    try:
+        memo_data = json.loads(project.memo or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("프로젝트 memo가 유효한 JSON이 아닙니다.") from exc
+    if not isinstance(memo_data, dict):
+        raise RuntimeError("프로젝트 memo 형식이 올바르지 않습니다.")
+    memo = memo_data.get("bootstrap", {})
+    if not isinstance(memo, dict):
+        memo = {}
     summary = memo.get("outline_summary") or project.synopsis or ""
     idea = {"titles": [project.title], "logline": project.synopsis or "",
             "theme": memo.get("theme", "")}
@@ -50,9 +76,9 @@ async def generate(db):
     desc = "\n".join(f"- {c.name}({c.role or '조연'}): {(c.background or '')[:80]}"
                      for c in chars)
 
-    ep = db.scalars(select(AiEndpoint).where(AiEndpoint.is_default.is_(True))).first()
-    client = llm.make_client(ep.base_url, ep.api_key_encrypted)
-    model = ep.default_model
+    provider = gpt_oauth.get_provider()
+    client = llm.make_client(provider.base_url, None)
+    model = provider.default_model
 
     # 콜 3 — 캐릭터 심화 (이름·정체성 유지 지시)
     chars_msgs = bs._characters_messages(genre, idea, summary)
@@ -60,14 +86,14 @@ async def generate(db):
         f"\n\n[중요] 아래 기존 인물의 이름·역할·정체성은 유지하고 깊이만 보강하라:\n{desc}\n"
         "필요하면 단역 1~2명을 추가할 수 있다. 본명/가명 이중 이름 설정이 있다면 유지한다.")
     characters = await bs._call_json(client, model, chars_msgs,
-                                     temperature=None, reasoning_effort=ep.reasoning_effort)
+                                     reasoning_effort=provider.reasoning_effort)
 
     # 콜 4 — 관계망 + 세계관
     names = [c.get("name") for c in characters.get("characters", [])
              if isinstance(c, dict) and bs._as_str(c.get("name"))]
     rellore_msgs = bs._relations_lore_messages(genre, idea, summary, names)
     rellore = await bs._call_json(client, model, rellore_msgs,
-                                  temperature=None, reasoning_effort=ep.reasoning_effort)
+                                  reasoning_effort=provider.reasoning_effort)
     return characters, rellore
 
 
@@ -160,9 +186,15 @@ def apply(characters, rellore):
 
 async def main():
     db = SessionLocal()
+    cached_result = None
     if CACHE.exists() and "--fresh" not in sys.argv:
-        cached = json.loads(CACHE.read_text(encoding="utf-8"))
-        characters, rellore = cached["characters"], cached["rellore"]
+        try:
+            cached = json.loads(CACHE.read_text(encoding="utf-8"))
+            cached_result = cached["characters"], cached["rellore"]
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            print(f"캐시를 읽지 못해 새로 생성합니다: {type(exc).__name__}", flush=True)
+    if cached_result is not None:
+        characters, rellore = cached_result
         print("캐시에서 로드(재개)", flush=True)
         db.close()
     else:

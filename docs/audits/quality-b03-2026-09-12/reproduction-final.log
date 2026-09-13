@@ -1,0 +1,74 @@
+{"isolation": "ready-before-pytest", "root": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-evz8rjpa", "destinations": {"DATABASE_URL": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-isolated-evz8rjpa/lifespan.db", "JIPPEEL_KEY_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-evz8rjpa\\dummy.key", "COVERAGE_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-evz8rjpa\\test.coverage", "JIPPEEL_TEST_BASETEMP": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-evz8rjpa\\pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+============================= test session starts =============================
+platform win32 -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\wj941\Documents\jippeel\backend\.venv\Scripts\python.exe
+cachedir: pytest-cache
+rootdir: C:\Users\wj941\AppData\Local\Temp\jippeel-isolated-evz8rjpa
+configfile: pytest.ini
+collecting ... collected 43 items
+
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[-65-0.0-0.0] PASSED [  2%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[ \t\n -65-0.0-0.0] PASSED [  4%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[!-85-0.0-0.0] PASSED [  6%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings["!"!-100-0.25-0.0] PASSED [  9%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[\ud558\uac8c \ub41c\ub2e4-65-0.0-0.0] PASSED [ 11%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[~\ud558\uac8c \ub41c\ub2e4-50-0.0-166.67] PASSED [ 13%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[\uc77c \ubfd0\uc774\ub2e4-65-0.0-0.0] PASSED [ 16%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[~\uc77c \ubfd0\uc774\ub2e4-50-0.0-166.67] PASSED [ 18%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[\uac83\uc774\uc5c8\ub2e4-50-0.0-250.0] PASSED [ 20%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[~\uac83\uc774\uc5c8\ub2e4-50-0.0-400.0] PASSED [ 23%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[\uae30\ub3c4 \ud588\ub2e4-50-0.0-200.0] PASSED [ 25%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[~\uae30\ub3c4 \ud588\ub2e4-50-0.0-333.33] PASSED [ 27%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_short_text_and_endings[\uace0\uc694\ud55c \ubc24-65-0.0-0.0] PASSED [ 30%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes0-199] PASSED [ 32%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes0-200] PASSED [ 34%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes0-201] PASSED [ 37%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes0-400] PASSED [ 39%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes1-199] PASSED [ 41%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes1-200] PASSED [ 44%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes1-201] PASSED [ 46%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes1-400] PASSED [ 48%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes2-199] PASSED [ 51%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes2-200] PASSED [ 53%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes2-201] PASSED [ 55%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes2-400] PASSED [ 58%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes3-199] PASSED [ 60%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes3-200] PASSED [ 62%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes3-201] PASSED [ 65%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quoted_span_cutoff[quotes3-400] PASSED [ 67%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quote_selection[\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00-0.0] PASSED [ 69%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quote_selection["\uac00-0.0] PASSED [ 72%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quote_selection[\u201c\uac00"-0.3333] PASSED [ 74%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quote_selection["\uc6a9\uc5b4"\ub294 \ud45c\uc81c\ub2e4.-0.2] PASSED [ 76%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quote_selection['\uac00'-0.0] PASSED [ 79%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_quote_selection["\uac00"\n"\ub098"-0.2857] PASSED [ 81%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_purpose_invariants[] PASSED [ 83%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_purpose_invariants[\uace0\uc694\ud55c \ubc24] PASSED [ 86%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_purpose_invariants["!"!] PASSED [ 88%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_loader_essay_and_fallback PASSED [ 90%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_api_empty_history_and_record_false PASSED [ 93%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_intended_regression_weak_ending_without_notation_is_counted FAILED [ 95%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_intended_regression_complete_201_character_quote_is_counted FAILED [ 97%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_observed_normalization_and_denominators PASSED [100%]
+
+================================== FAILURES ===================================
+______ test_intended_regression_weak_ending_without_notation_is_counted _______
+
+    def test_intended_regression_weak_ending_without_notation_is_counted():
+        """RED: documented ending should be detected without a literal notation tilde."""
+>       assert quality.analyze_text("하게 된다")["ending_repeat_per_1k"] == 200.0
+E       assert 0.0 == 200.0
+
+tests\test_quality_b03_reproduction.py:133: AssertionError
+______ test_intended_regression_complete_201_character_quote_is_counted _______
+
+    def test_intended_regression_complete_201_character_quote_is_counted():
+        """RED: full closed span must not disappear at the undocumented 200-char cap."""
+>       assert quality.analyze_text('"' + "가" * 201 + '"')["dialogue_ratio"] == 0.9901
+E       assert 0.0 == 0.9901
+
+tests\test_quality_b03_reproduction.py:138: AssertionError
+=========================== short test summary info ===========================
+FAILED ..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_intended_regression_weak_ending_without_notation_is_counted
+FAILED ..\..\..\AppData\Local\Temp\jippeel-isolated-evz8rjpa::test_intended_regression_complete_201_character_quote_is_counted
+======================== 2 failed, 41 passed in 1.98s =========================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 1, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

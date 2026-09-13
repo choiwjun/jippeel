@@ -1,0 +1,28 @@
+REVIEW_GATE: PASS
+
+## Review
+
+No issues found.
+
+- **Fixed — original P1:** `backend/tests/isolation_guard.py:148-151` normalizes case, trailing dots/spaces, and stream suffixes before identifying sensitive names, then retains the original ownership check. `backend/tests/test_isolation_guard.py:194-208` adds 18 str/bytes cases asserting rejection, zero consumer calls, and exactly one additional latch entry; owned-path acceptance remains.
+  - Evidence: `/tmp/jippeel-b04-review-fixes-t4hs3psy/aliases-red.txt` records 18 failures; `aliases-green.txt` records 19 tests passing.
+  - Synthetic states are separate from the installed process guard (`test_isolation_guard.py:13-26`); deliberate negative events are not attempted live credential accesses.
+
+- **Fixed — original P2:** `docs/runbooks/isolated-backend-tests.md:45` explicitly limits protection to the named checks and excludes comprehensive filesystem-mutation protection or an OS sandbox. `docs/audits/failure-contracts-2026-09-12/b04-review-fixes.md` expressly supersedes the earlier overstatement. General rename/remove coverage is not required by this corrected scope.
+
+- **Correct — supported entrypoints:** `backend/scripts/run_backend_pytest.py:9-19` resolves imports relative to its source, installs isolation before pytest, and checks the final latch. `.eval_tmp/run_backend_pytest.py:5-6` delegates to that implementation without importing app/pytest first. `canonical-preflight.txt` and `compat-preflight.txt` independently show fresh native Windows TEMP roots, protected imports absent, one internal IPC connection, and zero violations.
+  - Both runbooks now use the supported runner; the historical notice at `docs/audits/preservation-final-validation.md:17` preserves historical results without implying retrospective isolation.
+
+- **Correct — assertions and fresh validation:** `delta-clean.diff` adds alias assertions without weakening existing tests or modifying product code. `full-final-clean.txt:139-146` and `full-final-clean.exit` record **419 passed, 1 existing skip, 19 warnings, 70 subtests; exit 0**, with `violations=[]`, `subprocess_attempts=0`, and seven fake-keyring calls.
+  - Source configuration and the first stdout attestation establish fresh TEMP **coverage data**, not merely a redirected report.
+  - `coverage-clean.pretty.json:291-305,2817-2831,3552-3566` agrees with the summary: bootstrap **96.19% line / 81.52% branch**, canon **87.10% / 83.33%**, guard **93.44% / 91.67%**. The manifest records raw/pretty semantic equality.
+
+- **Correct — retention:** `before-hashes.json`, `final-clean-hashes.json`, and `preservation-clean.json` support unchanged approved `.coverage` (`a8db…`), crypto (`5902…`), canon, bootstrap, index (`bf9b…`), and all 37 original backend app files. `head.final`, `ref.final`, and empty `index.final` support unchanged main/HEAD and no staged delta.
+
+### Residual limits
+
+This remains a trusted-test harness, not exhaustive proof against arbitrary native operations. No unplanned live access is evidenced by the reviewed run. Historical credential effects remain unknown; original d6ad… coverage was not recovered. The external-metrics skip, SQLite warnings, and unrerun browser/real-provider checks remain. LSP is **inconclusive**, not clean; only the scoped diff check passed.
+
+Read-only review; no commands, tests, edits, or credential inspection performed.
+
+**Merge verdict: OK with notes** for these corrections. Parent owns final acceptance; this grants no production, deployment, or Git authorization.

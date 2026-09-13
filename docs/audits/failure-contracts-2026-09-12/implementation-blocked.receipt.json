@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "workflowRunId": "0eb4ece4-f165-4adb-95ff-da4fec6abe42",
+  "state": "failed",
+  "createdAt": 1789181201838,
+  "entries": {
+    "failure-contracts-implementation": {
+      "key": "failure-contracts-implementation",
+      "agent": "worker",
+      "requestedContext": "fresh",
+      "resolvedContext": "fresh",
+      "outputReference": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/0eb4ece4-f165-4adb-95ff-da4fec6abe42/implementation/b01-b02.md",
+      "continuation": {
+        "runIds": [
+          "2938109b-01cb-4979-bff9-bb53c8483bae"
+        ]
+      },
+      "latestRunId": "2938109b-01cb-4979-bff9-bb53c8483bae",
+      "resumability": {
+        "state": "resumable"
+      }
+    }
+  },
+  "workflowChildren": {
+    "version": 1,
+    "parentToolCallId": "call_dJujbX3YQHQVC8xCGttk5Hc8|fc_0c255e1e0408a477016aa4b9742a0487d0ba91f3b3c66ed1dc",
+    "workflowRunId": "0eb4ece4-f165-4adb-95ff-da4fec6abe42",
+    "inventoryComplete": true,
+    "workflowState": "failed",
+    "children": [
+      {
+        "childId": "failure-contracts-implementation",
+        "state": "completed",
+        "runId": "2938109b-01cb-4979-bff9-bb53c8483bae",
+        "agent": "worker",
+        "sessionName": "worker: Implement the USER-APPROVED B01/B02 repair plan in /mnt/c...",
+        "model": "openai-codex/gpt-6-astra:high"
+      }
+    ]
+  }
+}

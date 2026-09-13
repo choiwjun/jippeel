@@ -1,0 +1,21 @@
+{
+  "status": "B03_ACCEPTED",
+  "verifiedAt": "2026-09-13T00:13:32.434355+09:00",
+  "sourceManifestSha256": "e281038fe52da625648f18712e2ce2c78da9780946301db8bba00919c4b70473",
+  "rawCopiesVerified": 107,
+  "rawCopiesEqualToOriginal": true,
+  "currentSourceAndProtectedHashCount": 16,
+  "currentSourceAndProtectedHashesMatch": true,
+  "stagedFiles": [],
+  "head": "c1a92c45fe8c16b4ee140a31fe97683ab588ed07",
+  "documents": {
+    "HANDOFF.md": "78c4d5155e17cd31420e932671e913aa6fd60d353bbdc34b97ff7725194c5b62",
+    "docs/DOCUMENT_STATUS.md": "9587a8c725d554ee86de792ded92c2e40e6078c5ee7c1e45012b9d82a9a9bcbd",
+    "docs/handoffs/2026-09-08-remaining-work.md": "3db53b309e9db118b7d7b57e7a76d59d209f6784ddb847c7150e3e14421fb109",
+    "docs/runbooks/isolated-backend-tests.md": "83776a0e462a70f66b3abcb6a68544dfdfbe98d906382fd1961ac9e5df4f634f",
+    "docs/superpowers/plans/2026-09-12-quality-metric-corrections.md": "47c95a51adb416ce677040b713a8bb73ee7b5f9b3d3edd6770688e9cc9c80b37",
+    "docs/superpowers/plans/2026-09-12-remaining-sequence.md": "3690da0fcb35b2024af479224373a0d9876ce056bda4f4ff8b204a57ca448c0e",
+    "docs/audits/quality-b03-2026-09-12/acceptance.md": "58eadf6457cf4b9d9ae65403143b60684db6d4cac3640ebc27f650e829588efd",
+    "docs/audits/quality-b03-2026-09-12/self-evaluation.md": "79e3d598008a9b60446b2643a6475fd77f202b309c58e24e19a40cbe1776876b"
+  }
+}

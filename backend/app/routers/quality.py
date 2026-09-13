@@ -1,20 +1,19 @@
 """canon 충돌 검사 + 회차 품질 진단 라우터 — 고도화 G-023·G-031·이력(G-041)."""
 import hashlib
 
-import openai
+import openai  # pyright: ignore[reportMissingImports]
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import CanonRun, Chapter, QualityCheck
-from app.schemas import (CanonCheckRequest, CanonCheckResponse, CanonRunOut,
-                         ChapterQualityOut, EpisodePurpose, QualityCheckOut)
+from app.schemas import (CanonCheckRequest, CanonCheckResponse, CanonIssueOut,
+                         CanonRunOut, ChapterQualityOut, EpisodePurpose, QualityCheckOut)
 from app.services import ai_context
 from app.services import canon as canon_service
-from app.services import llm, quality as quality_service
+from app.services import gpt_oauth, llm, quality as quality_service
 from app.services import usage as usage_service
-from app.services.bootstrap import NoEndpointError, resolve_endpoint
 
 router = APIRouter()
 
@@ -37,17 +36,16 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
     bundle = ai_context.build_context_bundle(db, ai_context.request_from_canon(payload, chapter))
     messages_context = canon_service.build_messages(db, chapter, payload=payload, bundle=bundle)
     try:
-        endpoint, model = resolve_endpoint(db)
-    except NoEndpointError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+        provider = gpt_oauth.get_provider()
+    except gpt_oauth.OAuthProviderConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    model = provider.default_model
+    client = llm.make_client(provider.base_url, None)
     prompt_chars = 0
     try:
         issues, counts, used_model = await canon_service.run_canon_check(
             db, chapter, client, model,
-            temperature=endpoint.temperature,
-            reasoning_effort=endpoint.reasoning_effort,
+            reasoning_effort=provider.reasoning_effort,
             payload=payload,
             bundle=bundle,
             messages_context=messages_context)
@@ -64,12 +62,13 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
     db.add(run)
     db.commit()
     db.refresh(run)
-    usage_service.record(kind="canon", model=used_model, endpoint_name=endpoint.name,
+    usage_service.record(kind="canon", model=used_model, endpoint_name=provider.name,
                          prompt_chars=prompt_chars,
                          completion_chars=sum(len(i["quote"]) + len(i["reason"]) for i in issues))
 
+    response_issues = [CanonIssueOut.model_validate(issue) for issue in issues]
     return CanonCheckResponse(
-        run_id=run.id, chapter_id=chapter.id, model=used_model, issues=issues,
+        run_id=run.id, chapter_id=chapter.id, model=used_model, issues=response_issues,
         checked_context=counts)
 
 

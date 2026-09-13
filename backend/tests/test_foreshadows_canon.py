@@ -1,5 +1,6 @@
 """고도화 G-020~G-023 — 복선 CRUD·미회수 자동 주입·canon 검사 테스트."""
 import json
+from typing import Any
 
 import pytest
 from sqlalchemy import select
@@ -92,7 +93,7 @@ def test_foreshadow_crud_and_status_filter(client, chapter):
 def test_unresolved_foreshadows_auto_injected(client, monkeypatch, chapter):
     from app.routers import ai_panel
     spec = {"chunks": list(DEFAULT_CHUNKS), "exc": None}
-    holder = {"client": None}
+    holder: dict[str, Any] = {"client": None}
 
     def _make_client(base_url, api_key_encrypted):
         holder["client"] = FakeAsyncOpenAI(base_url=base_url, api_key="x", spec=spec)
@@ -139,9 +140,7 @@ def test_canon_check_success(client, monkeypatch, chapter):
             return _Response(json.dumps({
                 "issues": [{"quote": "그는 어릴 때부터 검을 배웠다",
                             "reason": "캐릭터 설정: 검을 배운 적 없음",
-                            "severity": "error"},
-                           {"quote": "", "reason": "빈 발췌는 무시",
-                            "severity": "warn"}]}, ensure_ascii=False))
+                            "severity": "error"}]}, ensure_ascii=False))
 
     class _FakeClient:
         def __init__(self, base_url=None, api_key_encrypted=None):
@@ -159,7 +158,7 @@ def test_canon_check_success(client, monkeypatch, chapter):
     resp = client.post("/api/v1/canon-check", json={"chapter_id": chapter["id"]})
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert len(body["issues"]) == 1  # 빈 quote 필터링
+    assert len(body["issues"]) == 1
     assert body["issues"][0]["severity"] == "error"
     for key, value in {"characters": 0, "lore": 0, "foreshadows": 0, "audience_known": 0}.items():
         assert body["checked_context"][key] == value
@@ -172,9 +171,13 @@ def test_canon_check_success(client, monkeypatch, chapter):
     assert len(runs) == 1 and runs[0]["id"] == body["run_id"]
 
 
-def test_canon_check_requires_default_endpoint(client, chapter):
+def test_canon_check_rejects_invalid_oauth_bridge_configuration(client, chapter, monkeypatch):
+    monkeypatch.setenv("JIPPEEL_GPT_OAUTH_BASE_URL", "https://example.invalid/v1")
+
     resp = client.post("/api/v1/canon-check", json={"chapter_id": chapter["id"]})
-    assert resp.status_code == 400  # 엔드포인트 없음
+
+    assert resp.status_code == 503
+    assert "localhost" in resp.json()["detail"]
 
 
 def test_project_delete_cascades_foreshadows(client, chapter):

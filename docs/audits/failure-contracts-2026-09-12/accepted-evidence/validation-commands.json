@@ -1,0 +1,38 @@
+[
+  {
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "command": "backend/.venv/Scripts/python.exe -I -S -B backend/tests/test_isolation_guard.py",
+    "stdout_stderr": "/tmp/jippeel-b04-review-fixes-t4hs3psy/aliases-red.txt",
+    "exit": 1
+  },
+  {
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "command": "backend/.venv/Scripts/python.exe -I -S -B backend/tests/test_isolation_guard.py",
+    "stdout_stderr": "/tmp/jippeel-b04-review-fixes-t4hs3psy/aliases-green.txt",
+    "exit": 0
+  },
+  {
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/backend",
+    "command": ".venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight",
+    "stdout_stderr": "/tmp/jippeel-b04-review-fixes-t4hs3psy/canonical-preflight.txt",
+    "exit": 0
+  },
+  {
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "command": "backend/.venv/Scripts/python.exe -I -S -B .eval_tmp/run_backend_pytest.py --isolation-preflight",
+    "stdout_stderr": "/tmp/jippeel-b04-review-fixes-t4hs3psy/compat-preflight.txt",
+    "exit": 0
+  },
+  {
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/backend",
+    "command": ".venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -q --isolation-coverage",
+    "stdout_stderr": "/tmp/jippeel-b04-review-fixes-t4hs3psy/full-final.txt",
+    "exit": 0
+  },
+  {
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/backend",
+    "command": ".venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -q --isolation-coverage",
+    "stdout_stderr": "/tmp/jippeel-b04-review-fixes-t4hs3psy/full-final-clean.txt",
+    "exit": 0
+  }
+]

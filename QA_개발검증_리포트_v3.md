@@ -1,5 +1,9 @@
 # QA 개발검증 리포트 v3 (jippeel)
 
+> **상태: historical QA report (2026-09-06).** 아래의 실제 provider·OAuth·keyring
+> 실측 문구는 현재 release evidence로 인정하지 않는다. 현재는 fake bridge/임시 DB만
+> 허용하며, fixed `ChatGPT OAuth` / `gpt-5.6-luna` 실제 품질 평가는 별도 승인 gate다.
+
 - 작성: 개발 세션 자체검증 · 일자: 2026-09-06
 - 대상: v2 리포트(2026-08-26) 이후 변경분 전체 + 분석 보고서(요구사항_분석.md) 지적사항 수정 검증
 - 실행환경: WSL Ubuntu(개발 표준 환경) — backend .venv(Python 3.14.4) + Playwright chromium(~/.local/pwlibs + LD_LIBRARY_PATH)
@@ -9,7 +13,7 @@
 ## 1. 요약
 
 | 구분 | 결과 |
-|---|---|
+| --- | --- |
 | Backend pytest | **122 passed** (121 + 로어북 자동 주입 1) |
 | Frontend build | **통과** (tsc -b + vite build, 벤더 청크 분할 적용) |
 | UI E2E | **8/8 passed × 2회 연속** (기존 6 + 신규 2) |
@@ -19,7 +23,7 @@
 ## 2. 이번 사이클에서 발견·수정한 결함
 
 | ID | 등급 | 내용 | 수정 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | F-Q3-1 | **P0** | 이탈 저장 플러시가 React 언마운트 클린업에만 존재 — 탭 닫기·새로고침·전체 이동에서는 클린업이 실행되지 않아 변경분 유실. 또한 기존 sendBeacon은 POST라 PUT 계약과 불일치(405) | **pagehide 이벤트 병행** + keepalive fetch PUT 전환. E2E TC-038 시나리오로 자동 검증 |
 | F-Q3-2 | P1 | LM Studio 자동등록이 존재하지 않는 `model` 필드 전송 → 기본 모델 미저장 | `default_model` 수정 + :1234 모델 목록에서 실제 모델명 조회 등록 |
 | F-Q3-3 | P1 | 에디터 푸터(노벨피아 모드)와 서버 word_count_cache(공백만 제외) 집계 기간 불일치 → PLUS 판정과 표시 상이 | 서버 캐시를 **노벨피아 모드(문자·숫자만, 부록06)** 로 통일 — 표시·캐시·판정 동일 기준 |
@@ -30,8 +34,8 @@
 ## 3. 신규 기능 검증
 
 | 기능 | 검증 |
-|---|---|
-| GPT OAuth 구독 연결 | S5 스트리밍(gpt-5.6-luna xhigh)·부트스트랩 200 OK 실측(2026-09-05), temperature 미전송 정책 반영 |
+| --- | --- |
+| GPT OAuth 계약 | S5 스트리밍·부트스트랩은 fake bridge로 계약만 검증했고, `gpt-5.6-luna` 실제 provider 호출과 temperature 미전송 정책의 실 provider 검증은 별도 승인 gate다 |
 | 로어북 자동 주입 (백로그 P1) | `context.auto_lore` — 본문 키워드 매칭 로어 자동 포함, 단위 테스트 1건 + AI 패널 체크박스 |
 | 기본 프리셋 6종 시드 | 빈 테이블에서만 삽입(멱등), AI 패널·설정 노출 확인 |
 | AI 컨텍스트 토글 (R-023) | 패널에서 회차·캐릭터·로어·자동로어 각각 on/off — payload 반영 |
@@ -43,7 +47,7 @@
 2. S2 회차 개명 → 300자 타이핑 → 공백제외 글자수 갱신
 3. S5 AI 스트리밍 → P1 자동삽입 금지 → 끼워넣기
 4. S6 윤문 diff·게이트 → 거절 시 본문 불변
-5. S7 api_key 마스킹·[표시] 버튼 부재
+5. S7 설정 화면에서 고정 provider·bridge 상태만 표시; legacy endpoint key 마스킹 호환성은 별도 route에 한정
 6. **TC-038 이탈 플러시 — 자동저장 전 이탈 시 keepalive PUT으로 원고 보존 (신규)**
 7. **TC-308 미리보기 XSS — script 미실행·onerror 제거·마크다운 정상 렌더 (신규)**
 8. 정리 — 테스트 데이터 삭제

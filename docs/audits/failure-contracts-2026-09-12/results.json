@@ -1,0 +1,1958 @@
+{
+  "runtime": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+  "repo": "C:\\Users\\wj941\\Documents\\jippeel",
+  "run": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-b01-b02-k6krxni5\\execution-gjpb_2f9",
+  "database_url": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-b01-b02-k6krxni5/execution-gjpb_2f9/never-opened.db",
+  "dummy_key": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-b01-b02-k6krxni5\\execution-gjpb_2f9\\never-opened-dummy.key",
+  "guard_events": [],
+  "canon_parse": [
+    {
+      "id": "C01-empty",
+      "input_raw": "{\"issues\": []}",
+      "expected": "accept (invalid schema must raise ValueError for repair)",
+      "output": [],
+      "verdict": "PASS"
+    },
+    {
+      "id": "C02-valid",
+      "input_raw": "{\"issues\": [{\"quote\": \" original \", \"reason\": \" conflict \", \"severity\": \"error\"}]}",
+      "expected": "accept (invalid schema must raise ValueError for repair)",
+      "output": [
+        {
+          "quote": "original",
+          "reason": "conflict",
+          "severity": "error"
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "id": "C03-missing",
+      "input_raw": "{}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [],
+      "verdict": "RED"
+    },
+    {
+      "id": "C04-null",
+      "input_raw": "{\"issues\": null}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "exception": "TypeError",
+      "message": "'NoneType' object is not iterable",
+      "verdict": "RED"
+    },
+    {
+      "id": "C05-number",
+      "input_raw": "{\"issues\": 7}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "exception": "TypeError",
+      "message": "'int' object is not iterable",
+      "verdict": "RED"
+    },
+    {
+      "id": "C06-string",
+      "input_raw": "{\"issues\": \"oops\"}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [],
+      "verdict": "RED"
+    },
+    {
+      "id": "C07-object",
+      "input_raw": "{\"issues\": {\"quote\": \"q\", \"reason\": \"r\"}}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [],
+      "verdict": "RED"
+    },
+    {
+      "id": "C08-invalid-items",
+      "input_raw": "{\"issues\": [null, 7, \"bad\"]}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [],
+      "verdict": "RED"
+    },
+    {
+      "id": "C09-missing-fields",
+      "input_raw": "{\"issues\": [{}]}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [],
+      "verdict": "RED"
+    },
+    {
+      "id": "C10-blank-field",
+      "input_raw": "{\"issues\": [{\"quote\": \" \", \"reason\": \"r\"}]}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [],
+      "verdict": "RED"
+    },
+    {
+      "id": "C11-wrong-field-types",
+      "input_raw": "{\"issues\": [{\"quote\": 123, \"reason\": [\"bad\"]}]}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [
+        {
+          "quote": "123",
+          "reason": "['bad']",
+          "severity": "warn"
+        }
+      ],
+      "verdict": "RED"
+    },
+    {
+      "id": "C12-mixed",
+      "input_raw": "{\"issues\": [{\"quote\": \" original \", \"reason\": \" conflict \", \"severity\": \"error\"}, {}]}",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "output": [
+        {
+          "quote": "original",
+          "reason": "conflict",
+          "severity": "error"
+        }
+      ],
+      "verdict": "RED"
+    },
+    {
+      "id": "C13-severity-compat",
+      "input_raw": "{\"issues\": [{\"quote\": \"q\", \"reason\": \"r\", \"severity\": \"unknown\"}]}",
+      "expected": "accept (invalid schema must raise ValueError for repair)",
+      "output": [
+        {
+          "quote": "q",
+          "reason": "r",
+          "severity": "warn"
+        }
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "id": "C14-broken-json",
+      "input_raw": "{\"issues\":",
+      "expected": "reject (invalid schema must raise ValueError for repair)",
+      "exception": "ValueError",
+      "message": "JSON 객체를 찾지 못했습니다",
+      "verdict": "PASS"
+    }
+  ],
+  "canon_run_fake": [
+    {
+      "id": "C01-empty",
+      "responses": [
+        "{\"issues\": []}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 1,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "PASS"
+    },
+    {
+      "id": "C02-valid",
+      "responses": [
+        "{\"issues\": [{\"quote\": \" original \", \"reason\": \" conflict \", \"severity\": \"error\"}]}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 1,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [
+          {
+            "quote": "original",
+            "reason": "conflict",
+            "severity": "error"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "PASS"
+    },
+    {
+      "id": "C03-missing",
+      "responses": [
+        "{}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C04-null",
+      "responses": [
+        "{\"issues\": null}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "exception": "TypeError",
+      "message": "'NoneType' object is not iterable",
+      "context_preserved": false,
+      "verdict": "RED"
+    },
+    {
+      "id": "C05-number",
+      "responses": [
+        "{\"issues\": 7}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "exception": "TypeError",
+      "message": "'int' object is not iterable",
+      "context_preserved": false,
+      "verdict": "RED"
+    },
+    {
+      "id": "C06-string",
+      "responses": [
+        "{\"issues\": \"oops\"}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C07-object",
+      "responses": [
+        "{\"issues\": {\"quote\": \"q\", \"reason\": \"r\"}}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C08-invalid-items",
+      "responses": [
+        "{\"issues\": [null, 7, \"bad\"]}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C09-missing-fields",
+      "responses": [
+        "{\"issues\": [{}]}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C10-blank-field",
+      "responses": [
+        "{\"issues\": [{\"quote\": \" \", \"reason\": \"r\"}]}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C11-wrong-field-types",
+      "responses": [
+        "{\"issues\": [{\"quote\": 123, \"reason\": [\"bad\"]}]}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [
+          {
+            "quote": "123",
+            "reason": "['bad']",
+            "severity": "warn"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C12-mixed",
+      "responses": [
+        "{\"issues\": [{\"quote\": \" original \", \"reason\": \" conflict \", \"severity\": \"error\"}, {}]}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [
+          {
+            "quote": "original",
+            "reason": "conflict",
+            "severity": "error"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "RED"
+    },
+    {
+      "id": "C13-severity-compat",
+      "responses": [
+        "{\"issues\": [{\"quote\": \"q\", \"reason\": \"r\", \"severity\": \"unknown\"}]}",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 1,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [
+          {
+            "quote": "q",
+            "reason": "r",
+            "severity": "warn"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "PASS"
+    },
+    {
+      "id": "C14-broken-json",
+      "responses": [
+        "{\"issues\":",
+        "{\"issues\": []}"
+      ],
+      "input_messages_context": [
+        [
+          {
+            "role": "system",
+            "content": "synthetic canon contract"
+          },
+          {
+            "role": "user",
+            "content": "synthetic-original"
+          }
+        ],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        }
+      ],
+      "expected_calls": 2,
+      "calls": [
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            }
+          ],
+          "reasoning_effort": null
+        },
+        {
+          "model": "fake-model",
+          "messages": [
+            {
+              "role": "system",
+              "content": "synthetic canon contract"
+            },
+            {
+              "role": "user",
+              "content": "synthetic-original"
+            },
+            {
+              "role": "assistant",
+              "content": "{\"issues\":"
+            },
+            {
+              "role": "user",
+              "content": "직전 응답은 유효한 JSON이 아니었다. 요청된 형식 그대로의 유효한 JSON만 다시 출력하라."
+            }
+          ],
+          "reasoning_effort": null
+        }
+      ],
+      "output": [
+        [],
+        {
+          "checked_input_revision": 7,
+          "checked_input_hash": "c923045a95120a84565d06a15749e4fcb867c95938acf8cb6bf473c7cb093ccb"
+        },
+        "fake-model"
+      ],
+      "context_preserved": true,
+      "verdict": "PASS"
+    }
+  ],
+  "outline": [
+    {
+      "id": "O01-normal",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": true,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "PASS"
+    },
+    {
+      "id": "O02-missing-earlier-volume",
+      "input": {
+        "volumes": [
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "2권 1화",
+          "synopsis": "",
+          "key_event": ""
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "2권 2화",
+          "synopsis": "",
+          "key_event": ""
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": false,
+        "volume_order_grid_unique_complete": false,
+        "sort_orders_unique_0_to_3": false,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O03-uneven-volumes",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "2권 2화",
+          "synopsis": "",
+          "key_event": ""
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": false,
+        "volume_order_grid_unique_complete": false,
+        "sort_orders_unique_0_to_3": false,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O04-duplicate-volume",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": false,
+        "volume_order_grid_unique_complete": false,
+        "sort_orders_unique_0_to_3": false,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O05-out-of-range-volume",
+      "input": {
+        "volumes": [
+          {
+            "volume": 3,
+            "title": "V3",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V3C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V3C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 3,
+          "order": 1,
+          "sort_order": 4.0,
+          "title": "V3C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 3,
+          "order": 2,
+          "sort_order": 5.0,
+          "title": "V3C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": false,
+        "volume_order_grid_unique_complete": false,
+        "sort_orders_unique_0_to_3": false,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O06-duplicate-order",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 1,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": false,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": false,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O07-out-of-range-order",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 99,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 99,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": false,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": false,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O08-all-missing",
+      "input": {},
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "1권 1화",
+          "synopsis": "",
+          "key_event": ""
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "1권 2화",
+          "synopsis": "",
+          "key_event": ""
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "2권 1화",
+          "synopsis": "",
+          "key_event": ""
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "2권 2화",
+          "synopsis": "",
+          "key_event": ""
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": true,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "PASS"
+    },
+    {
+      "id": "O09-short-last-volume",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "2권 2화",
+          "synopsis": "",
+          "key_event": ""
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": true,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "PASS"
+    },
+    {
+      "id": "O10-reversed-order",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 2,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 1,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": true,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": false,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O11-reversed-volumes",
+      "input": {
+        "volumes": [
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V1C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "V1C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": true,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "PASS"
+    },
+    {
+      "id": "O12-invalid-volume-after-short",
+      "input": {
+        "volumes": [
+          {
+            "volume": 1,
+            "title": "V1",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V1C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              }
+            ]
+          },
+          {
+            "volume": 0,
+            "title": "V0",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V0C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V0C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V1C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 1,
+          "sort_order": 0.0,
+          "title": "V0C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 1,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "V0C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "2권 2화",
+          "synopsis": "",
+          "key_event": ""
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": false,
+        "volume_order_grid_unique_complete": false,
+        "sort_orders_unique_0_to_3": false,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": true,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    },
+    {
+      "id": "O13-boolean-identifiers",
+      "input": {
+        "volumes": [
+          {
+            "volume": true,
+            "title": "VTrue",
+            "chapters": [
+              {
+                "order": true,
+                "title": "VTrueC1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "VTrueC2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          },
+          {
+            "volume": 2,
+            "title": "V2",
+            "chapters": [
+              {
+                "order": 1,
+                "title": "V2C1",
+                "synopsis": "S1",
+                "key_event": "K1"
+              },
+              {
+                "order": 2,
+                "title": "V2C2",
+                "synopsis": "S2",
+                "key_event": "K2"
+              }
+            ]
+          }
+        ]
+      },
+      "volume_count": 2,
+      "cpv": 2,
+      "output": [
+        {
+          "volume": true,
+          "order": true,
+          "sort_order": 0.0,
+          "title": "VTrueC1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": true,
+          "order": 2,
+          "sort_order": 1.0,
+          "title": "VTrueC2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        },
+        {
+          "volume": 2,
+          "order": 1,
+          "sort_order": 2.0,
+          "title": "V2C1",
+          "synopsis": "S1",
+          "key_event": "K1"
+        },
+        {
+          "volume": 2,
+          "order": 2,
+          "sort_order": 3.0,
+          "title": "V2C2",
+          "synopsis": "S2",
+          "key_event": "K2"
+        }
+      ],
+      "checks": {
+        "total_count_4": true,
+        "volume_distribution_1_2_each_2": true,
+        "volume_order_grid_unique_complete": true,
+        "sort_orders_unique_0_to_3": true,
+        "sort_matches_volume_order": true,
+        "identifiers_are_int_not_bool": false,
+        "input_unchanged": true
+      },
+      "verdict": "RED"
+    }
+  ],
+  "db_exists": false,
+  "key_exists": false,
+  "app_main_imported": false
+}

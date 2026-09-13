@@ -8,6 +8,7 @@ from app.database import Base, create_db_engine
 from app.models import Chapter, MemoryEntry, Project
 from app.services.long_memory import (
     create_memory_entry,
+    format_context_memory,
     select_context_memory,
     validate_visibility_transition,
 )
@@ -67,6 +68,8 @@ def test_memory_service_rejects_invalid_inputs_and_target_ownership(tmp_path):
         {"kind": "fact", "body": "body", "source_revision": 1},
         {"kind": "fact", "body": "body", "chapter_id": foreign_chapter.id},
         {"kind": "fact", "body": "body", "effective_from_sort_order": 3, "effective_to_sort_order": 2},
+        {"kind": "fact", "body": "body", "effective_from_sort_order": float("nan")},
+        {"kind": "fact", "body": "body", "effective_to_sort_order": float("inf")},
     ]
     for values in invalid_cases:
         with pytest.raises(ValueError):
@@ -102,5 +105,8 @@ def test_memory_effective_range_and_draft_policy(tmp_path):
     db.commit()
 
     assert [entry.body for entry in select_context_memory(db, project.id, current.id)] == ["visible"]
-    assert [entry.body for entry in select_context_memory(db, project.id, current.id, include_draft=True)] == ["visible", "draft"]
+    selected_with_draft = select_context_memory(db, project.id, current.id, include_draft=True)
+    assert [entry.body for entry in selected_with_draft] == ["visible", "draft"]
+    rendered = format_context_memory(selected_with_draft)
+    assert "[approved]" in rendered and "[draft]" in rendered
     db.close(); engine.dispose()

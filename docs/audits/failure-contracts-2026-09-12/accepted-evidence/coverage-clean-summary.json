@@ -1,0 +1,50 @@
+{
+  "app\\services\\bootstrap.py": {
+    "covered_lines": 278,
+    "num_statements": 289,
+    "percent_covered": 92.6509186351706,
+    "percent_covered_display": "93",
+    "missing_lines": 11,
+    "excluded_lines": 0,
+    "percent_statements_covered": 96.19377162629758,
+    "percent_statements_covered_display": "96",
+    "num_branches": 92,
+    "num_partial_branches": 13,
+    "covered_branches": 75,
+    "missing_branches": 17,
+    "percent_branches_covered": 81.52173913043478,
+    "percent_branches_covered_display": "82"
+  },
+  "app\\services\\canon.py": {
+    "covered_lines": 54,
+    "num_statements": 62,
+    "percent_covered": 86.25,
+    "percent_covered_display": "86",
+    "missing_lines": 8,
+    "excluded_lines": 0,
+    "percent_statements_covered": 87.09677419354838,
+    "percent_statements_covered_display": "87",
+    "num_branches": 18,
+    "num_partial_branches": 3,
+    "covered_branches": 15,
+    "missing_branches": 3,
+    "percent_branches_covered": 83.33333333333333,
+    "percent_branches_covered_display": "83"
+  },
+  "tests\\isolation_guard.py": {
+    "covered_lines": 171,
+    "num_statements": 183,
+    "percent_covered": 93.00411522633745,
+    "percent_covered_display": "93",
+    "missing_lines": 12,
+    "excluded_lines": 0,
+    "percent_statements_covered": 93.44262295081967,
+    "percent_statements_covered_display": "93",
+    "num_branches": 60,
+    "num_partial_branches": 3,
+    "covered_branches": 55,
+    "missing_branches": 5,
+    "percent_branches_covered": 91.66666666666667,
+    "percent_branches_covered_display": "92"
+  }
+}

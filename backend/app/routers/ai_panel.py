@@ -1,18 +1,21 @@
-"""AI 패널 라우터 (사양 §5 M4, Sprint 3).
+"""AI 패널 라우터 (사양 §5 M4, GPT OAuth 브릿지).
 
-- AiEndpoint CRUD — api_key는 저장 시 암호화(NFR-202), 어떤 응답에도 평문 미반환
+- 고정 GPT OAuth provider를 통한 집필·감수·부트스트랩 호출
 - PromptPreset CRUD
-- POST /ai/generate — openai SDK(base_url 오버라이드) SSE 스트리밍 (FR-405)
+- POST /ai/generate — openai SDK + 로컬 OAuth 브릿지 SSE 스트리밍 (FR-405)
+
+OAuth credential은 jippeel이 읽거나 저장하지 않는다. ``openai-oauth`` 사이드카가
+``~/.codex/auth.json``을 관리하고, 이 라우터는 localhost transport만 사용한다.
 """
 import asyncio
 import inspect
 import json
 
-import openai
+import openai  # pyright: ignore[reportMissingImports]
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from sse_starlette.sse import EventSourceResponse
+from sse_starlette.sse import EventSourceResponse  # pyright: ignore[reportMissingImports]
 
 from app.database import get_db
 from app.models import AiEndpoint, Chapter, Character, Foreshadow, LoreEntry, Project, PromptPreset, Scene
@@ -28,7 +31,7 @@ from app.schemas import (
     PromptPresetUpdate,
     ReviewRequest,
 )
-from app.services import ai_context, injection, llm, parallel_writer, usage as usage_service
+from app.services import ai_context, gpt_oauth, injection, llm, parallel_writer, usage as usage_service
 
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
 # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
@@ -92,22 +95,15 @@ router = APIRouter()
 
 
 # ---------- helpers ----------
-def _get_endpoint_or_404(eid: int, db: Session) -> AiEndpoint:
+def _find_legacy_endpoint_or_404(eid: int, db: Session) -> AiEndpoint:
     endpoint = db.get(AiEndpoint, eid)
     if endpoint is None:
         raise HTTPException(status_code=404, detail="endpoint not found")
     return endpoint
 
 
-def _get_preset_or_404(pid: int, db: Session) -> PromptPreset:
-    preset = db.get(PromptPreset, pid)
-    if preset is None:
-        raise HTTPException(status_code=404, detail="preset not found")
-    return preset
-
-
-def _to_out(endpoint: AiEndpoint) -> AiEndpointOut:
-    """평문·암호문 모두 절대 응답에 포함하지 않는다(NFR-202)."""
+def _serialize_legacy_endpoint(endpoint: AiEndpoint) -> AiEndpointOut:
+    """레거시 endpoint 응답에서도 API key는 절대 반환하지 않는다."""
     return AiEndpointOut(
         id=endpoint.id,
         name=endpoint.name,
@@ -120,21 +116,35 @@ def _to_out(endpoint: AiEndpoint) -> AiEndpointOut:
     )
 
 
-def _clear_default_flag(db: Session, exclude_id: int | None = None) -> None:
+def _clear_legacy_default_rows(db: Session, exclude_id: int | None = None) -> None:
     stmt = select(AiEndpoint).where(AiEndpoint.is_default.is_(True))
     for row in db.scalars(stmt):
         if exclude_id is None or row.id != exclude_id:
             row.is_default = False
 
 
-def _resolve_model(endpoint: AiEndpoint, requested: str | None) -> str:
-    model = requested or endpoint.default_model
-    if not model:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="모델이 지정되지 않았습니다. 엔드포인트의 기본 모델을 설정하거나 params.model을 전달하세요.",
-        )
-    return model
+def _get_preset_or_404(pid: int, db: Session) -> PromptPreset:
+    preset = db.get(PromptPreset, pid)
+    if preset is None:
+        raise HTTPException(status_code=404, detail="preset not found")
+    return preset
+
+
+def _get_provider_or_503() -> gpt_oauth.GptOAuthProvider:
+    try:
+        return gpt_oauth.get_provider()
+    except gpt_oauth.OAuthProviderConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _resolve_model(provider: gpt_oauth.GptOAuthProvider, requested: str | None = None) -> str:
+    """Return the provider model; legacy client model hints are ignored.
+
+    The optional argument remains for request/test compatibility, but callers can
+    never redirect a writing request to a user-selected model.
+    """
+    del requested
+    return provider.default_model
 
 
 def _format_brief_block(brief: EpisodeBrief) -> str:
@@ -258,28 +268,30 @@ def _append_generation_style(system_prompt: str, generation_system_prompt: str) 
 def _friendly_api_error(exc: openai.APIError) -> str:
     """FR-408 — API 오류를 사용자가 이해 가능한 안내로 변환."""
     if isinstance(exc, openai.APITimeoutError):
-        return "엔드포인트 응답 시간 초과. 로컬 모델이라면 로딩 상태를, 클라우드라면 네트워크를 확인하세요."
+        return "GPT OAuth 브릿지 응답 시간 초과. 브릿지와 계정 인증 상태를 확인하세요."
     if isinstance(exc, openai.APIConnectionError):
-        return "엔드포인트에 연결할 수 없습니다. base_url과 서버 실행 여부를 확인하세요."
+        return "GPT OAuth 브릿지에 연결할 수 없습니다. openai-oauth가 실행 중인지 확인하세요."
     if isinstance(exc, openai.AuthenticationError):
-        return "인증 실패(401). api_key를 확인하세요."
+        return "ChatGPT OAuth 인증에 실패했습니다. openai-oauth 로그인 상태를 확인하세요."
     if isinstance(exc, openai.NotFoundError):
-        return "모델 또는 경로를 찾을 수 없습니다. base_url 끝 /v1 여부와 모델 이름을 확인하세요."
+        return "고정 GPT OAuth 모델 또는 브릿지 경로를 찾을 수 없습니다. 브릿지 버전을 확인하세요."
     if isinstance(exc, openai.RateLimitError):
-        return "요청 한도 초과(429). 잠시 후 다시 시도하세요."
-    return f"엔드포인트 오류: {getattr(exc, 'message', None) or type(exc).__name__}"
+        return "ChatGPT 요청 한도 초과(429). 잠시 후 다시 시도하세요."
+    return f"GPT OAuth 브릿지 오류: {getattr(exc, 'message', None) or type(exc).__name__}"
 
 
-# ---------- AiEndpoint CRUD ----------
-@router.get("/ai/endpoints", response_model=list[AiEndpointOut])
-def list_endpoints(db: Session = Depends(get_db)):
+# ---------- Legacy endpoint compatibility ----------
+# 신규 집필 경로는 아래 리소스를 읽지 않는다. 기존 로컬 DB와 구버전 도구가
+# 마이그레이션되는 동안만 접근을 허용하며 OpenAPI/신규 UI에는 노출하지 않는다.
+@router.get("/ai/endpoints", response_model=list[AiEndpointOut], include_in_schema=False)
+def list_legacy_endpoints(db: Session = Depends(get_db)):
     rows = db.scalars(select(AiEndpoint).order_by(AiEndpoint.id)).all()
-    return [_to_out(r) for r in rows]
+    return [_serialize_legacy_endpoint(row) for row in rows]
 
 
 @router.post("/ai/endpoints", response_model=AiEndpointOut,
-             status_code=status.HTTP_201_CREATED)
-def create_endpoint(payload: AiEndpointCreate, db: Session = Depends(get_db)):
+             status_code=status.HTTP_201_CREATED, include_in_schema=False)
+def create_legacy_endpoint(payload: AiEndpointCreate, db: Session = Depends(get_db)):
     from app.services.crypto import get_cipher
 
     endpoint = AiEndpoint(
@@ -292,50 +304,51 @@ def create_endpoint(payload: AiEndpointCreate, db: Session = Depends(get_db)):
         is_default=False,
     )
     if payload.is_default:
-        _clear_default_flag(db)
+        _clear_legacy_default_rows(db)
         endpoint.is_default = True
     db.add(endpoint)
     db.commit()
     db.refresh(endpoint)
-    return _to_out(endpoint)
+    return _serialize_legacy_endpoint(endpoint)
 
 
-@router.patch("/ai/endpoints/{eid}", response_model=AiEndpointOut)
-def update_endpoint(eid: int, payload: AiEndpointUpdate, db: Session = Depends(get_db)):
+@router.patch("/ai/endpoints/{eid}", response_model=AiEndpointOut, include_in_schema=False)
+def update_legacy_endpoint(eid: int, payload: AiEndpointUpdate,
+                           db: Session = Depends(get_db)):
     from app.services.crypto import get_cipher
 
-    endpoint = _get_endpoint_or_404(eid, db)
+    endpoint = _find_legacy_endpoint_or_404(eid, db)
     data = payload.model_dump(exclude_unset=True)
     if "api_key" in data:
         raw_key = data.pop("api_key")
         endpoint.api_key_encrypted = get_cipher().encrypt(raw_key) if raw_key else None
     if data.pop("is_default", None):
-        _clear_default_flag(db, exclude_id=eid)
+        _clear_legacy_default_rows(db, exclude_id=eid)
         endpoint.is_default = True
     for field, value in data.items():
         setattr(endpoint, field, value)
     db.commit()
     db.refresh(endpoint)
-    return _to_out(endpoint)
+    return _serialize_legacy_endpoint(endpoint)
 
 
-@router.delete("/ai/endpoints/{eid}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_endpoint(eid: int, db: Session = Depends(get_db)):
-    endpoint = _get_endpoint_or_404(eid, db)
+@router.delete("/ai/endpoints/{eid}", status_code=status.HTTP_204_NO_CONTENT,
+               include_in_schema=False)
+def delete_legacy_endpoint(eid: int, db: Session = Depends(get_db)):
+    endpoint = _find_legacy_endpoint_or_404(eid, db)
     db.delete(endpoint)
     db.commit()
 
 
-@router.get("/ai/endpoints/{eid}/models")
-async def list_remote_models(eid: int, db: Session = Depends(get_db)):
-    """GET {base_url}/models 프록시 (사양 §5 M4) — api_key 미노출."""
-    endpoint = _get_endpoint_or_404(eid, db)
+@router.get("/ai/endpoints/{eid}/models", include_in_schema=False)
+async def list_legacy_remote_models(eid: int, db: Session = Depends(get_db)):
+    endpoint = _find_legacy_endpoint_or_404(eid, db)
     client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
     try:
         page = client.models.list()
         if inspect.isawaitable(page):
             page = await page
-        return {"data": [{"id": m.id} for m in page.data]}
+        return {"data": [{"id": model.id} for model in page.data]}
     except openai.APIError as exc:
         raise HTTPException(status_code=502, detail=_friendly_api_error(exc)) from exc
 
@@ -433,27 +446,20 @@ def _split_review_stream():
 @router.post("/ai/generate")
 async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
     bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(payload))
-    endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
+    provider = _get_provider_or_503()
     _, messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(payload, db, bundle=bundle)
-    model = _resolve_model(endpoint, payload.params.model)
-    temperature = payload.params.temperature
-    if temperature is None:
-        temperature = endpoint.temperature
+    model = _resolve_model(provider, payload.params.model)
+    client = llm.make_client(provider.base_url, None)
 
-    client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
-
-    # 기존 인라인 감수 SSE 계약을 유지한다. 별도 /ai/review 엔드포인트도
-    # 제공하지만, 구버전 프론트와 저장된 요청은 같은 스트림을 계속 사용할 수 있다.
+    # 감수도 같은 고정 OAuth provider를 사용한다. provider 선택/키 입력은
+    # 클라이언트 요청에서 받지 않아 계정과 과금 경로가 분리되지 않는다.
     review_cfg = None
     if payload.review is not None:
-        rid = payload.review.endpoint_id or endpoint.id
-        reviewer = _get_endpoint_or_404(rid, db)
         review_cfg = {
-            "client": llm.make_client(reviewer.base_url, reviewer.api_key_encrypted)
-            if reviewer.id != endpoint.id else client,
-            "endpoint_name": reviewer.name,
-            "model": _resolve_model(reviewer, payload.review.model),
-            "reasoning_effort": payload.review.reasoning_effort or reviewer.reasoning_effort,
+            "client": client,
+            "provider_name": provider.name,
+            "model": _resolve_model(provider, payload.review.model),
+            "reasoning_effort": payload.review.reasoning_effort or provider.reasoning_effort,
             "max_tokens": payload.review.max_tokens
             if payload.review.max_tokens is not None else payload.params.max_tokens,
         }
@@ -472,9 +478,8 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
         draft_parts: list[str] = []
         try:
             async for delta in llm.stream_chat(client, model, messages,
-                                               temperature=temperature,
                                                max_tokens=payload.params.max_tokens,
-                                               reasoning_effort=endpoint.reasoning_effort):
+                                               reasoning_effort=provider.reasoning_effort):
                 completion_chars += len(delta)
                 draft_parts.append(delta)
                 yield {"event": "message", "data": json.dumps({"delta": delta}, ensure_ascii=False)}
@@ -489,7 +494,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
             return
         # G-060 사용량 기록 (best-effort)
         usage_service.record(
-            kind="generate", model=model, endpoint_name=endpoint.name,
+            kind="generate", model=model, endpoint_name=provider.name,
             prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
             completion_chars=completion_chars)
 
@@ -497,7 +502,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
         if review_cfg is not None:
             yield {"event": "review_start",
                    "data": json.dumps({"model": review_cfg["model"],
-                                       "endpoint": review_cfg["endpoint_name"],
+                                       "provider": review_cfg["provider_name"],
                                        "reasoning_effort": review_cfg["reasoning_effort"]},
                                       ensure_ascii=False)}
             review_messages = [
@@ -531,7 +536,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                 if review_chars:
                     usage_service.record(
                         kind="review", model=review_cfg["model"],
-                        endpoint_name=review_cfg["endpoint_name"],
+                        endpoint_name=review_cfg["provider_name"],
                         prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
                         completion_chars=review_chars)
         yield {"event": "done", "data": "[DONE]"}
@@ -544,27 +549,21 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
 async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depends(get_db)):
     """Medium planner/worker 병렬 집필 후 xhigh 감수만 수행한다."""
     base_payload = GenerateRequest(
-        endpoint_id=payload.endpoint_id,
         preset_id=payload.preset_id,
         prompt_override=payload.prompt_override,
         context=payload.context,
         params=payload.params,
     )
     bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(base_payload))
-    endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
+    provider = _get_provider_or_503()
     _, base_messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(
         base_payload, db, bundle=bundle)
-    model = _resolve_model(endpoint, payload.params.model)
-    temperature = payload.params.temperature
-    if temperature is None:
-        temperature = endpoint.temperature
-    generation_client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+    model = _resolve_model(provider, payload.params.model)
+    generation_client = llm.make_client(provider.base_url, None)
 
-    reviewer = _get_endpoint_or_404(payload.review.endpoint_id or endpoint.id, db)
-    reviewer_model = _resolve_model(reviewer, payload.review.model)
-    reviewer_effort = payload.review.reasoning_effort or "xhigh"
-    reviewer_client = (llm.make_client(reviewer.base_url, reviewer.api_key_encrypted)
-                       if reviewer.id != endpoint.id else generation_client)
+    reviewer_model = _resolve_model(provider, payload.review.model)
+    reviewer_effort = payload.review.reasoning_effort or provider.reasoning_effort
+    reviewer_client = generation_client
 
     planner_system = (
         "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
@@ -593,7 +592,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 "model": model,
                 "generation_reasoning_effort": payload.generation_reasoning_effort,
                 "review_model": reviewer_model,
-                "review_endpoint": reviewer.name,
+                "review_provider": provider.name,
                 "review_reasoning_effort": reviewer_effort,
                 "worker_limit": payload.worker_limit,
                 "injected_lore": injected_lore,
@@ -609,7 +608,6 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
             ]
             planner_raw = await llm.complete_chat(
                 generation_client, model, planner_messages,
-                temperature=temperature,
                 max_tokens=payload.params.max_tokens,
                 reasoning_effort=payload.generation_reasoning_effort,
             )
@@ -646,7 +644,6 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 ]
                 text = await llm.complete_chat(
                     generation_client, model, worker_messages,
-                    temperature=temperature,
                     max_tokens=payload.params.max_tokens,
                     reasoning_effort=payload.generation_reasoning_effort,
                 )
@@ -672,12 +669,12 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 }
             assembled = parallel_writer.assemble_scene_results(results)
             usage_service.record(
-                kind="parallel_plan", model=model, endpoint_name=endpoint.name,
+                kind="parallel_plan", model=model, endpoint_name=provider.name,
                 prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
                 completion_chars=len(planner_raw),
             )
             usage_service.record(
-                kind="parallel_generate", model=model, endpoint_name=endpoint.name,
+                kind="parallel_generate", model=model, endpoint_name=provider.name,
                 prompt_chars=sum(len(str(m.get("content") or "")) for m in base_messages),
                 completion_chars=len(assembled),
             )
@@ -702,7 +699,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
             "event": "review_start",
             "data": json.dumps({
                 "model": reviewer_model,
-                "endpoint": reviewer.name,
+                "provider": provider.name,
                 "reasoning_effort": reviewer_effort,
             }, ensure_ascii=False),
         }
@@ -727,7 +724,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
             if review_chars:
                 usage_service.record(
                     kind="parallel_review", model=reviewer_model,
-                    endpoint_name=reviewer.name,
+                    endpoint_name=provider.name,
                     prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
                     completion_chars=review_chars,
                 )
@@ -754,10 +751,10 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
     감수(저속 xhigh 등)가 진행되는 동안에도 다음 회차 생성을 계속할 수 있다.
     SSE 이벤트: review_start / review(지적) / refined(수정본) / review_error / done.
     """
-    endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
-    model = _resolve_model(endpoint, payload.model)
-    reasoning_effort = payload.reasoning_effort or endpoint.reasoning_effort
-    client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+    provider = _get_provider_or_503()
+    model = _resolve_model(provider, payload.model)
+    reasoning_effort = payload.reasoning_effort or provider.reasoning_effort
+    client = llm.make_client(provider.base_url, None)
     review_messages = [
         {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
         {"role": "user", "content": f"[초안 원고]\n{payload.draft}"},
@@ -765,7 +762,7 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
 
     async def event_stream():
         yield {"event": "review_start",
-               "data": json.dumps({"model": model, "endpoint": endpoint.name,
+               "data": json.dumps({"model": model, "provider": provider.name,
                                    "reasoning_effort": reasoning_effort},
                                   ensure_ascii=False)}
         review_chars = 0
@@ -791,7 +788,7 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
         else:
             if review_chars:
                 usage_service.record(
-                    kind="review", model=model, endpoint_name=endpoint.name,
+                    kind="review", model=model, endpoint_name=provider.name,
                     prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
                     completion_chars=review_chars)
         yield {"event": "done", "data": "[DONE]"}

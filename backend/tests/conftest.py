@@ -1,23 +1,8 @@
 """pytest fixtures — 임시 SQLite 파일 기반 통합 테스트 환경."""
-import os
-import tempfile
-from pathlib import Path
-from urllib.parse import urlparse, unquote
+from tests.isolation_guard import require_isolation
 
-
-def _mark_temp_lifespan_db() -> None:
-    url = os.environ.get("DATABASE_URL", "")
-    parsed = urlparse(url)
-    if parsed.scheme == "sqlite" and parsed.path:
-        try:
-            db_path = Path(unquote(parsed.path[1:] if len(parsed.path) > 3 and parsed.path[0] == "/" and parsed.path[2] == ":" else parsed.path)).resolve()
-            db_path.relative_to(Path(tempfile.gettempdir()).resolve())
-        except ValueError:
-            return
-        os.environ["JIPPEEL_ALLOW_TEMP_CREATE_ALL"] = "1"
-
-
-_mark_temp_lifespan_db()
+# Must execute before importing pytest, SQLAlchemy or any app module.
+require_isolation()
 
 import pytest
 from fastapi.testclient import TestClient

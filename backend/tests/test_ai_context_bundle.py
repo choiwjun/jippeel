@@ -1,4 +1,6 @@
 import json
+from typing import cast
+
 import pytest
 from fastapi import HTTPException
 
@@ -36,7 +38,7 @@ def _patch_stream_llm(monkeypatch):
     from app.routers import ai_panel
 
     spec = {"chunks": list(DEFAULT_CHUNKS), "exc": None}
-    holder = {"client": None}
+    holder: dict[str, FakeAsyncOpenAI | None] = {"client": None}
 
     def _make_client(base_url, api_key_encrypted):
         holder["client"] = FakeAsyncOpenAI(base_url=base_url, api_key="x", spec=spec)
@@ -65,7 +67,7 @@ def test_approved_memory_is_injected_and_stale_memory_is_excluded(client):
     db.commit()
 
     payload = GenerateRequest(
-        endpoint_id=1, prompt_override="이어 써줘",
+        prompt_override="이어 써줘",
         context=GenerateContext(project_id=pid, chapter_id=current.id),
     )
     bundle = build_context_bundle(db, request_from_generate(payload))
@@ -75,7 +77,7 @@ def test_approved_memory_is_injected_and_stale_memory_is_excluded(client):
     assert bundle.metadata["included_memory_entry_ids"]
 
     disabled = GenerateRequest(
-        endpoint_id=1, prompt_override="이어 써줘",
+        prompt_override="이어 써줘",
         context=GenerateContext(
             project_id=pid, chapter_id=current.id, include_memory=False,
         ),
@@ -88,7 +90,6 @@ def test_approved_memory_is_injected_and_stale_memory_is_excluded(client):
 def test_legacy_chapter_id_includes_body_by_default(client):
     pid, chapter = _project_with_chapter(client, body="레거시 본문")
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="이어 써줘",
         context=GenerateContext(chapter_id=chapter["id"]),
     )
@@ -104,7 +105,6 @@ def test_legacy_chapter_id_includes_body_by_default(client):
 def test_current_identity_survives_body_opt_out(client):
     pid, chapter = _project_with_chapter(client, body="보내면 안 되는 본문")
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="새 장면을 제안해줘",
         context=GenerateContext(
             project_id=pid,
@@ -128,7 +128,6 @@ def test_project_chapter_mismatch_rejected(client):
     pid_a, _chapter_a = _project_with_chapter(client, title="A")
     _pid_b, chapter_b = _project_with_chapter(client, title="B")
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="이어 써줘",
         context=GenerateContext(project_id=pid_a, chapter_id=chapter_b["id"]),
     )
@@ -145,7 +144,6 @@ def test_selected_character_wrong_project_rejected(client):
         f"/api/v1/projects/{pid_b}/characters", json={"name": "타작품 인물"}
     ).json()
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="이어 써줘",
         context=GenerateContext(
             project_id=pid_a,
@@ -161,15 +159,15 @@ def test_selected_character_wrong_project_rejected(client):
 def test_stale_expected_revision_rejected(client):
     pid, chapter = _project_with_chapter(client)
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="이어 써줘",
         context=GenerateContext(project_id=pid, chapter_id=chapter["id"], expected_revision=0),
     )
     with pytest.raises(HTTPException) as exc:
         build_context_bundle(_db(client), request_from_generate(payload))
     assert exc.value.status_code == 409
-    assert exc.value.detail["code"] == "revision_conflict"
-    assert exc.value.detail["current_revision"] == chapter["revision"]
+    detail = cast(dict[str, object], exc.value.detail)
+    assert detail["code"] == "revision_conflict"
+    assert detail["current_revision"] == chapter["revision"]
 
 
 def test_selected_lore_wrong_project_rejected_probe_a1(client):
@@ -184,7 +182,6 @@ def test_selected_lore_wrong_project_rejected_probe_a1(client):
         },
     ).json()
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="selected mismatch prompt",
         context=GenerateContext(
             project_id=pid_a, chapter_id=chapter_a["id"], lore_ids=[wrong_lore["id"]]
@@ -210,7 +207,6 @@ def test_explicit_project_b_cannot_mix_with_chapter_a_probe_a2(client):
         },
     )
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="B_AUTO",
         context=GenerateContext(
             project_id=pid_b, chapter_id=chapter_a["id"], auto_lore=True, auto_foreshadow=True
@@ -275,21 +271,21 @@ def test_generate_409_does_not_create_provider_client(client, monkeypatch):
     assert touched["make_client"] is False
 
 
-def test_canon_409_does_not_resolve_endpoint_or_create_provider_client(client, monkeypatch):
+def test_canon_409_does_not_resolve_provider_or_create_client(client, monkeypatch):
     from app.routers import quality as quality_router
 
     _pid, chapter = _project_with_chapter(client, title="A")
-    touched = {"resolve_endpoint": False, "make_client": False}
+    touched = {"get_provider": False, "make_client": False}
 
-    def fail_resolve_endpoint(*_args, **_kwargs):
-        touched["resolve_endpoint"] = True
-        raise AssertionError("endpoint resolution must not run after revision conflict")
+    def fail_get_provider(*_args, **_kwargs):
+        touched["get_provider"] = True
+        raise AssertionError("provider resolution must not run after revision conflict")
 
     def fail_make_client(*_args, **_kwargs):
         touched["make_client"] = True
         raise AssertionError("provider client must not be created after revision conflict")
 
-    monkeypatch.setattr(quality_router, "resolve_endpoint", fail_resolve_endpoint)
+    monkeypatch.setattr(quality_router.gpt_oauth, "get_provider", fail_get_provider)
     monkeypatch.setattr(quality_router.llm, "make_client", fail_make_client)
     resp = client.post(
         "/api/v1/canon-check",
@@ -297,10 +293,10 @@ def test_canon_409_does_not_resolve_endpoint_or_create_provider_client(client, m
     )
     assert resp.status_code == 409
     assert resp.json()["detail"]["code"] == "revision_conflict"
-    assert touched == {"resolve_endpoint": False, "make_client": False}
+    assert touched == {"get_provider": False, "make_client": False}
 
 
-def test_canon_422_does_not_resolve_endpoint_for_wrong_project_approved_foreshadow(
+def test_canon_422_does_not_resolve_provider_for_wrong_project_approved_foreshadow(
     client, monkeypatch
 ):
     from app.routers import quality as quality_router
@@ -310,24 +306,24 @@ def test_canon_422_does_not_resolve_endpoint_for_wrong_project_approved_foreshad
     fs_b = client.post(
         f"/api/v1/projects/{pid_b}/foreshadows", json={"title": "B_ONLY_FORESHADOW"}
     ).json()
-    touched = {"resolve_endpoint": False, "make_client": False}
+    touched = {"get_provider": False, "make_client": False}
 
-    def fail_resolve_endpoint(*_args, **_kwargs):
-        touched["resolve_endpoint"] = True
-        raise AssertionError("endpoint resolution must not run after ownership failure")
+    def fail_get_provider(*_args, **_kwargs):
+        touched["get_provider"] = True
+        raise AssertionError("provider resolution must not run after ownership failure")
 
     def fail_make_client(*_args, **_kwargs):
         touched["make_client"] = True
         raise AssertionError("provider client must not be created after ownership failure")
 
-    monkeypatch.setattr(quality_router, "resolve_endpoint", fail_resolve_endpoint)
+    monkeypatch.setattr(quality_router.gpt_oauth, "get_provider", fail_get_provider)
     monkeypatch.setattr(quality_router.llm, "make_client", fail_make_client)
     resp = client.post(
         "/api/v1/canon-check",
         json={"chapter_id": chapter_a["id"], "approved_foreshadow_ids": [fs_b["id"]]},
     )
     assert resp.status_code == 422
-    assert touched == {"resolve_endpoint": False, "make_client": False}
+    assert touched == {"get_provider": False, "make_client": False}
 
 
 def test_selected_relationships_include_only_both_selected_endpoints(client):
@@ -354,7 +350,6 @@ def test_selected_relationships_include_only_both_selected_endpoints(client):
         },
     )
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="대화 장면",
         context=GenerateContext(
             project_id=pid,
@@ -376,7 +371,6 @@ def test_relationships_with_one_selected_character_are_empty_not_422(client):
     pid, chapter = _project_with_chapter(client)
     a = client.post(f"/api/v1/projects/{pid}/characters", json={"name": "한서윤"}).json()
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="독백 장면",
         context=GenerateContext(
             project_id=pid,
@@ -425,7 +419,11 @@ def test_generation_relationships_reach_provider_prompt_probe_b(client, monkeypa
         },
     )
     assert resp.status_code == 200
-    user_text = holder["client"].last_kwargs["messages"][-1]["content"]
+    provider_client = holder["client"]
+    assert provider_client is not None
+    request_kwargs = provider_client.last_kwargs
+    assert request_kwargs is not None
+    user_text = request_kwargs["messages"][-1]["content"]
     assert "REL_SOURCE_CHARACTER" in user_text and "REL_TARGET_CHARACTER" in user_text
     assert "BLOOD_OATH_LABEL_777" in user_text
     assert "HIDDEN_REL_NOTE_888" in user_text
@@ -479,7 +477,6 @@ def test_approved_foreshadow_reference_project_checked_without_explicit_project(
     db.commit()
     db.refresh(fs)
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="validate approved id references",
         context=GenerateContext(approved_foreshadow_ids=[fs.id]),
     )
@@ -494,7 +491,6 @@ def test_approved_foreshadow_ids_from_two_projects_are_ambiguous_without_current
     fs_a = client.post(f"/api/v1/projects/{pid_a}/foreshadows", json={"title": "A_FS"}).json()
     fs_b = client.post(f"/api/v1/projects/{pid_b}/foreshadows", json={"title": "B_FS"}).json()
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="validate approved id projects",
         context=GenerateContext(approved_foreshadow_ids=[fs_a["id"], fs_b["id"]]),
     )
@@ -588,7 +584,6 @@ def test_approved_only_request_infers_project_for_style_and_auto_lore_without_le
         json={"category": "용어", "title": "B_AUTO_LORE", "keywords": ["TOKEN"], "content": "B_LORE_CONTENT"},
     )
     payload = GenerateRequest(
-        endpoint_id=1,
         prompt_override="TOKEN",
         context=GenerateContext(
             approved_foreshadow_ids=[fs_a["id"]],
@@ -606,7 +601,7 @@ def test_approved_only_request_infers_project_for_style_and_auto_lore_without_le
 
 
 def test_legacy_unbound_request_without_identifying_ids_stays_valid(client):
-    payload = GenerateRequest(endpoint_id=1, prompt_override="standalone")
+    payload = GenerateRequest(prompt_override="standalone")
     bundle = build_context_bundle(_db(client), request_from_generate(payload))
     assert bundle.project_id is None
     assert bundle.chapter_id is None

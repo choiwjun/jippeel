@@ -1,0 +1,5 @@
+a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624  backend/.coverage
+5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e  backend/app/services/crypto.py
+0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321  backend/app/services/canon.py
+c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c  backend/app/services/bootstrap.py
+bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00  .git/index

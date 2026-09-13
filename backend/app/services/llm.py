@@ -1,11 +1,12 @@
-"""openai SDK 래퍼 — OpenAI 호환 엔드포인트 호출 (사양 §2.1, 부록05 §L7).
+"""openai SDK 래퍼.
 
-base_url 오버라이드로 LM Studio·KoboldCpp·클라우드 등 무엇이든 호환(FR-401).
-api_key는 이 계층에서만 복호화되어 프론트에 절대 노출되지 않는다(NFR-202).
+신규 집필·감수 경로는 고정 GPT OAuth localhost bridge 설정을 사용한다.
+이 모듈의 generic ``base_url``·암호문 key 인자는 기존 ``ai_endpoints``
+compatibility route와 legacy callers를 위해만 보존한다.
 """
 import json
 
-import openai
+import openai  # pyright: ignore[reportMissingImports]
 
 from app.services.crypto import get_cipher
 
@@ -13,10 +14,10 @@ REQUEST_TIMEOUT = 600.0  # 초 — 로컬 LLM 첫 토큰 지연·추론 모델(x
 
 
 def make_client(base_url: str, api_key_encrypted: str | None) -> openai.AsyncOpenAI:
-    """저장된 암호문을 복호화해 AsyncOpenAI 클라이언트를 만든다.
+    """기존 endpoint 또는 localhost bridge용 AsyncOpenAI 클라이언트를 만든다.
 
-    api_key 미설정 엔드포인트(로컬 LM Studio 등)는 SDK 요구 형식 맞춤용
-    더미 키("sk-local")를 쓴다. 실제 키가 유출되지 않는다.
+    암호문 key는 legacy endpoint compatibility route에서만 복호화한다.
+    OAuth bridge는 token 대신 SDK 요구 형식의 placeholder를 사용한다.
     """
     if api_key_encrypted:
         api_key = get_cipher().decrypt(api_key_encrypted)

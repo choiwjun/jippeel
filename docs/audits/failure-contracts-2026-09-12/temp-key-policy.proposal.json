@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "secret_protection": {
+    "allow_paths": [
+      "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-b01-b02-impl-cnt860x8\\dummy.key",
+      "/mnt/c/Users/wj941/AppData/Local/Temp/jippeel-b01-b02-impl-cnt860x8/dummy.key"
+    ]
+  }
+}

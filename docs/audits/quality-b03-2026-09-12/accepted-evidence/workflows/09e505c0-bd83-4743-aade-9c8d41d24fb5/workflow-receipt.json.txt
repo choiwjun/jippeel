@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "workflowRunId": "09e505c0-bd83-4743-aade-9c8d41d24fb5",
+  "state": "complete",
+  "createdAt": 1789225269453,
+  "entries": {
+    "b03-behavior-e1-challenge": {
+      "key": "b03-behavior-e1-challenge",
+      "agent": "reviewer",
+      "resolvedContext": "fresh",
+      "outputReference": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/09e505c0-bd83-4743-aade-9c8d41d24fb5/b03/behavior-e1-closure.md",
+      "continuation": {
+        "runIds": [
+          "b2d29b71-5538-48e6-ab3b-47f1a0e4fbf5",
+          "d877212a-6442-45b2-b407-76dd165100ad"
+        ]
+      },
+      "latestRunId": "d877212a-6442-45b2-b407-76dd165100ad",
+      "resumability": {
+        "state": "resumable"
+      }
+    },
+    "b03-integrity-e1-challenge": {
+      "key": "b03-integrity-e1-challenge",
+      "agent": "security-engineer",
+      "resolvedContext": "fresh",
+      "outputReference": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/09e505c0-bd83-4743-aade-9c8d41d24fb5/b03/integrity-e1-closure.md",
+      "continuation": {
+        "runIds": [
+          "52064f20-a7e1-40d8-a3e4-4ee21bfcbecf",
+          "498706f7-4a43-42a4-aa43-029022f03b4b"
+        ]
+      },
+      "latestRunId": "498706f7-4a43-42a4-aa43-029022f03b4b",
+      "resumability": {
+        "state": "resumable"
+      }
+    }
+  },
+  "workflowChildren": {
+    "version": 1,
+    "parentToolCallId": "call_s1rTCXKtvjt9cCq9DfR0ESCJ|fc_0a9b351b92234cfe016aa567b3e7fc87d08924ea00cf8d43e3",
+    "workflowRunId": "09e505c0-bd83-4743-aade-9c8d41d24fb5",
+    "inventoryComplete": true,
+    "workflowState": "completed",
+    "children": [
+      {
+        "childId": "b03-behavior-e1-challenge",
+        "state": "completed",
+        "runId": "d877212a-6442-45b2-b407-76dd165100ad",
+        "agent": "reviewer",
+        "sessionName": "reviewer: You are reviving a previous subagent conversation. Origin...",
+        "model": "openai-codex/gpt-6-astra:high"
+      },
+      {
+        "childId": "b03-integrity-e1-challenge",
+        "state": "completed",
+        "runId": "498706f7-4a43-42a4-aa43-029022f03b4b",
+        "agent": "security-engineer",
+        "sessionName": "security-engineer: You are reviving a previous subagent conversation. Origin...",
+        "model": "openai-codex/gpt-6-astra:high"
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+
+Running 5 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/quality-dialog.spec.ts:34:3 › QualityDialog empty preserves numeric records and explains reference signals (9.0s)
+  ✓  2 [chromium] › e2e/quality-dialog.spec.ts:34:3 › QualityDialog nonempty preserves numeric records and explains reference signals (2.0s)
+  ✓  3 [chromium] › e2e/quality-dialog.spec.ts:34:3 › QualityDialog external-without-score preserves numeric records and explains reference signals (1.4s)
+  ✓  4 [chromium] › e2e/quality-dialog.spec.ts:173:3 › Dialog omitted optional name preserves escape close (539ms)
+  ✓  5 [chromium] › e2e/quality-dialog.spec.ts:173:3 › Dialog omitted optional name preserves backdrop close (499ms)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-ftMFB4/violations.jsonl; no escapes
+
+  5 passed (31.9s)

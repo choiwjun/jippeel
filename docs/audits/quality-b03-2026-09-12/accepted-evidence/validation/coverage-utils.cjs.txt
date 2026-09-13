@@ -1,0 +1,10 @@
+const crypto = require('crypto');
+const { mergeScriptCovs } = require('/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/@bcoe/v8-coverage');
+const hash = value => crypto.createHash('sha256').update(value).digest('hex');
+function groupKey(file, source, generated, map) { return JSON.stringify([file,hash(source),hash(generated),hash(JSON.stringify(map))]); }
+function mergeGroup(entries) {
+ const identities = entries.map(entry=>groupKey(entry.file,entry.original,entry.script.source,entry.map));
+ if(new Set(identities).size!==1) throw Error('Cannot merge different source/generated/map identities');
+ return mergeScriptCovs(entries.map(entry=>structuredClone({...entry.script,url:entry.file})));
+}
+module.exports={hash,groupKey,mergeGroup};

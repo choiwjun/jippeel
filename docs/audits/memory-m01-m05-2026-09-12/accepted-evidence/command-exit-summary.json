@@ -1,0 +1,334 @@
+[
+  {
+    "label": "backend-recovery-preflight",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/backend",
+    "exit": 0,
+    "command": [
+      ".venv/Scripts/python.exe",
+      "-I",
+      "-S",
+      "-B",
+      "scripts/run_backend_pytest.py",
+      "--isolation-preflight"
+    ],
+    "logSha256": "2fe4fcbb69ed74011f8a338a13dcc448e16743e56900afd3160f5366224952ff"
+  },
+  {
+    "label": "recovery-tools-install",
+    "cwd": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools",
+    "exit": 0,
+    "command": [
+      "env",
+      "-i",
+      "PATH=/home/hunter8891/.nvm/versions/node/v22.23.2/bin:/usr/bin:/bin",
+      "HOME=/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/npm-home",
+      "npm",
+      "install",
+      "--prefix",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools",
+      "--registry=https://registry.npmjs.org",
+      "--userconfig=/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/../npm-user.conf",
+      "--globalconfig=/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/../npm-global.conf",
+      "--cache=/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/../npm-cache",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      "--save-exact",
+      "v8-to-istanbul@9.3.0",
+      "@bcoe/v8-coverage@1.0.2",
+      "istanbul-lib-coverage@3.2.2",
+      "@types/node@22.0.0"
+    ],
+    "logSha256": "a3b490b0f93e9f0d6137b175e1b640007966089a400a92879fe520c9afaea75d"
+  },
+  {
+    "label": "backend-recovery-full",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/backend",
+    "exit": 0,
+    "command": [
+      ".venv/Scripts/python.exe",
+      "-I",
+      "-B",
+      "scripts/run_backend_pytest.py",
+      "--isolation-coverage",
+      "-q"
+    ],
+    "logSha256": "4ef964d03b0258aff7ab6dbed0215cf2558c6240161b78cb589322f0dc131ade"
+  },
+  {
+    "label": "memory-recovery-focused",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "env",
+      "MEMORY_SCOPED_COVERAGE=1",
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.memory.config.ts",
+      "--grep",
+      "M01|M03|M04",
+      "--output",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/memory-recovery-focused-results"
+    ],
+    "logSha256": "a5305318cfb7da01374bd3d72faff62e3f72414350de81babb9c1c52b0dccaf6"
+  },
+  {
+    "label": "python-mapping-red",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 1,
+    "command": [
+      "python3",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/python_literal_mapping_test.py"
+    ],
+    "logSha256": "beebfec11e3310926720d5fce7cb2b86cdf9a764ce29cccfd7f7fceb7ebd97de"
+  },
+  {
+    "label": "python-mapping-green",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "python3",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/python_literal_mapping_test.py"
+    ],
+    "logSha256": "698d16d7b93c4bd9707d3cfacda6fb1e0fea99ed0cda6e69bedc42772940540a"
+  },
+  {
+    "label": "backend-literal-mapping",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "python3",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/map_backend_run.py"
+    ],
+    "logSha256": "34db1de54aa2487330e2697c6ff75fa4308e2c28268ba559146a8ad87315151d"
+  },
+  {
+    "label": "fixture-recovery-negative",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 1,
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/tripwire-negative/playwright.config.ts",
+      "--output",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/fixture-recovery-negative-results"
+    ],
+    "logSha256": "6cecd7bfad835ae3569b7f86a5ece9b3e0fa0df15328ed61be804601d893187c"
+  },
+  {
+    "label": "manuscript-recovery-focused",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "env",
+      "MEMORY_SCOPED_COVERAGE=1",
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.preservation.config.ts",
+      "--grep",
+      "M02|fixture lifecycle",
+      "--output",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/manuscript-recovery-focused-results"
+    ],
+    "logSha256": "744a55bb4b8e0dbd28572057215cde5d1c2beb577e0f859d0e5b0a02410556de"
+  },
+  {
+    "label": "memory-recovery-focused-confirmed",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "env",
+      "MEMORY_SCOPED_COVERAGE=1",
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.memory.config.ts",
+      "--grep",
+      "M01|M03|M04",
+      "--output",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/memory-recovery-focused-confirmed-results"
+    ],
+    "logSha256": "24e850c393904aa6f621faab8bd60bdf7def3774a805c7a05ab7a05129de589a"
+  },
+  {
+    "label": "memory-recovery-full",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "env",
+      "MEMORY_SCOPED_COVERAGE=1",
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.memory.config.ts",
+      "--output",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/memory-recovery-full-results"
+    ],
+    "logSha256": "c6f5e876cc37fafac368166d625ef4f253db23567cf07e23dacaec9e1577f347"
+  },
+  {
+    "label": "manuscript-recovery-full",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "env",
+      "MEMORY_SCOPED_COVERAGE=1",
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.preservation.config.ts",
+      "--output",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/manuscript-recovery-full-results"
+    ],
+    "logSha256": "c6b42b26183dbd89dbb12de4cb84e6d7ece0eb8e424ef0b83dd844f9e3c6e49a"
+  },
+  {
+    "label": "ai-context-recovery-full",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "env",
+      "MEMORY_SCOPED_COVERAGE=1",
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "playwright.ai-context.fixture.config.ts",
+      "--output",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/ai-context-recovery-full-results"
+    ],
+    "logSha256": "f6bc0a72b915b96bbc2b8dcd76624adc08b22bf7b4d7a9f4194c9be33512b4a9"
+  },
+  {
+    "label": "recovery-typescript-app",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "tsconfig.json"
+    ],
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "recovery-typescript-fixtures",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "--noEmit",
+      "--project",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/tsconfig.fixture.json"
+    ],
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "recovery-production-build",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel/frontend",
+    "exit": 0,
+    "command": [
+      "node",
+      "node_modules/vite/bin/vite.js",
+      "build",
+      "--outDir",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/production-dist"
+    ],
+    "logSha256": "1a2a30d9cf86ee516aaba46ae92cb7d3fea95b03c7906873819ca783d2c67b73"
+  },
+  {
+    "label": "recovery-v8-merge-synthetic",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-utils.test.cjs"
+    ],
+    "logSha256": "b2a3e88d618d1f7189001bb4ca9c06ddae8de978fca90c319ec9520cc0a7b3a6"
+  },
+  {
+    "label": "changed-branch-filter-red",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 1,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/changed-branches.test.cjs"
+    ],
+    "logSha256": "037f4a6a5f26dd15df8b1a8dc71a6f2ac6d6fdcf11de5decf3d1e4cc6052498e"
+  },
+  {
+    "label": "changed-branch-filter-green",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/changed-branches.test.cjs"
+    ],
+    "logSha256": "88942213477702d824d0c565058c096062404470b639a25fdc7345a628aa304a"
+  },
+  {
+    "label": "recovery-coverage-conversion",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/merge-convert-coverage-corrected.cjs",
+      "mapped-recovery-full",
+      "memory-recovery-full",
+      "manuscript-recovery-full",
+      "ai-context-recovery-full"
+    ],
+    "logSha256": "da9ae0686cd2984f679a398835d3079b814d7c9b9dd2ec098a94758d1b1d406c"
+  },
+  {
+    "label": "recovery-provenance-packaging",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 1,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/package-provenance.cjs"
+    ],
+    "logSha256": "156bf4f715da57c2edcf1024ad691b45deb3ae99f1cfabf5a64c7c5fa07716fb"
+  },
+  {
+    "label": "sample-identities-synthetic",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/sample-identities.test.cjs"
+    ],
+    "logSha256": "c2561dc85faba35bbb0863fc0a0d089082a464ea70d4e35461bb3b7c88d9bfe7"
+  },
+  {
+    "label": "recovery-provenance-packaging-corrected",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/package-provenance.cjs"
+    ],
+    "logSha256": "d4c383b7cd17d742cba88f6b781d8e80961ade53efe00efa7697d8775696bd3c"
+  },
+  {
+    "label": "helper-shape-comparison",
+    "cwd": "/mnt/c/Users/wj941/Documents/jippeel",
+    "exit": 0,
+    "command": [
+      "node",
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/helper-shape-comparison.cjs"
+    ],
+    "logSha256": "548dcbc106bdf43e50ebeafa887dfa58972f28e92ce0da267049fe16797e61fb"
+  }
+]

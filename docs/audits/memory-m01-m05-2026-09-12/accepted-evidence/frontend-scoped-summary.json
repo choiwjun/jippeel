@@ -1,0 +1,154 @@
+{
+  "frontend/src/pages/MemoryPage.tsx": {
+    "changedLines": {
+      "covered": 60,
+      "total": 60,
+      "missing": []
+    },
+    "changedBranches": {
+      "covered": 33,
+      "total": 33,
+      "missing": []
+    },
+    "wholeModule": {
+      "lines": {
+        "total": 544,
+        "covered": 533,
+        "skipped": 0,
+        "pct": 97.97
+      },
+      "functions": {
+        "total": 31,
+        "covered": 29,
+        "skipped": 0,
+        "pct": 93.54
+      },
+      "statements": {
+        "total": 544,
+        "covered": 533,
+        "skipped": 0,
+        "pct": 97.97
+      },
+      "branches": {
+        "total": 116,
+        "covered": 110,
+        "skipped": 0,
+        "pct": 94.82
+      }
+    }
+  },
+  "frontend/src/App.tsx": {
+    "changedLines": {
+      "covered": 0,
+      "total": 0,
+      "missing": []
+    },
+    "changedBranches": {
+      "covered": 0,
+      "total": 0,
+      "missing": []
+    },
+    "wholeModule": {
+      "lines": {
+        "total": 45,
+        "covered": 45,
+        "skipped": 0,
+        "pct": 100
+      },
+      "functions": {
+        "total": 1,
+        "covered": 1,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 45,
+        "covered": 45,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branches": {
+        "total": 1,
+        "covered": 1,
+        "skipped": 0,
+        "pct": 100
+      }
+    }
+  },
+  "frontend/src/lib/manuscriptDrafts.ts": {
+    "changedLines": {
+      "covered": 2,
+      "total": 2,
+      "missing": []
+    },
+    "changedBranches": {
+      "covered": 0,
+      "total": 0,
+      "missing": []
+    },
+    "wholeModule": {
+      "lines": {
+        "total": 727,
+        "covered": 651,
+        "skipped": 0,
+        "pct": 89.54
+      },
+      "functions": {
+        "total": 55,
+        "covered": 46,
+        "skipped": 0,
+        "pct": 83.63
+      },
+      "statements": {
+        "total": 727,
+        "covered": 651,
+        "skipped": 0,
+        "pct": 89.54
+      },
+      "branches": {
+        "total": 188,
+        "covered": 141,
+        "skipped": 0,
+        "pct": 75
+      }
+    }
+  },
+  "frontend/src/lib/queryClient.ts": {
+    "changedLines": {
+      "covered": 11,
+      "total": 11,
+      "missing": []
+    },
+    "changedBranches": {
+      "covered": 5,
+      "total": 5,
+      "missing": []
+    },
+    "wholeModule": {
+      "lines": {
+        "total": 21,
+        "covered": 21,
+        "skipped": 0,
+        "pct": 100
+      },
+      "functions": {
+        "total": 1,
+        "covered": 1,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 21,
+        "covered": 21,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branches": {
+        "total": 5,
+        "covered": 5,
+        "skipped": 0,
+        "pct": 100
+      }
+    }
+  }
+}

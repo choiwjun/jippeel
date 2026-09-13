@@ -1,0 +1,27 @@
+[
+  {
+    "screen": "home",
+    "blocking": [],
+    "minor": []
+  },
+  {
+    "screen": "settings",
+    "blocking": [],
+    "minor": []
+  },
+  {
+    "screen": "editor",
+    "blocking": [],
+    "minor": []
+  },
+  {
+    "screen": "characters",
+    "blocking": [],
+    "minor": []
+  },
+  {
+    "screen": "lore",
+    "blocking": [],
+    "minor": []
+  }
+]

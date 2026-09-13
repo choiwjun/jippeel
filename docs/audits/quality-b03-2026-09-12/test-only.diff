@@ -1,0 +1,159 @@
+diff --git a/backend/tests/test_quality_b03_reproduction.py b/backend/tests/test_quality_b03_reproduction.py
+new file mode 100755
+index 0000000..500871a
+--- /dev/null
++++ b/backend/tests/test_quality_b03_reproduction.py
+@@ -0,0 +1,153 @@
++"""B03 evidence only: observed PASS cases and two explicit intended-regression REDs.
++
++No literary-quality threshold is asserted. External metrics are synthetic only.
++Run only through scripts/run_backend_pytest.py; conftest requires isolation.
++"""
++import json
++
++import pytest
++
++from app.services import quality
++
++
++@pytest.fixture(autouse=True)
++def no_external_metrics(monkeypatch):
++    monkeypatch.setattr(quality, "_metrics_v2_loaded", True)
++    monkeypatch.setattr(quality, "_metrics_v2_module", None)
++
++
++def save_observation(tmp_path, name, payload):
++    (tmp_path / f"b03-{name}.json").write_text(
++        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
++    )
++
++
++@pytest.mark.parametrize("text,score,ratio,ending", [
++    ("", 65, 0.0, 0.0),
++    (" \t\n ", 65, 0.0, 0.0),
++    ("!", 85, 0.0, 0.0),
++    ('"!"!', 100, 0.25, 0.0),
++    ("하게 된다", 65, 0.0, 0.0),
++    ("~하게 된다", 50, 0.0, 166.67),
++    ("일 뿐이다", 65, 0.0, 0.0),
++    ("~일 뿐이다", 50, 0.0, 166.67),
++    ("것이었다", 50, 0.0, 250.0),
++    ("~것이었다", 50, 0.0, 400.0),
++    ("기도 했다", 50, 0.0, 200.0),
++    ("~기도 했다", 50, 0.0, 333.33),
++    ("고요한 밤", 65, 0.0, 0.0),
++])
++def test_observed_short_text_and_endings(tmp_path, text, score, ratio, ending):
++    result = quality.analyze_chapter(text)
++    save_observation(tmp_path, "short", {"input": text, "result": result})
++    assert result["score"] == score
++    assert result["metrics"]["dialogue_ratio"] == ratio
++    assert result["metrics"]["ending_repeat_per_1k"] == ending
++
++
++@pytest.mark.parametrize("length", [199, 200, 201, 400])
++@pytest.mark.parametrize("quotes", [('"', '"'), ("“", "”"), ("「", "」"), ("『", "』")])
++def test_observed_quoted_span_cutoff(tmp_path, length, quotes):
++    text = quotes[0] + "가" * length + quotes[1]
++    result = quality.analyze_chapter(text)
++    save_observation(tmp_path, "quoted", {"input": text, "result": result})
++    expected = round(length / (length + 2), 4) if length <= 200 else 0.0
++    assert result["metrics"]["dialogue_ratio"] == expected
++    assert result["score"] == (70 if length <= 200 else 65)
++
++
++@pytest.mark.parametrize("text,ratio", [
++    ("가" * 201, 0.0),
++    ('"가', 0.0),
++    ('“가"', 0.3333),  # current regex also accepts mismatched quote families
++    ('"용어"는 표제다.', 0.2),  # quoted term, not dialogue: heuristic cannot distinguish
++    ("'가'", 0.0),
++    ('"가"\n"나"', 0.2857),
++])
++def test_observed_quote_selection(tmp_path, text, ratio):
++    result = quality.analyze_chapter(text)
++    save_observation(tmp_path, "selection", {"input": text, "result": result})
++    assert result["metrics"]["dialogue_ratio"] == ratio
++
++
++@pytest.mark.parametrize("text", ["", "고요한 밤", '"!"!'])
++def test_observed_purpose_invariants(tmp_path, text):
++    results = {purpose: quality.analyze_chapter(text, episode_purpose=purpose)
++               for purpose in ("serial", "volume_end", "series_finale")}
++    save_observation(tmp_path, "purposes", {"input": text, "results": results})
++    serial = results["serial"]
++    difference = 0 if serial["metrics"]["hook_present"] else 20
++    for purpose in ("volume_end", "series_finale"):
++        assert results[purpose]["score"] == serial["score"] + difference
++        assert results[purpose]["metrics"]["hook_score_applicable"] is False
++        assert "장 끝 후크" not in results[purpose]["suggested_preset_names"]
++
++
++def test_observed_loader_essay_and_fallback(monkeypatch, tmp_path):
++    import sys
++
++    monkeypatch.setattr(sys, "path", list(sys.path))
++    monkeypatch.setattr(quality, "_METRICS_DIR", tmp_path)
++    monkeypatch.setattr(quality, "_metrics_v2_loaded", False)
++    assert quality.try_metrics_v2("가") is None
++    (tmp_path / "metrics_v2.py").write_text(
++        'def compute_all_v2(text, genre):\n'
++        '    if text == "RAISE":\n'
++        '        raise ValueError("synthetic")\n'
++        '    return {"captured_text": text, "captured_genre": genre, "score": 7}\n',
++        encoding="utf-8",
++    )
++    # A previous missing-file result is process-cached, not retried automatically.
++    assert quality.try_metrics_v2("가") is None
++    monkeypatch.setattr(quality, "_metrics_v2_loaded", False)
++    result = quality.analyze_chapter('"!"!')
++    save_observation(tmp_path, "loader", result)
++    assert result["score"] == 100  # nested external score does not drive built-in score
++    assert result["metrics"]["v2"] == {
++        "captured_text": '"!"!', "captured_genre": "essay", "score": 7,
++    }
++    assert quality.try_metrics_v2("RAISE") is None
++
++
++def test_observed_api_empty_history_and_record_false(client, tmp_path):
++    project = client.post("/api/v1/projects", json={"title": "B03 synthetic"}).json()
++    chapter = client.post(f"/api/v1/projects/{project['id']}/chapters",
++                          json={"title": "empty"}).json()
++    url = f"/api/v1/chapters/{chapter['id']}/quality"
++    no_record = client.get(url + "?record=false").json()
++    first = client.get(url).json()
++    repeat = client.get(url).json()
++    finale = client.get(url + "?episode_purpose=series_finale").json()
++    history = client.get(url + "/history").json()
++    save_observation(tmp_path, "api", {"no_record": no_record, "first": first,
++                     "repeat": repeat, "finale": finale, "history": history})
++    assert no_record["score"] == first["score"] == repeat["score"] == 65
++    assert no_record["recorded"] is repeat["recorded"] is False
++    assert first["recorded"] is finale["recorded"] is True
++    assert finale["score"] == 85
++    assert sorted(row["score"] for row in history) == [65, 85]
++
++
++def test_intended_regression_weak_ending_without_notation_is_counted():
++    """RED: documented ending should be detected without a literal notation tilde."""
++    assert quality.analyze_text("하게 된다")["ending_repeat_per_1k"] == 200.0
++
++
++def test_intended_regression_complete_201_character_quote_is_counted():
++    """RED: full closed span must not disappear at the undocumented 200-char cap."""
++    assert quality.analyze_text('"' + "가" * 201 + '"')["dialogue_ratio"] == 0.9901
++
++
++def test_observed_normalization_and_denominators(tmp_path):
++    text = ' \t"가 나!"\n\n그리고 끝. \n'
++    result = quality.analyze_chapter(text)
++    save_observation(tmp_path, "denominators", {"input": text, "result": result})
++    metrics = result["metrics"]
++    # strip leaves 14 code points; punctuation/newlines/spaces remain in denominator.
++    assert metrics["dialogue_ratio"] == 0.2857  # 4 / 14
++    assert metrics["chars_novelpia"] == 6  # only Unicode letters/numbers
++    assert metrics["para_count"] == 2
++    assert metrics["avg_para_chars"] == 7.0  # total 14 / 2, includes separators
++    assert metrics["connector_per_1k"] == 71.43  # 1 / (14 / 1000)
++    assert metrics["para_opener_variety"] == 1.0
++    assert quality.try_metrics_v2(text) is None

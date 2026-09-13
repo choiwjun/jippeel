@@ -1,0 +1,149 @@
+{"isolation": "ready-before-pytest", "root": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-krgfu0gp", "destinations": {"DATABASE_URL": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-isolated-krgfu0gp/lifespan.db", "JIPPEEL_KEY_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-krgfu0gp\\dummy.key", "COVERAGE_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-krgfu0gp\\test.coverage", "JIPPEEL_TEST_BASETEMP": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-krgfu0gp\\pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 44%]
+.............................s....................uuuuu.uuuuuuuuu.....uu [ 56%]
+uuu...uuuuuuuuuuuu..uuuuuu.uuuuuu....uuuuuuuuu..uuuuuuuuuuuuuuuuuu...... [ 60%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+.................................................                        [100%]C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F740D06F20>
+  gc.collect()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F740EFBC40>
+  gc.collect()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F7417F65C0>
+  gc.collect()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+
+============================== warnings summary ===============================
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\type_api.py:975: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73CEC9990>
+    def _dialect_info(self, dialect: Dialect) -> _TypeMemoDict:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\type_api.py:975: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D0E8E50>
+    def _dialect_info(self, dialect: Dialect) -> _TypeMemoDict:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\type_api.py:975: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D1ED300>
+    def _dialect_info(self, dialect: Dialect) -> _TypeMemoDict:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\type_api.py:975: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D1EF100>
+    def _dialect_info(self, dialect: Dialect) -> _TypeMemoDict:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\type_api.py:975: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D23A6B0>
+    def _dialect_info(self, dialect: Dialect) -> _TypeMemoDict:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D2C98A0>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D345E40>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D399120>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D5748B0>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73D577B50>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73E6B2B60>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73E7A4F40>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73E825300>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73E8A0310>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73E8F5990>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73E9C0220>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73F16E6B0>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73F2A7E20>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_outline_injection.py::test_auto_outline_silent_without_memo_and_last_chapter
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\orm\mapper.py:3978: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000001F73F3F5210>
+    [(deque(state.mapper._props.values()), prp, state, state.dict)]
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.14.4-final-0 _______________
+
+Name                        Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------
+app\routers\projects.py       201      5     34      3    97%   228-229, 253, 311-312, 336->332
+app\services\bootstrap.py     289     11     92     13    93%   67, 358, 361, 374->379, 377-378, 387, 426, 429, 441->447, 444-445, 462->460, 693, 695->691
+app\services\canon.py          62      8     18      3    86%   40-42, 52, 54, 108, 131-132
+app\services\quality.py       135      7     48      3    92%   158->164, 205->207, 214-215, 223-228
+tests\isolation_guard.py      183     12     60      3    93%   137-138, 175, 238->243, 254-263
+-----------------------------------------------------------------------
+TOTAL                         870     43    252     25    93%
+Coverage JSON written to file C:\Users\wj941\AppData\Local\Temp\jippeel-isolated-krgfu0gp\coverage.json
+482 passed, 1 skipped, 19 warnings, 70 subtests passed in 46.56s
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 237, "subprocess_attempts": 0, "fake_keyring_calls": 7, "violations": []}

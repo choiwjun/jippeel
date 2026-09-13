@@ -1,0 +1,22 @@
+{"isolation": "ready-before-pytest", "root": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-fn7lw_q8", "destinations": {"DATABASE_URL": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-isolated-fn7lw_q8/lifespan.db", "JIPPEEL_KEY_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-fn7lw_q8\\dummy.key", "COVERAGE_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-fn7lw_q8\\test.coverage", "JIPPEEL_TEST_BASETEMP": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-fn7lw_q8\\pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+============================= test session starts =============================
+platform win32 -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\wj941\Documents\jippeel\backend\.venv\Scripts\python.exe
+cachedir: pytest-cache
+rootdir: C:\Users\wj941\AppData\Local\Temp\jippeel-isolated-fn7lw_q8
+configfile: pytest.ini
+collecting ... collected 11 items
+
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_analyze_text_metrics_present PASSED [  9%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_bad_text_gets_low_score_and_suggestions PASSED [ 18%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_good_text_gets_high_score PASSED [ 27%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_empty_text_safe PASSED [ 36%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_score_capped PASSED [ 45%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_series_finale_does_not_penalize_missing_hook PASSED [ 54%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_quality_history_dedup_includes_purpose_not_hash PASSED [ 63%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_quality_history_legacy_rows_without_purpose_are_serial_compatible PASSED [ 72%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_scene_result_rejects_empty_oversized_and_meta_leak PASSED [ 81%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_validate_results_rejects_duplicate_missing_and_plan_mismatch PASSED [ 90%]
+..\..\..\AppData\Local\Temp\jippeel-isolated-fn7lw_q8::test_review_source_labels_contracts_without_polluting_user_draft PASSED [100%]
+
+============================= 11 passed in 0.89s ==============================
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 2, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

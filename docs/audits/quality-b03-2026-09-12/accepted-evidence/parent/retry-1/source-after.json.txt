@@ -1,0 +1,18 @@
+{
+  "backend/app/services/quality.py": "17efd16a2ffd45cc7faa4861e5303b830122f9296eb156ce36f78cf4c18cd809",
+  "backend/tests/test_quality_b03_reproduction.py": "63c794f374237b8ad61f7a50871df8da670b40682901105dc9427fe3e6e35315",
+  "backend/tests/isolation_guard.py": "6599632132f650d6fea1426cfe6130a427ad7d229fa062dc7934905f89f6c3d5",
+  "backend/tests/test_isolation_guard.py": "a39913db4b51df38c760ec50366372fa6c5f47fa5be7554e632dc0a1a5af52c4",
+  "frontend/src/components/editor/QualityDialog.tsx": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+  "frontend/e2e/quality-dialog.spec.ts": "919432b8f87f7fbc5415220228fb09538ff4090580c873eb5596d128cdcb3de4",
+  "frontend/e2e/quality-fixture.html": "bd5e891cd9e42000e6f7033f8d85fbca5c52951106188e4dc2889eb9196b15db",
+  "frontend/e2e/quality-scoped-coverage.ts": "309ac3a64f92ac09f8d5a2a1765d1d81b168ba2843679d0238a76623362b0475",
+  "frontend/playwright.quality.config.ts": "ee30e9a0ae75d18597438cdb6ab1437e431e3ef8e0f24495720b7e18b8526fc8",
+  "frontend/e2e/ai-context-ui.spec.ts": "8914b141436410db7ac3e18196eb4e60a1a5258d3189d9b4bce77fbd18adea79",
+  "frontend/src/components/ui/dialog.tsx": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+  "backend/.coverage": "a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624",
+  "backend/app/services/crypto.py": "5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e",
+  "backend/app/services/canon.py": "0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321",
+  "backend/app/services/bootstrap.py": "c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c",
+  ".git/index": "bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00"
+}

@@ -1,0 +1,25 @@
+test_audit_network_subprocess_and_database_tripwires (__main__.IsolationGuardTests.test_audit_network_subprocess_and_database_tripwires) ... ok
+test_cli_overrides_rejected (__main__.IsolationGuardTests.test_cli_overrides_rejected) ... ok
+test_colliding_destinations_rejected (__main__.IsolationGuardTests.test_colliding_destinations_rejected) ... ok
+test_fallback_reassignment_rejected_before_any_operation (__main__.IsolationGuardTests.test_fallback_reassignment_rejected_before_any_operation) ... ok
+test_forged_ipc_frames_and_destinations_never_invoke_consumer (__main__.IsolationGuardTests.test_forged_ipc_frames_and_destinations_never_invoke_consumer) ... ok
+test_guard_violations_are_not_swallowed_by_product_exception_catch (__main__.IsolationGuardTests.test_guard_violations_are_not_swallowed_by_product_exception_catch) ... ok
+test_inherited_overrides_rejected (__main__.IsolationGuardTests.test_inherited_overrides_rejected) ... ok
+test_install_uses_fixed_owned_configuration_in_synthetic_process (__main__.IsolationGuardTests.test_install_uses_fixed_owned_configuration_in_synthetic_process) ... {"isolation": "ready-before-pytest", "root": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-5dci4j4r", "destinations": {"DATABASE_URL": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-isolated-5dci4j4r/lifespan.db", "JIPPEEL_KEY_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-5dci4j4r\\dummy.key", "COVERAGE_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-5dci4j4r\\test.coverage", "JIPPEEL_TEST_BASETEMP": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-5dci4j4r\\pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+ok
+test_missing_and_replaced_keyring_rejected (__main__.IsolationGuardTests.test_missing_and_replaced_keyring_rejected) ... ok
+test_missing_or_invalid_settings_rejected (__main__.IsolationGuardTests.test_missing_or_invalid_settings_rejected) ... ok
+test_missing_runner_state_fails_closed (__main__.IsolationGuardTests.test_missing_runner_state_fails_closed) ... ok
+test_path_escape_relative_prefix_and_streams_rejected_before_consumer (__main__.IsolationGuardTests.test_path_escape_relative_prefix_and_streams_rejected_before_consumer) ... ok
+test_premature_imports_rejected (__main__.IsolationGuardTests.test_premature_imports_rejected) ... ok
+test_real_socketpair_frame_rejects_wrong_socket_and_destination (__main__.IsolationGuardTests.test_real_socketpair_frame_rejects_wrong_socket_and_destination) ... ok
+test_resolved_redirection_is_rejected_before_consumer (__main__.IsolationGuardTests.test_resolved_redirection_is_rejected_before_consumer) ... ok
+test_sensitive_reads_and_non_owned_writes_rejected (__main__.IsolationGuardTests.test_sensitive_reads_and_non_owned_writes_rejected) ... ok
+test_sqlite_url_edge_cases (__main__.IsolationGuardTests.test_sqlite_url_edge_cases) ... ok
+test_valid_destinations_are_owned_and_distinct (__main__.IsolationGuardTests.test_valid_destinations_are_owned_and_distinct) ... ok
+test_windows_sensitive_read_aliases_rejected_before_consumer (__main__.IsolationGuardTests.test_windows_sensitive_read_aliases_rejected_before_consumer) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.106s
+
+OK

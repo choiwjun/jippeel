@@ -7,7 +7,7 @@ LLM 1콜(비스트리밍, JSON)로 탐지한다. 결과는 응답으로만 반�
 import hashlib
 import json
 
-import openai
+import openai  # pyright: ignore[reportMissingImports]
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -68,15 +68,20 @@ def build_messages(
 
 def parse_issues(raw: str) -> list[dict]:
     data = _extract_json(raw)
+    items = data.get("issues")
+    if not isinstance(items, list):
+        raise ValueError("canon issues must be a list")
     issues = []
-    for item in data.get("issues", []):
+    for item in items:
         if not isinstance(item, dict):
-            continue
-        quote = str(item.get("quote") or "").strip()
-        reason = str(item.get("reason") or "").strip()
+            raise ValueError("canon issue must be an object")
+        quote, reason = item.get("quote"), item.get("reason")
+        if not isinstance(quote, str) or not isinstance(reason, str):
+            raise ValueError("canon quote and reason must be strings")
+        quote, reason = quote.strip(), reason.strip()
         if not quote or not reason:
-            continue
-        severity = str(item.get("severity") or "warn")
+            raise ValueError("canon quote and reason must not be empty")
+        severity = item.get("severity")
         if severity not in ("info", "warn", "error"):
             severity = "warn"
         issues.append({"quote": quote[:500], "reason": reason[:500],
@@ -89,7 +94,6 @@ async def run_canon_check(
     chapter: Chapter,
     client,
     model: str,
-    temperature: float | None,
     reasoning_effort: str | None,
     payload: CanonCheckRequest | None = None,
     bundle: ai_context.ContextBundle | None = None,
@@ -105,17 +109,17 @@ async def run_canon_check(
     else:
         messages, counts = messages_context
     last_prompt_chars = sum(len(m["content"]) for m in messages)
-    raw = await llm.complete_chat(client, model, messages, temperature=temperature,
+    raw = await llm.complete_chat(client, model, messages,
                                   reasoning_effort=reasoning_effort)
     try:
         return parse_issues(raw), counts, model
     except (ValueError, json.JSONDecodeError):
         repaired = list(messages) + [
             {"role": "assistant", "content": raw},
-            {"role": "user", "content": "직전 응답은 유효한 JSON이 아니었다. "
+            {"role": "user", "content": "직전 응답의 JSON 문법 또는 요청된 구조가 유효하지 않았다. "
              "요청된 형식 그대로의 유효한 JSON만 다시 출력하라."},
         ]
-        raw = await llm.complete_chat(client, model, repaired, temperature=temperature,
+        raw = await llm.complete_chat(client, model, repaired,
                                       reasoning_effort=reasoning_effort)
         return parse_issues(raw), counts, model
 

@@ -1,0 +1,11 @@
+{
+  "runtime": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+  "run": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-b01-b02-k6krxni5\\execution-gjpb_2f9",
+  "guard_events": [],
+  "db_exists": false,
+  "key_exists": false,
+  "app_main_imported": false
+}
+canon_parse C01-empty=PASS, C02-valid=PASS, C03-missing=RED, C04-null=RED, C05-number=RED, C06-string=RED, C07-object=RED, C08-invalid-items=RED, C09-missing-fields=RED, C10-blank-field=RED, C11-wrong-field-types=RED, C12-mixed=RED, C13-severity-compat=PASS, C14-broken-json=PASS
+canon_run_fake C01-empty=PASS, C02-valid=PASS, C03-missing=RED, C04-null=RED, C05-number=RED, C06-string=RED, C07-object=RED, C08-invalid-items=RED, C09-missing-fields=RED, C10-blank-field=RED, C11-wrong-field-types=RED, C12-mixed=RED, C13-severity-compat=PASS, C14-broken-json=PASS
+outline O01-normal=PASS, O02-missing-earlier-volume=RED, O03-uneven-volumes=RED, O04-duplicate-volume=RED, O05-out-of-range-volume=RED, O06-duplicate-order=RED, O07-out-of-range-order=RED, O08-all-missing=PASS, O09-short-last-volume=PASS, O10-reversed-order=RED, O11-reversed-volumes=PASS, O12-invalid-volume-after-short=RED, O13-boolean-identifiers=RED

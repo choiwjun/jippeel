@@ -1,0 +1,74 @@
+[
+  {
+    "run": "fixture-recovery-negative",
+    "runLogSha256": "6cecd7bfad835ae3569b7f86a5ece9b3e0fa0df15328ed61be804601d893187c",
+    "emittedLatch": "/tmp/jippeel-manuscript-http-DmPqus/violations.jsonl",
+    "latchFileExists": true,
+    "latchBytes": 65,
+    "latchSha256": "4b2f2a018c9c19dc4f703ca24b3af27f76b842db21cb9421582c6602c13b5427",
+    "expectedNegative": true,
+    "noEscapes": false,
+    "noProxy": "configResolved guard rejects proxy; manuscript log proxy={} where HTTP fixture used",
+    "ownedContextDrain": "existing source context.close -> drain -> unregister; worker drain -> server.close -> latch check"
+  },
+  {
+    "run": "manuscript-recovery-focused",
+    "runLogSha256": "744a55bb4b8e0dbd28572057215cde5d1c2beb577e0f859d0e5b0a02410556de",
+    "emittedLatch": "/tmp/jippeel-manuscript-http-bcIAGh/violations.jsonl",
+    "latchFileExists": false,
+    "latchBytes": 0,
+    "latchSha256": null,
+    "expectedNegative": false,
+    "noEscapes": true,
+    "noProxy": "configResolved guard rejects proxy; manuscript log proxy={} where HTTP fixture used",
+    "ownedContextDrain": "existing source context.close -> drain -> unregister; worker drain -> server.close -> latch check"
+  },
+  {
+    "run": "memory-recovery-focused-confirmed",
+    "runLogSha256": "24e850c393904aa6f621faab8bd60bdf7def3774a805c7a05ab7a05129de589a",
+    "emittedLatch": "/tmp/jippeel-fixture-tripwire-j7o91Z/violations.jsonl",
+    "latchFileExists": false,
+    "latchBytes": 0,
+    "latchSha256": null,
+    "expectedNegative": false,
+    "noEscapes": true,
+    "noProxy": "configResolved guard rejects proxy; manuscript log proxy={} where HTTP fixture used",
+    "ownedContextDrain": "existing source context.close -> drain -> unregister; worker drain -> server.close -> latch check"
+  },
+  {
+    "run": "memory-recovery-full",
+    "runLogSha256": "c6f5e876cc37fafac368166d625ef4f253db23567cf07e23dacaec9e1577f347",
+    "emittedLatch": "/tmp/jippeel-fixture-tripwire-yU7XtR/violations.jsonl",
+    "latchFileExists": false,
+    "latchBytes": 0,
+    "latchSha256": null,
+    "expectedNegative": false,
+    "noEscapes": true,
+    "noProxy": "configResolved guard rejects proxy; manuscript log proxy={} where HTTP fixture used",
+    "ownedContextDrain": "existing source context.close -> drain -> unregister; worker drain -> server.close -> latch check"
+  },
+  {
+    "run": "manuscript-recovery-full",
+    "runLogSha256": "c6b42b26183dbd89dbb12de4cb84e6d7ece0eb8e424ef0b83dd844f9e3c6e49a",
+    "emittedLatch": "/tmp/jippeel-manuscript-http-3pV5ku/violations.jsonl",
+    "latchFileExists": false,
+    "latchBytes": 0,
+    "latchSha256": null,
+    "expectedNegative": false,
+    "noEscapes": true,
+    "noProxy": "configResolved guard rejects proxy; manuscript log proxy={} where HTTP fixture used",
+    "ownedContextDrain": "existing source context.close -> drain -> unregister; worker drain -> server.close -> latch check"
+  },
+  {
+    "run": "ai-context-recovery-full",
+    "runLogSha256": "f6bc0a72b915b96bbc2b8dcd76624adc08b22bf7b4d7a9f4194c9be33512b4a9",
+    "emittedLatch": "/tmp/jippeel-fixture-tripwire-FmuPjr/violations.jsonl",
+    "latchFileExists": false,
+    "latchBytes": 0,
+    "latchSha256": null,
+    "expectedNegative": false,
+    "noEscapes": true,
+    "noProxy": "configResolved guard rejects proxy; manuscript log proxy={} where HTTP fixture used",
+    "ownedContextDrain": "existing source context.close -> drain -> unregister; worker drain -> server.close -> latch check"
+  }
+]

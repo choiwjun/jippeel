@@ -1,0 +1,15 @@
+const fs=require('fs'),crypto=require('crypto'),assert=require('assert');
+const ts=require('/mnt/c/Users/wj941/Documents/jippeel/frontend/node_modules/typescript');
+const e=__dirname,file='frontend/src/components/editor/QualityDialog.tsx';
+function syntax(text){
+ const source=ts.createSourceFile('quality.tsx',text,ts.ScriptTarget.Latest,true);
+ assert.equal(source.parseDiagnostics.length,0);
+ function visit(n){return {kind:ts.SyntaxKind[n.kind],...(!ts.isSourceFile(n)&&typeof n.text==='string'?{text:n.text}:{}),children:n.getChildren(source).map(visit)};}
+ return JSON.stringify(visit(source));
+}
+const old=fs.readFileSync(e+'/final-source/'+file,'utf8'),current=fs.readFileSync('/mnt/c/Users/wj941/Documents/jippeel/'+file,'utf8');
+const actual=syntax(current);assert.equal(syntax(old),actual,'Actual attribute wrapping must preserve syntax');
+const controls=[['label',current.replace('문체 신호 참고 점수','다른 이름')],['jsx-text',current.replace('문체 신호 참고 점수\n','문체 신호 참고 점수 !\n')],['operator',current.replace('q.score >= 80','q.score > 80')]];
+for(const[name,text]of controls){assert.notEqual(text,current,name+' must modify input');assert.notEqual(syntax(text),actual,name+' must be rejected');}
+const result={equal:true,parseDiagnostics:0,excluded:'SourceFile container.text only; all descendant literal/identifier/JSX/token text retained',syntaxSha256:crypto.createHash('sha256').update(actual).digest('hex'),controls:controls.map(([name])=>({name,semanticChangeRejected:true})),oldSourceSha256:crypto.createHash('sha256').update(old).digest('hex'),currentSourceSha256:crypto.createHash('sha256').update(current).digest('hex')};
+fs.writeFileSync(e+'/post-serial-format-ast-equivalence.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));

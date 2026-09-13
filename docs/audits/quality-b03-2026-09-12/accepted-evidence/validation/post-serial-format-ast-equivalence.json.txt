@@ -1,0 +1,22 @@
+{
+  "equal": true,
+  "parseDiagnostics": 0,
+  "excluded": "SourceFile container.text only; all descendant literal/identifier/JSX/token text retained",
+  "syntaxSha256": "93d5590f607bfc84523be4a7f1df68f82d4a4f55d37434d4eb8ab163ffa09a48",
+  "controls": [
+    {
+      "name": "label",
+      "semanticChangeRejected": true
+    },
+    {
+      "name": "jsx-text",
+      "semanticChangeRejected": true
+    },
+    {
+      "name": "operator",
+      "semanticChangeRejected": true
+    }
+  ],
+  "oldSourceSha256": "6c728aa767db279930e87f94586c89206719e8017ecdee5f5c71a26df9e234c2",
+  "currentSourceSha256": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb"
+}

@@ -1,8 +1,9 @@
 # 장편 기억 거버넌스 1차 후속 구현 계획
 
 - 작성일: 2026-09-11
-- 상태: 구현·검증 완료 (운영 적용 전)
-- 기준: `HANDOFF.md`, `docs/audits/long-memory-design-2026-09-10.md`, 기존 `MemoryEntry` 최소 수직 슬라이스
+- 상태(2026-09-12 대조): 기반 및 승인 P1 네 건 완료 / 원래 P2 다섯 건도 [M01~M05 수용 완료](../../audits/memory-m01-m05-2026-09-12/acceptance.md) / 운영 적용 전. 아래 P1 당시의 P2 미수정 표현은 역사적 기록이다.
+- 현재 작업 상태: [전체 현황](../../handoffs/2026-09-08-remaining-work.md). 예전 전체 suite 외부 script 실패는 아래 최종 P1 실행에서 재현되지 않았다.
+- 기준: `HANDOFF.md`, `대시보드_MVP_사양.md` v0.6, 기존 `MemoryEntry` 최소 수직 슬라이스
 
 ## 1. 목표
 
@@ -50,6 +51,7 @@
 8. 상태 전환은 `draft -> approved`, `draft -> retired`, `approved -> retired`만 허용한다. `retired`를 다시 approved로 되돌리는 기능은 이 단계에서 만들지 않는다.
 9. 목록은 `limit`(기본 200, 최대 500)으로 제한하고 kind/source chapter sort_order/id의 결정적 순서를 사용한다. stale 계산에 필요한 회차는 현재 프로젝트에 한정한다.
 10. memory body는 React text node로만 렌더링한다. HTML/Markdown을 실행하거나 `dangerouslySetInnerHTML`로 넣지 않는다.
+11. 유한한 시간 범위와 오류 관측: effective sort order는 NaN/Infinity를 거부하고, memory DB 오류는 사용자용 500 응답과 server-side exception log를 남긴다.
 
 ## 5. API 계약
 
@@ -217,11 +219,72 @@ Query:
 - backend 전체 회귀, frontend build, memory UI fixture/E2E, 접근성 검증이 통과한다.
 - 운영 DB/provider/device는 사용하지 않는다.
 
-## 11. 구현 및 검증 기록
+## 11. 초기 구현 및 검증 기록 — P1 보정 전
+
+아래 수치는 당시 기록이다. 최신 실행·독립 검토는 이 문서 하단의 P1 최종 수용 기록,
+완료/잔여 판단은 전체 현황 C07/C08·M01~M05를 따른다.
 
 - project-scoped memory CRUD/목록 필터 API와 수동 draft 생성, 서버 provenance revision/SHA-256 계산, stale 표시, 명시적 승인/폐기 전환을 구현했다.
 - 다른 project의 chapter/memory 접근을 거부하며, memory가 연결된 회차 삭제는 409로 거부해 memory row와 provenance를 보존한다.
 - 목록은 `kind → source sort order → id` 순으로 DB에서 먼저 정렬한 뒤 bounded limit을 적용한다.
 - 프로젝트별 React Query 관리 화면에서 작품 정보, provenance, stale 경고, 상태 변경 확인 focus, 키보드 접근 가능한 조작을 제공한다. 자동 요약/provider 호출은 추가하지 않았다.
-- 검증: 임시 SQLite backend 전체 `288 passed`, frontend `npm run build` 성공, memory Playwright E2E 및 critical/serious axe 검사 `1 passed`.
-- 운영 DB migration/provider/Windows 실기기 QA는 실행하지 않았다. 테스트 환경에서 Starlette/AnyIO dependency deprecation warning 1건이 남지만 기능 테스트는 통과한다.
+- 검증: OAuth 변경 전 임시 SQLite backend `292 passed` 기준선, OAuth 변경 후 변경 범위 `108 passed`, frontend `npm run build` 성공.
+- 전체 suite 관찰값은 `294 passed, 9 failed, 1 skipped`; 9건은 누락된 im-not-ai 외부
+  script 환경 의존으로 기능 변경 회귀와 분리했다.
+- 핵심 4개 모듈 합산 coverage `93.59%`(표시 94%; memories 80%, schemas 98%, long_memory 92%, summary_jobs 85%); memory Playwright E2E 및 critical/serious axe 검사는 이전 governance 회귀에서 `1 passed`다.
+- 운영 DB migration·실제 OAuth/provider·Windows 실기기 QA는 실행하지 않았다. provider-free summary planner만
+  구현·검증했으며 자동 요약/backfill worker는 별도 승인 전 추가하지 않는다.
+
+## P1 수정 진행 — 2026-09-11 (승인됨)
+
+사용자가 review 종합의 P1 네 건만 수정하도록 승인했다. 이번 한정 작업은 unavailable
+prime-agent 대신 native Pi 단일 writer와 로컬 pytest/Playwright를 사용하는 임시 routing 예외다.
+운영 DB/provider/keyring/migration/commit/stage 및 P2 확대는 승인되지 않았다.
+
+- [x] 현재 코드·handoff·승인 리뷰·관련 testing/React/FastAPI/a11y skill 확인
+- [x] RED: 선택 동작, pending 입력 보호, PATCH CAS, chapter 삭제/생성 경쟁 회귀
+- [x] GREEN: 최소 동작 보정 및 회귀/build/axe/targeted coverage
+- [x] baseline 대비 diff·비관련 변경 보존 확인, HANDOFF 갱신
+- [x] 독립 review: 무결성/security PASS, UI PASS with notes; 부모의 테스트 assertion 보강·6 E2E 재통과
+
+### P1 결과·증거
+
+- confirmation state는 `{id, targetVisibility}`로 승인/폐기를 구분한다. 확인 문구도 선택 동작에 연결했다.
+- POST pending 동안 종류·근거·본문·양쪽 범위와 제출을 잠근다. 성공 시 기존 초기화,
+  실패 시 입력 보존·재편집을 유지한다. UI redesign/P2 동작은 추가하지 않았다.
+- PATCH는 검증에 사용한 visibility와 양쪽 nullable 범위를 모두 CAS 조건으로 비교한다.
+  stale CAS/SQLite busy는 409, 기존 단일 요청 transition/range 오류는 422다.
+  빈 PATCH는 쓰지 않으며 같은 값 재요청은 현재 상태에서 200으로 유지한다.
+  경합 중 stale 요청은 같은 의도여도 자동 재시도하지 않고 409로 재검토를 요구한다.
+- chapter DELETE는 읽기 전에 SQLite `BEGIN IMMEDIATE`로 writer를 확보한다.
+  committed memory가 먼저면 DELETE 409 및 양쪽 보존; DELETE가 먼저면 경합 POST는
+  busy/FK 409, 삭제 후 새 POST는 404다. whole-project cascade 정책은 그대로 검증했다.
+- 순차 hook으로 독립 DB 세션을 interleave했고 busy 검사는 임시 DB의 timeout=0으로
+  결정적으로 검증했다. sleep/운영 DB/provider/schema 변경은 없다.
+- 증거 루트: `/tmp/jippeel-memory-p1.Ge5TLu/`
+  - RED `red-backend.txt`: 6 failed/2 passed (CAS 4, cascade 1, FK 응답 1).
+  - RED `red-full-frontend.txt`: 3 failed/3 passed (draft 폐기 body 오류, pending success/failure).
+  - GREEN `coverage-final-backend.txt`: 64 passed; branch 포함 memories 93%, projects 85%, long_memory 93%, 합산 90%.
+  - `full-final-backend.txt`: 전체 317 passed. 이전 im-not-ai script 실패는 이번 환경에서 재현되지 않았고 관련 코드는 수정하지 않았다.
+  - `final-frontend.txt`: memory Playwright 6 passed (axe serious/critical 0 포함).
+  - `final-build.txt`: TypeScript/Vite build 통과.
+- coverage data는 fresh Windows temp `jippeel-p1-coverage-tu88z843`에 저장했다.
+  기존 backend/.coverage는 덮어쓰지 않았다. frontend는 source-mapped coverage 계측이
+  구성되지 않아 %를 주장하지 않는다. backend generic DB error 등 미실행 경로도 남는다.
+- 초기 frontend mock의 nullable hash render 오류와 test timeout은 RED 근거에서 제외했다.
+  부모 승인으로 해당 run의 Vite PID만 종료하고 schema-valid fixture로 재현했다.
+  중간 keyboard 테스트의 sidebar 이동은 테스트 경로를 disabled-control focus/activation으로
+  한정해 수정했다. 최종 실패는 없다. 기존 P2/운영 migration/provider/지정 장치 QA gate는 유지한다.
+
+### 독립 검토·최종 수용 — 2026-09-12
+
+- 최초 worker `5eb0f9d2-bab2-4a09-bf5b-2e152c1ba419`가 검증·파일 저장 후 최종 보고 중
+  1800000ms timeout으로 종료됐다. 부모는 ref/부분 diff/실행 프로세스를 확인하고,
+  동일 Pi workflow `2c5a47a8-9c26-4766-8b62-2b1981a198ac`에서 read-only 보고를 복구했다.
+- 무결성 검토 `316782fe-e090-4fff-bb04-e9e17f03fa6f`: PASS, 승인 delta의 차단 이슈 없음.
+- UI 검토 `e7c88fa6-fd4b-4a96-bba1-7d4cccee6534`: PASS with notes. 새 테스트의 상태 확인이
+  버튼 문구와 혼동될 수 있어 부모가 visibility span 및 retired action 부재로 assertion을
+  보강했다. `parent-reviewed-frontend.txt`: 같은 memory Playwright/axe **6 passed**.
+- reviewer는 독립 정적 검토이며 테스트 실행을 직접 했다고 주장하지 않는다.
+  백엔드 전체 317/targeted 64 통과는 worker 실행 로그, 마지막 UI 6 통과는 부모 실행 근거다.
+- 승인 P1 네 건의 수정·검증·독립 검토를 완료했다. 운영 적용/전체 보안 인증은 별도다.

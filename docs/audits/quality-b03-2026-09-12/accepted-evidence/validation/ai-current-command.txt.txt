@@ -1,0 +1,3 @@
+cwd=/mnt/c/Users/wj941/Documents/jippeel/frontend
+node node_modules/@playwright/test/cli.js test --config playwright.ai-context.fixture.config.ts --output /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-current
+exit=0

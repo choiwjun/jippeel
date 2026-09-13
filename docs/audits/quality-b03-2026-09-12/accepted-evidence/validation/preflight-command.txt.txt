@@ -1,0 +1,3 @@
+cwd=/mnt/c/Users/wj941/Documents/jippeel/backend
+.venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight
+exit=0

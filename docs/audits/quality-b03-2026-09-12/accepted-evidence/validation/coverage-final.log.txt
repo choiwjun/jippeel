@@ -1,0 +1,282 @@
+{
+  "rawSamples": 5,
+  "groups": 2,
+  "report": {
+    "frontend/src/components/editor/QualityDialog.tsx": {
+      "changedLines": {
+        "covered": 278,
+        "total": 284,
+        "missing": [
+          226,
+          228,
+          229,
+          231,
+          324,
+          327
+        ]
+      },
+      "changedBranches": {
+        "covered": 42,
+        "total": 48,
+        "missing": [
+          {
+            "id": "1",
+            "location": {
+              "type": "branch",
+              "line": 53,
+              "loc": {
+                "start": {
+                  "line": 53,
+                  "column": 26
+                },
+                "end": {
+                  "line": 53,
+                  "column": 38
+                }
+              },
+              "locations": [
+                {
+                  "start": {
+                    "line": 53,
+                    "column": 26
+                  },
+                  "end": {
+                    "line": 53,
+                    "column": 38
+                  }
+                }
+              ]
+            },
+            "counts": [
+              0
+            ]
+          },
+          {
+            "id": "2",
+            "location": {
+              "type": "branch",
+              "line": 108,
+              "loc": {
+                "start": {
+                  "line": 108,
+                  "column": 82
+                },
+                "end": {
+                  "line": 108,
+                  "column": 117
+                }
+              },
+              "locations": [
+                {
+                  "start": {
+                    "line": 108,
+                    "column": 82
+                  },
+                  "end": {
+                    "line": 108,
+                    "column": 117
+                  }
+                }
+              ]
+            },
+            "counts": [
+              0
+            ]
+          },
+          {
+            "id": "3",
+            "location": {
+              "type": "branch",
+              "line": 110,
+              "loc": {
+                "start": {
+                  "line": 110,
+                  "column": 38
+                },
+                "end": {
+                  "line": 110,
+                  "column": 48
+                }
+              },
+              "locations": [
+                {
+                  "start": {
+                    "line": 110,
+                    "column": 38
+                  },
+                  "end": {
+                    "line": 110,
+                    "column": 48
+                  }
+                }
+              ]
+            },
+            "counts": [
+              0
+            ]
+          },
+          {
+            "id": "14",
+            "location": {
+              "type": "branch",
+              "line": 225,
+              "loc": {
+                "start": {
+                  "line": 225,
+                  "column": 44
+                },
+                "end": {
+                  "line": 231,
+                  "column": 40
+                }
+              },
+              "locations": [
+                {
+                  "start": {
+                    "line": 225,
+                    "column": 44
+                  },
+                  "end": {
+                    "line": 231,
+                    "column": 40
+                  }
+                }
+              ]
+            },
+            "counts": [
+              0
+            ]
+          },
+          {
+            "id": "21",
+            "location": {
+              "type": "branch",
+              "line": 323,
+              "loc": {
+                "start": {
+                  "line": 323,
+                  "column": 60
+                },
+                "end": {
+                  "line": 324,
+                  "column": 75
+                }
+              },
+              "locations": [
+                {
+                  "start": {
+                    "line": 323,
+                    "column": 60
+                  },
+                  "end": {
+                    "line": 324,
+                    "column": 75
+                  }
+                }
+              ]
+            },
+            "counts": [
+              0
+            ]
+          },
+          {
+            "id": "22",
+            "location": {
+              "type": "branch",
+              "line": 326,
+              "loc": {
+                "start": {
+                  "line": 326,
+                  "column": 77
+                },
+                "end": {
+                  "line": 327,
+                  "column": 74
+                }
+              },
+              "locations": [
+                {
+                  "start": {
+                    "line": 326,
+                    "column": 77
+                  },
+                  "end": {
+                    "line": 327,
+                    "column": 74
+                  }
+                }
+              ]
+            },
+            "counts": [
+              0
+            ]
+          }
+        ]
+      },
+      "wholeModule": {
+        "lines": {
+          "total": 450,
+          "covered": 442,
+          "skipped": 0,
+          "pct": 98.22
+        },
+        "functions": {
+          "total": 7,
+          "covered": 7,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 450,
+          "covered": 442,
+          "skipped": 0,
+          "pct": 98.22
+        },
+        "branches": {
+          "total": 48,
+          "covered": 42,
+          "skipped": 0,
+          "pct": 87.5
+        }
+      }
+    },
+    "frontend/src/components/ui/dialog.tsx": {
+      "changedLines": {
+        "covered": 41,
+        "total": 41,
+        "missing": []
+      },
+      "changedBranches": {
+        "covered": 14,
+        "total": 14,
+        "missing": []
+      },
+      "wholeModule": {
+        "lines": {
+          "total": 101,
+          "covered": 101,
+          "skipped": 0,
+          "pct": 100
+        },
+        "functions": {
+          "total": 8,
+          "covered": 8,
+          "skipped": 0,
+          "pct": 100
+        },
+        "statements": {
+          "total": 101,
+          "covered": 101,
+          "skipped": 0,
+          "pct": 100
+        },
+        "branches": {
+          "total": 17,
+          "covered": 17,
+          "skipped": 0,
+          "pct": 100
+        }
+      }
+    }
+  }
+}

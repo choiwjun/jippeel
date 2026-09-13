@@ -1,0 +1,32 @@
+{
+  "scope": "synthetic direct-helper reproduction; not API/full-suite validation",
+  "note": "reproduction.md was reformatted by the editor Markdown hook; reproduction.original.md.txt preserves exact child output bytes.",
+  "original_report_sha256": "c459c8046ddacca2b8070441e74e9e6436b55c612d1d51cb87c8c043eea23587",
+  "files": [
+    {
+      "file": "reproduction.md",
+      "sha256": "252cd83cfc109a388dca53626e43ae4bb9fce8599c28b3f1d33008572f536ced",
+      "bytes": 18638
+    },
+    {
+      "file": "reproduction.original.md.txt",
+      "sha256": "c459c8046ddacca2b8070441e74e9e6436b55c612d1d51cb87c8c043eea23587",
+      "bytes": 18616
+    },
+    {
+      "file": "probe.py.txt",
+      "sha256": "36c78d3f1e40664a5449c17f41d54a695cc04b38fa3c626d03f5cdc6b163b39a",
+      "bytes": 7907
+    },
+    {
+      "file": "results.json",
+      "sha256": "3c4f3b089fc11dcee39ca95dbf23b5ed4e81b9e261fbe46b0e583c34f1d9ac6d",
+      "bytes": 50402
+    },
+    {
+      "file": "stdout.txt",
+      "sha256": "3bae4a21d5213119df023074ac1c7d35ba8aea20444d74d8a77c3e766ee33017",
+      "bytes": 1222
+    }
+  ]
+}

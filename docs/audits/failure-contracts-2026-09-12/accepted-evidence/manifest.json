@@ -1,0 +1,80 @@
+{
+  "post_review_hash_checks": {
+    "backend/.coverage": true,
+    "backend/app/services/crypto.py": true,
+    "backend/app/services/canon.py": true,
+    "backend/app/services/bootstrap.py": true,
+    ".git/index": true,
+    ".eval_tmp/run_backend_pytest.py": true,
+    "backend/scripts/run_backend_pytest.py": true,
+    "backend/tests/conftest.py": true,
+    "backend/tests/isolation_guard.py": true,
+    "backend/tests/test_isolation_guard.py": true
+  },
+  "files": {
+    "full-final-clean.txt": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/full-final-clean.txt",
+      "sha256": "711e33f5d3a58fba15412a56cc8cdbbf76baa1c55d9b8779b1715c5db652c3f2"
+    },
+    "full-final-clean.exit": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/full-final-clean.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "coverage-clean-summary.json": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/coverage-clean-summary.json",
+      "sha256": "0bb09cf2f8b9afe1e81595820339ee0a537dd08ff0d7395aa8bff27eaa08c255"
+    },
+    "coverage-clean-manifest.json": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/coverage-clean-manifest.json",
+      "sha256": "0c320168340b805158a6b99ed76af64c068dd3c5163cd68d7fadc400b15446bb"
+    },
+    "preservation-clean.json": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/preservation-clean.json",
+      "sha256": "767b5e1af0fa7b76aae976a6bda75d5fd6de732617aba94e85867ca785bfcfe0"
+    },
+    "final-clean-hashes.json": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/final-clean-hashes.json",
+      "sha256": "db65f47361bbbae865b967cc8a5cda5441cb94e3a09a7aaf0e1482fc412a3e4d"
+    },
+    "delta-clean.diff": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/delta-clean.diff",
+      "sha256": "82b092742c9b40a68ae02e295d183757ffc98bd91de673fbd1133a5a4e3f975f"
+    },
+    "validation-commands.json": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/validation-commands.json",
+      "sha256": "0a6337eb39aa8b2881f44350d5815cee39bad017c435928718e623f04e1d7c71"
+    },
+    "aliases-red.txt": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/aliases-red.txt",
+      "sha256": "d74118b2c27e1dc6089b2dc35ed7544c4ad28475f70e547a500e26ada94de261"
+    },
+    "aliases-green.txt": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/aliases-green.txt",
+      "sha256": "92750993cd1cca979aaea45cba1347ae82b34c108fa67e7ffb595e40cdbbcb78"
+    },
+    "canonical-preflight.txt": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/canonical-preflight.txt",
+      "sha256": "6082990a100b4b501ff1a93c6ec61dd37464ec207f334a2c5954aceae5914680"
+    },
+    "compat-preflight.txt": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/compat-preflight.txt",
+      "sha256": "342205d2f2d89ab26fdca9ff88feae7da3a697dbb9e76055e13d0487846763dc"
+    },
+    "scoped-diff-check.txt": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/scoped-diff-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "scoped-diff-check.exit": {
+      "source": "/tmp/jippeel-b04-review-fixes-t4hs3psy/scoped-diff-check.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "code-review.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/c754cea0-dbe9-4990-be98-48a1d2cf0c32/reviews/b04-code-followup.md",
+      "sha256": "657bddfd86217f4da73981d5bec9f37fab2f4379574ab86b2a6d4a4a473bede9"
+    },
+    "integrity-review.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/c754cea0-dbe9-4990-be98-48a1d2cf0c32/reviews/b04-integrity-followup.md",
+      "sha256": "9b19a37557c8b29b654be6615ebac0f44edc79771b323009aae4c42ae6cca3d4"
+    }
+  }
+}

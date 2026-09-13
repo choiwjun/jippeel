@@ -1,0 +1,132 @@
+{
+  "role": "Original source-copy hashes before Markdown formatting hooks; use post-write-manifest.json for final copies/derivatives and raw .md.txt companions. Not the full356-artifact archive",
+  "fullPersistentEvidenceRoot": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5",
+  "reviewWorkflow": "f7db362c-4031-4698-ab0f-93665a93cf14",
+  "files": {
+    "backend-recovery-preflight.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/backend-recovery-preflight.log",
+      "sha256": "2fe4fcbb69ed74011f8a338a13dcc448e16743e56900afd3160f5366224952ff",
+      "bytes": 776
+    },
+    "backend-recovery-full.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/backend-recovery-full.log",
+      "sha256": "4ef964d03b0258aff7ab6dbed0215cf2558c6240161b78cb589322f0dc131ade",
+      "bytes": 11816
+    },
+    "memory-recovery-full.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/memory-recovery-full.log",
+      "sha256": "c6f5e876cc37fafac368166d625ef4f253db23567cf07e23dacaec9e1577f347",
+      "bytes": 4183
+    },
+    "manuscript-recovery-full.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/manuscript-recovery-full.log",
+      "sha256": "c6b42b26183dbd89dbb12de4cb84e6d7ece0eb8e424ef0b83dd844f9e3c6e49a",
+      "bytes": 5198
+    },
+    "ai-context-recovery-full.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/ai-context-recovery-full.log",
+      "sha256": "f6bc0a72b915b96bbc2b8dcd76624adc08b22bf7b4d7a9f4194c9be33512b4a9",
+      "bytes": 3092
+    },
+    "recovery-typescript-app.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/recovery-typescript-app.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "recovery-typescript-fixtures.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/recovery-typescript-fixtures.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "recovery-production-build.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/recovery-production-build.log",
+      "sha256": "1a2a30d9cf86ee516aaba46ae92cb7d3fea95b03c7906873819ca783d2c67b73",
+      "bytes": 2065
+    },
+    "command-exit-summary.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/command-exit-summary.json",
+      "sha256": "f92f6cc216ada3819e5c9d967d013d9ddb06df138156631c380339ca581ded40",
+      "bytes": 12920
+    },
+    "backend-scoped-summary.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/backend-scoped-summary.json",
+      "sha256": "1b01b932c8e6bb988a7c4ef29a42d81199e1aaf08cf46b66921dfce6a125e542",
+      "bytes": 1415
+    },
+    "helper-shape-comparison.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/helper-shape-comparison.json",
+      "sha256": "857b54cb4cec666f02b70e4894b5adc1a8c27d62ecb970492402c2ee84d08fa5",
+      "bytes": 5123
+    },
+    "fixture-isolation.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/fixture-isolation.json",
+      "sha256": "285255aded6457b4bdaeff8488de037837c166133136153921bf3e440c53ef4f",
+      "bytes": 3490
+    },
+    "final-protection.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/final-protection.json",
+      "sha256": "e0f6ceeaf942531dcde11af9ffc43c02deecfb3fcc06ff588fd53113e03f3ad5",
+      "bytes": 8740
+    },
+    "final-evidence-manifest.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/final-evidence-manifest.json",
+      "sha256": "12a14449a2e1d4649e37181548684feb412d32557173d8498c5beb99c435ba54",
+      "bytes": 75083
+    },
+    "original-baseline-manifest.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/original-baseline-manifest.json",
+      "sha256": "9af71d2d20c34a427d80efb3ac3b68ffd38225fbc3394f030566f21a6ad87921",
+      "bytes": 1252
+    },
+    "coverage-scope-frozen.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-scope-frozen.json",
+      "sha256": "7d75fef62c2eeef49f68fb2512f269a8dae7ea671ef66117e58c638522409fb2",
+      "bytes": 13600
+    },
+    "final-original-M-production.diff": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/final-original-M-production.diff",
+      "sha256": "92dd64d666b302c913eef6a150565cd5abc6d59e8b1d96c6256dc50297e65c40",
+      "bytes": 11807
+    },
+    "frontend-scoped-summary.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/mapped-recovery-full/summary.json",
+      "sha256": "d228cb687d3b822c4c5b3a8b6818ba6679a6d07eed827e579d08b5eeec5fc667",
+      "bytes": 2833
+    },
+    "negative-tripwire.jsonl": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/fixture-isolation/fixture-recovery-negative.violations.jsonl",
+      "sha256": "4b2f2a018c9c19dc4f703ca24b3af27f76b842db21cb9421582c6602c13b5427",
+      "bytes": 65
+    },
+    "parent-readiness-verification.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/parent-readiness-verification.json",
+      "sha256": "54adaea07926b67db53d6abd2efa23de6b5ce1815d616a1f8105b12668b28752",
+      "bytes": 1757
+    },
+    "behavior-review.raw.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/independent-reviews/behavior.raw.json",
+      "sha256": "7b6afd881c078b80c39b907f078f496016e338b918ac33b0154e29631f888608",
+      "bytes": 7721
+    },
+    "behavior-review.md": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/independent-reviews/behavior.md",
+      "sha256": "46ce97025ea7866b1557cecb05eedb5c81ef28e3c865a7ba34356dc1658ecbdd",
+      "bytes": 6959
+    },
+    "integrity-review.raw.json": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/independent-reviews/integrity.raw.json",
+      "sha256": "c285d76fe571a48e4dac542ec82f76389ebc7e415926b29de1adda111f017289",
+      "bytes": 8442
+    },
+    "integrity-review.md": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/independent-reviews/integrity.md",
+      "sha256": "09045578d8820ab148f3c76ce1650ea7c9486facaf8e1679a73e42f420a92c91",
+      "bytes": 7617
+    },
+    "validation-report.md": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/4f93edfd-3c8e-4e15-a739-e8c3f3dcbc38/memory/final-validation.md",
+      "sha256": "6fb14223132d5345062f8695c7d1df209ca56cc16ce5c34a94259ac05c82e0d2",
+      "bytes": 10445
+    }
+  }
+}

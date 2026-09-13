@@ -1,0 +1,146 @@
+{"isolation": "ready-before-pytest", "root": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-b53rk_44", "destinations": {"DATABASE_URL": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-isolated-b53rk_44/lifespan.db", "JIPPEEL_KEY_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-b53rk_44\\dummy.key", "COVERAGE_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-b53rk_44\\test.coverage", "JIPPEEL_TEST_BASETEMP": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-b53rk_44\\pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 51%]
+.............................s....................uuuuu.uuuuuuuuu.....uu [ 65%]
+uuu...uuuuuuuuuuuu..uuuuuu.uuuuuu....uuuuuuuuu..uuuuuuuuuuuuuuuuuu...... [ 69%]
+........................................................................ [ 86%]
+..........................................................               [100%]C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB46473880>
+  gc.collect()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB4662BC40>
+  gc.collect()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB46F4EF20>
+  gc.collect()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+
+============================== warnings summary ===============================
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\AppData\Local\Python\pythoncore-3.14-64\Lib\functools.py:35: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB4264CB80>
+    def update_wrapper(wrapper,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\AppData\Local\Python\pythoncore-3.14-64\Lib\functools.py:35: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB427F9F30>
+    def update_wrapper(wrapper,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\AppData\Local\Python\pythoncore-3.14-64\Lib\functools.py:35: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42853790>
+    def update_wrapper(wrapper,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\AppData\Local\Python\pythoncore-3.14-64\Lib\functools.py:35: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42945F30>
+    def update_wrapper(wrapper,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\AppData\Local\Python\pythoncore-3.14-64\Lib\functools.py:35: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB429A98A0>
+    def update_wrapper(wrapper,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\AppData\Local\Python\pythoncore-3.14-64\Lib\functools.py:35: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42A34A90>
+    def update_wrapper(wrapper,
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42AB8F40>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42B04C70>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42CB3B50>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42D86980>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42EBDD50>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42F4CA90>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB42F4F2E0>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB43FB3010>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB440C58A0>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB44929F30>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB448AEE30>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB447F9120>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_refine_api.py::test_accept_replaces_chapter_content
+  C:\Users\wj941\Documents\jippeel\backend\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:3980: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x000002CB44295A80>
+    def bindparam_string(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.14.4-final-0 _______________
+
+Name                        Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------
+app\services\bootstrap.py     289     11     92     13    93%   67, 358, 361, 374->379, 377-378, 387, 426, 429, 441->447, 444-445, 462->460, 693, 695->691
+app\services\canon.py          62      8     18      3    86%   40-42, 52, 54, 108, 131-132
+tests\isolation_guard.py      183     12     60      3    93%   137-138, 175, 238->242, 253-262
+-----------------------------------------------------------------------
+TOTAL                         534     31    170     19    92%
+Coverage JSON written to file C:\Users\wj941\AppData\Local\Temp\jippeel-isolated-b53rk_44\coverage.json
+419 passed, 1 skipped, 19 warnings, 70 subtests passed in 48.90s
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 233, "subprocess_attempts": 0, "fake_keyring_calls": 7, "violations": []}

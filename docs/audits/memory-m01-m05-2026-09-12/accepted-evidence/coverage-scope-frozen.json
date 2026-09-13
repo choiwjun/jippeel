@@ -1,0 +1,337 @@
+{
+  "frontend/src/pages/MemoryPage.tsx": {
+    "sourceSha256": "94538e479ca73a519518b93f8b1e812fedcf99b555b3ce0140194e7c51ee928f",
+    "changedLines": [
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      107,
+      108,
+      126,
+      127,
+      128,
+      129,
+      130,
+      137,
+      138,
+      139,
+      143,
+      147,
+      150,
+      151,
+      152,
+      153,
+      154,
+      158,
+      159,
+      160,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186,
+      187,
+      188,
+      207,
+      208,
+      209,
+      210,
+      211,
+      212,
+      213,
+      214,
+      224,
+      240,
+      241,
+      242,
+      243,
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250,
+      251,
+      252,
+      401,
+      410,
+      411,
+      476,
+      477,
+      478,
+      479,
+      494,
+      511,
+      525
+    ],
+    "executableLines": [
+      81,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      91,
+      107,
+      108,
+      126,
+      127,
+      128,
+      129,
+      130,
+      137,
+      138,
+      143,
+      150,
+      151,
+      152,
+      153,
+      154,
+      158,
+      159,
+      180,
+      181,
+      182,
+      183,
+      185,
+      186,
+      187,
+      207,
+      208,
+      209,
+      210,
+      211,
+      212,
+      213,
+      224,
+      241,
+      242,
+      243,
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250,
+      251,
+      401,
+      410,
+      411,
+      476,
+      477,
+      478,
+      494,
+      511,
+      525
+    ],
+    "branchCandidates": [
+      {
+        "start": 130,
+        "end": 130,
+        "kind": "IfStatement",
+        "text": "if (!mounted.current) return;"
+      },
+      {
+        "start": 138,
+        "end": 138,
+        "kind": "IfStatement",
+        "text": "if (mounted.current) toast(`기억 추가 실패: ${(error as Error).message}`, \"error\");"
+      },
+      {
+        "start": 153,
+        "end": 153,
+        "kind": "IfStatement",
+        "text": "if (!mounted.current) return;"
+      },
+      {
+        "start": 159,
+        "end": 159,
+        "kind": "IfStatement",
+        "text": "if (mounted.current) toast(`기억 상태 변경 실패: ${(error as Error).message}`, \"error\");"
+      },
+      {
+        "start": 181,
+        "end": 181,
+        "kind": "IfStatement",
+        "text": "if (!returnFocusTo || confirming || memoriesQuery.isFetching || !mounted.current) return;"
+      },
+      {
+        "start": 181,
+        "end": 181,
+        "kind": "BinaryExpression",
+        "text": "!returnFocusTo || confirming || memoriesQuery.isFetching || !mounted.current"
+      },
+      {
+        "start": 181,
+        "end": 181,
+        "kind": "BinaryExpression",
+        "text": "!returnFocusTo || confirming || memoriesQuery.isFetching"
+      },
+      {
+        "start": 181,
+        "end": 181,
+        "kind": "BinaryExpression",
+        "text": "!returnFocusTo || confirming"
+      },
+      {
+        "start": 185,
+        "end": 185,
+        "kind": "BinaryExpression",
+        "text": "trigger ?? listRef.current"
+      },
+      {
+        "start": 211,
+        "end": 211,
+        "kind": "ConditionalExpression",
+        "text": "sourceChapter ? Number(sourceChapter) : null"
+      },
+      {
+        "start": 224,
+        "end": 224,
+        "kind": "BinaryExpression",
+        "text": "projectQuery.data?.title ?? (projectQuery.isError ? \"불러오기 실패\" : \"불러오는 중…\")"
+      },
+      {
+        "start": 224,
+        "end": 224,
+        "kind": "ConditionalExpression",
+        "text": "projectQuery.isError ? \"불러오기 실패\" : \"불러오는 중…\""
+      },
+      {
+        "start": 245,
+        "end": 252,
+        "kind": "BinaryExpression",
+        "text": "query.isError && (\n        <div key={label} role=\"alert\" className=\"flex items-center gap-2 text-sm text-destructive\">\n          <span>{message}</span>\n          <Button variant=\"outline\" size=\"sm\" disabled={query.isFetching} onClick={() => void query.refetch()}>\n            {label} 다시 시도\n          </Button>\n        </div>\n      )"
+      },
+      {
+        "start": 401,
+        "end": 405,
+        "kind": "BinaryExpression",
+        "text": "memoriesQuery.isSuccess && memories.length === 0 && (\n        <p className=\"rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground\">\n          조건에 맞는 장편 기억이 없습니다.\n        </p>\n      )"
+      },
+      {
+        "start": 401,
+        "end": 401,
+        "kind": "BinaryExpression",
+        "text": "memoriesQuery.isSuccess && memories.length === 0"
+      },
+      {
+        "start": 460,
+        "end": 538,
+        "kind": "BinaryExpression",
+        "text": "memory.visibility !== \"retired\" && (\n              <div className=\"mt-3 flex flex-wrap items-center justify-end gap-2\">\n                {confirming?.id === memory.id ? (\n                  <div\n                    className=\"flex flex-wrap items-center gap-2\"\n                    role=\"group\"\n                    aria-label=\"장편 기억 상태 변경 확인\"\n                  >\n                    <span className=\"text-xs text-muted-foreground\">\n                      {confirming.targetVisibility === \"approved\"\n                        ? \"이 기억을 승인할까요? 조건에 맞으면 AI 집필에 참고됩니다.\"\n                        : \"이 기억을 폐기할까요? AI 집필에 참고하지 않으며 다시 활성화할 수 없습니다.\"}\n                    </span>\n                    <Button\n                      size=\"sm\"\n                      variant=\"ghost\"\n                      onClick={() => {\n                        setReturnFocusTo(`${confirming.id}:${confirming.targetVisibility}`);\n                        setConfirming(null);\n                      }}\n                    >\n                      취소\n                    </Button>\n                    <Button\n                      ref={confirmationRef}\n                      size=\"sm\"\n                      variant={\n                        confirming.targetVisibility === \"approved\"\n                          ? \"default\"\n                          : \"destructive\"\n                      }\n                      disabled={update.isPending}\n                      onClick={() =>\n                        update.mutate({\n                          originPid: pid,\n                          id: memory.id,\n                          patch: {\n                            visibility: confirming.targetVisibility,\n                          },\n                        })\n                      }\n                    >\n                      확인\n                    </Button>\n                  </div>\n                ) : (\n                  <>\n                    {memory.visibility === \"draft\" && (\n                      <Button\n                        size=\"sm\"\n                        variant=\"outline\"\n                        data-memory-action={`${memory.id}:approved`}\n                        onClick={() =>\n                          setConfirming({\n                            id: memory.id,\n                            targetVisibility: \"approved\",\n                          })\n                        }\n                      >\n                        승인\n                      </Button>\n                    )}\n                    <Button\n                      size=\"sm\"\n                      variant=\"ghost\"\n                      data-memory-action={`${memory.id}:retired`}\n                      onClick={() =>\n                        setConfirming({\n                          id: memory.id,\n                          targetVisibility: \"retired\",\n                        })\n                      }\n                    >\n                      폐기\n                    </Button>\n                  </>\n                )}\n              </div>\n            )"
+      },
+      {
+        "start": 462,
+        "end": 536,
+        "kind": "ConditionalExpression",
+        "text": "confirming?.id === memory.id ? (\n                  <div\n                    className=\"flex flex-wrap items-center gap-2\"\n                    role=\"group\"\n                    aria-label=\"장편 기억 상태 변경 확인\"\n                  >\n                    <span className=\"text-xs text-muted-foreground\">\n                      {confirming.targetVisibility === \"approved\"\n                        ? \"이 기억을 승인할까요? 조건에 맞으면 AI 집필에 참고됩니다.\"\n                        : \"이 기억을 폐기할까요? AI 집필에 참고하지 않으며 다시 활성화할 수 없습니다.\"}\n                    </span>\n                    <Button\n                      size=\"sm\"\n                      variant=\"ghost\"\n                      onClick={() => {\n                        setReturnFocusTo(`${confirming.id}:${confirming.targetVisibility}`);\n                        setConfirming(null);\n                      }}\n                    >\n                      취소\n                    </Button>\n                    <Button\n                      ref={confirmationRef}\n                      size=\"sm\"\n                      variant={\n                        confirming.targetVisibility === \"approved\"\n                          ? \"default\"\n                          : \"destructive\"\n                      }\n                      disabled={update.isPending}\n                      onClick={() =>\n                        update.mutate({\n                          originPid: pid,\n                          id: memory.id,\n                          patch: {\n                            visibility: confirming.targetVisibility,\n                          },\n                        })\n                      }\n                    >\n                      확인\n                    </Button>\n                  </div>\n                ) : (\n                  <>\n                    {memory.visibility === \"draft\" && (\n                      <Button\n                        size=\"sm\"\n                        variant=\"outline\"\n                        data-memory-action={`${memory.id}:approved`}\n                        onClick={() =>\n                          setConfirming({\n                            id: memory.id,\n                            targetVisibility: \"approved\",\n                          })\n                        }\n                      >\n                        승인\n                      </Button>\n                    )}\n                    <Button\n                      size=\"sm\"\n                      variant=\"ghost\"\n                      data-memory-action={`${memory.id}:retired`}\n                      onClick={() =>\n                        setConfirming({\n                          id: memory.id,\n                          targetVisibility: \"retired\",\n                        })\n                      }\n                    >\n                      폐기\n                    </Button>\n                  </>\n                )"
+      },
+      {
+        "start": 507,
+        "end": 521,
+        "kind": "BinaryExpression",
+        "text": "memory.visibility === \"draft\" && (\n                      <Button\n                        size=\"sm\"\n                        variant=\"outline\"\n                        data-memory-action={`${memory.id}:approved`}\n                        onClick={() =>\n                          setConfirming({\n                            id: memory.id,\n                            targetVisibility: \"approved\",\n                          })\n                        }\n                      >\n                        승인\n                      </Button>\n                    )"
+      }
+    ]
+  },
+  "frontend/src/App.tsx": {
+    "sourceSha256": "4f55ecb3469a8dfc64b04b9daad67dad670b331943b4fd2e747bba42a0a112f6",
+    "changedLines": [
+      2,
+      12
+    ],
+    "executableLines": [],
+    "branchCandidates": []
+  },
+  "frontend/src/lib/manuscriptDrafts.ts": {
+    "sourceSha256": "f528f9558e688210629dcf927f375cbc6837fa94c32a4666a8b7b591ebe8a530",
+    "changedLines": [
+      3,
+      4,
+      353,
+      507
+    ],
+    "executableLines": [
+      353,
+      507
+    ],
+    "branchCandidates": []
+  },
+  "frontend/src/lib/queryClient.ts": {
+    "sourceSha256": "326910fdd5f6a0db1c46753cb67ab0fb76796f7962241e88b318a0d1b45c7335",
+    "changedLines": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
+    ],
+    "executableLines": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      14,
+      15,
+      16,
+      17,
+      19
+    ],
+    "branchCandidates": [
+      {
+        "start": 15,
+        "end": 15,
+        "kind": "IfStatement",
+        "text": "if (next === undefined || next === previous) return;"
+      },
+      {
+        "start": 15,
+        "end": 15,
+        "kind": "BinaryExpression",
+        "text": "next === undefined || next === previous"
+      }
+    ]
+  },
+  "backend/app/routers/projects.py": {
+    "sourceSha256": "3953fd5e4e60e292c9d936e269f12066de74975ffd1ddcfd2402394abc330c95",
+    "changedLines": [
+      299
+    ],
+    "executableLines": [
+      299
+    ],
+    "branchCandidates": []
+  }
+}

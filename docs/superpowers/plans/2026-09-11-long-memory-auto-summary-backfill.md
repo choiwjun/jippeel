@@ -1,7 +1,7 @@
 # 장편 기억 자동 요약·backfill 설계안
 
 - 작성일: 2026-09-11
-- 상태: **설계만 완료 / 구현·provider 호출·운영 DB 접근 금지**
+- 상태: **provider 없는 deterministic planner 구현 완료 / worker·migration·provider 호출·운영 DB 접근 금지**
 - 선행 조건: `docs/superpowers/plans/2026-09-11-long-memory-followup.md` 구현·검증 완료
 
 ## 1. 목표와 비목표
@@ -29,10 +29,10 @@
 | --- | --- | --- |
 | `Chapter` | 원문 정본 | `content_md`와 `revision`이 함께 변경된다. |
 | `MemoryEntry` | 파생 기억 | 기존 row를 덮어쓰지 않고 새 후보를 append한다. |
-| `SummaryJob` 후보 개념 | 실행 추적 | 동일한 project/chapter/revision/hash/kind 조합은 한 번만 생성한다. |
+| `SummaryJob` 후보 개념 | 실행 추적 | 동일한 project/chapter/revision/hash/kind/prompt/provider/model/options 조합은 한 번만 생성한다. |
 | 승인 상태 | 작가 | 생성 결과는 `draft`; `approved` 전환은 수동 API만 허용한다. |
 
-현재 schema에 job table은 없다. 구현 승인 전에는 별도 table, JSONL, queue를 추가하지 않는다. 초기 구현은 임시 DB에서 dry-run manifest를 생성하는 순수 서비스 경계부터 검토한다.
+현재 schema에 job table은 없다. `backend/app/services/summary_jobs.py`가 명시적 chapter allowlist를 받아 provider 없는 dry-run manifest를 생성한다. 별도 table, JSONL, queue, worker, provider 호출은 schema/실행 승인 전 추가하지 않는다.
 
 ## 3. 입력 계약
 
@@ -47,7 +47,8 @@ source_sort_order
 source_content_length
 kind = summary
 prompt_version
-model_id
+provider_identity
+model_snapshot
 request_options_hash
 ```
 
@@ -79,13 +80,14 @@ planned → running → draft_saved
 
 ```text
 (project_id, chapter_id, source_revision, source_sha256,
- kind, prompt_version, request_options_hash)
+ kind, prompt_version, provider_identity, model_snapshot,
+ request_options_hash)
 ```
 
 현재 `MemoryEntry`에 이 키를 강제하는 migration은 계획하지 않는다. 구현 승인 후 다음 중 하나를 선택해야 한다.
 
-1. 별도 `summary_jobs` manifest table에 unique constraint를 둔다.
-2. 임시/단일 사용자 MVP에서는 backfill 시작 전에 기존 draft를 조회하고 deterministic comparison을 수행한다.
+1. 별도 `summary_jobs` manifest table에 위 조합의 database unique constraint를 둔다.
+2. schema 승인 전에는 `build_summary_manifest()`의 deterministic comparison만 사용하며, 기존 draft 조회나 provider 호출은 수행하지 않는다.
 
 두 선택 모두 기존 memory body나 provenance를 덮어쓰지 않아야 한다.
 
@@ -135,6 +137,10 @@ planned → running → draft_saved
 
 ## 9. 구현 전 승인 체크리스트
 
+> 현재 `summary_jobs.py`의 provider-free deterministic manifest planner와 fake-worker
+> 경계 테스트만 구현되었다. 아래 체크리스트는 provider-backed worker·schema·운영 실행의
+> 승인 게이트이며 planner 완료를 운영 backfill 완료로 해석하지 않는다.
+
 - [ ] provider/model/prompt version 확정
 - [ ] 비용·token hard cap 확정
 - [ ] 평가 manifest 승인
@@ -145,4 +151,5 @@ planned → running → draft_saved
 - [ ] 작가 승인 UI의 문구와 상태 전환 확인
 - [ ] 운영 DB와 실제 keyring 접근 승인
 
-이 문서 작성 단계에서는 코드, schema, migration, provider, 운영 DB를 변경하지 않았다.
+이 문서에 따라 provider-backed worker, schema/migration, 실제 provider, 운영 DB는 변경하지 않았다.
+구현된 것은 provider-free planner와 회귀 테스트뿐이다.

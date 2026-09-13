@@ -1,6 +1,6 @@
 """AiEndpoint·PromptPreset CRUD API 테스트 (M4, Sprint 3)."""
 import httpx
-import openai
+import openai  # pyright: ignore[reportMissingImports]
 import pytest
 
 from app.routers import ai_panel
@@ -119,12 +119,10 @@ def test_models_proxy_masks_key(client, fake_models_client):
     assert key_arg and "topsecret" not in key_arg  # 복호문이 아니라 내부 처리만
 
 
-def test_generate_requires_endpoint_and_prompt_source(client):
-    # 존재하지 않는 엔드포인트
+def test_generate_requires_prompt_source_without_endpoint_selection(client):
+    # endpoint_id는 더 이상 집필 계약에 관여하지 않는다.
     r = client.post("/api/v1/ai/generate", json={"endpoint_id": 999})
-    assert r.status_code == 404
+    assert r.status_code == 400
     # preset도 override도 없음 → 400
-    ep = client.post("/api/v1/ai/endpoints", json={
-        "name": "x", "base_url": "http://x/v1"}).json()
-    r = client.post("/api/v1/ai/generate", json={"endpoint_id": ep["id"]})
+    r = client.post("/api/v1/ai/generate", json={})
     assert r.status_code == 400

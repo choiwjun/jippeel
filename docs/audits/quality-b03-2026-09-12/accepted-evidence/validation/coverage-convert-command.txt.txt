@@ -1,0 +1,5 @@
+cwd=/mnt/c/Users/wj941/Documents/jippeel
+node /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/freeze-scope.cjs
+node /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/merge-convert-coverage.cjs converted-first quality-final
+freeze_exit=0
+convert_exit=1

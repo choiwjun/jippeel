@@ -1,0 +1,209 @@
+"""회차 품질 진단 — 고도화 G-030 (로컬 규칙 기반, LLM 불필요).
+
+웹소설(노벨피아·문피아 상위권) 관례를 지표화한다:
+  - 대사 비율(목표 35~50%)
+  - 초단문 리듬(평균 문단 길이)
+  - 어미 반복(~했다·이었다·하게 된다 등)
+  - 전환 접속사 남발(그러나·한편·그리고)
+  - 문단 첫머리 다양성
+  - 후크 진단(마지막 300자: 다음 화 클릭 유도 시그널)
+  - 노벨피아 공백제외 글자 수
+
+외부 의존 0(순수 규칙)이므로 결정적·테스트 가능하다.
+metrics_v2(im-not-ai) 정량 엔진 재사용은 후속 경로.
+"""
+import importlib.util
+import logging
+import os
+import re
+import sys
+from pathlib import Path
+
+from app.schemas import EpisodePurpose
+from app.services.wordcount import count_novelpia_chars
+
+logger = logging.getLogger(__name__)
+
+_DIALOGUE_RE = re.compile(r'[“"『「]([^”"』」]{1,200}?)[”"』」]')
+CONNECTORS = ("그러나", "하지만", "한편", "그리고", "그래서", "그런데")
+WEAK_ENDINGS = ("~하게 된다", "~것이었다", "~일 뿐이다", "~기도 했다")
+PLAIN_PAST = ("했다", "이었다", "였다")
+HOOK_SIGNALS = ("?", "!", "…", "…", "순간", "눈을 떠", "소리가", "돌아서", "참견",
+                "알아차리", "들려왔다", "나타났", "움켜쥐", "훅", "덮치", "말이었다",
+                "그런데 그", "반짝", "번개", "빙글")
+
+
+def analyze_text(text: str, episode_purpose: EpisodePurpose = "serial") -> dict:
+    """텍스트 → 지표 딕셔너리(결정적). 빈 텍스트도 안전하게 처리한다."""
+    text = (text or "").strip()
+    metrics: dict = {}
+    if not text:
+        return {"chars_novelpia": 0, "dialogue_ratio": 0.0, "avg_para_chars": 0.0,
+                "ending_repeat_per_1k": 0.0, "connector_per_1k": 0.0,
+                "para_opener_variety": 0.0, "hook_present": False,
+                "hook_score_applicable": episode_purpose == "serial",
+                "episode_purpose": episode_purpose, "para_count": 0}
+
+    per_1k = max(len(text) / 1000, 0.001)
+
+    # 1) 대사 비율
+    dialogue_chars = sum(len(m) for m in _DIALOGUE_RE.findall(text))
+    metrics["dialogue_ratio"] = round(dialogue_chars / len(text), 4)
+    metrics["chars_novelpia"] = count_novelpia_chars(text)
+
+    # 2) 초단문 리듬 — 문단 평균 길이
+    paras = [p.strip() for p in re.split(r"\n\s*\n|\n", text) if p.strip()]
+    metrics["para_count"] = len(paras)
+    metrics["avg_para_chars"] = round(len(text) / max(len(paras), 1), 1)
+
+    # 3) 어미 반복 (1,000자당)
+    ending_count = sum(text.count(w) for w in PLAIN_PAST)
+    ending_count += sum(text.count(w) for w in WEAK_ENDINGS)
+    metrics["ending_repeat_per_1k"] = round(ending_count / per_1k, 2)
+
+    # 4) 전환 접속사 (1,000자당)
+    connector_count = sum(text.count(w) for w in CONNECTORS)
+    metrics["connector_per_1k"] = round(connector_count / per_1k, 2)
+
+    # 5) 문단 첫머리 다양성 (앞 2글자 기준 고유 비율)
+    openers = [p[:2] for p in paras]
+    metrics["para_opener_variety"] = round(
+        len(set(openers)) / max(len(openers), 1), 3)
+
+    # 6) 후크 진단 — 마지막 300자
+    tail = text[-300:]
+    metrics["hook_present"] = any(sig in tail for sig in HOOK_SIGNALS)
+    metrics["hook_score_applicable"] = episode_purpose == "serial"
+    metrics["episode_purpose"] = episode_purpose
+
+    return metrics
+
+
+def score_and_suggest(metrics: dict, episode_purpose: EpisodePurpose = "serial") -> tuple[int, list[str], list[str]]:
+    """지표 → (0~100 점수, 개선 제안, 제안 프리셋 이름)."""
+    suggestions: list[str] = []
+    presets: list[str] = []
+    penalty = 0
+
+    dialogue = metrics.get("dialogue_ratio", 0.0)
+    if dialogue < 0.20:
+        penalty += 15
+        suggestions.append(
+            f"대사 비율이 {dialogue * 100:.0f}%로 낮습니다. 35~50%가 연재 관례입니다 — "
+            "설명을 대사·행동으로 바꿔보세요.")
+        presets.append("장면 확장")
+    elif dialogue > 0.70:
+        penalty += 10
+        suggestions.append("대사 비율이 지나치게 높습니다. 묘사·심리가 거의 없습니다.")
+
+    avg_para = metrics.get("avg_para_chars", 0.0)
+    if metrics.get("para_count", 0) >= 5 and avg_para > 180:
+        penalty += 15
+        suggestions.append(
+            f"평균 문단이 {avg_para:.0f}자로 깁니다. 초단문(1~2문장) 리듬으로 쪼개세요.")
+
+    ending = metrics.get("ending_repeat_per_1k", 0.0)
+    if ending > 12:
+        penalty += 15
+        suggestions.append(
+            f"어미 반복이 1,000자당 {ending:.0f}회입니다. '~했다·~이었다'를 줄이고 "
+            "문장 끝을 다양화하세요.")
+        presets.append("AI 티 제거 스타일")
+
+    connector = metrics.get("connector_per_1k", 0.0)
+    if connector > 5:
+        penalty += 10
+        suggestions.append(
+            f"전환 접속사(그러나·한편 등)가 1,000자당 {connector:.0f}회 남발됩니다 — "
+            "장면 전환을 사건으로 하세요.")
+
+    variety = metrics.get("para_opener_variety", 1.0)
+    if metrics.get("para_count", 0) >= 5 and variety < 0.5:
+        penalty += 10
+        suggestions.append("문단 첫머리가 단조롭습니다. 시작 패턴을 다양화하세요.")
+
+    if episode_purpose == "serial" and not metrics.get("hook_present", False):
+        penalty += 20
+        suggestions.append(
+            "마지막 300자에 후크(질문·위기·반전 시그널)가 없습니다 — 다음 화를 "
+            "클릭하게 만드는 문장으로 끝내세요.")
+        presets.append("장 끝 후크")
+    elif episode_purpose == "volume_end" and not metrics.get("hook_present", False):
+        suggestions.append("권말 회차입니다. 다음 화 훅보다 권의 감정선·사건선이 닫혔는지 확인하세요.")
+    elif episode_purpose == "series_finale":
+        suggestions.append("최종화 목적입니다. 후크 점수는 적용하지 않고 결말 의도와 설정 정합성을 사람이 확인하세요.")
+
+    if metrics.get("chars_novelpia", 0) < 3000:
+        suggestions.append(
+            f"공백제외 글자 수 {metrics.get('chars_novelpia', 0):,}자 — 노벨피아 PLUS "
+            "3,000자 기준 미달입니다.")
+        presets.append("이어쓰기")
+
+    score = max(0, min(100, 100 - penalty))
+    return score, suggestions, presets
+
+
+def analyze_chapter(text: str, episode_purpose: EpisodePurpose = "serial") -> dict:
+    """라우터용 편의 함수 — analyze_text + score_and_suggest 통합 (+metrics_v2)."""
+    metrics = analyze_text(text, episode_purpose=episode_purpose)
+    score, suggestions, presets = score_and_suggest(metrics, episode_purpose=episode_purpose)
+    v2 = try_metrics_v2(text)
+    if v2:
+        metrics["v2"] = v2
+    return {"score": score, "metrics": metrics,
+            "suggestions": suggestions, "suggested_preset_names": presets}
+
+
+# --------------------------------------------------------------------------
+# im-not-ai metrics_v2 연동 (고도화 G-071 — "선택 적용" 패턴, 부록05 §⑤-4와 동일)
+#
+# ~/.agents/im-not-ai 스킬이 있으면 정량 엔진(v1 8지표+이질성)을 병합한다.
+# 표준 라이브러리 전용 모듈이므로 venv 오염 없음(기술설계 A3 실측 참조).
+# 없으면 조용히 스킵 — 로컬 규칙 지표만으로 동작한다.
+# --------------------------------------------------------------------------
+
+_METRICS_DIR = Path(os.environ.get(
+    "IM_NOT_AI_METRICS_DIR",
+    str(Path.home() / ".agents" / "im-not-ai" / "skills" / "humanize-korean" / "references"),
+))
+_metrics_v2_module = None
+_metrics_v2_loaded = False
+
+
+def try_metrics_v2(text: str) -> dict | None:
+    """metrics_v2.compute_all_v2 결과를 반환. 스킬 미설치/실패 시 None."""
+    global _metrics_v2_module, _metrics_v2_loaded
+    if not _metrics_v2_loaded:
+        _metrics_v2_loaded = True
+        module_path = _METRICS_DIR / "metrics_v2.py"
+        if not module_path.is_file():
+            logger.info("metrics_v2 미설치 — 로컬 규칙 지표만 사용 (%s)", module_path)
+        else:
+            try:
+                if str(_METRICS_DIR) not in sys.path:
+                    sys.path.insert(0, str(_METRICS_DIR))
+                spec = importlib.util.spec_from_file_location(
+                    "jippeel_metrics_v2", module_path)
+                mod = importlib.util.module_from_spec(spec)
+                assert spec.loader is not None
+                spec.loader.exec_module(mod)
+                _metrics_v2_module = mod
+                logger.info("metrics_v2 로드 완료 — 품질 진단에 정량 엔진 병합")
+            except Exception as exc:  # noqa: BLE001 — 폴백 보장
+                logger.warning("metrics_v2 로드 실패(폴백): %s", exc)
+    if _metrics_v2_module is None:
+        return None
+    try:
+        result = _metrics_v2_module.compute_all_v2(text or "", genre="essay")
+        if isinstance(result, dict):
+            return result
+        # 반환은 dataclass/namedtuple — dict로 정규화해 JSON 직렬화 가능하게
+        if hasattr(result, "_asdict"):
+            return result._asdict()
+        if hasattr(result, "__dict__"):
+            return {k: v for k, v in vars(result).items()
+                    if isinstance(v, (int, float, str, bool, list, dict, type(None)))}
+        return None
+    except Exception as exc:  # noqa: BLE001 — 진단은 절대 크래시하지 않는다
+        logger.warning("metrics_v2 계산 실패(폴백): %s", exc)
+        return None

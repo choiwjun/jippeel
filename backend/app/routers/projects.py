@@ -1,7 +1,11 @@
 """프로젝트·회차 라우터 (사양 §5 M1, Sprint 1 범위)."""
+import logging
+import sqlite3
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -25,6 +29,7 @@ from app.schemas import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # ---------- helpers ----------
@@ -53,18 +58,18 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
     """
     if payload.use_ai:
         try:
-            endpoint, model = bootstrap_service.resolve_endpoint(db)
+            provider = bootstrap_service.resolve_provider()
         except bootstrap_service.NoEndpointError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                                 detail=str(exc)) from exc
         from app.services import llm
-        client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+        client = llm.make_client(provider.base_url, None)
         try:
             structure = await bootstrap_service.generate_structure(
                 payload.genre, payload.premise, payload.title_style,
                 payload.volume_count, payload.chapters_per_volume,
-                client, model, temperature=endpoint.temperature,
-                reasoning_effort=endpoint.reasoning_effort)
+                client, provider.default_model,
+                reasoning_effort=provider.reasoning_effort)
             body = bootstrap_service.persist_structure(
                 db, payload.genre, payload.premise, structure,
                 generated_by="ai",
@@ -269,28 +274,42 @@ def restore_chapter_snapshot(cid: int, payload: ChapterRestorePost, db: Session 
 
 @router.delete("/chapters/{cid}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_chapter(cid: int, db: Session = Depends(get_db)):
-    chapter = _get_chapter_or_404(cid, db)
-    has_foreshadow = db.scalar(
-        select(Foreshadow.id).where(
-            (Foreshadow.planted_chapter_id == cid)
-            | (Foreshadow.resolved_chapter_id == cid)
-        ).limit(1)
-    )
-    if has_foreshadow is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="복선이 연결된 회차는 복선 참조를 먼저 정리해야 합니다",
+    try:
+        # Reserve SQLite's writer slot before any read: a new memory cannot commit
+        # between the reference check and ORM/FK cascade deletion.
+        db.execute(text("BEGIN IMMEDIATE"))
+        chapter = _get_chapter_or_404(cid, db)
+        has_foreshadow = db.scalar(
+            select(Foreshadow.id).where(
+                (Foreshadow.planted_chapter_id == cid)
+                | (Foreshadow.resolved_chapter_id == cid)
+            ).limit(1)
         )
-    has_memory = db.scalar(
-        select(MemoryEntry.id).where(MemoryEntry.chapter_id == cid).limit(1)
-    )
-    if has_memory is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="장편 기억이 연결된 회차는 기억을 먼저 폐기하거나 새 근거를 정리해야 합니다",
+        if has_foreshadow is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="복선이 연결된 회차는 복선 참조를 먼저 정리해야 합니다",
+            )
+        has_memory = db.scalar(
+            select(MemoryEntry.id).where(MemoryEntry.chapter_id == cid).limit(1)
         )
-    db.delete(chapter)
-    db.commit()
+        if has_memory is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="장편 기억이 연결된 회차는 근거 이력 보존을 위해 삭제할 수 없습니다. 폐기된 기억도 연결이 유지됩니다.",
+            )
+        db.delete(chapter)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        error_code = getattr(getattr(exc, "orig", None), "sqlite_errorcode", None)
+        if error_code is not None and error_code & 0xFF == sqlite3.SQLITE_BUSY:
+            raise HTTPException(status_code=409, detail="회차가 변경 중입니다. 새로고침 후 다시 시도하세요.") from exc
+        logger.exception("chapter delete database failure: chapter_id=%s", cid)
+        raise HTTPException(status_code=500, detail="회차 삭제 중 오류가 발생했습니다.") from exc
 
 
 # ---------- chapters bulk reorder (Sprint 2) ----------

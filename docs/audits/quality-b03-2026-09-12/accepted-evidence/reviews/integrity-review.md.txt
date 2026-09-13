@@ -1,0 +1,174 @@
+# B03 security and evidence-integrity review
+
+**Overall verdict: BLOCKED — final validation gate, not a demonstrated product vulnerability.**
+
+**Findings:** zero new product-security defects; one blocking evidence issue. The reviewed production changes and preserved coverage evidence pass this scope-limited technical review. Literary quality, actual external metrics and operational acceptance remain unverified.
+
+## Scope and evidence
+
+Reviewed the approved `docs/superpowers/plans/2026-09-12-quality-metric-corrections.md`, original dirty-worktree snapshots, baseline-relative implementation/validation diff, current sources and raw validation artifacts—not the inherited `git diff HEAD`.
+
+Evidence roots:
+
+- **I:** `recovery/b03-implementation-qcUqNm68`
+- **E:** `recovery/b03-validation-3RBooW2W`
+- **P:** `recovery/b03-parent-final-ayGuen4e`
+
+All are under `/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/`.
+
+No project files were edited. No tests, application, provider or backend Python processes were run by this reviewer. Independent reconstruction used read-only Node analysis and the approved, already-owned coverage tools.
+
+## Blocking finding
+
+### [E1] Medium — current-support validation remains blocked
+
+**Locations:** `frontend/e2e/quality-scoped-coverage.ts:14`, `frontend/e2e/quality-dialog.spec.ts:152`; failure evidence `P/quality.log:1`.
+
+**Failure scenario:** treating the earlier successful run as exact-current helper/test validation would conceal a source-identity delta and a subsequent infrastructure failure.
+
+The preserved successful run used:
+
+| File | Preserved SHA256 | Current SHA256 |
+|---|---|---|
+| `quality-dialog.spec.ts` | `5cce168f…` | `919432b8f87f7fbc5415220228fb09538ff4090580c873eb5596d128cdcb3de4` |
+| `quality-scoped-coverage.ts` | `83c5326900ec89336c0fbac5d47f086e059c91257d871945e6ffc539deb3892e` | `309ac3a64f92ac09f8d5a2a1765d1d81b168ba2843679d0238a76623362b0475` |
+
+Independent structural AST comparison found equality, zero parse diagnostics and matching node counts: **1,029** for the spec and **150** for the collector. This supports a formatting-only explanation; it does **not** erase the final validation failure or constitute authorization to waive it.
+
+`P/quality-command.txt` records:
+
+```text
+cwd=/mnt/c/Users/wj941/Documents/jippeel/frontend
+QUALITY_SCOPED_COVERAGE=1 node node_modules/@playwright/test/cli.js test --config playwright.quality.config.ts --output /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/quality
+exit=1
+```
+
+Raw failure:
+
+```text
+Error: ENOMEM: not enough memory, read
+Error: No tests found
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-Fx3TcE/violations.jsonl; no escapes
+```
+
+The secondary “No tests found” is not evidence that tests were removed. `P/checkpoint.json` records failure before discovery, no subsequent helper TypeScript execution, unchanged source/protected hashes and no retry.
+
+**Approved contract:** fresh fixture/TypeScript validation, source identity and fail-fast preservation of infrastructure failures.
+
+**Minimal fix:** after an explicit resource/scope disposition, complete the authorized exact-current fixture and helper-TypeScript validation with fresh retained evidence. Do not install dependencies, alter isolation, kill unrelated processes, clean caches or silently retry. Alternatively, any acceptance waiver must be explicitly authorized and reported—not inferred by this reviewer.
+
+## Security assessment
+
+### Ranked threat model
+
+These are reviewed threats, not additional vulnerability findings.
+
+| Rank | Threat and boundary | Impact × likelihood | Assessment |
+|---|---|---:|---|
+| 1 | Manuscript text → quote parsing: adversarial malformed input exhausts CPU | 4 × 3 | New scanner is single-pass with constant auxiliary state. |
+| 2 | Test initialization → operational DB/keyring/files | 5 × 2 | Native pre-import guard, owned temporary destinations and fake-keyring evidence checked. |
+| 3 | Dynamic external-module loading → host code execution | 5 × 2 | Adapter unchanged; tests supply synthetic modules and redirect external roots. Real implementation not exercised. |
+| 4 | Raw coverage → acceptance: mismatched source or omitted branches creates false confidence | 4 × 2 | Independently reconstructed production mappings; current-support gate remains blocked as E1. |
+| 5 | Browser fixture → operational API/provider | 5 × 1 | Loopback fixture, no proxy, reuse disabled, API tripwire and relevant context interception checked. |
+| 6 | API/manuscript values → rendered UI/history | 3 × 1 | No new HTML execution, SQL, command or dynamic path sink found; router/schema/history behavior remains frozen. |
+
+### Source findings: zero new security defects
+
+- **`backend/app/services/quality.py:41–56`:** `_count_dialogue_chars` advances exactly once per character. It does not repeatedly search unterminated suffixes or allocate quote substrings. Work is O(n), with O(1) auxiliary scanner state.
+- **`quality.py:33–35,83`:** ending alternatives are fixed, escaped literals sorted longest-first. There are no nested quantifiers or input-derived patterns; nonoverlapping `finditer` prevents duplicate counting within a matched weak phrase.
+- **`backend/tests/test_quality_b03_reproduction.py:180–206`:** reviewed malformed/closed 200k-character workload and exhaustive short-family comparisons. The five-second bound is a smoke regression, not a general performance benchmark.
+- **`backend/tests/isolation_guard.py:238–242`:** baseline-relative change adds only the authorized fixed `--cov=app.services.quality` entry. Existing sources remain. Argument validation, initialization order and environment policy are unchanged.
+- Independently compared **14 bounded frozen files** with original bytes, including router, schemas/models, runner, conftest, package/lockfile and fixture infrastructure: all matched.
+- Independently compared the unchanged `score_and_suggest` and `try_metrics_v2` source regions: equal.
+- The optional dialog accessible name is forwarded as a React attribute; no new injection sink was introduced.
+- No introduced credentials, cryptographic changes or dependency changes were found in the reviewed diff.
+
+## Independent coverage reconstruction
+
+### Identity and provenance
+
+Verified:
+
+1. **All 218 entries** in `E/artifact-hashes.json` matched their retained files and byte sizes.
+2. Current production source hashes matched frozen scope and raw source-map content.
+3. Approved package versions and recorded package hashes matched:
+   - `v8-to-istanbul` 9.3.0
+   - `@bcoe/v8-coverage` 1.0.2
+   - `istanbul-lib-coverage` 3.2.2
+   - `@types/node` 22.0.0
+4. Independently enumerated **five raw files, ten runtime entries and two identity groups**. Checked script IDs, runtime indexes, raw/log hashes and original/generated/map hashes.
+5. Independently merged matching raw identities before conversion. Reconverted both groups with the pinned tools; the **complete resulting mapped Istanbul objects equalled the saved maps**.
+
+No runtime entry was dropped and no source-different run was merged.
+
+### Denominators and results
+
+| Production source | Changed executable lines | Selected instrumented branch arms |
+|---|---:|---:|
+| `backend/app/services/quality.py` | **19/20 — 95%** | **10/10 — 100%** |
+| `frontend/src/components/editor/QualityDialog.tsx` | **278/284 — 97.89%** | **42/48 — 87.5%** |
+| `frontend/src/components/ui/dialog.tsx` | **41/41 — 100%** | **14/14 — 100%** |
+
+All independently exceed the approved 80% gates.
+
+- Reconstructed added-line sets from the original-relative diff and executable TSX starts from the installed TypeScript AST.
+- Six QualityDialog diff additions omitted from the frozen changed-line set—**127,137,146,156,182,191**—are exactly empty strings. Including them before executable classification yields the same **284** executable lines. No executable discrepancy remained.
+- Python source and coverage hashes matched. Reconstructed measured changed lines and selected executed/missing arcs directly from native `coverage.json`.
+- New generator-expression line **34** is retained as one **uncovered** executable line; no parent-statement execution credit was invented.
+- Frontend selection includes branches intersecting changed lines through either branch location or arm range. All **48** QualityDialog arms remain in the denominator, including six zero-count arms.
+- Preset failure/catch coverage is retained: mapped catch-region branch **42**, lines **178–180**, count **1**.
+- Shared Dialog’s three unselected arms have no changed-line intersection; none is an omitted missed arm.
+- Test instrumentation helpers are not silently represented as production coverage. Their validation/source boundary is reported separately in E1.
+
+Whole-module numbers remain separate: Python **128/135 statements, 41/48 branches**; QualityDialog **442/450 mapped lines/statements, 42/48 arms**; Dialog **101/101 mapped lines/statements, 17/17 arms**. These are not substitutes for changed-source gates or proof of every semantic condition.
+
+## Isolation, validation and preservation
+
+Directly inspected native preflight and full-run command/log records:
+
+- Preflight uses the approved Windows interpreter with `-I -S -B`; raw output reports `app_imported=false`, `pytest_imported=false`, `violations=[]`.
+- Supported runner installs isolation before importing pytest. No B03 change alters this ordering.
+- Full backend log: **482 passed, 1 skipped, 70 subtests, 19 warnings**.
+- Native completion: `pytest_exit=0`, `internal_ipc_count=237`, `subprocess_attempts=0`, `fake_keyring_calls=7`, `violations=[]`.
+- Owned temporary DB/key/coverage paths and synthetic external-module fixtures were checked without accessing operational credentials or databases.
+
+Raw browser evidence records prior quality **5**, memory **31**, preservation **26**, and AI-context **15** passes, with no-escape teardown messages. All three retained relevant quality axe JSON files contain **zero violations**. These remain valid historical results; they are not relabelled as the failed exact-current rerun.
+
+Reviewed fixture configuration confirms loopback port **15229**, `reuseExistingServer=false`, blocked service workers and no inherited proxy. The real QualityDialog fixture mounts no editor/save queue. Omitted-name compatibility cases use narrower API interception; no new operational call path was found in that fixture. This is not a system-wide network-isolation proof.
+
+Final independent repository checks:
+
+- Branch: **main**
+- HEAD: **`c1a92c45fe8c16b4ee140a31fe97683ab588ed07`**
+- Staged paths: **none**
+- Protected hashes still match before snapshots:
+
+```text
+backend/.coverage                 a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624
+backend/app/services/crypto.py    5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e
+backend/app/services/canon.py     0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321
+backend/app/services/bootstrap.py c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c
+.git/index                        bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00
+```
+
+### Review-tool checkpoints
+
+Two inspection issues were preserved and reported to the supervisor:
+
+- A guessed `frontend/e2e/support/fixtureServer.ts` read returned ENOENT. Supervisor authorized reading the actual imported `frontend/e2e/fixture-server.ts`; no execution occurred.
+- Initial `node` reconstruction exited **1** with `AssertionError [ERR_ASSERTION]` when equating raw added lines with frozen changed lines before blank-line classification. Supervisor authorized bounded inspection of the six listed lines. They were empty; subsequent independent executable-scope/native-arc reconstruction and raw conversion each completed successfully. No artifact, denominator or execution credit was changed.
+
+An initial punctuation-inclusive helper comparison also returned inequality; subsequent structural AST comparison demonstrated the equal syntax trees described in E1. Neither comparison was presented as a test execution.
+
+## Residual limits
+
+No live provider/external engine, operational DB, credential, device, migration or deployment was assessed. No comprehensive dependency-advisory audit, repository-wide secrets scan, application-wide authorization audit or full editor accessibility certification was performed. Existing frozen-adapter diagnostics remain inherited; this is not an LSP-clean claim.
+
+Preserved source/raw coverage supports a **technical pass for reviewed production changes**, not literary calibration, external-engine accuracy, operational acceptance or closure of E1.
+
+SECURITY VERDICT: CONDITIONAL  
+BLOCKING:
+  [E1] medium frontend/e2e/quality-scoped-coverage.ts:14; frontend/e2e/quality-dialog.spec.ts:152 — current-support validation blocked by ENOMEM → obtain explicit resource disposition and complete authorized fresh validation.  
+ADVISORY:
+  None; zero additional concrete security findings.  
+COVERAGE: checked B03 original-relative source changes, bounded parsing, fixed isolation addition, native import-order evidence, synthetic resources, fixture controls, retained hashes, raw production coverage and changed-source denominators; not-checked live operational resources, literary/external validity, comprehensive application security, or successful exact-current support revalidation.

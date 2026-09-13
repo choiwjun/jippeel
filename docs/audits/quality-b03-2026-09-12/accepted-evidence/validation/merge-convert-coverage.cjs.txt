@@ -1,0 +1,56 @@
+const fs=require('fs'); const path=require('path');
+const {hash,groupKey,mergeGroup}=require('./coverage-utils.cjs');
+const {changedBranches: selectChangedBranches}=require('./changed-branches.cjs');
+const v8toIstanbul=require('/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/v8-to-istanbul');
+const {createCoverageMap}=require('/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/istanbul-lib-coverage');
+const root='/mnt/c/Users/wj941/Documents/jippeel/';
+const spec=JSON.parse(fs.readFileSync(__dirname+'/coverage-scope-frozen.json'));
+const output=process.argv[2]; if(!output) throw Error('New output name required');
+const out=path.join(__dirname,output);fs.mkdirSync(out);
+const runs=process.argv.slice(3); if(!runs.length) throw Error('Explicit new safe runs required');
+
+function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)]);}
+const groups=new Map();const evidence=[];
+for(const run of runs){
+ const logPath=path.join(__dirname,run+'.log');
+ if(!fs.readFileSync(path.join(__dirname,run+'-command.txt'),'utf8').includes('exit=0')) throw Error('No passed command '+run);
+ const log=fs.readFileSync(logPath,'utf8');
+ if(!log.includes('no escapes') || /ECONNREFUSED|FIXTURE_API_ESCAPE|\d failed/.test(log)) throw Error('Unsafe run '+run);
+ for(const file of walk(path.join(__dirname,run)).filter(p=>p.endsWith('/quality-scoped-v8.json'))){
+  const raw=fs.readFileSync(file);
+  for(const [runtimeIndex,entry] of JSON.parse(raw).entries()){
+   const sourceFile='frontend'+new URL(entry.url).pathname;
+   if(!spec[sourceFile]) throw Error('Unexpected source '+sourceFile);
+   const m=entry.source.match(/\/\/# sourceMappingURL=data:application\/json[^,]*;base64,([^\n]+)/);if(!m)throw Error('No actual source map');
+   const map=JSON.parse(Buffer.from(m[1],'base64').toString());
+   if(map.sources.length!==1||map.sourcesContent.length!==1)throw Error('Unapproved mapping multiplicity');
+   const original=map.sourcesContent[0];
+   if(hash(original)!==spec[sourceFile].sourceSha256 || hash(fs.readFileSync(root+sourceFile))!==spec[sourceFile].sourceSha256)throw Error('Source identity mismatch');
+   const key=groupKey(sourceFile,original,entry.source,map);
+   const group=groups.get(key)??[];group.push({file:sourceFile,original,map,script:entry});groups.set(key,group);
+   evidence.push({run,runtimeIndex,scriptId:entry.scriptId,runLogSha256:hash(log),testDirectory:path.basename(path.dirname(file)),rawFile:file,rawSha256:hash(raw),sourceFile,originalSha256:hash(original),generatedSha256:hash(entry.source),mapSha256:hash(JSON.stringify(map)),group:key});
+  }
+ }
+}
+(async()=>{
+ const all=createCoverageMap({});let n=0;
+ for(const [key,group]of groups){
+  const e=group[0];const prefix=path.join(out,String(n++));
+  const merged=mergeGroup(group);
+  fs.writeFileSync(prefix+'.generated.js',e.script.source);fs.writeFileSync(prefix+'.map.json',JSON.stringify(e.map));fs.writeFileSync(prefix+'.merged-v8.json',JSON.stringify(merged));
+  const converter=v8toIstanbul(root+e.file,0,{source:e.script.source,originalSource:e.original,sourceMap:{sourcemap:e.map}});
+  await converter.load();converter.applyCoverage(merged.functions);const istanbul=converter.toIstanbul();
+  if(Object.keys(istanbul).length!==1||path.resolve(Object.keys(istanbul)[0])!==root+e.file)throw Error('Mapped source mismatch');
+  fs.writeFileSync(prefix+'.istanbul.json',JSON.stringify(istanbul));all.merge(istanbul);
+ }
+ fs.writeFileSync(out+'/evidence.json',JSON.stringify(evidence,null,2));fs.writeFileSync(out+'/coverage-final.json',JSON.stringify(all.toJSON()));
+ const report={};
+ for(const [file,scope]of Object.entries(spec)){
+  if(file.endsWith('.py'))continue;
+  const cov=all.fileCoverageFor(root+file);const lines=cov.getLineCoverage();
+  const changedBranches=selectChangedBranches(cov,scope);
+  const counts=changedBranches.flatMap(b=>b.counts);
+  report[file]={changedLines:{covered:scope.executableLines.filter(line=>lines[line]>0).length,total:scope.executableLines.length,missing:scope.executableLines.filter(line=>!lines[line])},changedBranches:{covered:counts.filter(c=>c>0).length,total:counts.length,missing:changedBranches.filter(b=>b.counts.some(c=>c===0))},wholeModule:cov.toSummary().toJSON()};
+ }
+ fs.writeFileSync(out+'/summary.json',JSON.stringify(report,null,2));console.log(JSON.stringify({rawSamples:new Set(evidence.map(e=>e.rawFile)).size,groups:groups.size,report},null,2));
+})().catch(e=>{console.error(e);process.exitCode=1;});

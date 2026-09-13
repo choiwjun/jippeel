@@ -1,0 +1,71 @@
+{
+  "status": "reproduction complete, two intended RED tests remain; no product acceptance",
+  "fullPersistentEvidenceRoot": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74",
+  "files": {
+    "preflight.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/preflight.log",
+      "sha256": "2b2c910be00c00815e5f13c49daccf0219790c736cd40679463e313885a5d604",
+      "bytes": 776
+    },
+    "baseline.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/baseline.log",
+      "sha256": "81a94a64fbaced61b46d399e99206ad92f6dfe3c45c89412bc65e29633e71b46",
+      "bytes": 2527
+    },
+    "reproduction-final.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/reproduction-final.log",
+      "sha256": "8b3b5a819220644bc9869c79a783a2538893aa380b40d340ee24556f61354921",
+      "bytes": 9084
+    },
+    "diagnostic-pass.log": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/diagnostic-pass.log",
+      "sha256": "e9ed5e1e881ed2f554c8f1fcffa159e865210bb278243a1d1e6be7464301e22a",
+      "bytes": 8820
+    },
+    "reproduction-final-command.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/reproduction-final-command.txt",
+      "sha256": "88dad656048d83727261be223eac2cc61c73a8a6bc95d6fb2a3273951a74b9d8",
+      "bytes": 167
+    },
+    "diagnostic-pass-command.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/diagnostic-pass-command.txt",
+      "sha256": "0a7c0de30c837ad918a774523cf11f08f32452023696cdd5ffe7d25f5eb0022e",
+      "bytes": 729
+    },
+    "before-source-hashes.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/before-source-hashes.txt",
+      "sha256": "d430861c1f0db9509e1cf6f80fb4c8fffeedf7adfd3881169562123fcf12fab2",
+      "bytes": 1183
+    },
+    "after-source-hashes.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/after-source-hashes.txt",
+      "sha256": "d430861c1f0db9509e1cf6f80fb4c8fffeedf7adfd3881169562123fcf12fab2",
+      "bytes": 1183
+    },
+    "before-protected-hashes.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/before-protected-hashes.txt",
+      "sha256": "976c7542700d3f8a3a14427001bd3a25a8fc1004ba18e099a2562492c8f12259",
+      "bytes": 454
+    },
+    "after-protected-hashes.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/after-protected-hashes.txt",
+      "sha256": "976c7542700d3f8a3a14427001bd3a25a8fc1004ba18e099a2562492c8f12259",
+      "bytes": 454
+    },
+    "test-only.diff": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/test-only.diff",
+      "sha256": "2714ce426be7693eaa9ff68265d53d0db7a3d220ac690f685bbf97d4d9fed31c",
+      "bytes": 7248
+    },
+    "preservation-check.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-reproduction-UsTHFz74/preservation-check.txt",
+      "sha256": "0e0e27afb42f065b3922a56e4fe803475a275ad08f342c618f09ffe18a506639",
+      "bytes": 422
+    },
+    "reproduction-plan.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/1bc674b2-9261-49a3-8ff2-5f4f0f74e57c/b03/reproduction-plan.md",
+      "sha256": "50391b069f400dfb450ce4e83655938ef8d5245f2650b3c197fb4b3afe4ca109",
+      "bytes": 22722
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "typeRoots": [
+      "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/memory-m01-m05-restart-szd8peci/verification-0fe42cf5/coverage-tools/node_modules/@types",
+      "/mnt/c/Users/wj941/Documents/jippeel/frontend/node_modules/@types"
+    ],
+    "types": [
+      "node"
+    ]
+  },
+  "files": [
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/manuscript-http-fixture.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/memory-scoped-coverage.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/fixture-server.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/fixture-server-teardown.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/vite.fixture.config.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/playwright.memory.config.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/playwright.preservation.config.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/playwright.ai-context.fixture.config.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/memory-governance.spec.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/manuscript-preservation.spec.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/quality-scoped-coverage.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/quality-dialog.spec.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/playwright.quality.config.ts",
+    "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/ai-context-ui.spec.ts"
+  ]
+}

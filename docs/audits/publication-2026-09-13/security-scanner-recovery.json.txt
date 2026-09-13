@@ -1,0 +1,12 @@
+{
+  "run": "d001fc65-a4bf-4269-80df-7be59d5415f7",
+  "repo": "/mnt/c/Users/wj941/Documents/jippeel",
+  "branch": "main",
+  "head": "c1a92c45fe8c16b4ee140a31fe97683ab588ed07",
+  "error": "bash could not resolve python; exit127 before selected-file scanning",
+  "stagedTree": "747b420f6b5bcc1286ffb8570a886295fd149a2f",
+  "partialDiffPath": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/git-publication-i0lp2hck/staged.diff",
+  "partialDiffSha256": "551d0c7fa008e47e5eb62a6b277e418864bedeae46be3d2acea93ad49cd72830",
+  "selected305SourceHashesMatch": true,
+  "disposition": "One same-native-Pi/Bash continuation using existing python3 for read-only stdlib scan only; no application/test imports or runner bypass, no installation/global alias/config change."
+}

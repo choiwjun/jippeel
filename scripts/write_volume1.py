@@ -4,7 +4,7 @@
 요청했을 때 초안을 일괄 생성해 두는 배치 도구다. 저장된 본문은 초고(status=초고)로
 에디터에서 검수·수정하는 것을 전제로 한다.
 
-사용: python write_volume1.py <project_id> [endpoint_id]
+사용: python write_volume1.py <project_id>
 """
 import json
 import sys
@@ -51,8 +51,12 @@ def stream_generate(client, body):
 
 
 def main():
-    pid = int(sys.argv[1])
-    endpoint_id = int(sys.argv[2]) if len(sys.argv) > 2 else 2
+    try:
+        pid = int(sys.argv[1])
+    except (IndexError, ValueError) as exc:
+        raise SystemExit("project_id는 양의 정수 인자여야 합니다.") from exc
+    if pid < 1:
+        raise SystemExit("project_id는 양의 정수 인자여야 합니다.")
     with httpx.Client() as client:
         chapters = sorted(get(client, f"/projects/{pid}/chapters"),
                           key=lambda c: (c["volume"], c["sort_order"]))
@@ -77,7 +81,6 @@ def main():
             if i > 0:
                 prompt += "\n- 직전 회차 끝부분에서 자연스럽게 이어서 시작할 것"
             body = {
-                "endpoint_id": endpoint_id,
                 "prompt_override": prompt,
                 "context": {
                     "chapter_id": ch["id"],

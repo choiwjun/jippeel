@@ -1,8 +1,10 @@
 # 장편 기억 거버넌스 제품 사양
 
 - 작성일: 2026-09-11
-- 상태: **구현·검증 완료 / 운영 적용 전**
-- 상위 사양: `대시보드_MVP_사양.md` v0.5
+- 상태(2026-09-12 대조): **기반·승인 P1 네 건 및 M01~M05 수용 완료 / 운영 적용 전**
+- 현재 작업·최신 검증: [전체 현황](../../handoffs/2026-09-08-remaining-work.md). error 표시·focus 복귀 등 M01~M05는 [최종 수용](../../audits/memory-m01-m05-2026-09-12/acceptance.md)으로 종결했다. 아래는 제품 계약이며 확장·운영 상태는 원장을 따른다.
+- 상위 사양: `대시보드_MVP_사양.md` v0.6
+- AI provider 기준: `기술설계_GPT_OAuth_브릿지_v1.md` (고정 OAuth bridge, 실제 provider 수용 전)
 - 구현 계획: `docs/superpowers/plans/2026-09-11-long-memory-followup.md`
 - 대상 독자: 제품 담당자, 백엔드·프론트엔드 개발자, QA, 운영 승인자
 
@@ -25,7 +27,7 @@
 
 ### 제외
 
-- 자동 요약·backfill·자동 승인
+- provider를 호출하는 자동 요약·backfill·자동 승인
 - 기존 memory body/provenance 수정
 - 실제 provider 호출 및 품질 판정
 - 운영 DB migration·복원 실행
@@ -133,11 +135,18 @@ effective_from_sort_order, effective_to_sort_order
 - frontend build
 - native Windows temp DB/fake provider integration은 실제 provider나 운영 DB 없이 수행
 
-현재 증거:
+P1 보정 전 증거(역사적 기록):
 
-- backend **289 passed**
-- `-W error::DeprecationWarning` **289 passed**
-- memories router 88.2%, schemas 99.4%, long_memory 86.0% line coverage (stdlib trace)
+전체 suite의 아래 외부 script 실패는 이후 P1 최종 실행에서 재현되지 않았다.
+최신 검증 수치와 한계는 [전체 현황 §9](../../handoffs/2026-09-08-remaining-work.md#9-검증-수치의-최신성과-근거),
+상세 실행·독립 검토는 구현 계획의 P1 최종 수용 기록을 따른다.
+
+- OAuth 변경 전 기준선 backend **292 passed**
+- OAuth 변경 후 변경 범위 회귀 **108 passed** (고정 provider·memory·legacy compatibility 선택집합)
+- 전체 backend suite 관찰값은 `294 passed, 9 failed, 1 skipped`; 실패는 누락된 im-not-ai
+  외부 script 환경 의존이며 provider/memory 변경범위 실패는 아니다.
+- 핵심 4개 모듈 합산 line coverage **93.59%** (표시 94%; branch 전체 91%, `pytest-cov==7.1.0`, `coverage==7.16.0`)
+  - memories router 80%, schemas 98%, long_memory 92%, summary_jobs 85%
 - memory E2E/axe **1 passed**
 
 ## 9. 운영·승인 게이트
@@ -152,10 +161,12 @@ effective_from_sort_order, effective_to_sort_order
 
 운영 준비 절차는 `docs/runbooks/long-memory-governance-release.md`를 따른다. 자동 요약/backfill의 별도 설계는 `docs/superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md`를 따른다.
 
-## 10. 결정이 필요한 후속 항목
+## 10. Astra 결정 결과와 남은 승인
 
-1. `pytest-cov` 도입 여부와 coverage gate 방식
-2. 실제 품질 평가 provider/model/평가자/비용 상한
-3. 지정 Windows 장치와 test DB/key
-4. 자동 요약 job/idempotency 저장 방식
-5. backfill 대상 project/chapter와 작가 승인 UX
+결정 기록: `docs/decisions/2026-09-11-astra-long-memory-release.md`.
+
+1. Coverage: `pytest-cov==7.1.0` + `coverage==7.16.0`, 핵심 모듈 80% gate를 채택했다.
+2. Provider pilot: 고정 `ChatGPT OAuth` / `gpt-5.6-luna` 6-case, 독립 평가자 2명, USD 20 hard cap을 평가 대상으로 둔다. 실제 호출은 bridge availability/정책·비용과 source owner 승인 후다.
+3. Windows QA: Windows 11 x64 물리 장치 1대, 전용 QA 계정, disposable SQLite, dummy credential, Edge/NVDA를 기준으로 한다. 장치와 시간 창 확정 전 실행하지 않는다.
+4. Auto-summary/backfill: provider 호출·자동 승인·운영 backfill은 보류한다. provider-free deterministic planner와 fake worker 계약만 구현·검증했으며, schema/migration 및 운영 실행은 별도 승인 후 진행한다.
+5. backfill 대상 project/chapter, 작가 승인 UX, production backup/restore owner는 별도 확정한다.

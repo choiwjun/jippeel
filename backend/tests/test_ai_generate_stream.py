@@ -1,13 +1,11 @@
 """POST /ai/generate — SSE 스트리밍 테스트 (openai 클라이언트 모킹, FR-405·408)."""
 import json
+from typing import Any
 
 import httpx
-import openai
+import openai  # pyright: ignore[reportMissingImports]
 import pytest
-from sqlalchemy import select
 
-from app.database import get_db
-from app.models import AiEndpoint
 from app.routers import ai_panel
 
 
@@ -95,7 +93,7 @@ def _set_stream(client, chunks):
 @pytest.fixture()
 def fake_llm(monkeypatch):
     spec = {"chunks": list(DEFAULT_CHUNKS), "exc": None}
-    holder = {"client": None}
+    holder: dict[str, Any] = {"client": None}
 
     def _make_client(base_url, api_key_encrypted):
         c = FakeAsyncOpenAI(base_url=base_url, api_key="decrypted", spec=spec)
@@ -148,7 +146,6 @@ def test_generate_streams_deltas(client, fake_llm, endpoint_with_preset):
         "endpoint_id": endpoint_with_preset["endpoint_id"],
         "preset_id": endpoint_with_preset["preset_id"],
         "context": {"chapter_id": endpoint_with_preset["chapter_id"]},
-        "params": {"temperature": 0.5},
     }
     resp = client.post("/api/v1/ai/generate", json=payload)
     assert resp.status_code == 200
@@ -165,12 +162,12 @@ def test_generate_streams_deltas(client, fake_llm, endpoint_with_preset):
     # 프롬프트에 컨텍스트(회차 본문)와 지시가 포함되었는지 + 스트리밍 파라미터 확인
     sent = fake_llm["client"].last_kwargs
     assert sent["stream"] is True
-    assert sent["model"] == "m-1"
-    assert abs(sent["temperature"] - 0.5) < 1e-9
+    assert sent["model"] == "gpt-5.6-luna"
+    assert "temperature" not in sent
     user_msg = sent["messages"][-1]["content"]
     assert "제1장 본문" in user_msg and "요약해줘" in user_msg
-    # 모킹 클라이언트가 복호화된 키로 만들어졌는지(base_url 전달) 확인
-    assert fake_llm["client"].base_url == "http://localhost:1234/v1"
+    # 고정 OAuth 브릿지 transport만 사용한다.
+    assert fake_llm["client"].base_url == "http://127.0.0.1:10531/v1"
 
 
 def test_generate_timeout_error_becomes_sse_error_event(client, fake_llm, endpoint_with_preset):
@@ -209,25 +206,18 @@ def test_generate_auth_error_sse(client, fake_llm, endpoint_with_preset):
         "endpoint_id": endpoint_with_preset["endpoint_id"],
         "prompt_override": "요약해줘"})
     errors = [(e, d) for e, d in _parse_sse(resp.text) if e == "error"]
-    assert "인증 실패" in json.loads(errors[0][1])["detail"]
+    assert "OAuth 인증" in json.loads(errors[0][1])["detail"]
 
 
-def test_generate_model_resolution(client, fake_llm, endpoint_with_preset):
-    # params.model이 default_model보다 우선, 둘 다 없으면 400
+def test_generate_uses_fixed_provider_model(client, fake_llm, endpoint_with_preset):
     payload = {"endpoint_id": endpoint_with_preset["endpoint_id"],
-               "prompt_override": "hi", "params": {"model": "override-m"}}
-    client.post("/api/v1/ai/generate", json=payload)
-    assert fake_llm["client"].last_kwargs["model"] == "override-m"
+               "prompt_override": "hi", "params": {"model": "override-m", "temperature": 0.2}}
 
-    from app.database import get_db
-    db = next(iter(client.app.dependency_overrides[get_db]()))
-    row = db.scalars(select(AiEndpoint)).one()
-    row.default_model = None
-    db.commit()
-    payload2 = {"endpoint_id": endpoint_with_preset["endpoint_id"],
-                "prompt_override": "hi"}
-    r = client.post("/api/v1/ai/generate", json=payload2)
-    assert r.status_code == 400
+    response = client.post("/api/v1/ai/generate", json=payload)
+
+    assert response.status_code == 200
+    assert fake_llm["client"].last_kwargs["model"] == "gpt-5.6-luna"
+    assert "temperature" not in fake_llm["client"].last_kwargs
 
 
 
@@ -363,9 +353,9 @@ def test_review_pass_streams_review_and_refined(client, fake_llm):
     review_start = [(e, d) for e, d in events if e == "review_start"]
     assert len(review_start) == 1
     info = json.loads(review_start[0][1])
-    assert info["model"] == "m"
-    assert info["endpoint"] == "e"
-    assert info["reasoning_effort"] == "high"
+    assert info["model"] == "gpt-5.6-luna"
+    assert info["provider"] == "ChatGPT OAuth"
+    assert info["reasoning_effort"] == "xhigh"
 
     review = "".join(json.loads(d)["delta"] for e, d in events if e == "review")
     assert review == "[감수]\n- 서두 전개가 급하다"  # 마커 직전 개행은 전환 시 제거된다
@@ -382,7 +372,7 @@ def test_review_pass_streams_review_and_refined(client, fake_llm):
     assert "감수자" in sent["messages"][0]["content"]
     assert "[초안 원고]" in sent["messages"][-1]["content"]
     assert draft in sent["messages"][-1]["content"]
-    assert sent["reasoning_effort"] == "high"
+    assert sent["reasoning_effort"] == "xhigh"
 
 
 def test_review_pass_explicit_effort_overrides(client, fake_llm):
@@ -399,34 +389,35 @@ def test_review_pass_explicit_effort_overrides(client, fake_llm):
 
 def test_review_pass_failure_keeps_draft(client, fake_llm, monkeypatch):
     """감수 1콜 실패 — review_error 이벤트 후 스트림은 done으로 정상 종료, 초안 보존."""
-    ep = client.post("/api/v1/ai/endpoints", json={
-        "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
-    ep2 = client.post("/api/v1/ai/endpoints", json={
-        "name": "감수용", "base_url": "http://reviewer/v1",
-        "default_model": "rv"}).json()
-
-    # 감수 전용 엔드포인트로 만들어지는 클라이언트만 실패시킨다
+    fake_llm["client"].set_chunks(["초안"])
     base_make = ai_panel.llm.make_client
+    calls = {"count": 0}
 
     def _make(base_url, api_key_encrypted):
-        c = base_make(base_url, api_key_encrypted)
-        if "reviewer" in base_url:
-            c.set_exc(openai.APITimeoutError(request=httpx.Request(
-                "POST", "http://reviewer/v1/chat/completions")))
-        return c
+        client_instance = base_make(base_url, api_key_encrypted)
+        original_create = client_instance.chat.completions.create
+
+        async def create(**kwargs):
+            calls["count"] += 1
+            if calls["count"] == 2:
+                raise openai.APITimeoutError(request=httpx.Request(
+                    "POST", "http://127.0.0.1:10531/v1/chat/completions"))
+            return await original_create(**kwargs)
+
+        client_instance.chat.completions.create = create
+        return client_instance
 
     monkeypatch.setattr(ai_panel.llm, "make_client", _make)
 
     resp = client.post("/api/v1/ai/generate", json={
-        "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
-        "review": {"endpoint_id": ep2["id"]}})
+        "prompt_override": "이어서 써줘", "review": {}})
     assert resp.status_code == 200
     events = _parse_sse(resp.text)
     kinds = [e for e, _ in events]
     assert kinds[-1] == "done"
 
     draft = "".join(json.loads(d)["delta"] for e, d in events if e == "message")
-    assert draft == "안녕하세요반갑습니다"  # 초안은 정상 수신
+    assert draft == "초안"  # 초안은 정상 수신
     errors = [(e, d) for e, d in events if e == "review_error"]
     assert len(errors) == 1
     assert "시간 초과" in json.loads(errors[0][1])["detail"]
@@ -726,7 +717,7 @@ def test_parallel_preserves_selected_preset_instruction(client, parallel_llm):
     assert "이번 화는 추격전으로 시작하라." in planner_prompt
 
 
-def test_parallel_uses_configured_reviewer_endpoint_and_model(client, parallel_llm):
+def test_parallel_uses_fixed_provider_model_for_reviewer(client, parallel_llm):
     generation = client.post("/api/v1/ai/endpoints", json={
         "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
         "reasoning_effort": "medium"}).json()
@@ -739,7 +730,7 @@ def test_parallel_uses_configured_reviewer_endpoint_and_model(client, parallel_l
     }
     response = client.post("/api/v1/ai/generate-parallel", json=payload)
     assert response.status_code == 200, response.text
-    assert parallel_llm["stream_calls"][-1]["model"] == "review-override"
+    assert parallel_llm["stream_calls"][-1]["model"] == "gpt-5.6-luna"
     assert parallel_llm["stream_calls"][-1]["reasoning_effort"] == "xhigh"
 
 

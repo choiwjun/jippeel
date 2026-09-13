@@ -209,7 +209,7 @@ def stop_process(proc: subprocess.Popen[str] | None, name: str, events: list[dic
         events.append(event)
 
 
-def seed_data(port: int, provider_port: int, db_path: Path) -> dict[str, Any]:
+def seed_data(port: int, db_path: Path) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     sentinels = {
         "body": BODY_SENTINEL,
@@ -389,15 +389,11 @@ def seed_data(port: int, provider_port: int, db_path: Path) -> dict[str, Any]:
         "bad_ref_foreshadow_id": bad_ref_foreshadow["id"],
     })
 
-    _status, endpoint = request_json("POST", "/api/v1/ai/endpoints", {
-        "name": "Task4 deterministic provider",
-        "base_url": f"http://{HOST}:{provider_port}/v1",
-        "default_model": "ai-context-fake",
-        "temperature": None,
-        "reasoning_effort": None,
-        "is_default": True,
-    }, port, 201)
-    steps.append({"name": "endpoint", "endpoint_id": endpoint["id"], "base_url": endpoint["base_url"]})
+    steps.append({
+        "name": "provider",
+        "identity": "ChatGPT OAuth",
+        "model": "gpt-5.6-luna",
+    })
 
     return {
         "steps": steps,
@@ -415,7 +411,6 @@ def seed_data(port: int, provider_port: int, db_path: Path) -> dict[str, Any]:
         "foreshadow_id": fs_approved["id"],
         "future_plant_foreshadow_id": fs_future_plant["id"],
         "future_resolution_foreshadow_id": fs_future_resolution["id"],
-        "endpoint_id": endpoint["id"],
         "foreign_project_id": foreign_pid,
         "foreign_chapter_id": foreign_chapter["id"],
         "foreign_character_id": foreign_char["id"],
@@ -519,6 +514,12 @@ def main() -> int:
         update_report(report, pointer_path, run_report_path)
         update_report(report, eval_run_report_path, None)
 
+        env["JIPPEEL_GPT_OAUTH_BASE_URL"] = f"http://{HOST}:{args.provider_port}/v1"
+        env["JIPPEEL_GPT_MODEL"] = "gpt-5.6-luna"
+        env["JIPPEEL_GPT_REASONING_EFFORT"] = "xhigh"
+        report["gpt_oauth_base_url"] = env["JIPPEEL_GPT_OAUTH_BASE_URL"]
+        report["gpt_model"] = env["JIPPEEL_GPT_MODEL"]
+
         provider_proc = start_logged_process([
             sys.executable, str(root / "scripts" / "ai_context_fake_llm_server.py"),
             "--port", str(args.provider_port), "--prompt-log", str(prompt_log),
@@ -540,7 +541,7 @@ def main() -> int:
         update_report(report, pointer_path, run_report_path)
         update_report(report, eval_run_report_path, None)
 
-        seed = seed_data(args.backend_port, args.provider_port, db_path)
+        seed = seed_data(args.backend_port, db_path)
         report.update(seed)
         report["sqlite_counts_after_seed"] = sqlite_counts(db_path)
         report["status"] = "seeded"

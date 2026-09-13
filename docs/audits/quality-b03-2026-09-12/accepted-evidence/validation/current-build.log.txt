@@ -1,0 +1,21 @@
+
+> jippeel-frontend@0.1.0 build
+> tsc -b && vite build --outDir /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build
+
+vite v5.4.21 building for production...
+
+(!) outDir /home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+transforming...
+✓ 232 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build/index.html                         0.74 kB │ gzip:   0.41 kB
+../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build/assets/index-qv4Zls9r.css         24.71 kB │ gzip:   5.72 kB
+../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build/assets/data-Bs8GALcB.js           46.59 kB │ gzip:  14.11 kB
+../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build/assets/markdown-Bx13qlMl.js      130.22 kB │ gzip:  60.70 kB
+../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build/assets/react-vendor-D_J2dLiK.js  161.78 kB │ gzip:  52.80 kB
+../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build/assets/index-B1iEBd3J.js         172.33 kB │ gzip:  51.13 kB
+../../../../../../../home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/frontend-current-build/assets/editor-dbPoz2N-.js        475.11 kB │ gzip: 165.91 kB
+✓ built in 20.11s

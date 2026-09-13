@@ -1,0 +1,680 @@
+{
+  "acceptedAt": "2026-09-13T00:05:19.721647+09:00",
+  "status": "B03_ACCEPTED",
+  "approvalDate": "2026-09-12",
+  "sourceAndProtectedHashes": {
+    "backend/app/services/quality.py": "17efd16a2ffd45cc7faa4861e5303b830122f9296eb156ce36f78cf4c18cd809",
+    "backend/tests/test_quality_b03_reproduction.py": "63c794f374237b8ad61f7a50871df8da670b40682901105dc9427fe3e6e35315",
+    "backend/tests/isolation_guard.py": "6599632132f650d6fea1426cfe6130a427ad7d229fa062dc7934905f89f6c3d5",
+    "backend/tests/test_isolation_guard.py": "a39913db4b51df38c760ec50366372fa6c5f47fa5be7554e632dc0a1a5af52c4",
+    "frontend/src/components/editor/QualityDialog.tsx": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+    "frontend/e2e/quality-dialog.spec.ts": "919432b8f87f7fbc5415220228fb09538ff4090580c873eb5596d128cdcb3de4",
+    "frontend/e2e/quality-fixture.html": "bd5e891cd9e42000e6f7033f8d85fbca5c52951106188e4dc2889eb9196b15db",
+    "frontend/e2e/quality-scoped-coverage.ts": "309ac3a64f92ac09f8d5a2a1765d1d81b168ba2843679d0238a76623362b0475",
+    "frontend/playwright.quality.config.ts": "ee30e9a0ae75d18597438cdb6ab1437e431e3ef8e0f24495720b7e18b8526fc8",
+    "frontend/e2e/ai-context-ui.spec.ts": "8914b141436410db7ac3e18196eb4e60a1a5258d3189d9b4bce77fbd18adea79",
+    "frontend/src/components/ui/dialog.tsx": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+    "backend/.coverage": "a8dbb468171bf47a125460523e569bf205e9dc0784a018301adb9598a3f58624",
+    "backend/app/services/crypto.py": "5902a04108befdb29c1652d353eda0c2e6d0bdd22cf67c2560d6d0be33f60f2e",
+    "backend/app/services/canon.py": "0b765a65f3eaab23807aa24ab61f8e1f43eca319a5da75ce93d56ed0b91ca321",
+    "backend/app/services/bootstrap.py": "c73f1c5df9de164799cdecc15fe35ee6791b5ac023f7f753cae2e2c8926a496c",
+    ".git/index": "bf9b6260efa6613d5136561a7b53fa1f42c55f3b7af2d49748eb4ae341044e00"
+  },
+  "head": "c1a92c45fe8c16b4ee140a31fe97683ab588ed07",
+  "branch": "main",
+  "stagedFiles": [],
+  "verifiedArtifactLedgers": {
+    "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W": 218,
+    "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1": 25
+  },
+  "evidenceRoots": {
+    "implementation": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-implementation-qcUqNm68",
+    "validation": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W",
+    "parentFinal": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e"
+  },
+  "scope": "Selected immutable evidence copies, NOT complete archive or standalone runnable toolchain. Original full roots remain persistent. Historical failure and old helper hashes are not rewritten.",
+  "files": {
+    "validation/validation-report.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/validation-report.md",
+      "sha256": "c0719733bbe73fffe9d45c8c09620ab414ca2519445dc539134eb5ca6a72bf9e",
+      "bytes": 17752,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/validation-manifest.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/validation-manifest.json",
+      "sha256": "c965c469b45de31bfa9381bc81acacfb081400620e56fed0b2ebdb7755676a54",
+      "bytes": 23085,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/artifact-hashes.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/artifact-hashes.json",
+      "sha256": "ab2a4163b7d1f72bf34f491e003360f892e950b4d890c645dc7a1b5b55880091",
+      "bytes": 38907,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/b03-baseline-relative.diff.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/b03-baseline-relative.diff",
+      "sha256": "6c8b54c496c4af556e8d2505b95e8bae25e49679a497d0dbab1982c792f224fc",
+      "bytes": 61922,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/backend-full-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/backend-full-command.txt",
+      "sha256": "ed5aa730bf354b0ea6892cca96960846c87cf044447894c99413f42e65655c02",
+      "bytes": 141,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/backend-full.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/backend-full.log",
+      "sha256": "33476ad43eb795c240f6afee8134fc1a1475d5b7d97878e5dcbb28347b2470e8",
+      "bytes": 13491,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/backend-raw/guard-report.raw.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/backend-raw/guard-report.raw.json",
+      "sha256": "13d873a3a7b0d4493b2e01ee3879e00b907ea7a86172d6f2bd34790cc3f0ac14",
+      "bytes": 141,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/backend-raw/coverage.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/backend-raw/coverage.json",
+      "sha256": "7575c27f48483be5be8e3648ab3712c40faf442e56b9e2baea0b573c94592b16",
+      "bytes": 79827,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/preflight-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/preflight-command.txt",
+      "sha256": "7fe657e17a62d6e18b2ebf67be379d5048f016806e9327c068ec2799f4dd6804",
+      "bytes": 142,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/preflight.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/preflight.log",
+      "sha256": "ec0bf7dbebabbb7c71c769b0f683bb3b6e624ecc3914e8fb305d9687c5b67add",
+      "bytes": 776,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/python-changed-coverage.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/python-changed-coverage.json",
+      "sha256": "61c15d1c14d0611ecc6f6a3fafb347bc730a4a7b400ee4237d2e89cca53c7ee7",
+      "bytes": 5333,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/coverage-scope-frozen.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/coverage-scope-frozen.json",
+      "sha256": "7d831267304e792e00cae1568c0ef71c5ac873cace19a894a70cc24c19826d59",
+      "bytes": 39804,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/changed-lines-frozen.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/changed-lines-frozen.json",
+      "sha256": "5ba69e8764172cefab72c957d610f368d1dc029149649a9713a912ef0c135b95",
+      "bytes": 6709,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/all-branch-arms.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/all-branch-arms.json",
+      "sha256": "67e44032407500c1c19280eff3cd887c3e5c07e8974d4d58d246f36e2de16fbf",
+      "bytes": 38847,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/freeze-scope.cjs.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/freeze-scope.cjs",
+      "sha256": "c0e04d2578ccb6882c6dcdebbfafd58ad1110140b742494a746559a907e03447",
+      "bytes": 1875,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/coverage-utils.cjs.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/coverage-utils.cjs",
+      "sha256": "70955d83499c55fd2c9a31ef46b28fc87f072925855b201179d835ad5b3d718f",
+      "bytes": 860,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/merge-convert-coverage.cjs.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/merge-convert-coverage.cjs",
+      "sha256": "64993619f6dd772b6c730351369bf54eeac7760ced451ac3fa839c61d699a4dd",
+      "bytes": 4764,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/changed-branches.cjs.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/changed-branches.cjs",
+      "sha256": "30ba880cb1a3e4f5df53b4bbf841cfad13a7f0c60e8d51171c61f727d614b7dc",
+      "bytes": 325,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/tool-provenance.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/tool-provenance.json",
+      "sha256": "33b4a4efce58899387eed4c63d7f8af8f3c81b53eecdf991a7eceba4c4ec5377",
+      "bytes": 1524,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/tsconfig.fixture.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/tsconfig.fixture.json",
+      "sha256": "f844f86168be6114711b72f774eb1aef52637ae69c3d5641b7335a7e4fe6a3f9",
+      "bytes": 1702,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/current-types-build-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/current-types-build-command.txt",
+      "sha256": "c00f923abca7a8bbaf5336fc9dd515aa9906d5ff9f3ee1b67e72d5e726e3e125",
+      "bytes": 416,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/current-build.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/current-build.log",
+      "sha256": "fef55cfe18df616d4444d33ebeffa03ac04512318246d123539e84f726238ea1",
+      "bytes": 2078,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/current-helper-ts.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/current-helper-ts.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/post-serial-format-ast-equivalence.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/post-serial-format-ast-equivalence.json",
+      "sha256": "38ef37c71ffe8b1a32899551a18a958e18f07b727910cbf2d11f077ae6dcf759",
+      "bytes": 664,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/check-format-equivalence.cjs.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/check-format-equivalence.cjs",
+      "sha256": "2679e79b5d9bec961bd554a555a7a4da55ab74a76143b1ba85494f10623aea1b",
+      "bytes": 1817,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/format-equivalence-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/format-equivalence-command.txt",
+      "sha256": "c91e5ad038bdd9d61ca0af0b4c9c02a9c830a9f5e343baad28f06c661bd2f08b",
+      "bytes": 191,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/format-equivalence.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/format-equivalence.log",
+      "sha256": "26267cb6506d50088d74dae529400a5731ae8c55a60bebb524ee81f6bc934476",
+      "bytes": 555,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/second-formatter-drift.diff.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/second-formatter-drift.diff",
+      "sha256": "8acf970d1bbb7666775b500d5b9a79cd32535b8500c6bc04bcb07ae1690b84a5",
+      "bytes": 616,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/second-formatter-drift-identities.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/second-formatter-drift-identities.json",
+      "sha256": "a9bf1b4a0071c53e966fb74d7c8ef230d36fd3695de44a2f8d92a1587929584d",
+      "bytes": 4207,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/memory-current-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/memory-current-command.txt",
+      "sha256": "5a5d93596c2d38c1f75bbba7a12e17cb3677c88d580a67e20e4c2991c3581dd4",
+      "bytes": 274,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/memory-current.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/memory-current.log",
+      "sha256": "873a1e337247b4cd39992ed4c2208dce4eee47c4e822dec765ec7de8cf85393d",
+      "bytes": 4186,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/preservation-current-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/preservation-current-command.txt",
+      "sha256": "556b889782a4e058032daa6494e61b4c912dc7ac4c2980352d1051337dd29307",
+      "bytes": 286,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/preservation-current.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/preservation-current.log",
+      "sha256": "b3c567655d86255beea26fae17036be070a5ac51dadae67ac02bf2f062acab9f",
+      "bytes": 5200,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/ai-current-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-current-command.txt",
+      "sha256": "313871662e3bd5a649deaafe1d1f954ee23dc374972a72d89fc781273caca29d",
+      "bytes": 282,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/ai-current.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-current.log",
+      "sha256": "22b7f39b47f83299a5d1ea9aebbc31bf87d804b663976787d2ee3428ebe529bb",
+      "bytes": 3093,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-artifacts-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-artifacts-command.txt",
+      "sha256": "27fdf929201219d368447bfb6ce7ca953b8f9a640b99e61d14dec4b0651e3ff7",
+      "bytes": 304,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-artifacts.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-artifacts.log",
+      "sha256": "fb8984167172fddfabfb667bda56982b3acc931a7004042491ece6c2ebb97ac7",
+      "bytes": 837,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/coverage-final-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/coverage-final-command.txt",
+      "sha256": "0d8c0c6e5e208245f260a9b41a276ab73e1a8756c24ccb1c0910855835507f75",
+      "bytes": 376,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/coverage-final.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/coverage-final.log",
+      "sha256": "2d68a316fda00c7901e0de42f54e5a6efc9928b4d6a013361345be41add9ac1b",
+      "bytes": 6351,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/after-protected-hashes.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/after-protected-hashes.txt",
+      "sha256": "976c7542700d3f8a3a14427001bd3a25a8fc1004ba18e099a2562492c8f12259",
+      "bytes": 454,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/after-staged.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/after-staged.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/final-source-hashes.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/final-source-hashes.json",
+      "sha256": "11c29d32e7b583464d41e07779b2bec4ff42ed05558eda21090676b91a248566",
+      "bytes": 1225,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/ai-ui-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-ui-command.txt",
+      "sha256": "b82fc0e28a2dd65a8b41a05455515bac5fdf1df5ac740f6bf079bc952f695871",
+      "bytes": 277,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/ai-ui.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-ui.log",
+      "sha256": "30741ae70479c6e8c932b70bf4aa46087179d6dc15463c7ffb33a2a05635158c",
+      "bytes": 6173,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/ai-failure-trace-projection.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ai-failure-trace-projection.json",
+      "sha256": "8c134a3a66350ad07f8bf2b70db0ce075fc2c0b788b7a8774e92020cfd4aba03",
+      "bytes": 12132,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-axe-first-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first-command.txt",
+      "sha256": "04a1f40005e3ff3424a8570639ca0168e811d77d1727db3cbc1feff3fd0000e3",
+      "bytes": 304,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-axe-first.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-axe-first.log",
+      "sha256": "9c1255cb36dca0b4aa0988b82a033658db17c8067b8ab7af4b0a43fbdb0a74de",
+      "bytes": 18449,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/coverage-convert-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/coverage-convert-command.txt",
+      "sha256": "02e74f28c9aeafe07ba3efd46afef2583cac61888794f96272b933621dd22462",
+      "bytes": 372,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/coverage-convert.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/coverage-convert.log",
+      "sha256": "1c72976abe73c144eacdab68c01f6d2b59cf443753a885654104d32533aae88f",
+      "bytes": 1114,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/formatter-source-mismatch.diff.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/formatter-source-mismatch.diff",
+      "sha256": "62d64505a4e57a296f91ae21d909289a396d048d36e7e3bf33a7b95ae7b329ce",
+      "bytes": 3894,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/ast-equivalence-failure.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/ast-equivalence-failure.txt",
+      "sha256": "d9e357729702014f94681ecae4cccb2a9d32dc0eb48f484b7b7df4d8f6f8db15",
+      "bytes": 700,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/helper-lsp-fallback.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/helper-lsp-fallback.txt",
+      "sha256": "23d92b1b99ae13e060cec555454d3810a8784ee2de1d44901012b4556718c9de",
+      "bytes": 421,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/1.generated.js.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/1.generated.js",
+      "sha256": "cc8f0d7d6d3926cc132819a4d47b02334d0c27d69b28f7e51fa115a14956ef62",
+      "bytes": 12574,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/0.map.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/0.map.json",
+      "sha256": "10534be4642ebef8c5d1ae1819c5fa41565dd7dc1c7727b449bbe47f8e35ec5f",
+      "bytes": 35620,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/0.generated.js.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/0.generated.js",
+      "sha256": "bf554a2c343b5c7e2d6461b0c8d844ca7091c1de0036dbd15198cea53bb349f4",
+      "bytes": 76620,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/0.merged-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/0.merged-v8.json",
+      "sha256": "6b120f48c9cec466e418076e5e43933a07ee5557322566d38a5bd9b88257eea1",
+      "bytes": 4038,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/evidence.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/evidence.json",
+      "sha256": "c301473e103ad7425f0d58dfcaae812d94ada990d47f8e259d666b6fddd0092a",
+      "bytes": 11932,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/1.map.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/1.map.json",
+      "sha256": "fce57f3e8bf8a95f24514aee40c95713133bb1cd9c261f99f52c8c22646ca74d",
+      "bytes": 4922,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/1.merged-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/1.merged-v8.json",
+      "sha256": "00ae8a8ea8c9e89aa1db7890a90343ab05d5261f369c571b7685e4c5bc646262",
+      "bytes": 1921,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/coverage-final.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/coverage-final.json",
+      "sha256": "80319bae41bd2220648dedceb881ffb9bc7cc342029d1d5976eb7e459aff42e7",
+      "bytes": 58669,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/1.istanbul.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/1.istanbul.json",
+      "sha256": "d7263ecc5a02af333c2474780f7d76b4dd3070c8e7d25d09794edd20e128eca6",
+      "bytes": 12442,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/summary.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/summary.json",
+      "sha256": "e0399e420d2bb4732576ec10827e0c575b0a7f9d0a5287528341259f7d2579b1",
+      "bytes": 5746,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/converted-final/0.istanbul.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/converted-final/0.istanbul.json",
+      "sha256": "04af74fc11b7ce6ad378c7466567ff4d0e95b015861de668adf7ba62b5f9e36d",
+      "bytes": 46228,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-artifacts/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-artifacts/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "sha256": "03de363736df540c61b6322d8abec5c3b0c584858ea8da11c0d1f744c55862f5",
+      "bytes": 95711,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-artifacts/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-artifacts/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/quality-scoped-v8.json",
+      "sha256": "6c8366640371249886caa1305b7260703edb1b99e8cd4d69a0804f2bdb1d3f22",
+      "bytes": 93240,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-artifacts/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-artifacts/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "sha256": "a0ece7faef4d73cba5da2ea91584c17ba0057e919e6f1b195a4e4517c43ca42d",
+      "bytes": 96004,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-artifacts/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-artifacts/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "sha256": "a16f2453c11a39d46520fbff81a9adb6ae289c27f7f718901e3e84c220928a96",
+      "bytes": 96051,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "validation/quality-artifacts/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/quality-artifacts/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/quality-scoped-v8.json",
+      "sha256": "ba4d552353c38c5a9a4576eafe8bb3d3ddf406f1f3835d71588fbabc1c8cb3aa",
+      "bytes": 93241,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/checkpoint.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/checkpoint.json",
+      "sha256": "c8df8cb69868d0bf11fd870691c50472e71fc0833ca6a4f38d503160df77dacf",
+      "bytes": 857,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/quality-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/quality-command.txt",
+      "sha256": "34ed33ed6f767e47185be61e2e7dbb8a9f3b0a8dc7cfdf45aa4d8e4f84525b45",
+      "bytes": 296,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/quality.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/quality.log",
+      "sha256": "fc297add55a6bcf287aa009e38790c1dfc8f3f63d6fbefc747b9c9719cc4e44e",
+      "bytes": 150,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/memory-state.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/memory-state.txt",
+      "sha256": "de67e8a4e1ae7fdd28866ca6702631a4059e7c882401aae5f012492dccaca649",
+      "bytes": 207,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/resource-disposition.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/resource-disposition.json",
+      "sha256": "f4aae5aed56ae855752aef1ec51f41e8feb36446c3633fe327ca2549c9a640b2",
+      "bytes": 1410,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/support-source-format.diff.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/support-source-format.diff",
+      "sha256": "60be2d6909924f3adf4fdf63ab9ac2bffa7c8f72615ac54c122e65eb7f9a90a6",
+      "bytes": 4059,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/manifest.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/manifest.json",
+      "sha256": "a8478ecec8bc4693da8ceca6f2977c3789228aca59a96278d8ec050666b5f8e4",
+      "bytes": 9990,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/artifact-hashes.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/artifact-hashes.json",
+      "sha256": "37ea8a0e32a7fbeb599405b7a8078467211b6d1a885b9ff9d165cfd7c3b78f93",
+      "bytes": 5280,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/source-before.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/source-before.json",
+      "sha256": "7156717ba132eddad907e9d671a241a4ecbd30d9b84c48ce66a2e344e9b6c0c9",
+      "bytes": 1715,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/source-after.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/source-after.json",
+      "sha256": "7156717ba132eddad907e9d671a241a4ecbd30d9b84c48ce66a2e344e9b6c0c9",
+      "bytes": 1715,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality-command.txt",
+      "sha256": "5fadd77127cedf9808470fd5af6541b89bd4cf550ffcda78a456f9881c227ce0",
+      "bytes": 304,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality.log",
+      "sha256": "89c267912dd3c8a05998d102acaec4825589decfda52925e82513f9f22269e1f",
+      "bytes": 838,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/helper-ts-command.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/helper-ts-command.txt",
+      "sha256": "59556bb8fb7a152608e1d07f4560a7881d97520825970dec4d7dc4719a8fcca8",
+      "bytes": 235,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/helper-ts.log.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/helper-ts.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/memory-before.txt.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/memory-before.txt",
+      "sha256": "c60373be91872b50fcdaf372faca7b3b22d42674dac6721b7020b968f93c6167",
+      "bytes": 207,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "sha256": "61b0d36bd6ecc8b02fbf7a9318bf50e9d5ebbc561818c8cc928d76524391e334",
+      "bytes": 95711,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-axe.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-QualityDial-45003--explains-reference-signals-chromium/quality-axe.json",
+      "sha256": "be129cf3bf21899257bf837eb9c6e780ab90cdb15daeb478879f46b03c4ed385",
+      "bytes": 139746,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-Dialog-omit-acc57-me-preserves-backdrop-close-chromium/quality-scoped-v8.json",
+      "sha256": "e0cd4eef2537b233623f44a29fee75124578ead9f7c722d6c1363d353959a2d0",
+      "bytes": 93240,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "sha256": "8dead2b40c080cb7f46704b164d0e3817154bc17a8567b42a8644fb0bf516f5c",
+      "bytes": 96054,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-axe.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-QualityDial-c6d89--explains-reference-signals-chromium/quality-axe.json",
+      "sha256": "cb6d82f2c437a8f0d8b0991e7fd259c5cc734e40f3ce8b9063f82f58edd4159b",
+      "bytes": 157492,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-scoped-v8.json",
+      "sha256": "8cfd80b942bce45f359569b25d6c3ebaa6772b2b9a6e256c3102b15ed4c7bef6",
+      "bytes": 96051,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-axe.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-QualityDial-c0723--explains-reference-signals-chromium/quality-axe.json",
+      "sha256": "f85d676c8e34c0a03d2bb2ac1a13bb7e8409f8db73cf13928ced5a289c9522d8",
+      "bytes": 161622,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "parent/retry-1/quality/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/quality-scoped-v8.json.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-parent-final-ayGuen4e/retry-1/quality/quality-dialog-Dialog-omit-6327d-name-preserves-escape-close-chromium/quality-scoped-v8.json",
+      "sha256": "6accc08496f86fc976987899df17670010c304bf93e1a6aca242a423ca1ca237",
+      "bytes": 93241,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/original/backend/app/services/quality.py.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-implementation-qcUqNm68/before/backend/app/services/quality.py",
+      "sha256": "353eb79e5b41ca634177d98e804376a21dc4f489cdbf34f22c87691ae0614d7f",
+      "bytes": 9645,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/original/frontend/src/components/editor/QualityDialog.tsx.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-implementation-qcUqNm68/before/frontend/src/components/editor/QualityDialog.tsx",
+      "sha256": "29f74546e5b7f948ccee93911aa38107ee6d45f8f7b73267ca23214142a55906",
+      "bytes": 10327,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/original/frontend/src/components/ui/dialog.tsx.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/recovery/b03-validation-3RBooW2W/original-additions/frontend/src/components/ui/dialog.tsx",
+      "sha256": "aab0e7cc2293ba3c3c6fe257d626c34a38b582e34c7632f62450f15b96700916",
+      "bytes": 2116,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/final/backend/app/services/quality.py.txt": {
+      "source": "/mnt/c/Users/wj941/Documents/jippeel/backend/app/services/quality.py",
+      "sha256": "17efd16a2ffd45cc7faa4861e5303b830122f9296eb156ce36f78cf4c18cd809",
+      "bytes": 10425,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/final/frontend/src/components/editor/QualityDialog.tsx.txt": {
+      "source": "/mnt/c/Users/wj941/Documents/jippeel/frontend/src/components/editor/QualityDialog.tsx",
+      "sha256": "6988836f6406e2e8892aabe49b6a7ac17b22c267c4a2e92ca8d5d8ed321fa6eb",
+      "bytes": 25160,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/final/frontend/src/components/ui/dialog.tsx.txt": {
+      "source": "/mnt/c/Users/wj941/Documents/jippeel/frontend/src/components/ui/dialog.tsx",
+      "sha256": "a1f8c56637bb0c581bcd9f3cbd9b8bd54a5a7e668dc3dcb618088dabf7cf230f",
+      "bytes": 2338,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/final/frontend/e2e/quality-dialog.spec.ts.txt": {
+      "source": "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/quality-dialog.spec.ts",
+      "sha256": "919432b8f87f7fbc5415220228fb09538ff4090580c873eb5596d128cdcb3de4",
+      "bytes": 7177,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "sources/final/frontend/e2e/quality-scoped-coverage.ts.txt": {
+      "source": "/mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/quality-scoped-coverage.ts",
+      "sha256": "309ac3a64f92ac09f8d5a2a1765d1d81b168ba2843679d0238a76623362b0475",
+      "bytes": 1022,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "reviews/implementation.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/84829b6d-2417-43e9-84d7-f8ef4d414eb7/b03/implementation.md",
+      "sha256": "bd96f75b153ca309367992ca0c81e1e9ab91ce31a72c7d3a62e63b583f061dff",
+      "bytes": 17658,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "reviews/validation.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/84829b6d-2417-43e9-84d7-f8ef4d414eb7/b03/validation.md",
+      "sha256": "c0719733bbe73fffe9d45c8c09620ab414ca2519445dc539134eb5ca6a72bf9e",
+      "bytes": 17752,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "reviews/behavior-review.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/84829b6d-2417-43e9-84d7-f8ef4d414eb7/b03/behavior-review.md",
+      "sha256": "cbb7405ebea030f0cd2d660f8d2288ed0c34f47c8e06048808082fb595b7852c",
+      "bytes": 5036,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "reviews/integrity-review.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/84829b6d-2417-43e9-84d7-f8ef4d414eb7/b03/integrity-review.md",
+      "sha256": "ba238ffe6a2babe3b8fa4c5312b5667dda041d05fac769ceef605bb842e44044",
+      "bytes": 13520,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "workflows/84829b6d-2417-43e9-84d7-f8ef4d414eb7/workflow-receipt.json.txt": {
+      "source": "/tmp/pi-subagents-uid-1000/async-subagent-runs/84829b6d-2417-43e9-84d7-f8ef4d414eb7/workflow-receipt.json",
+      "sha256": "ad41e158184a1ac6e95be29daea20350bbc37b7fa41b691e1b6a7b0dc824ac67",
+      "bytes": 4214,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "reviews/behavior-e1-closure.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/09e505c0-bd83-4743-aade-9c8d41d24fb5/b03/behavior-e1-closure.md",
+      "sha256": "28d5be38e97519b70ee611257535e995dcf1a8bb2f934c570fa5b10a5a7d8c40",
+      "bytes": 3486,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "reviews/integrity-e1-closure.md.txt": {
+      "source": "/home/hunter8891/.pi/agent/sessions/--mnt-c-Users-wj941-Documents-jippeel--/subagent-artifacts/outputs/09e505c0-bd83-4743-aade-9c8d41d24fb5/b03/integrity-e1-closure.md",
+      "sha256": "b8d0b3f6fd941e6d6783f4b0ae683cdac75949822af89c3a270523e394f5c043",
+      "bytes": 4284,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    },
+    "workflows/09e505c0-bd83-4743-aade-9c8d41d24fb5/workflow-receipt.json.txt": {
+      "source": "/tmp/pi-subagents-uid-1000/async-subagent-runs/09e505c0-bd83-4743-aade-9c8d41d24fb5/workflow-receipt.json",
+      "sha256": "96c514f8cec893f3d4f60ef7be53a7986fed9c89301bc45a99094460463eeb3b",
+      "bytes": 2389,
+      "kind": "byte-identical archival copy with .txt suffix to prevent formatter changes"
+    }
+  }
+}

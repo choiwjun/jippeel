@@ -78,7 +78,17 @@ function buildListPath(
 
 export function MemoryPage() {
   const { pid: rawPid } = useParams();
-  const pid = Number(rawPid);
+  return <ProjectMemoryPage key={rawPid} pid={Number(rawPid)} />;
+}
+
+function ProjectMemoryPage({ pid }: { pid: number }) {
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<MemoryKind | "">("");
   const [visibility, setVisibility] = useState<MemoryVisibility | "">("");
@@ -89,8 +99,13 @@ export function MemoryPage() {
   const [sourceChapter, setSourceChapter] = useState("");
   const [fromSortOrder, setFromSortOrder] = useState("");
   const [toSortOrder, setToSortOrder] = useState("");
-  const [confirming, setConfirming] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState<{
+    id: number;
+    targetVisibility: "approved" | "retired";
+  } | null>(null);
   const confirmationRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const [returnFocusTo, setReturnFocusTo] = useState<string | null>(null);
 
   const projectQuery = useQuery({
     queryKey: ["project", pid],
@@ -108,34 +123,41 @@ export function MemoryPage() {
       ),
   });
   const create = useMutation({
-    mutationFn: (payload: MemoryEntryCreate) =>
-      api.post<MemoryEntry>(`/projects/${pid}/memories`, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["memories", pid] });
+    mutationFn: ({ originPid, payload }: { originPid: number; payload: MemoryEntryCreate }) =>
+      api.post<MemoryEntry>(`/projects/${originPid}/memories`, payload),
+    onSuccess: (_, { originPid }) => {
+      void queryClient.invalidateQueries({ queryKey: ["memories", originPid] });
+      if (!mounted.current) return;
       setBody("");
       setSourceChapter("");
       setFromSortOrder("");
       setToSortOrder("");
       toast("장편 기억 초안을 추가했습니다.", "success");
     },
-    onError: (error) =>
-      toast(`기억 추가 실패: ${(error as Error).message}`, "error"),
+    onError: (error) => {
+      if (mounted.current) toast(`기억 추가 실패: ${(error as Error).message}`, "error");
+    },
   });
   const update = useMutation({
     mutationFn: ({
+      originPid,
       id,
       patch,
     }: {
+      originPid: number;
       id: number;
       patch: { visibility: MemoryVisibility };
-    }) => api.patch<MemoryEntry>(`/projects/${pid}/memories/${id}`, patch),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["memories", pid] });
+    }) => api.patch<MemoryEntry>(`/projects/${originPid}/memories/${id}`, patch),
+    onSuccess: async (_, { originPid, id, patch }) => {
+      await queryClient.invalidateQueries({ queryKey: ["memories", originPid] });
+      if (!mounted.current) return;
+      setReturnFocusTo(`${id}:${patch.visibility}`);
       setConfirming(null);
       toast("장편 기억 상태를 변경했습니다.", "success");
     },
-    onError: (error) =>
-      toast(`기억 상태 변경 실패: ${(error as Error).message}`, "error"),
+    onError: (error) => {
+      if (mounted.current) toast(`기억 상태 변경 실패: ${(error as Error).message}`, "error");
+    },
   });
 
   const chapters = chaptersQuery.data ?? [];
@@ -155,7 +177,17 @@ export function MemoryPage() {
     if (confirming !== null) confirmationRef.current?.focus();
   }, [confirming]);
 
+  useEffect(() => {
+    if (!returnFocusTo || confirming || memoriesQuery.isFetching || !mounted.current) return;
+    const trigger = listRef.current?.querySelector<HTMLButtonElement>(
+      `button[data-memory-action="${returnFocusTo}"]:not(:disabled)`,
+    );
+    (trigger ?? listRef.current)?.focus();
+    setReturnFocusTo(null);
+  }, [returnFocusTo, confirming, memoriesQuery.isFetching]);
+
   const submit = () => {
+    if (create.isPending) return;
     const trimmedBody = body.trim();
     const from = optionalNumber(fromSortOrder);
     const to = optionalNumber(toSortOrder);
@@ -172,11 +204,14 @@ export function MemoryPage() {
       return;
     }
     create.mutate({
-      kind: memoryKind,
-      body: trimmedBody,
-      chapter_id: sourceChapter ? Number(sourceChapter) : null,
-      effective_from_sort_order: from,
-      effective_to_sort_order: to,
+      originPid: pid,
+      payload: {
+        kind: memoryKind,
+        body: trimmedBody,
+        chapter_id: sourceChapter ? Number(sourceChapter) : null,
+        effective_from_sort_order: from,
+        effective_to_sort_order: to,
+      },
     });
   };
 
@@ -186,7 +221,7 @@ export function MemoryPage() {
         <div>
           <h1 className="text-lg font-semibold">장편 기억</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            작품: {projectQuery.data?.title ?? "불러오는 중…"}
+            작품: {projectQuery.data?.title ?? (projectQuery.isError ? "불러오기 실패" : "불러오는 중…")}
           </p>
           {projectQuery.data?.synopsis && (
             <p className="mt-1 max-w-[680px] truncate text-xs text-muted-foreground">
@@ -203,6 +238,19 @@ export function MemoryPage() {
         </Badge>
       </header>
 
+      {[
+        { label: "작품 정보", message: "작품 정보를 불러오지 못했습니다.", query: projectQuery },
+        { label: "근거 회차 목록", message: "근거 회차 목록을 불러오지 못했습니다.", query: chaptersQuery },
+        { label: "기억 목록", message: "기억 목록을 불러오지 못했습니다.", query: memoriesQuery },
+      ].map(({ label, message, query }) => query.isError && (
+        <div key={label} role="alert" className="flex items-center gap-2 text-sm text-destructive">
+          <span>{message}</span>
+          <Button variant="outline" size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
+            {label} 다시 시도
+          </Button>
+        </div>
+      ))}
+
       <section
         className="rounded-md border border-border p-3"
         aria-labelledby="memory-create-title"
@@ -215,6 +263,7 @@ export function MemoryPage() {
             <Label htmlFor="memory-kind">종류</Label>
             <Select
               id="memory-kind"
+              disabled={create.isPending}
               value={memoryKind}
               onChange={(event) =>
                 setMemoryKind(event.target.value as MemoryKind)
@@ -231,6 +280,7 @@ export function MemoryPage() {
             <Label htmlFor="memory-source-chapter">근거 회차(선택)</Label>
             <Select
               id="memory-source-chapter"
+              disabled={create.isPending}
               value={sourceChapter}
               onChange={(event) => setSourceChapter(event.target.value)}
             >
@@ -248,6 +298,7 @@ export function MemoryPage() {
         </Label>
         <Textarea
           id="memory-body"
+          disabled={create.isPending}
           rows={3}
           maxLength={20_000}
           placeholder="작가가 직접 확인할 사실·결정·요약을 입력하세요."
@@ -259,6 +310,7 @@ export function MemoryPage() {
             <Label htmlFor="memory-from">적용 시작 sort order</Label>
             <Input
               id="memory-from"
+              disabled={create.isPending}
               inputMode="decimal"
               value={fromSortOrder}
               onChange={(event) => setFromSortOrder(event.target.value)}
@@ -268,6 +320,7 @@ export function MemoryPage() {
             <Label htmlFor="memory-to">적용 종료 sort order</Label>
             <Input
               id="memory-to"
+              disabled={create.isPending}
               inputMode="decimal"
               value={toSortOrder}
               onChange={(event) => setToSortOrder(event.target.value)}
@@ -345,12 +398,7 @@ export function MemoryPage() {
       {memoriesQuery.isPending && (
         <p className="text-sm text-muted-foreground">기억을 불러오는 중…</p>
       )}
-      {memoriesQuery.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          기억 목록을 불러오지 못했습니다. 잠시 후 다시 시도하세요.
-        </p>
-      )}
-      {!memoriesQuery.isPending && memories.length === 0 && (
+      {memoriesQuery.isSuccess && memories.length === 0 && (
         <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           조건에 맞는 장편 기억이 없습니다.
         </p>
@@ -359,6 +407,8 @@ export function MemoryPage() {
         className="flex flex-col gap-2"
         aria-live="polite"
         aria-label="장편 기억 목록"
+        ref={listRef}
+        tabIndex={-1}
       >
         {memories.map((memory) => (
           <article
@@ -409,19 +459,24 @@ export function MemoryPage() {
             )}
             {memory.visibility !== "retired" && (
               <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-                {confirming === memory.id ? (
+                {confirming?.id === memory.id ? (
                   <div
                     className="flex flex-wrap items-center gap-2"
                     role="group"
                     aria-label="장편 기억 상태 변경 확인"
                   >
                     <span className="text-xs text-muted-foreground">
-                      상태를 변경할까요?
+                      {confirming.targetVisibility === "approved"
+                        ? "이 기억을 승인할까요? 조건에 맞으면 AI 집필에 참고됩니다."
+                        : "이 기억을 폐기할까요? AI 집필에 참고하지 않으며 다시 활성화할 수 없습니다."}
                     </span>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setConfirming(null)}
+                      onClick={() => {
+                        setReturnFocusTo(`${confirming.id}:${confirming.targetVisibility}`);
+                        setConfirming(null);
+                      }}
                     >
                       취소
                     </Button>
@@ -429,19 +484,17 @@ export function MemoryPage() {
                       ref={confirmationRef}
                       size="sm"
                       variant={
-                        memory.visibility === "draft"
+                        confirming.targetVisibility === "approved"
                           ? "default"
                           : "destructive"
                       }
                       disabled={update.isPending}
                       onClick={() =>
                         update.mutate({
+                          originPid: pid,
                           id: memory.id,
                           patch: {
-                            visibility:
-                              memory.visibility === "draft"
-                                ? "approved"
-                                : "retired",
+                            visibility: confirming.targetVisibility,
                           },
                         })
                       }
@@ -455,7 +508,13 @@ export function MemoryPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setConfirming(memory.id)}
+                        data-memory-action={`${memory.id}:approved`}
+                        onClick={() =>
+                          setConfirming({
+                            id: memory.id,
+                            targetVisibility: "approved",
+                          })
+                        }
                       >
                         승인
                       </Button>
@@ -463,7 +522,13 @@ export function MemoryPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setConfirming(memory.id)}
+                      data-memory-action={`${memory.id}:retired`}
+                      onClick={() =>
+                        setConfirming({
+                          id: memory.id,
+                          targetVisibility: "retired",
+                        })
+                      }
                     >
                       폐기
                     </Button>

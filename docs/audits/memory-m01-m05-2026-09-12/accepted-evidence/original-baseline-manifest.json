@@ -1,0 +1,27 @@
+{
+  "frontend/src/pages/MemoryPage.tsx": {
+    "baselineSha256": "2e09129dd5fd314cf68c362ac45cbda687ed7cce6c6ff64261686c659e84c143",
+    "currentSha256": "94538e479ca73a519518b93f8b1e812fedcf99b555b3ce0140194e7c51ee928f",
+    "baselineAbsent": false
+  },
+  "frontend/src/App.tsx": {
+    "baselineSha256": "7fa52013dee6bcdff0d6f7c7e36bcf95421fac739120d56df90c7538c61d4501",
+    "currentSha256": "4f55ecb3469a8dfc64b04b9daad67dad670b331943b4fd2e747bba42a0a112f6",
+    "baselineAbsent": false
+  },
+  "frontend/src/lib/manuscriptDrafts.ts": {
+    "baselineSha256": "d123dee134ca7d813750c67ac4f838d6af665b562471c5768fe8fc893ae2df33",
+    "currentSha256": "f528f9558e688210629dcf927f375cbc6837fa94c32a4666a8b7b591ebe8a530",
+    "baselineAbsent": false
+  },
+  "frontend/src/lib/queryClient.ts": {
+    "baselineSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "currentSha256": "326910fdd5f6a0db1c46753cb67ab0fb76796f7962241e88b318a0d1b45c7335",
+    "baselineAbsent": true
+  },
+  "backend/app/routers/projects.py": {
+    "baselineSha256": "6a413ee7d41f7479c8db057bcdc4b5a84ae1429090e2c8e261c9d4d8d96a56e3",
+    "currentSha256": "3953fd5e4e60e292c9d936e269f12066de74975ffd1ddcfd2402394abc330c95",
+    "baselineAbsent": false
+  }
+}

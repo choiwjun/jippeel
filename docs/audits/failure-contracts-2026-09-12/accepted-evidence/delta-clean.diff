@@ -1,0 +1,241 @@
+--- review-baseline/.eval_tmp/run_backend_pytest.py
++++ current/.eval_tmp/run_backend_pytest.py
+@@ -1,23 +1,6 @@
+-"""Native backend tests: install owned isolation before pytest/app/coverage imports."""
+-import importlib
+-import pathlib
+-import sys
++"""Compatibility entrypoint; maintained implementation is backend/scripts/run_backend_pytest.py."""
++from pathlib import Path
++import runpy
+ 
+-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "backend"))
+-isolation = importlib.import_module("tests.isolation_guard")
+-
+-arguments = isolation.install(sys.argv[1:])
+-if "--isolation-preflight" in sys.argv:
+-    isolation.preflight_ipc()
+-    sys.exit(0)
+-
+-import pytest
+-
+-result = pytest.main(arguments)
+-state = isolation.require_isolation()
+-print(isolation.json.dumps({"isolation": "complete", "pytest_exit": result,
+-                            "internal_ipc_count": state.internal_ipc_count,
+-                            "subprocess_attempts": state.subprocess_attempts,
+-                            "fake_keyring_calls": state.fake_keyring_calls,
+-                            "violations": state.violations}), flush=True)
+-sys.exit(result)
++runpy.run_path(str(Path(__file__).resolve().parents[1] / "backend/scripts/run_backend_pytest.py"),
++               run_name="__main__")
+--- review-baseline/backend/tests/isolation_guard.py
++++ current/backend/tests/isolation_guard.py
+@@ -145,7 +145,9 @@
+         if event == "open" and isinstance(args[0], (str, bytes, os.PathLike)):
+             path = Path(os.fsdecode(args[0]))
+             writing = args[2] & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND)
+-            if writing or path.suffix == ".key" or path.name in ("auth.json", ".env"):
++            # Match known sensitive names across Windows case/stream/trailing aliases.
++            name = path.name.split(":", 1)[0].rstrip(" .").casefold()
++            if writing or name.endswith(".key") or name in ("auth.json", ".env"):
+                 self.owned_path(path)
+ 
+ 
+--- review-baseline/backend/tests/test_isolation_guard.py
++++ current/backend/tests/test_isolation_guard.py
+@@ -59,7 +59,7 @@
+ 
+     def test_sqlite_url_edge_cases(self):
+         for value in ("sqlite://", "sqlite:///:memory:", "postgresql:///x", "sqlite:///relative",
+-                      "sqlite:////server/share/file", "sqlite:///C:/outside/file", 
++                      "sqlite:////server/share/file", "sqlite:///C:/outside/file",
+                       "sqlite:///" + (self.root / "a.db").as_posix() + "?mode=ro",
+                       "sqlite:///" + (self.root / ".." / "escape.db").as_posix(),
+                       "sqlite:///" + (self.root / "%2e%2e" / "escape.db").as_posix()):
+@@ -189,6 +189,22 @@
+         self.state.audit("open", (str(self.root / "output"), "w", os.O_WRONLY))
+         self.state.audit("open", (str(self.root.parent / "library.py"), "r", 0))
+         self.state.audit("open", (1, "w", os.O_WRONLY))
++
++    def test_windows_sensitive_read_aliases_rejected_before_consumer(self):
++        names = ("AUTH.JSON", ".ENV", "synthetic.KEY", "AuTh.JsOn", "mixed.KeY",
++                 "AUTH.JSON.", "synthetic.KEY ", "auth.json::$DATA", ".ENV:stream")
++        for name in names:
++            for encode in (str, os.fsencode):
++                with self.subTest(name=name, representation=encode.__name__):
++                    calls = []
++                    before = len(self.state.violations)
++                    path = encode(self.root.parent / name)
++                    with self.assertRaises(self.guard.IsolationViolation):
++                        self.state.audit("open", (path, "r", 0))
++                        calls.append("consumer")
++                    self.assertEqual(calls, [])
++                    self.assertEqual(len(self.state.violations), before + 1)
++        self.state.audit("open", (str(self.root / "OWNED.KEY"), "r", 0))
+ 
+     def test_guard_violations_are_not_swallowed_by_product_exception_catch(self):
+         self.assertFalse(issubclass(self.guard.IsolationViolation, Exception))
+--- review-baseline/docs/runbooks/ai-context-consistency.md
++++ current/docs/runbooks/ai-context-consistency.md
+@@ -60,23 +60,15 @@
+ - `holding`은 fixture 보고서의 상태 값으로, 서버를 유지하며 테스트를 기다린다는 뜻이다. Windows Playwright가 소유 webServer 프로세스 트리를 종료하면 이 값이 종료 상태로 갱신되지 않고 남을 수 있다. 이때 별도 PID·포트 확인 결과를 근거로 남긴다.
+ - 기본 `.eval_tmp/ai-context-task-4/`는 새 실행이 갱신하는 fixture 포인터·증거 경로이고, `frontend/test-results/`는 브라우저 산출물 경로다. 둘 다 다음 실행에서 교체될 수 있다. 보존할 결과는 먼저 별도 폴더로 복사한다. 이번 최종 부모 검증의 보존 사본은 `.eval_tmp/ai-context-final-parent/`이며, 새 실행의 기본 출력 위치가 아니다.
+ 
+-전체 backend pytest는 `backend/`를 작업 디렉터리로 하고, Python에서 앱/pytest를 import하기 **전에** 새 임시 DB를 지정한다. 아래는 기존 환경 변수를 종료 시 복원한다. 단위 테스트용 create-all 우회는 실제 통합에 사용하지 않는다.
++전체 backend pytest는 [격리 실행기](isolated-backend-tests.md)를 사용한다. 앱/pytest import 전에 Windows 내부에서 DB·키·coverage 경로와 fake keyring을 설정한다. 충돌하는 기존 테스트 환경변수는 거부하며 직접 pytest 호출은 지원하지 않는다. 단위 테스트용 create-all 우회는 위 실제 브라우저 통합에 사용하지 않는다.
+ 
+ ```powershell
+ # 저장소 루트에서 별도로 실행
+ cd backend
+-$oldDb = $env:DATABASE_URL
+-$oldBypass = $env:JIPPEEL_ALLOW_TEMP_CREATE_ALL
+-try {
+-  $db = Join-Path ([System.IO.Path]::GetTempPath()) ("jippeel-ai-unit-" + [guid]::NewGuid().ToString("N") + ".db")
+-  $env:DATABASE_URL = "sqlite:///" + $db.Replace('\', '/')
+-  $env:JIPPEEL_ALLOW_TEMP_CREATE_ALL = "1"
+-  & .\.venv\Scripts\python.exe -m pytest tests -q
+-  if ($LASTEXITCODE -ne 0) { throw "backend tests failed" }
+-} finally {
+-  $env:DATABASE_URL = $oldDb
+-  $env:JIPPEEL_ALLOW_TEMP_CREATE_ALL = $oldBypass
+-}
++& .\.venv\Scripts\python.exe -I -S -B scripts\run_backend_pytest.py --isolation-preflight
++if ($LASTEXITCODE -ne 0) { throw "backend isolation preflight failed" }
++& .\.venv\Scripts\python.exe -I -B scripts\run_backend_pytest.py -q
++if ($LASTEXITCODE -ne 0) { throw "backend tests failed" }
+ ```
+ 
+ ## 검증하지 않은 것
+--- review-baseline/docs/runbooks/manuscript-preservation.md
++++ current/docs/runbooks/manuscript-preservation.md
+@@ -24,13 +24,17 @@
+ npm run build
+ ```
+ 
+-For backend pytest, set a unique temp DB before app import:
++For backend pytest, use the [supported isolated runner](isolated-backend-tests.md). It installs Windows-local TEMP DB/key/coverage paths and fake keyring before app imports. Direct pytest and inherited conflicting test variables fail closed; a DB variable alone is insufficient.
+ 
+ ```cmd
+ cd /d C:\Users\wj941\Documents\jippeel\backend
+-set DATABASE_URL=sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-pytest-<unique>.db
+-set JIPPEEL_ALLOW_TEMP_CREATE_ALL=1
+-.venv\Scripts\python.exe -m pytest -q
++.venv\Scripts\python.exe -I -S -B scripts\run_backend_pytest.py --isolation-preflight
++```
++
++Only after the preflight exits successfully:
++
++```cmd
++.venv\Scripts\python.exe -I -B scripts\run_backend_pytest.py -q
+ ```
+ 
+ ## Pre-deploy checks
+--- review-baseline/docs/audits/preservation-final-validation.md
++++ current/docs/audits/preservation-final-validation.md
+@@ -13,6 +13,8 @@
+ - The sections below preserve earlier runs and subsequent re-review evidence; earlier counts and blocked verdicts are historical, not the current result.
+ 
+ ## Parent final native repeat — source 42fad7c
++
++> Historical commands/results below describe 2026-09-08, not the current runner contract. Since 2026-09-12 use [the supported isolated runner](../runbooks/isolated-backend-tests.md); direct pytest/DB-only environment instructions below are superseded. This does not retroactively establish credential isolation for the historical run.
+ 
+ After final Spec approval, the parent reran the native commands without feature-source edits:
+ - Backend: `cmd.exe /C "cd /d C:\Users\wj941\Documents\jippeel\backend && .venv\Scripts\python.exe ..\.eval_tmp\run_backend_pytest.py -q"` — exit0, 222 passed. The inspected runner creates a new Windows temp DB and sets DATABASE_URL and JIPPEEL_ALLOW_TEMP_CREATE_ALL before importing pytest. Full output: `preservation-final-root-backend.txt`. This helper is local evidence; the earlier cmd.exe environment commands remain the portable project run instructions.
+--- review-baseline/docs/superpowers/plans/2026-09-12-failure-contracts.md
++++ current/docs/superpowers/plans/2026-09-12-failure-contracts.md
+@@ -117,3 +117,13 @@
+ - **회귀 경계:** 격리 실패를 합성 입력·가짜 저장소의 negative test로 먼저 재현한다. 격리 없는 옛 전체 suite를 다시 실행하여 RED를 만들지 않는다. 환경·credential guard를 먼저 증명한 후 targeted/전체 backend와 module별 line/branch coverage≥80%를 새 TEMP에 기록한다. 새 helper도 가능한 범위에서 직접 회귀·coverage를 확인한다.
+ - **보존 증거:** 현재 coverage와 protected source의 전/후 hash, 범위 한정 baseline-relative diff, 실제 명령·exit·sentinel·guard·로그를 남긴다. 보호 정책 경로를 복사/쓰기 명령과 묶지 않는다. guard 차단이나 실행 인프라 실패는 우회하지 않고 보고한다.
+ - **잔여 구분:** 과거 credential 부수 효과는 여전히 미확정이다. 새 격리 검증은 이후 실행에 대해서만 증거이며 운영 credential 복구·실제 provider·운영 DB·배포/Git 권한을 주지 않는다.
++
++## 9. 독립 검토 후 부모 최소 보정
++
++두 reviewer가 B01/B02 제품 계약은 유지됨을 확인했지만 Windows 민감 파일명 대소문자 검사와 기존 direct-pytest 가이드 불일치를 P1로 차단했다. 부모가 테스트 전용 범위에서 이 두 건만 보정한다.
++
++- 합성 stdlib 회귀: 대소문자·trailing dot/space·stream 별칭의 str/bytes 이벤트가 소비자 호출 전 거부되고 latch에 남는지 확인. 제품 crypto는 변경하지 않는다.
++- 지원 소스 진입점 `backend/scripts/run_backend_pytest.py`를 제공한다. 기존 `.eval_tmp/run_backend_pytest.py`는 호환 shim으로 유지하며 두 runbook의 실제 실행 명령과 과거 감사의 명령 안내를 구분한다. fail-closed는 유지한다.
++- worker의 “모든 파일 쓰기 차단” 주장은 **쓰기 모드 open 보호**로 정정한다. os.rename/remove 등을 포함한 범용 OS sandbox를 새로 구현하거나 보장하지 않는다.
++- 실제 수정 전/후 증거는 `/tmp/jippeel-b04-review-fixes-t4hs3psy`에 보존한다. 합성 RED→GREEN, 공식/호환 entrypoint preflight, 공식 entrypoint의 전체 suite·coverage, 보존 검사 후 같은 독립 reviewer들에게 재검토를 요청한다.
++- 새 실행기는 배포/인계 소스 목록에 명시하되 stage/commit하지 않는다. 외부 metrics 비교 skip 1건과 SQLite warnings·정적 진단의 미확정 범위를 숨기지 않는다.
+--- review-baseline/backend/scripts/run_backend_pytest.py
++++ current/backend/scripts/run_backend_pytest.py
+@@ -0,0 +1,29 @@
++"""Supported backend test entrypoint; run from backend with Python -I -B."""
++import importlib
++import json
++import pathlib
++import sys
++
++
++def main():
++    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
++    isolation = importlib.import_module("tests.isolation_guard")
++    arguments = isolation.install(sys.argv[1:])
++    if "--isolation-preflight" in sys.argv:
++        isolation.preflight_ipc()
++        return 0
++
++    import pytest
++
++    result = pytest.main(arguments)
++    state = isolation.require_isolation()
++    print(json.dumps({"isolation": "complete", "pytest_exit": result,
++                      "internal_ipc_count": state.internal_ipc_count,
++                      "subprocess_attempts": state.subprocess_attempts,
++                      "fake_keyring_calls": state.fake_keyring_calls,
++                      "violations": state.violations}), flush=True)
++    return result
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+--- review-baseline/docs/runbooks/isolated-backend-tests.md
++++ current/docs/runbooks/isolated-backend-tests.md
+@@ -0,0 +1,46 @@
++# 격리된 backend 테스트 실행
++
++2026-09-12부터 지원하는 pytest 진입점은 **`backend/scripts/run_backend_pytest.py`**다. 직접 `pytest`/`python -m pytest` 실행은 앱 import 전에 의도적으로 거부한다. DB 환경변수만 지정하는 과거 방식은 키 저장소와 coverage를 격리하지 못한다.
++
++## 전달할 필수 소스
++
++- `backend/scripts/run_backend_pytest.py` — 공식 진입점
++- `backend/tests/isolation_guard.py` — 테스트 프로세스 격리
++- `backend/tests/conftest.py` — 앱 import 전 초기화 확인
++- `backend/tests/test_isolation_guard.py` — 합성 회귀
++
++`.eval_tmp/run_backend_pytest.py`는 기존 호출을 위한 호환 shim일 뿐이며 공식 실행에는 필요 없다. 이 목록은 파일 전달 계약이지 stage/commit 지시가 아니다.
++
++## Windows PowerShell / cmd
++
++저장소 루트에서 `backend`로 이동한다. 이미 설치된 프로젝트 venv를 사용하며 설치나 실제 provider 시작을 수행하지 않는다.
++
++```text
++cd backend
++.venv\Scripts\python.exe -I -S -B scripts\run_backend_pytest.py --isolation-preflight
++.venv\Scripts\python.exe -I -B scripts\run_backend_pytest.py -q
++```
++
++WSL에서 같은 native Windows Python을 실행할 때:
++
++```bash
++cd backend
++.venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight
++.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -q
++```
++
++선택한 테스트 파일/노드만 실행하려면 `-q tests/test_crypto.py`처럼 지정한다. 디렉터리 `tests` 인자는 사용하지 않고 전체 실행은 대상 인자를 생략한다.
++
++`--isolation-coverage`를 추가하면 동일한 suite를 실행하며 **canon·bootstrap·격리 helper 세 모듈**의 line/branch coverage를 측정한다. 전체 앱 모듈의 coverage라고 해석하지 않는다.
++
++기존 `DATABASE_URL`, `JIPPEEL_KEY_FILE`, `COVERAGE_FILE`, `COVERAGE_RCFILE`, `PYTEST_ADDOPTS`, `PYTEST_PLUGINS` 값이나 사용자 pytest/config 출력 덮어쓰기는 거부한다. 충돌 시 자동으로 사용자 설정을 바꾸지 않는다. 별도의 테스트 셸에서 충돌 변수를 제거한 후 실행한다. WSL 셸 변수 전달에 의존하거나 운영 변수·실제 키 경로를 넣지 않는다.
++
++## 확인할 결과와 한계
++
++- 첫 JSON: Windows 내부의 fresh TEMP root/목적지, fake keyring, 앱/pytest/coverage import 이전 상태.
++- preflight: stdlib 내부 socketpair IPC만 동작하고 앱/pytest 미import·위반 0.
++- 최종 JSON: pytest exit, 내부 IPC 횟수, 실제 subprocess 시도 수, fake keyring 호출 수, 위반 latch. exit 0뿐 아니라 위반 0도 확인한다.
++- DB·fallback·coverage 데이터/JSON·로그·pytest temp/cache는 출력된 fresh root를 사용한다. 기존 `backend/.coverage`는 쓰지 않는다. 보존할 증거는 TEMP 청소 전에 따로 보관한다.
++- 실제 Fernet/fallback을 쓰되 keyring은 가짜이며, 외부 humanize 스크립트는 실행하면 실패하는 합성 파일만 둔다. 기존 외부 metrics 상수 비교 1건은 원래 미설치 조건으로 skip되어 별도 미검증으로 남는다.
++- 보호는 **쓰기 모드의 Python `open`, 알려진 민감 파일명 읽기, SQLite 연결, 해당 crypto 경로와 network/subprocess 호출**에 대한 테스트용 검사다. 일반 OS sandbox나 모든 파일시스템 변경의 차단을 보장하지 않는다. 특히 `os.rename`/`os.remove` 등은 이 audit hook의 포괄적 보호 대상이 아니다. 따라서 소스 범위·전후 hash·실행 기록을 함께 확인한다.
++- 실제 provider/credential·운영 DB·브라우저/지정 실기기 검증과 배포는 이 명령의 수용 범위가 아니다.

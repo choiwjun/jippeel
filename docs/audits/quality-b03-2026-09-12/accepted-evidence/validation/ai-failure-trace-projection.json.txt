@@ -1,0 +1,440 @@
+[
+  {
+    "member": "0-trace.trace",
+    "entry": {
+      "type": "event",
+      "time": 18826.986,
+      "class": "BrowserContext",
+      "method": "page",
+      "params": {
+        "pageId": "page@dc965e0c6a82eaa5c961e7674d1ddf9a"
+      }
+    }
+  },
+  {
+    "member": "0-trace.trace",
+    "entry": {
+      "type": "console",
+      "messageType": "error",
+      "text": "Failed to load resource: the server responded with a status of 504 (Outdated Optimize Dep)",
+      "args": [],
+      "location": {
+        "url": "http://127.0.0.1:15227/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=a9b48975",
+        "lineNumber": 0,
+        "columnNumber": 0
+      },
+      "time": 22919.044,
+      "pageId": "page@dc965e0c6a82eaa5c961e7674d1ddf9a"
+    }
+  },
+  {
+    "member": "0-trace.trace",
+    "entry": {
+      "type": "console",
+      "messageType": "error",
+      "text": "Failed to load resource: the server responded with a status of 504 (Outdated Optimize Dep)",
+      "args": [],
+      "location": {
+        "url": "http://127.0.0.1:15227/node_modules/.vite/deps/react.js?v=a9b48975",
+        "lineNumber": 0,
+        "columnNumber": 0
+      },
+      "time": 22920.044,
+      "pageId": "page@dc965e0c6a82eaa5c961e7674d1ddf9a"
+    }
+  },
+  {
+    "member": "0-trace.trace",
+    "entry": {
+      "type": "console",
+      "messageType": "error",
+      "text": "Failed to load resource: the server responded with a status of 504 (Outdated Optimize Dep)",
+      "args": [],
+      "location": {
+        "url": "http://127.0.0.1:15227/node_modules/.vite/deps/react-dom_client.js?v=a9b48975",
+        "lineNumber": 0,
+        "columnNumber": 0
+      },
+      "time": 22972.995,
+      "pageId": "page@dc965e0c6a82eaa5c961e7674d1ddf9a"
+    }
+  },
+  {
+    "member": "0-trace.trace",
+    "entry": {
+      "type": "console",
+      "messageType": "debug",
+      "text": "[vite] connecting...",
+      "args": [
+        {
+          "preview": "[vite] connecting...",
+          "value": "[vite] connecting..."
+        }
+      ],
+      "location": {
+        "url": "http://127.0.0.1:15227/@vite/client",
+        "lineNumber": 494,
+        "columnNumber": 8
+      },
+      "time": 22989.737,
+      "pageId": "page@dc965e0c6a82eaa5c961e7674d1ddf9a"
+    }
+  },
+  {
+    "member": "0-trace.trace",
+    "entry": {
+      "type": "console",
+      "messageType": "debug",
+      "text": "[vite] connected.",
+      "args": [
+        {
+          "preview": "[vite] connected.",
+          "value": "[vite] connected."
+        }
+      ],
+      "location": {
+        "url": "http://127.0.0.1:15227/@vite/client",
+        "lineNumber": 617,
+        "columnNumber": 14
+      },
+      "time": 23978.566,
+      "pageId": "page@dc965e0c6a82eaa5c961e7674d1ddf9a"
+    }
+  },
+  {
+    "member": "0-trace.network",
+    "entry": {
+      "type": "resource-snapshot",
+      "snapshot": {
+        "pageref": "page@dc965e0c6a82eaa5c961e7674d1ddf9a",
+        "startedDateTime": "2026-09-12T13:52:48.623Z",
+        "time": 438.368,
+        "request": {
+          "method": "GET",
+          "url": "http://127.0.0.1:15227/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=a9b48975",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "ko-KR"
+            },
+            {
+              "name": "Origin",
+              "value": "http://127.0.0.1:15227"
+            },
+            {
+              "name": "Referer",
+              "value": "http://127.0.0.1:15227/src/main.tsx"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+            },
+            {
+              "name": "sec-ch-ua",
+              "value": "\"Not=A?Brand\";v=\"99\", \"HeadlessChrome\";v=\"151\", \"Chromium\";v=\"151\""
+            },
+            {
+              "name": "sec-ch-ua-mobile",
+              "value": "?0"
+            },
+            {
+              "name": "sec-ch-ua-platform",
+              "value": "\"Windows\""
+            }
+          ],
+          "queryString": [
+            {
+              "name": "v",
+              "value": "a9b48975"
+            }
+          ],
+          "headersSize": -1,
+          "bodySize": 0
+        },
+        "response": {
+          "status": 504,
+          "statusText": "Outdated Optimize Dep",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "value": "http://127.0.0.1:15227"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Content-Length",
+              "value": "0"
+            },
+            {
+              "name": "Date",
+              "value": "Sat, 12 Sep 2026 13:52:49 GMT"
+            },
+            {
+              "name": "Keep-Alive",
+              "value": "timeout=5"
+            },
+            {
+              "name": "Vary",
+              "value": "Origin"
+            }
+          ],
+          "content": {
+            "size": -1,
+            "mimeType": "x-unknown"
+          },
+          "headersSize": -1,
+          "bodySize": -1,
+          "redirectURL": "",
+          "_transferSize": -1,
+          "_failureText": "net::ERR_ABORTED"
+        },
+        "cache": {},
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 438.368,
+          "receive": -1
+        },
+        "_frameref": "frame@396f050fee4b7033c8d446c0a0728d61",
+        "_monotonicTime": 22465.774,
+        "_resourceType": "script"
+      }
+    }
+  },
+  {
+    "member": "0-trace.network",
+    "entry": {
+      "type": "resource-snapshot",
+      "snapshot": {
+        "pageref": "page@dc965e0c6a82eaa5c961e7674d1ddf9a",
+        "startedDateTime": "2026-09-12T13:52:48.623Z",
+        "time": 439.479,
+        "request": {
+          "method": "GET",
+          "url": "http://127.0.0.1:15227/node_modules/.vite/deps/react.js?v=a9b48975",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "ko-KR"
+            },
+            {
+              "name": "Origin",
+              "value": "http://127.0.0.1:15227"
+            },
+            {
+              "name": "Referer",
+              "value": "http://127.0.0.1:15227/src/main.tsx"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+            },
+            {
+              "name": "sec-ch-ua",
+              "value": "\"Not=A?Brand\";v=\"99\", \"HeadlessChrome\";v=\"151\", \"Chromium\";v=\"151\""
+            },
+            {
+              "name": "sec-ch-ua-mobile",
+              "value": "?0"
+            },
+            {
+              "name": "sec-ch-ua-platform",
+              "value": "\"Windows\""
+            }
+          ],
+          "queryString": [
+            {
+              "name": "v",
+              "value": "a9b48975"
+            }
+          ],
+          "headersSize": -1,
+          "bodySize": 0
+        },
+        "response": {
+          "status": 504,
+          "statusText": "Outdated Optimize Dep",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "value": "http://127.0.0.1:15227"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Content-Length",
+              "value": "0"
+            },
+            {
+              "name": "Date",
+              "value": "Sat, 12 Sep 2026 13:52:49 GMT"
+            },
+            {
+              "name": "Keep-Alive",
+              "value": "timeout=5"
+            },
+            {
+              "name": "Vary",
+              "value": "Origin"
+            }
+          ],
+          "content": {
+            "size": -1,
+            "mimeType": "x-unknown"
+          },
+          "headersSize": -1,
+          "bodySize": -1,
+          "redirectURL": "",
+          "_transferSize": -1,
+          "_failureText": "net::ERR_ABORTED"
+        },
+        "cache": {},
+        "timings": {
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 0,
+          "wait": 439.479,
+          "receive": -1
+        },
+        "_frameref": "frame@396f050fee4b7033c8d446c0a0728d61",
+        "_monotonicTime": 22466.171,
+        "_resourceType": "script"
+      }
+    }
+  },
+  {
+    "member": "0-trace.network",
+    "entry": {
+      "type": "resource-snapshot",
+      "snapshot": {
+        "pageref": "page@dc965e0c6a82eaa5c961e7674d1ddf9a",
+        "startedDateTime": "2026-09-12T13:52:48.623Z",
+        "time": 498.00600000000003,
+        "request": {
+          "method": "GET",
+          "url": "http://127.0.0.1:15227/node_modules/.vite/deps/react-dom_client.js?v=a9b48975",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "ko-KR"
+            },
+            {
+              "name": "Origin",
+              "value": "http://127.0.0.1:15227"
+            },
+            {
+              "name": "Referer",
+              "value": "http://127.0.0.1:15227/src/main.tsx"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+            },
+            {
+              "name": "sec-ch-ua",
+              "value": "\"Not=A?Brand\";v=\"99\", \"HeadlessChrome\";v=\"151\", \"Chromium\";v=\"151\""
+            },
+            {
+              "name": "sec-ch-ua-mobile",
+              "value": "?0"
+            },
+            {
+              "name": "sec-ch-ua-platform",
+              "value": "\"Windows\""
+            }
+          ],
+          "queryString": [
+            {
+              "name": "v",
+              "value": "a9b48975"
+            }
+          ],
+          "headersSize": -1,
+          "bodySize": 0
+        },
+        "response": {
+          "status": 504,
+          "statusText": "Outdated Optimize Dep",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "value": "http://127.0.0.1:15227"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Content-Length",
+              "value": "0"
+            },
+            {
+              "name": "Date",
+              "value": "Sat, 12 Sep 2026 13:52:49 GMT"
+            },
+            {
+              "name": "Keep-Alive",
+              "value": "timeout=5"
+            },
+            {
+              "name": "Vary",
+              "value": "Origin"
+            }
+          ],
+          "content": {
+            "size": -1,
+            "mimeType": "x-unknown"
+          },
+          "headersSize": -1,
+          "bodySize": -1,
+          "redirectURL": "",
+          "_transferSize": -1,
+          "_failureText": "net::ERR_ABORTED"
+        },
+        "cache": {},
+        "timings": {
+          "dns": 0.011,
+          "connect": 0.427,
+          "ssl": 1.91,
+          "send": 0,
+          "wait": 495.658,
+          "receive": -1
+        },
+        "_frameref": "frame@396f050fee4b7033c8d446c0a0728d61",
+        "_monotonicTime": 22466.404,
+        "_resourceType": "script"
+      }
+    }
+  }
+]

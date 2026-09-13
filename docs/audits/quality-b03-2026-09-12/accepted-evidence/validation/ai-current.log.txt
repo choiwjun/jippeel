@@ -1,0 +1,21 @@
+
+Running 15 tests using 1 worker
+
+  ✓   1 [chromium] › e2e/ai-context-ui.spec.ts:574:5 › AI-context Task3 fixture UI boundaries › generation waits for flush and sends one complete pre-await snapshot with saved revision (14.7s)
+  ✓   2 [chromium] › e2e/ai-context-ui.spec.ts:631:5 › AI-context Task3 fixture UI boundaries › failed flush, close, and navigation cancel pending provider starts (2.4s)
+  ✓   3 [chromium] › e2e/ai-context-ui.spec.ts:670:5 › AI-context Task3 fixture UI boundaries › result from another chapter blocks insert and replace but keeps copy enabled (1.3s)
+  ✓   4 [chromium] › e2e/ai-context-ui.spec.ts:693:5 › AI-context Task3 fixture UI boundaries › active editor preview tab remains editor-bound while respecting body opt-out (1.2s)
+  ✓   5 [chromium] › e2e/ai-context-ui.spec.ts:722:5 › AI-context Task3 fixture UI boundaries › canon and quality use shared purpose, payoff, relationship, flush revision, and hook applicability (1.5s)
+  ✓   6 [chromium] › e2e/ai-context-ui.spec.ts:762:5 › AI-context Task3 fixture UI boundaries › canon relationship opt-in is project-level with zero selected generation characters (1.1s)
+  ✓   7 [chromium] › e2e/ai-context-ui.spec.ts:787:5 › AI-context Task3 fixture UI boundaries › canon relationship opt-in is project-level with one selected generation character (991ms)
+  ✓   8 [chromium] › e2e/ai-context-ui.spec.ts:816:5 › AI-context Task3 fixture UI boundaries › generation relationship control stays disabled with zero or one selected character (1.0s)
+  ✓   9 [chromium] › e2e/ai-context-ui.spec.ts:839:5 › AI-context Task3 fixture UI boundaries › quality dialog is purpose-only and does not expose relationship controls (916ms)
+  ✓  10 [chromium] › e2e/ai-context-ui.spec.ts:859:5 › AI-context Task3 fixture UI boundaries › character standalone AI after unresolved editor recovery does not flush or inherit stale chapter identity (1.1s)
+  ✓  11 [chromium] › e2e/ai-context-ui.spec.ts:925:5 › AI-context Task3 fixture UI boundaries › lore standalone AI after same-project editor visit does not flush or inherit stale chapter identity (1.6s)
+  ✓  12 [chromium] › e2e/ai-context-ui.spec.ts:963:5 › AI-context Task3 fixture UI boundaries › cross-project lore standalone AI uses explicit page project and not stale editor project or chapter (1.3s)
+  ✓  13 [chromium] › e2e/ai-context-ui.spec.ts:997:5 › AI-context Task3 fixture UI boundaries › delayed canon result from chapter A is ignored after navigating to chapter B (1.0s)
+  ✓  14 [chromium] › e2e/ai-context-ui.spec.ts:1021:5 › AI-context Task3 fixture UI boundaries › closing A, visiting B, and returning A does not revive a cancelled canon result (1.2s)
+  ✓  15 [chromium] › e2e/ai-context-ui.spec.ts:1047:5 › AI-context Task3 fixture UI boundaries › older delayed canon success or failure cannot override a newer completed canon result (1.6s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-zbA7Lh/violations.jsonl; no escapes
+
+  15 passed (52.1s)
