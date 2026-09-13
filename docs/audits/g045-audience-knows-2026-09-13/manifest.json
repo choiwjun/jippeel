@@ -1,0 +1,42 @@
+{
+  "slice": "G-045",
+  "title": "foreshadow POST의 audience_knows 묵시 폐기 수정",
+  "spec": "none — D03-5 독립 검토 발견 선존 결함 (별도 슬라이스 후보 기록분)",
+  "status": "accepted",
+  "committed": false,
+  "scope": {
+    "in": [
+      "backend/app/routers/foreshadows.py — create_foreshadow의 Foreshadow() 생성자에 audience_knows=payload.audience_knows 추가 (1행)",
+      "backend/tests/test_foreshadow_disposition.py — POST true 저장·기본값 false 회귀 테스트",
+      "frontend/e2e/foreshadow-disposition.spec.ts — POST fixture 라우트 + UI 왕복 테스트(체크→본문→행 표시→폼 초기화)",
+      "인접 위생 수정: wordcount.py r-docstring(SyntaxWarning 소거)·bootstrap.py dead Foreshadow import 제거"
+    ],
+    "out": [
+      "과거 POST로 생성된 기존 행의 소급 복구 — 의도 값 데이터 없음, 복원 불가",
+      "AI 후보 등록 버튼의 폼 체크박스 상태 상속(선존 UX 의미) — 별도 후보",
+      "schema/model/PATCH 경로 변경 없음 — 이미 정상이었음"
+    ]
+  },
+  "verification": {
+    "red": "test_create_persists_audience_knows — assert False is True (true→False 유실 재현)",
+    "backend_focused": "24 passed · 0 isolation violations",
+    "backend_full": "677 passed · 1 skipped(기존 외부 metrics 미설치 분기) · 0 violations · 경고 0(선존 SyntaxWarning 소거 확인)",
+    "frontend": "foreshadow-disposition fixture 8/8 passed · tripwire no escapes · tsc exit0"
+  },
+  "evidence": {
+    "red_log": "red-log.txt",
+    "backend_focused": "backend-focused.txt",
+    "backend_full": "backend-full.txt",
+    "frontend_fixture": "frontend-fixture.txt",
+    "source_hashes": "source-hashes.txt",
+    "review_log": "review-log.md",
+    "acceptance": "acceptance.md"
+  },
+  "reviews": {
+    "backend": {
+      "agent": "subagent_explore (독립 검토 1건)",
+      "verdict": "PASS",
+      "findings": "차단 결함 없음 — 모든 ForeshadowCreate 필드↔생성자 매핑·다른 쓰기 경로 없음·응답이 refresh된 영속 행임을 확인. NOTE 3건(fixture mock drift·AI 후보 체크박스 상속·bootstrap dead import) — dead import는 이번에 제거, 나머지 수용"
+    }
+  }
+}

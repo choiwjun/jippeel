@@ -1,0 +1,50 @@
+{
+  "slice": "V01",
+  "title": "프론트 source-mapped coverage 계측",
+  "spec": "docs/superpowers/plans/2026-09-13-v01-frontend-coverage-spec.md",
+  "status": "accepted",
+  "committed": false,
+  "scope": {
+    "in": [
+      "frontend/e2e/coverage-test.ts — PW_COVERAGE=1 opt-in V8 수집기",
+      "frontend/e2e/memory-scoped-coverage.ts·quality-scoped-coverage.ts — scoped 래퍼 공유 수집",
+      "frontend/scripts/coverage-report.mjs — V8→Istanbul 변환·union 병합·html/text/json 산출",
+      "frontend/scripts/run-coverage.sh — 11개 fixture config 순차 실행",
+      "8개 평문 fixture 스펙의 import 전환 + playwright.quality.config.ts 추가"
+    ],
+    "out": [
+      "coverage 임계 목표치(80% 등) 강제 — 측정값 기록만",
+      "unit test 프레임워크(vitest) 도입",
+      "CI 상시 수집 — opt-in 수동 실행만",
+      "실제 API/운영 경로 계측 — fixture만"
+    ]
+  },
+  "verification": {
+    "coverage_run": "11개 config · 128 tests passed · tripwire no escapes 전부 · 127 raw files",
+    "merged_report": "57 unique source files · TOTAL lines 83.27% (9702/11651) · branches 83.28% (1450/1741) · functions 60.92% (410/673)",
+    "map_keys": "전부 실제 filesystem 경로 — port 분리 병합 결함 수정·검증",
+    "tsc": "exit 0",
+    "backend_full": "676 passed · 1 skipped · 0 violations"
+  },
+  "evidence": {
+    "coverage_full_run": "coverage-full-run.txt",
+    "report_output": "report-output.txt",
+    "coverage_summary": "coverage-summary.json",
+    "tsc": "tsc.txt",
+    "source_hashes": "source-hashes.txt",
+    "review_log": "review-log.md",
+    "acceptance": "acceptance.md"
+  },
+  "reviews": {
+    "collector": {
+      "agent": "subagent_explore (독립 검토 1)",
+      "verdict": "PASS_WITH_NOTES",
+      "findings": "MED 1건·LOW 2건·NOTE 7건 — 전부 반영 또는 명시 수용"
+    },
+    "pipeline": {
+      "agent": "subagent_explore (독립 검토 2)",
+      "verdict": "FAIL→수정 후 재검증",
+      "findings": "BLOCKER 1건(포트 분리 병합)·MED 4건·LOW 4건·NOTE 3건 — 전부 수정·재검증"
+    }
+  }
+}

@@ -76,11 +76,13 @@ def test_endpoint_api_key_stored_encrypted_and_never_returned(client):
         assert forbidden not in body                 # 키 필드 자체가 노출되지 않음
 
     # DB에는 암호문만 저장
+    from contextlib import closing
     from app.database import get_db
-    db = next(iter(client.app.dependency_overrides[get_db]()))
-    from sqlalchemy import select
-    from app.models import AiEndpoint
-    row = db.scalars(select(AiEndpoint)).one()
+    with closing(client.app.dependency_overrides[get_db]()) as gen:
+        db = next(gen)
+        from sqlalchemy import select
+        from app.models import AiEndpoint
+        row = db.scalars(select(AiEndpoint)).one()
     assert row.api_key_encrypted != plaintext_key
     assert plaintext_key not in (row.api_key_encrypted or "")
     # 암호문으로 왕복 복호화 가능

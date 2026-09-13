@@ -1,0 +1,25 @@
+Output from command in shell edca92:
+alembic.ini:89:sqlalchemy.url = driver://user:pass@localhost/dbname
+alembic/env.py:4:- DB URL: DATABASE_URL 환경변수 우선 → app.database 기본값
+alembic/env.py:13:from app.database import DATABASE_URL, Base, create_db_engine
+alembic/env.py:26:_db_url = os.environ.get("DATABASE_URL") or DATABASE_URL
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running stamp_revision  -> f9a1b2c3d4e5
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade f9a1b2c3d4e5 -> 0a1b2c3d4e5f, manuscript preservation revisions and snapshots
+INFO  [alembic.runtime.migration] Running upgrade 0a1b2c3d4e5f -> 1b2c3d4e5f60, provenance-aware long memory entries
+INFO  [alembic.runtime.migration] Running upgrade 1b2c3d4e5f60 -> 2c3d4e5f6a70, chapter goal persistence (D01) — current value + append-only revisions
+INFO  [alembic.runtime.migration] Running upgrade 2c3d4e5f6a70 -> 3d4e5f6a7b81, chapter flow stage (D03-1) — flow_stage column + append-only transition events
+INFO  [alembic.runtime.migration] Running upgrade 3d4e5f6a7b81 -> 4e5f6a7b8c92, project serial_state (D03-3) — 연재 상태를 회차 집필 확정과 분리
+INFO  [alembic.runtime.migration] Running upgrade 4e5f6a7b8c92 -> 5f6a7b8c9d03, evidence links (D03-4) — 목표 필드 ↔ 원문 발췌의 수동 링크
+INFO  [alembic.runtime.migration] Running upgrade 5f6a7b8c9d03 -> 6a7b8c9d0e14, foreshadow disposition (D03-5) — 복선 이관 구분
+INFO  [alembic.runtime.migration] Running upgrade 6a7b8c9d0e14 -> 7b8c9d0e1f25, project final editions (D03-6) — 완결본 관리
+INFO  [alembic.runtime.migration] Running upgrade 7b8c9d0e1f25 -> 8c9d0e1f2636, project ending fields (D03-7) — 결말 후보·잠금·변경 시각
+INFO  [alembic.runtime.migration] Running upgrade 8c9d0e1f2636 -> 9d0e1f2a3747, summary_jobs (D04-1) — 자동 요약 backfill 작업 영속
+
+
+Exit code: 0
+
+`| tail -15` was parsed out (15 of 19 total lines shown).

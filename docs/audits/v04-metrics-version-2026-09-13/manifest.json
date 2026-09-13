@@ -1,0 +1,42 @@
+{
+  "slice": "V04",
+  "title": "외부 im-not-ai metrics 버전 동기화 검증기",
+  "spec": "docs/superpowers/plans/2026-09-13-v04-external-metrics-version-spec.md",
+  "status": "accepted",
+  "committed": false,
+  "scope": {
+    "in": [
+      "backend/app/services/metrics_version.py — AST 전용 외부 모듈 계약 검증기",
+      "backend/tests/test_metrics_version.py — 합성 TEMP 모듈 20건",
+      "계약: compute_all_v2(text, genre) 시그니처 + CHANGE_RATE_WARN/ABORT 상수 동기화"
+    ],
+    "out": [
+      "실제 외부 metrics_v2.py 설치·실행 — 호스트에 미설치(증거 수집됨), 설치 자체가 별도 승인",
+      "외부 모듈 exec/import — AST 파싱만",
+      "quality.py·humanize.py 동작 변경 없음"
+    ]
+  },
+  "verification": {
+    "backend_focused": "20 passed · 0 isolation violations",
+    "backend_full": "671 passed · 1 skipped(기존 외부 metrics 미설치 분기) · 0 violations",
+    "frontend": "not applicable",
+    "known_warnings": ["pre-existing SyntaxWarning app/services/wordcount.py:30"]
+  },
+  "evidence": {
+    "red_log": "red-log.txt",
+    "backend_focused": "backend-focused.txt",
+    "backend_full": "backend-full.txt",
+    "source_hashes": "source-hashes.txt",
+    "review_log": "review-log.md",
+    "acceptance": "acceptance.md"
+  },
+  "reviews": {
+    "backend": {
+      "agent": "subagent_explore (독립 검토 1건)",
+      "verdict": "PASS_WITH_NOTES",
+      "findings": "MED 2건·LOW 3건·NOTE 3건 — 수정·검증·수용 처리",
+      "post_remediation": "20P focused · 671P 전체 회귀 재검증"
+    },
+    "frontend": "not applicable"
+  }
+}

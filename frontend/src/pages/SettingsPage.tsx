@@ -342,6 +342,8 @@ function ThemeTab() {
   const setFontFamily = useSettingsStore((s) => s.setFontFamily);
   const lineHeight = useSettingsStore((s) => s.lineHeight);
   const setLineHeight = useSettingsStore((s) => s.setLineHeight);
+  const uiScale = useSettingsStore((s) => s.uiScale);
+  const setUiScale = useSettingsStore((s) => s.setUiScale);
 
   return (
     <section className="rounded-md border border-border p-4">
@@ -392,6 +394,34 @@ function ThemeTab() {
           onChange={(e) => setLineHeight(Number(e.target.value))}
         />
       </div>
+
+      {/* U04 시니어 확대 모드 — 화면 전체 + 에디터 글자 확대 */}
+      <fieldset className="mt-4 flex flex-col gap-1.5">
+        <legend className="text-xs font-medium text-muted-foreground">
+          화면 확대 (시니어 모드)
+        </legend>
+        {(
+          [
+            ['normal', '보통'],
+            ['large', '크게 (115%)'],
+            ['xlarge', '더 크게 (130%)'],
+          ] as const
+        ).map(([v, label]) => (
+          <label
+            key={v}
+            className="flex cursor-pointer items-center gap-2 text-sm"
+          >
+            <input
+              type="radio"
+              name="ui-scale"
+              checked={uiScale === v}
+              onChange={() => setUiScale(v)}
+              className="accent-[hsl(var(--primary))]"
+            />
+            {label}
+          </label>
+        ))}
+      </fieldset>
     </section>
   );
 }

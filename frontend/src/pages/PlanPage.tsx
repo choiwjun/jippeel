@@ -7,7 +7,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Project } from '@/lib/api';
+import { api, type EndingImpact, type Project } from '@/lib/api';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -88,6 +89,9 @@ export function PlanPage() {
         initial={projectQuery.data?.style_profile ?? ''}
         loading={projectQuery.isPending}
       />
+
+      {/* 결말 후보 + 변경 영향 (D03-7) */}
+      <EndingSection pid={pid} project={projectQuery.data} />
 
       {/* 권 개요 목록 */}
       {notesQuery.isPending && <p className="text-sm text-muted-foreground">불러오는 중…</p>}
@@ -213,6 +217,119 @@ function StyleProfileEditor({ pid, initial, loading }: { pid: number; initial: s
         value={text}
         onChange={(e) => onChange(e.target.value)}
       />
+    </section>
+  );
+}
+
+
+/** D03-7 — 작품 수준 결말 후보 + 변경 영향(파생). 잠금은 실수 방지이며 변경 금지가 아니다. */
+function EndingSection({ pid, project }: { pid: number; project: Project | undefined }) {
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState<string | null>(null);
+  const locked = project?.ending_locked ?? false;
+  const text = draft ?? project?.ending_intent ?? '';
+
+  // 프로젝트 전환·외부 변경 시 작업본을 리셋한다(StyleProfileEditor와 같은 패턴).
+  useEffect(() => {
+    setDraft(null);
+  }, [pid, project?.ending_intent]);
+
+  const impactQuery = useQuery({
+    queryKey: ['ending-impact', pid],
+    queryFn: () => api.get<EndingImpact>(`/projects/${pid}/ending-impact`),
+  });
+
+  const patch = useMutation({
+    mutationFn: (body: { ending_intent?: string | null; ending_locked?: boolean }) =>
+      api.patch<Project>(`/projects/${pid}`, body),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['project', pid] });
+      queryClient.invalidateQueries({ queryKey: ['ending-impact', pid] });
+      if ('ending_intent' in vars) {
+        setDraft(null);
+        toast('결말 후보를 저장했습니다.', 'success');
+      } else {
+        toast(vars.ending_locked ? '결말을 잠갔습니다.' : '결말 잠금을 해제했습니다.', 'success');
+      }
+    },
+    onError: (e) => toast(`저장 실패: ${(e as Error).message}`, 'error'),
+  });
+
+  const save = () => {
+    const value = text.trim() || null;
+    // 잠긴 상태에서는 해제를 같은 요청에 포함한다(백엔드 불변조건).
+    patch.mutate(
+      locked
+        ? { ending_locked: false, ending_intent: value }
+        : { ending_intent: value },
+    );
+  };
+
+  const impact = impactQuery.data;
+
+  return (
+    <section className="rounded-md border border-border p-3" aria-label="결말 후보">
+      <div className="mb-2 flex items-center gap-2">
+        <Label>결말 후보</Label>
+        {locked && <Badge variant="secondary">잠김</Badge>}
+        {project?.ending_updated_at && (
+          <span className="text-[11px] text-muted-foreground">
+            변경 {new Date(project.ending_updated_at).toLocaleString('ko-KR')}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={patch.isPending}
+            onClick={() => patch.mutate({ ending_locked: !locked })}
+          >
+            {locked ? '잠금 해제' : '잠금'}
+          </Button>
+          <Button
+            size="sm"
+            disabled={patch.isPending || project === undefined}
+            onClick={save}
+          >
+            저장
+          </Button>
+        </div>
+      </div>
+      <Textarea
+        aria-label="결말 후보"
+        rows={3}
+        disabled={locked || patch.isPending || project === undefined}
+        placeholder="작품 전체의 결말 후보 — 회차 목표의 결말 의도와 별개로 관리됩니다…"
+        value={text}
+        onChange={(e) => setDraft(e.target.value)}
+      />
+
+      {impact && (
+        <div className="mt-3 space-y-1 text-xs" aria-label="결말 변경 영향">
+          {impact.open_foreshadows.length > 0 && (
+            <p>
+              <span className="text-muted-foreground">미해결 복선:</span>{' '}
+              {impact.open_foreshadows.map((f) => f.title).join(', ')}
+            </p>
+          )}
+          {impact.stale_goal_chapters.length > 0 && (
+            <p>
+              <span className="text-muted-foreground">결말 변경 전 목표:</span>{' '}
+              {impact.stale_goal_chapters
+                .map((c) => `${c.title}(목표 v${c.goal_version})`)
+                .join(', ')}
+            </p>
+          )}
+          {impact.finale_chapters.length > 0 && (
+            <p>
+              <span className="text-muted-foreground">최종화 회차:</span>{' '}
+              {impact.finale_chapters
+                .map((c) => `${c.title}${c.has_ending_intent ? '' : '(결말 의도 없음)'}`)
+                .join(', ')}
+            </p>
+          )}
+        </div>
+      )}
     </section>
   );
 }

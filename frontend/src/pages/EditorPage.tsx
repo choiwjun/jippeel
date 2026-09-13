@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Chapter, type ChapterDetail, type ChapterSnapshotDetail, type ChapterSnapshotMeta, type ChapterStatus } from '@/lib/api';
+import { api, ApiError, type Chapter, type ChapterDetail, type ChapterFlowOut, type ChapterResumeOut, type ChapterSnapshotDetail, type ChapterSnapshotMeta, type ChapterStatus, type FlowStage } from '@/lib/api';
 import { useEditorStore } from '@/stores/editorStore';
 import { beginManuscriptReplacement, completeManuscriptReplacement, flushManuscriptDraft, useManuscriptDraft } from '@/lib/manuscriptDrafts';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
@@ -29,6 +29,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const STATUSES: ChapterStatus[] = ['초고', '수정중', '완료'];
+
+// D03-1 집필 흐름 — status(원고 성숙도)와 독립. 백엔드 ALLOWED_FLOW_TRANSITIONS와 동일 집합.
+const FLOW_STAGE_LABELS: Record<FlowStage, string> = {
+  planning: '기획',
+  writing: '집필',
+  revising: '퇴고',
+  confirmed: '집필 확정',
+};
+const FLOW_TRANSITIONS: Record<FlowStage, FlowStage[]> = {
+  planning: ['writing'],
+  writing: ['revising'],
+  revising: ['writing', 'confirmed'],
+  confirmed: ['revising'],
+};
 
 /**
  * S2 회차 에디터 (`/projects/{pid}/write`) — M1.
@@ -226,6 +240,8 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
         ))}
       </select>
 
+      <ChapterFlowControl chapterId={chapterId} />
+
       <SaveIndicator />
 
       <div className="ml-auto flex items-center gap-1">
@@ -309,6 +325,113 @@ function ExportMenu({ pid, chapter }: { pid: number; chapter: ChapterDetail }) {
         <DropdownMenuItem onClick={() => void exportProject('txt')}>전 회차 텍스트 (.txt)</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * D03-1 집필 흐름 단계 — status(원고 성숙도)와 독립된 검증 전이.
+ * 허용된 다음 단계만 보여주고, 마지막 전이의 목표 버전·원고 revision 앵커를 표시한다.
+ * '집필 확정'은 연재/발행 완결이 아니다.
+ */
+function ChapterFlowControl({ chapterId }: { chapterId: number }) {
+  const queryClient = useQueryClient();
+  const flowQuery = useQuery({
+    queryKey: ['chapter-flow', chapterId],
+    queryFn: () => api.get<ChapterFlowOut>(`/chapters/${chapterId}/flow`),
+  });
+  // D03-2 재개 요약 — 드리프트 배지·미해결 감수·다음 장면
+  const resumeQuery = useQuery({
+    queryKey: ['chapter-resume', chapterId],
+    queryFn: () => api.get<ChapterResumeOut>(`/chapters/${chapterId}/resume`),
+  });
+
+  const transition = useMutation({
+    mutationFn: (toStage: FlowStage) =>
+      api.post<ChapterFlowOut>(`/chapters/${chapterId}/flow/transition`, {
+        to_stage: toStage,
+        expected_flow_stage: flowQuery.data?.flow_stage,
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['chapter-flow', chapterId], data);
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 409) {
+        toast(
+          '집필 흐름 단계가 다른 곳에서 먼저 변경되었습니다. 최신 상태를 확인한 뒤 다시 시도하세요.',
+          'warning',
+        );
+        void queryClient.invalidateQueries({ queryKey: ['chapter-flow', chapterId] });
+        void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+        return;
+      }
+      toast(e instanceof Error ? e.message : '흐름 전이에 실패했습니다.', 'error');
+    },
+  });
+
+  const flow = flowQuery.data;
+  if (!flow) return null;
+  const allowed = FLOW_TRANSITIONS[flow.flow_stage] ?? [];
+  const anchor = flow.last_event;
+
+  return (
+    <span className="flex items-center gap-1.5" role="group" aria-label="집필 흐름">
+      <Badge variant="outline" role="status" className="text-[10px]" aria-label={`집필 흐름 단계: ${FLOW_STAGE_LABELS[flow.flow_stage]}`}>
+        {FLOW_STAGE_LABELS[flow.flow_stage]}
+      </Badge>
+      {allowed.length > 0 && (
+        <select
+          aria-label="집필 흐름 단계 전이"
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value=""
+          disabled={transition.isPending}
+          onChange={(e) => {
+            if (e.target.value) transition.mutate(e.target.value as FlowStage);
+          }}
+        >
+          <option value="" disabled>
+            전이…
+          </option>
+          {allowed.map((s) => (
+            <option key={s} value={s}>
+              {FLOW_STAGE_LABELS[s]}(으)로
+            </option>
+          ))}
+        </select>
+      )}
+      {anchor && (
+        <span className="text-[10px] text-muted-foreground">
+          {anchor.goal_version !== null ? `목표 v${anchor.goal_version} · ` : ''}
+          원고 r{anchor.manuscript_revision} 기준
+        </span>
+      )}
+      <ResumeSummary resume={resumeQuery.data} />
+    </span>
+  );
+}
+
+/** D03-2 재개 요약 배지 — 드리프트·미해결 감수·다음 빈 장면. */
+function ResumeSummary({ resume }: { resume: ChapterResumeOut | undefined }) {
+  if (!resume) return null;
+  return (
+    <span className="flex items-center gap-1" role="group" aria-label="재개 정보">
+      {resume.goal_changed_since_transition && (
+        <Badge variant="secondary" className="text-[10px]">목표 변경됨</Badge>
+      )}
+      {resume.manuscript_changed_since_transition && (
+        <Badge variant="secondary" className="text-[10px]">원고 변경됨</Badge>
+      )}
+      {resume.pending_refine_runs > 0 && (
+        <Badge variant="secondary" className="text-[10px]">
+          미해결 감수 {resume.pending_refine_runs}
+        </Badge>
+      )}
+      {resume.next_scene && (
+        <span className="text-[10px] text-muted-foreground">
+          다음 장면: {resume.next_scene.title.trim() || '무제'}
+        </span>
+      )}
+    </span>
   );
 }
 

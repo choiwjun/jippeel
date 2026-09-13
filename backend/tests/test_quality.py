@@ -1,4 +1,6 @@
 """고도화 G-030~G-031 — 회차 품질 진단(규칙 기반) 테스트."""
+from contextlib import closing
+
 from app.services.quality import analyze_chapter, analyze_text, score_and_suggest
 
 
@@ -98,16 +100,17 @@ def test_quality_history_legacy_rows_without_purpose_are_serial_compatible(clien
         f"/api/v1/chapters/{ch['id']}/content",
         json={"content_md": text, "expected_revision": 0},
     )
-    db = next(iter(client.app.dependency_overrides[get_db]()))
-    db.add(QualityCheck(
-        chapter_id=ch["id"],
-        score=80,
-        content_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
-        metrics_json={"hook_present": False},
-        suggestions_json=[],
-        presets_json=[],
-    ))
-    db.commit()
+    with closing(client.app.dependency_overrides[get_db]()) as gen:
+        db = next(gen)
+        db.add(QualityCheck(
+            chapter_id=ch["id"],
+            score=80,
+            content_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            metrics_json={"hook_present": False},
+            suggestions_json=[],
+            presets_json=[],
+        ))
+        db.commit()
 
     resp = client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial")
     assert resp.status_code == 200

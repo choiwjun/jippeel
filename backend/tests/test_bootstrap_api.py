@@ -10,7 +10,6 @@ import json
 import pytest
 from sqlalchemy import select
 
-from app.database import get_db
 from app.models import Chapter, Character, LoreEntry, Project, Relationship
 from app.routers import projects as projects_router
 from app.services import bootstrap as bootstrap_service
@@ -172,8 +171,7 @@ def enqueue_success(holder, idea=GOOD_IDEA, outline=None,
     ]
 
 
-def _db(client):
-    return next(iter(client.app.dependency_overrides[get_db]()))
+from tests.conftest import _db
 
 
 def test_bootstrap_success_creates_full_structure(client, fake_llm, default_endpoint):

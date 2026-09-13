@@ -1,0 +1,408 @@
+Output from command in shell 10e45d:
+{"isolation": "ready-before-pytest", "root": "/tmp/jippeel-isolated-lq81w4r8", "destinations": {"DATABASE_URL": "sqlite:////tmp/jippeel-isolated-lq81w4r8/lifespan.db", "JIPPEEL_KEY_FILE": "/tmp/jippeel-isolated-lq81w4r8/dummy.key", "COVERAGE_FILE": "/tmp/jippeel-isolated-lq81w4r8/test.coverage", "JIPPEEL_TEST_BASETEMP": "/tmp/jippeel-isolated-lq81w4r8/pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+============================= test session starts ==============================
+platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
+cachedir: pytest-cache
+rootdir: /tmp/jippeel-isolated-lq81w4r8
+configfile: pytest.ini
+collected 30 items
+
+../../../../../../../tmp/jippeel-isolated-lq81w4r8 F.FFFFFFFFFFFFFF..... [ 70%]
+........F                                                                [100%]
+
+=================================== FAILURES ===================================
+_________________________ test_checklist_empty_project _________________________
+
+client = <starlette.testclient.TestClient object at 0x73e44a57c440>
+
+    def test_checklist_empty_project(client):
+        pid = _mk_project(client)
+>       body = _checklist(client, pid)
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_final_editions.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x73e44a57c440>, pid = 1
+
+    def _checklist(client, pid: int):
+        r = client.get(f"/api/v1/projects/{pid}/completion-checklist")
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:87: AssertionError
+_____________________ test_checklist_chapter_stage_counts ______________________
+
+client = <starlette.testclient.TestClient object at 0x73e4494d7250>
+
+    def test_checklist_chapter_stage_counts(client):
+        pid = _mk_project(client)
+        _mk_chapter(client, pid, "1화")  # planning
+        c2 = _mk_chapter(client, pid, "2화")
+        _transition(client, c2["id"], "writing", "planning")
+        c3 = _mk_chapter(client, pid, "3화")
+        _confirm(client, c3["id"])
+    
+>       body = _checklist(client, pid)
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_final_editions.py:128: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x73e4494d7250>, pid = 1
+
+    def _checklist(client, pid: int):
+        r = client.get(f"/api/v1/projects/{pid}/completion-checklist")
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:87: AssertionError
+________________ test_checklist_foreshadow_disposition_buckets _________________
+
+client = <starlette.testclient.TestClient object at 0x73e449473820>
+
+    def test_checklist_foreshadow_disposition_buckets(client):
+        pid = _mk_project(client)
+        _mk_foreshadow(client, pid, "미회수 복선")  # 설치 → open
+        _mk_foreshadow(client, pid, "해결 복선", status="회수", disposition="resolved")
+        _mk_foreshadow(client, pid, "미해결 복선", status="보류", disposition="intentional_unresolved")
+        _mk_foreshadow(client, pid, "외전 복선", status="회수", disposition="side_story")
+        _mk_foreshadow(client, pid, "미분류 복선", status="회수")  # 닫혔으나 미분류
+    
+>       body = _checklist(client, pid)
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_final_editions.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x73e449473820>, pid = 1
+
+    def _checklist(client, pid: int):
+        r = client.get(f"/api/v1/projects/{pid}/completion-checklist")
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:87: AssertionError
+______________________ test_checklist_pending_refine_runs ______________________
+
+client_db = (<starlette.testclient.TestClient object at 0x73e448a28050>, sessionmaker(class_='Session', bind=Engine(sqlite:////tmp/jippeel-isolated-lq81w4r8/pytest/test_checklist_pending_refine_0/test.db), autoflush=False, expire_on_commit=False))
+
+    def test_checklist_pending_refine_runs(client_db):
+        client, Session = client_db
+        pid = _mk_project(client)
+        c1 = _mk_chapter(client, pid, "1화")
+        c2 = _mk_chapter(client, pid, "2화")
+        with Session() as db:
+            db.add(RefineRun(chapter_id=c1["id"], route_hint="standard", result_text="a", accepted=False))
+            db.add(RefineRun(chapter_id=c1["id"], route_hint="light", result_text="b", accepted=True))
+            db.add(RefineRun(chapter_id=c2["id"], route_hint="light", result_text="c", accepted=False))
+            db.commit()
+    
+>       assert _checklist(client, pid)["pending_refine_runs"] == 2
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_final_editions.py:166: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x73e448a28050>, pid = 1
+
+    def _checklist(client, pid: int):
+        r = client.get(f"/api/v1/projects/{pid}/completion-checklist")
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:87: AssertionError
+_____________________ test_checklist_broken_evidence_links _____________________
+
+client = <starlette.testclient.TestClient object at 0x73e448a35370>
+
+    def test_checklist_broken_evidence_links(client):
+        pid = _mk_project(client)
+        ch = _mk_chapter(client, pid, "1화", content="검을 뽑아 달렸다")
+        cid = ch["id"]
+        client.put(
+            f"/api/v1/chapters/{cid}/goal",
+            json={
+                "goal": {"core_events": ["검을 뽑는다"], "next_hook": "그림자"},
+                "expected_goal_version": None,
+            },
+        )
+        r = client.post(
+            f"/api/v1/chapters/{cid}/evidence-links",
+            json={"goal_field": "core_events", "item_index": 0, "excerpt": "검을 뽑아"},
+        )
+        assert r.status_code == 201, r.text
+    
+>       assert _checklist(client, pid)["broken_evidence_links"] == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_final_editions.py:186: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x73e448a35370>, pid = 1
+
+    def _checklist(client, pid: int):
+        r = client.get(f"/api/v1/projects/{pid}/completion-checklist")
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:87: AssertionError
+__________________ test_checklist_finale_goal_missing_ending ___________________
+
+client = <starlette.testclient.TestClient object at 0x73e448acbdf0>
+
+    def test_checklist_finale_goal_missing_ending(client):
+        pid = _mk_project(client)
+        c1 = _mk_chapter(client, pid, "최종화")
+        # 부분 저장 허용 — series_finale인데 ending_intent 없음
+        r = client.put(
+            f"/api/v1/chapters/{c1['id']}/goal",
+            json={
+                "goal": {"emotion_goal": "여운"},
+                "expected_goal_version": None,
+                "episode_purpose": "series_finale",
+            },
+        )
+        assert r.status_code == 200, r.text
+        c2 = _mk_chapter(client, pid, "에필로그")
+        r = client.put(
+            f"/api/v1/chapters/{c2['id']}/goal",
+            json={
+                "goal": {"ending_intent": "주인공은 고향으로"},
+                "expected_goal_version": None,
+                "episode_purpose": "series_finale",
+            },
+        )
+        assert r.status_code == 200, r.text
+    
+>       missing = _checklist(client, pid)["finale_goals_missing_ending"]
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_final_editions.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x73e448acbdf0>, pid = 1
+
+    def _checklist(client, pid: int):
+        r = client.get(f"/api/v1/projects/{pid}/completion-checklist")
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:87: AssertionError
+___________________ test_checklist_is_derived_and_read_only ____________________
+
+client = <starlette.testclient.TestClient object at 0x73e449db8270>
+
+    def test_checklist_is_derived_and_read_only(client):
+        pid = _mk_project(client)
+        _mk_chapter(client, pid, "1화", content="본문")
+>       before = _checklist(client, pid)
+                 ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_final_editions.py:227: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+client = <starlette.testclient.TestClient object at 0x73e449db8270>, pid = 1
+
+    def _checklist(client, pid: int):
+        r = client.get(f"/api/v1/projects/{pid}/completion-checklist")
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:87: AssertionError
+_________________ test_create_final_edition_assembles_chapters _________________
+
+client = <starlette.testclient.TestClient object at 0x73e448aa3460>
+
+    def test_create_final_edition_assembles_chapters(client):
+        pid = _mk_project(client)
+        c1 = _mk_chapter(client, pid, "1화", content="첫째 본문")
+        c2 = _mk_chapter(client, pid, "2화", content="둘째 본문")
+        _confirm(client, c1["id"])
+    
+        r = client.post(f"/api/v1/projects/{pid}/final-editions", json={"label": "1차 완결본"})
+>       assert r.status_code == 201, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 201
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:241: AssertionError
+________ test_create_final_edition_label_optional_and_blank_normalizes _________
+
+client = <starlette.testclient.TestClient object at 0x73e4489b3bd0>
+
+    def test_create_final_edition_label_optional_and_blank_normalizes(client):
+        pid = _mk_project(client)
+        r = client.post(f"/api/v1/projects/{pid}/final-editions", json={})
+>       assert r.status_code == 201
+E       assert 404 == 201
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:263: AssertionError
+_______ test_create_final_edition_missing_project_404_and_empty_project ________
+
+client = <starlette.testclient.TestClient object at 0x73e4489e48d0>
+
+    def test_create_final_edition_missing_project_404_and_empty_project(client):
+        assert client.post("/api/v1/projects/9999/final-editions", json={}).status_code == 404
+        pid = _mk_project(client)
+        r = client.post(f"/api/v1/projects/{pid}/final-editions", json={})
+>       assert r.status_code == 201
+E       assert 404 == 201
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:274: AssertionError
+___________________ test_final_edition_is_immutable_snapshot ___________________
+
+client = <starlette.testclient.TestClient object at 0x73e4489e56a0>
+
+    def test_final_edition_is_immutable_snapshot(client):
+        pid = _mk_project(client)
+        ch = _mk_chapter(client, pid, "1화", content="원래 본문")
+        cid = ch["id"]
+        r = client.post(f"/api/v1/projects/{pid}/final-editions", json={"label": "보존본"})
+>       eid = r.json()["id"]
+              ^^^^^^^^^^^^^^
+E       KeyError: 'id'
+
+tests/test_final_editions.py:284: KeyError
+____________________ test_list_final_editions_metadata_only ____________________
+
+client = <starlette.testclient.TestClient object at 0x73e4489e7350>
+
+    def test_list_final_editions_metadata_only(client):
+        pid = _mk_project(client)
+        _mk_chapter(client, pid, "1화", content="본문")
+        client.post(f"/api/v1/projects/{pid}/final-editions", json={"label": "첫째"})
+        client.post(f"/api/v1/projects/{pid}/final-editions", json={"label": "둘째"})
+    
+        r = client.get(f"/api/v1/projects/{pid}/final-editions")
+>       assert r.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_final_editions.py:309: AssertionError
+_____________ test_get_final_edition_detail_and_cross_project_404 ______________
+
+client = <starlette.testclient.TestClient object at 0x73e448800e20>
+
+    def test_get_final_edition_detail_and_cross_project_404(client):
+        pid = _mk_project(client)
+        other = _mk_project(client)
+>       eid = client.post(f"/api/v1/projects/{pid}/final-editions", json={}).json()["id"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'id'
+
+tests/test_final_editions.py:323: KeyError
+__________________________ test_delete_final_edition ___________________________
+
+client = <starlette.testclient.TestClient object at 0x73e448801bf0>
+
+    def test_delete_final_edition(client):
+        pid = _mk_project(client)
+        other = _mk_project(client)
+>       eid = client.post(f"/api/v1/projects/{pid}/final-editions", json={}).json()["id"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'id'
+
+tests/test_final_editions.py:336: KeyError
+______________ test_final_edition_records_serial_state_at_capture ______________
+
+client = <starlette.testclient.TestClient object at 0x73e4488028b0>
+
+    def test_final_edition_records_serial_state_at_capture(client):
+        pid = _mk_project(client, serial_state="completed")
+        r = client.post(f"/api/v1/projects/{pid}/final-editions", json={})
+>       assert r.json()["serial_state"] == "completed"
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'serial_state'
+
+tests/test_final_editions.py:348: KeyError
+___________ test_populated_upgrade_downgrade_project_final_editions ____________
+
+alembic_config = <alembic.config.Config object at 0x73e442c452b0>
+
+    def test_populated_upgrade_downgrade_project_final_editions(alembic_config):
+        """D03-6 — head에서 upgrade 시 project_final_editions 생성, downgrade는 제거+프로젝트 보존."""
+        from sqlalchemy import text
+    
+        command.upgrade(alembic_config, "6a7b8c9d0e14")  # final editions 이전 head
+    
+        engine = create_db_engine(_current_url())
+        with engine.begin() as conn:
+            conn.execute(text("INSERT INTO projects (id, title) VALUES (1, 'p')"))
+        engine.dispose()
+    
+        command.upgrade(alembic_config, "head")
+    
+        engine = create_db_engine(_current_url())
+        inspector = inspect(engine)
+>       assert "project_final_editions" in inspector.get_table_names()
+E       AssertionError: assert 'project_final_editions' in ['ai_endpoints', 'ai_usage', 'alembic_version', 'canon_runs', 'chapter_flow_events', 'chapter_goal_evidence_links', ...]
+E        +  where ['ai_endpoints', 'ai_usage', 'alembic_version', 'canon_runs', 'chapter_flow_events', 'chapter_goal_evidence_links', ...] = get_table_names()
+E        +    where get_table_names = <sqlalchemy.engine.reflection.Inspector object at 0x73e442c747c0>.get_table_names
+
+tests/test_migrations.py:495: AssertionError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> d85fdcab0808, initial schema (Sprint 1+2)
+INFO  [alembic.runtime.migration] Running upgrade d85fdcab0808 -> a1b2c3d4e5f6, add project.memo (작품 부트스트랩 메타 보관 — 후보 제목·주제의식 등)
+INFO  [alembic.runtime.migration] Running upgrade a1b2c3d4e5f6 -> b3c4d5e6f7a8, T-002 chapter.volume nullable 전환 (기술설계 §4.2 변경 1 — Q1 결정안)
+INFO  [alembic.runtime.migration] Running upgrade b3c4d5e6f7a8 -> c5d6e7f8a9b0, F-040 ChatGPT 구독(OAuth) 대응 — ai_endpoints.temperature nullable 전환
+INFO  [alembic.runtime.migration] Running upgrade c5d6e7f8a9b0 -> d7e8f9a0b1c2, F-040 ChatGPT 구독(OAuth) 대응 — ai_endpoints.reasoning_effort 컬럼 추가
+INFO  [alembic.runtime.migration] Running upgrade d7e8f9a0b1c2 -> e8f0a1b2c3d4, 고도화 v1 — scenes(장면)·foreshadows(복선) 테이블 추가
+INFO  [alembic.runtime.migration] Running upgrade e8f0a1b2c3d4 -> f9a1b2c3d4e5, 고도화 v2 — canon 이력·품질 이력·권 개요·독자 인지·문체 프로파일·AI 사용량
+INFO  [alembic.runtime.migration] Running upgrade f9a1b2c3d4e5 -> 0a1b2c3d4e5f, manuscript preservation revisions and snapshots
+INFO  [alembic.runtime.migration] Running upgrade 0a1b2c3d4e5f -> 1b2c3d4e5f60, provenance-aware long memory entries
+INFO  [alembic.runtime.migration] Running upgrade 1b2c3d4e5f60 -> 2c3d4e5f6a70, chapter goal persistence (D01) — current value + append-only revisions
+INFO  [alembic.runtime.migration] Running upgrade 2c3d4e5f6a70 -> 3d4e5f6a7b81, chapter flow stage (D03-1) — flow_stage column + append-only transition events
+INFO  [alembic.runtime.migration] Running upgrade 3d4e5f6a7b81 -> 4e5f6a7b8c92, project serial_state (D03-3) — 연재 상태를 회차 집필 확정과 분리
+INFO  [alembic.runtime.migration] Running upgrade 4e5f6a7b8c92 -> 5f6a7b8c9d03, evidence links (D03-4) — 목표 필드 ↔ 원문 발췌의 수동 링크
+INFO  [alembic.runtime.migration] Running upgrade 5f6a7b8c9d03 -> 6a7b8c9d0e14, foreshadow disposition (D03-5) — 복선 이관 구분
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_checklist_empty_project
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_checklist_chapter_stage_counts
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_checklist_foreshadow_disposition_buckets
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_checklist_pending_refine_runs
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_checklist_broken_evidence_links
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_checklist_finale_goal_missing_ending
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_checklist_is_derived_and_read_only
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_create_final_edition_assembles_chapters
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_create_final_edition_label_optional_and_blank_normalizes
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_create_final_edition_missing_project_404_and_empty_project
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_final_edition_is_immutable_snapshot
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_list_final_editions_metadata_only
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_get_final_edition_detail_and_cross_project_404
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_delete_final_edition
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_final_edition_records_serial_state_at_capture
+FAILED ../../../../../../../tmp/jippeel-isolated-lq81w4r8::test_populated_upgrade_downgrade_project_final_editions
+=================== 16 failed, 14 passed, 1 warning in 3.35s ===================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}
+
+
+Exit code: 1
+
+`| tail -12` was parsed out (12 of 402 total lines shown).

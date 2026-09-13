@@ -25,7 +25,7 @@ def count_chars_including_whitespace(text) -> int:
 
 
 def count_novelpia_chars(text) -> int:
-    """노벨피아 모드 글자 수 — 문자(Unicode category L*)·숫자(N*)만 계수.
+    r"""노벨피아 모드 글자 수 — 문자(Unicode category L*)·숫자(N*)만 계수.
 
     프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
     """

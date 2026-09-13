@@ -1,2 +1,8 @@
 node_modules
 dist
+
+# V01 coverage 산출물 (재생성 가능 — 커밋 대상 아님)
+coverage-raw/
+coverage-final.json
+coverage-summary.json
+coverage/

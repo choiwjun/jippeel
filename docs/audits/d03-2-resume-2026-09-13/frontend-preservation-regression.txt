@@ -1,0 +1,5 @@
+  ✓  25 [chromium] › e2e/manuscript-preservation.spec.ts:1342:1 › fixture lifecycle routes pagehide keepalive through context on reload and page close (1.4s)
+  ✓  26 [chromium] › e2e/manuscript-preservation.spec.ts:1359:1 › M02 cache notification exception cannot reclassify an acknowledged UI save (1.1s)
+Owned manuscript fixture closed; no escapes; latch=/tmp/jippeel-manuscript-http-PrmGLD/violations.jsonl
+
+  26 passed (49.5s)

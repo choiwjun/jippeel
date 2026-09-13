@@ -1,0 +1,4 @@
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 17 passed, 1 warning in 1.53s =========================
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

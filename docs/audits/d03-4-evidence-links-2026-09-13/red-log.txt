@@ -1,0 +1,12 @@
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../../tmp/jippeel-isolated-srk_wpni::test_create_link_anchors_current_goal_version
+FAILED ../../../../../../../tmp/jippeel-isolated-srk_wpni::test_create_link_rejections
+FAILED ../../../../../../../tmp/jippeel-isolated-srk_wpni::test_create_link_requires_existing_goal_item
+FAILED ../../../../../../../tmp/jippeel-isolated-srk_wpni::test_link_manuscript_status_derives_from_content
+FAILED ../../../../../../../tmp/jippeel-isolated-srk_wpni::test_link_goal_status_derives_from_current_goal
+FAILED ../../../../../../../tmp/jippeel-isolated-srk_wpni::test_delete_link_and_404s
+==================== 6 failed, 2 passed, 1 warning in 0.68s ====================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

@@ -7,9 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import LoreEntry, Project
-from app.schemas import KeywordsPut, LoreEntryCreate, LoreEntryOut, LoreEntryUpdate
+from app.models import Chapter, LoreEntry, Project
+from app.schemas import ChapterOut, KeywordsPut, LoreEntryCreate, LoreEntryOut, LoreEntryUpdate
 from app.services.fts import delete_fts_entry, ensure_fts_index, search_entry_ids, sync_fts_entry
+from app.services.injection import score_entries
 
 router = APIRouter()
 
@@ -100,6 +101,26 @@ def search_lore(
 @router.get("/lore/{lid}", response_model=LoreEntryOut)
 def get_lore(lid: int, db: Session = Depends(get_db)):
     return _get_entry_or_404(lid, db)
+
+
+@router.get("/lore/{lid}/referencing-chapters", response_model=list[ChapterOut])
+def referencing_chapters(lid: int, db: Session = Depends(get_db)):
+    """이 로어 항목을 본문에서 참조하는 회차 목록 (U02 / F-016).
+
+    AI 자동 주입과 동일한 title·keywords 부분일치 매칭을 회차 본문에 역방향으로
+    적용한다 — 점수>0인 회차만 반환, sort_order 순.
+    """
+    entry = _get_entry_or_404(lid, db)
+    chapters = db.scalars(
+        select(Chapter)
+        .where(Chapter.project_id == entry.project_id)
+        .order_by(Chapter.sort_order, Chapter.id)
+    ).all()
+    return [
+        chapter
+        for chapter in chapters
+        if score_entries([entry], chapter.content_md or "")
+    ]
 
 
 @router.patch("/lore/{lid}", response_model=LoreEntryOut)

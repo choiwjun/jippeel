@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 ChapterStatus = Literal["초고", "수정중", "완료"]
+EpisodePurpose = Literal["serial", "volume_end", "series_finale"]
 
 
 # ---- Project ----
@@ -16,12 +17,32 @@ class ProjectCreate(BaseModel):
     platform_note: str | None = None
 
 
+SerialState = Literal["ongoing", "hiatus", "completed"]
+
+
 class ProjectUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     genre: str | None = Field(default=None, max_length=100)
     synopsis: str | None = None
     platform_note: str | None = None
     style_profile: str | None = None  # 문체 프로파일 (G-040)
+    # D03-3 연재 상태 — 회차 confirmed(집필 확정)와 다른 수명주기
+    serial_state: SerialState | None = None
+    # D03-7 작품 수준 결말 후보 — 생략 시 불변, 명시적 null은 지우기
+    ending_intent: str | None = None
+    ending_locked: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_null_serial_state(cls, data):
+        # 명시적 null은 "필드 생략"과 다르다 — 잘못된 값으로 422 처리한다.
+        if isinstance(data, dict):
+            if "serial_state" in data and data["serial_state"] is None:
+                raise ValueError("serial_state must be one of: ongoing, hiatus, completed")
+            # D03-7: NOT NULL 컬럼 — 명시적 null은 IntegrityError가 아니라 422다.
+            if "ending_locked" in data and data["ending_locked"] is None:
+                raise ValueError("ending_locked must be a boolean")
+        return data
 
 
 class ProjectOut(BaseModel):
@@ -33,6 +54,11 @@ class ProjectOut(BaseModel):
     synopsis: str | None
     platform_note: str | None
     style_profile: str | None
+    serial_state: str = "ongoing"
+    serial_completed_at: datetime | None = None
+    ending_intent: str | None = None
+    ending_locked: bool = False
+    ending_updated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     # 목록 카드용 집계 — 상세 조회에서는 채워지지 않는다
@@ -116,6 +142,319 @@ class ChapterSnapshotDetail(ChapterSnapshotOut):
     """회차 복구본 상세."""
 
     content_md: str
+
+
+# ---- ChapterGoal (D01 회차 목표 영속화) ----
+# 저장 검증 ≠ 생성 검증: 부분·빈 저장을 허용하되 필드당 길이·배열 개수 상한은
+# 생성 요청 계약(BriefText, 배열 상한)과 같은 보호 한도를 유지한다.
+GoalText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+
+
+class ChapterGoalPayload(BaseModel):
+    """저장용 목표 payload — EpisodeBrief와 같은 필드 구조, 전부 선택(부분 저장)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    emotion_goal: GoalText | None = None
+    core_events: list[GoalText] | None = Field(default=None, max_length=3)
+    character_choices: list[GoalText] | None = Field(default=None, max_length=4)
+    cost: GoalText | None = None
+    prohibitions: list[GoalText] | None = Field(default=None, max_length=10)
+    next_hook: GoalText | None = None
+    ending_intent: GoalText | None = None
+    scene_type: Literal["대립", "액션", "정보정리", "감정", "이동"] | None = None
+    target_chars_novelpia: int | None = Field(default=None, ge=1000, le=10000)
+
+
+class ChapterGoalWrite(BaseModel):
+    """PUT /chapters/{cid}/goal — expected_goal_version CAS.
+
+    expected_goal_version=null → "현재 목표 없음" 기대(생성). N → 현재 버전 일치 필요.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: int | None = Field(default=None, ge=1)  # 지정 시 실제 회차 소속과 대조
+    goal: ChapterGoalPayload
+    episode_purpose: EpisodePurpose = "serial"
+    expected_goal_version: int | None = Field(ge=1)
+    base_manuscript_revision: int | None = Field(default=None, ge=0)
+
+
+class ChapterGoalVersionOut(BaseModel):
+    """현재 목표 한 버전."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    goal_version: int
+    goal: dict
+    episode_purpose: EpisodePurpose
+    base_manuscript_revision: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChapterGoalOut(BaseModel):
+    """회차 목표 응답 — 목표 없음은 goal=null로 오류와 구분한다."""
+
+    chapter_id: int
+    project_id: int
+    goal: ChapterGoalVersionOut | None
+    current_chapter_revision: int
+    history_count: int
+
+
+class ChapterGoalRevisionOut(BaseModel):
+    """목표 이력 row — append-only."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    goal_version: int
+    goal: dict
+    episode_purpose: EpisodePurpose
+    base_manuscript_revision: int | None
+    restored_from: int | None
+    created_at: datetime
+
+
+class ChapterGoalRestoreRequest(BaseModel):
+    """POST /chapters/{cid}/goal/restore — 이력을 새 현재 버전으로 기록."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    goal_version: int = Field(ge=1)
+    expected_goal_version: int | None = Field(ge=1)
+    base_manuscript_revision: int | None = Field(default=None, ge=0)
+
+
+# ---- ChapterFlow (D03-1 집필 흐름) ----
+# status(초고/수정중/완료, 원고 성숙도 표시)와 독립된 작업 흐름 단계.
+# confirmed는 집필 확정이며 연재/발행 완결이 아니다.
+FlowStage = Literal["planning", "writing", "revising", "confirmed"]
+
+
+class ChapterFlowEventOut(BaseModel):
+    """집필 흐름 전이 이력 row — append-only."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    chapter_id: int
+    from_stage: FlowStage
+    to_stage: FlowStage
+    goal_version: int | None
+    manuscript_revision: int
+    created_at: datetime
+
+
+class ChapterFlowOut(BaseModel):
+    """회차 집필 흐름 상태 — 재개 시 앵커(목표 버전·원고 revision)를 함께 돌려준다."""
+
+    chapter_id: int
+    project_id: int
+    flow_stage: FlowStage
+    last_event: ChapterFlowEventOut | None
+    current_goal_version: int | None
+    current_chapter_revision: int
+
+
+class ChapterFlowTransition(BaseModel):
+    """POST /chapters/{cid}/flow/transition — expected_flow_stage CAS."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to_stage: FlowStage
+    expected_flow_stage: FlowStage
+
+
+# ---- ChapterResume (D03-2 재개 계약) ----
+# 순수 파생 읽기 — 새 상태를 만들지 않는다.
+class ChapterResumeSceneOut(BaseModel):
+    """다음에 이어쓸 장면 후보 — 본문이 비어 있는 첫 장면."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    sort_order: float
+    title: str
+
+
+class ChapterResumeOut(BaseModel):
+    """재개 요약 — D03-1 앵커 대비 드리프트 + 미해결 감수 + 다음 장면."""
+
+    chapter_id: int
+    project_id: int
+    flow_stage: FlowStage
+    last_event: ChapterFlowEventOut | None
+    current_goal_version: int | None
+    current_chapter_revision: int
+    goal_changed_since_transition: bool
+    manuscript_changed_since_transition: bool
+    pending_refine_runs: int
+    next_scene: ChapterResumeSceneOut | None
+    scene_count: int
+
+
+# ---- EvidenceLinks (D03-4 근거 연결) ----
+# 목표 필드(사건/선택/대가) ↔ 원문 발췌의 수동 링크. 자동 판정 없음(§6.3).
+EvidenceLinkField = Literal["core_events", "character_choices", "cost"]
+
+
+class EvidenceLinkCreate(BaseModel):
+    """POST /chapters/{cid}/evidence-links — 발췌문 기반 링크 생성."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    goal_field: EvidenceLinkField
+    item_index: int | None = Field(default=None, ge=0)  # 목록 필드 필수, cost는 금지(라우터 검증)
+    excerpt: str = Field(min_length=1, max_length=500)
+
+
+class EvidenceLinkOut(BaseModel):
+    """근거 링크 — 저장 필드 + 읽기 시점 파생 상태."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    chapter_id: int
+    goal_field: EvidenceLinkField
+    item_index: int | None
+    goal_item_text: str
+    excerpt: str
+    goal_version: int  # 링크 생성 시점의 목표 버전 앵커
+    current_goal_version: int | None
+    manuscript_status: Literal["intact", "broken"]
+    goal_status: Literal["unchanged", "drifted", "goal_deleted"]
+    created_at: datetime
+
+
+class EvidenceLinkListOut(BaseModel):
+    chapter_id: int
+    links: list[EvidenceLinkOut]
+
+
+# ---- FinalEdition (D03-6 완결본 관리) ----
+# 완결본 = 명시적 생성의 불변 스냅샷. 점검표는 파생 읽기 — 자동 완결 판정 없음.
+
+
+class FinalEditionCreate(BaseModel):
+    """POST /projects/{pid}/final-editions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=200)] = None
+
+
+class FinalEditionChapterEntry(BaseModel):
+    """완결본 매니페스트의 회차 항목(캡처 순서=sort_order)."""
+
+    chapter_id: int
+    title: str
+    sort_order: float
+    revision: int
+    flow_stage: str
+    status: str
+    chars: int
+
+
+class FinalEditionOut(BaseModel):
+    """완결본 목록 메타 — 본문·매니페스트·점검표는 detail에서만."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    label: str | None
+    created_at: datetime
+    serial_state: str
+    chapter_count: int
+    total_chars: int
+
+
+class FinalEditionDetail(FinalEditionOut):
+    manifest: list[FinalEditionChapterEntry]
+    content_md: str
+    checklist: "CompletionChecklist"
+
+
+class ChecklistOpenForeshadow(BaseModel):
+    id: int
+    title: str
+    status: str
+
+
+class ChecklistChapters(BaseModel):
+    total: int
+    by_stage: dict[str, int]
+    unconfirmed: int
+
+
+class ChecklistForeshadows(BaseModel):
+    total: int
+    open: list[ChecklistOpenForeshadow]
+    by_disposition: dict[str, int]
+
+
+class ChecklistFinaleGoal(BaseModel):
+    chapter_id: int
+    title: str
+
+
+class CompletionChecklist(BaseModel):
+    """완결 점검표 — 결말 설계와 실제 상태를 대조하는 파생 사실 나열.
+
+    완결 가능/불가 판정은 하지 않는다(작가 판단). 모든 필드는 읽기 시점
+    또는 완결본 캡처 시점의 파생값이다.
+    """
+
+    serial_state: str
+    serial_completed_at: datetime | None
+    chapters: ChecklistChapters
+    foreshadows: ChecklistForeshadows
+    pending_refine_runs: int
+    broken_evidence_links: int
+    finale_goals_missing_ending: list[ChecklistFinaleGoal]
+
+
+FinalEditionDetail.model_rebuild()
+
+
+# ---- EndingImpact (D03-7 결말 변경 영향) ----
+
+
+class EndingImpactOpenForeshadow(BaseModel):
+    id: int
+    title: str
+
+
+class EndingImpactStaleChapter(BaseModel):
+    chapter_id: int
+    title: str
+    goal_version: int
+
+
+class EndingImpactFinaleChapter(BaseModel):
+    chapter_id: int
+    title: str
+    has_ending_intent: bool
+
+
+class EndingImpactOut(BaseModel):
+    """결말 변경 영향 — 파생 읽기. 자동 판정 없음.
+
+    - open_foreshadows: status='설치'인 복선 — 결말이 답해야 할 미해결.
+    - stale_goal_chapters: ending_updated_at 이전에 저장된 목표를 가진 회차 —
+      옛 결말 가정으로 쓰였을 수 있어 대조 대상.
+    - finale_chapters: series_finale 목표를 가진 회차와 ending_intent 유무.
+    """
+
+    ending_intent: str | None
+    ending_locked: bool
+    ending_updated_at: datetime | None
+    open_foreshadows: list[EndingImpactOpenForeshadow]
+    stale_goal_chapters: list[EndingImpactStaleChapter]
+    finale_chapters: list[EndingImpactFinaleChapter]
 
 
 # ---- MemoryEntry (장편 기억 거버넌스) ----
@@ -402,7 +741,6 @@ class PromptPresetOut(BaseModel):
 # ---- AI 생성 요청 (POST /ai/generate) ----
 # 회차 브리프 문자열·배열 항목 공통 검증 — 앞뒤 공백 제거 후 1~500자.
 BriefText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
-EpisodePurpose = Literal["serial", "volume_end", "series_finale"]
 
 
 class EpisodeBrief(BaseModel):
@@ -643,6 +981,8 @@ class ScenesReorder(BaseModel):
 
 # ---- Foreshadow (고도화 G-020 — 복선 관리) ----
 ForeshadowStatus = Literal["설치", "회수", "보류"]
+# D03-5 이관 구분 — 닫힌 복선의 처분 라벨
+ForeshadowDisposition = Literal["resolved", "intentional_unresolved", "side_story"]
 
 
 class ForeshadowCreate(BaseModel):
@@ -650,6 +990,7 @@ class ForeshadowCreate(BaseModel):
     content: str | None = None
     keywords: list[str] | None = None
     status: ForeshadowStatus = "설치"
+    disposition: ForeshadowDisposition | None = None
     audience_knows: bool = False  # 독자가 이미 알게 된 사실인지 (G-045)
     planted_chapter_id: int | None = None
     resolved_chapter_id: int | None = None
@@ -660,6 +1001,7 @@ class ForeshadowUpdate(BaseModel):
     content: str | None = None
     keywords: list[str] | None = None
     status: ForeshadowStatus | None = None
+    disposition: ForeshadowDisposition | None = None
     audience_knows: bool | None = None
     planted_chapter_id: int | None = None
     resolved_chapter_id: int | None = None
@@ -674,6 +1016,7 @@ class ForeshadowOut(BaseModel):
     content: str | None
     keywords: list[str] | None
     status: ForeshadowStatus
+    disposition: ForeshadowDisposition | None
     audience_knows: bool
     planted_chapter_id: int | None
     resolved_chapter_id: int | None

@@ -164,6 +164,31 @@ export interface AiPanelState {
   // 회차 브리프 (한국어 회차 품질 슬라이스) — 필수 항목이 모두 채워졌을 때만 context.brief로 전송
   episodeBrief: EpisodeBriefState;
   setEpisodeBrief: (b: Partial<EpisodeBriefState>) => void;
+  /**
+   * D01 회차 목표 영속화 — 회차별 미저장 작업본과 dirty 표시.
+   * 회차 전환 시 이전 폼을 _briefByChapter에 보관하고 새 회차 작업본으로 전환한다.
+   * _briefDirty는 현재 폼이 저장본/초기값과 다른가 — 저장본 hydrate는 dirty가 아닐 때만.
+   */
+  _briefByChapter: Record<string, EpisodeBriefState>;
+  _briefDirty: boolean;
+  /** 저장본·복원본을 폼에 적재 — 현재 회차가 일치하고 dirty가 아닐 때만(늦은 응답 격리) */
+  hydrateEpisodeBrief: (
+    projectId: number | null,
+    chapterId: number | null,
+    brief: EpisodeBriefState,
+  ) => void;
+  /** [불러오기]·복원 등 명시적 적재 — 폼을 저장본으로 덮고 dirty를 해제한다 */
+  loadEpisodeBrief: (brief: EpisodeBriefState) => void;
+  /**
+   * 저장 성공 — 해당 회차 작업본 캐시 제거. 현재 회차와 일치할 때만 dirty 해제
+   * (회차 전환 후 도착한 저장 응답이 새 회차의 dirty를 지우지 않도록).
+   * savedForm과 다른 작업본이 캐시에 있으면(저장 클릭 후 추가 입력) 보존한다.
+   */
+  markBriefSaved: (
+    projectId: number | null,
+    chapterId: number | null,
+    savedForm: EpisodeBriefState,
+  ) => void;
 
   // 스트리밍 (FR-405) — 누적 텍스트는 메모리에만 존재
   status: AiPanelStatus;
@@ -330,10 +355,30 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
               : s.contextSelection.includeChapterContent
             : false,
       };
+      // D01 — 회차 전환 시 미저장 브리프 작업본을 회차 키로 보관·복원한다.
+      let briefState: Partial<
+        Pick<AiPanelState, "episodeBrief" | "_briefByChapter" | "_briefDirty">
+      > = {};
+      if (changed) {
+        const oldKey = directiveKey(
+          s.contextSelection.projectId,
+          s.contextSelection.chapterId,
+        );
+        const newKey = directiveKey(projectId, chapterId);
+        let map = s._briefByChapter;
+        if (s._briefDirty) map = { ...map, [oldKey]: s.episodeBrief };
+        const cached = map[newKey];
+        briefState = {
+          _briefByChapter: map,
+          episodeBrief: cached ? { ...cached } : { ...EMPTY_EPISODE_BRIEF },
+          _briefDirty: cached !== undefined,
+        };
+      }
       return {
         activeEditorIdentity,
         contextSelection: next,
         _pendingAiStart: changed ? null : s._pendingAiStart,
+        ...briefState,
       };
     }),
 
@@ -392,7 +437,52 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
 
   episodeBrief: { ...EMPTY_EPISODE_BRIEF },
   setEpisodeBrief: (b) =>
-    set((s) => ({ episodeBrief: { ...s.episodeBrief, ...b } })),
+    set((s) => ({
+      episodeBrief: { ...s.episodeBrief, ...b },
+      _briefDirty: true,
+    })),
+  _briefByChapter: {},
+  _briefDirty: false,
+  hydrateEpisodeBrief: (projectId, chapterId, brief) =>
+    set((s) => {
+      const currentKey = directiveKey(
+        s.contextSelection.projectId,
+        s.contextSelection.chapterId,
+      );
+      if (directiveKey(projectId, chapterId) !== currentKey || s._briefDirty)
+        return {};
+      return { episodeBrief: { ...EMPTY_EPISODE_BRIEF, ...brief } };
+    }),
+  loadEpisodeBrief: (brief) =>
+    set((s) => {
+      const key = directiveKey(
+        s.contextSelection.projectId,
+        s.contextSelection.chapterId,
+      );
+      const map = { ...s._briefByChapter };
+      delete map[key];
+      return {
+        episodeBrief: { ...EMPTY_EPISODE_BRIEF, ...brief },
+        _briefDirty: false,
+        _briefByChapter: map,
+      };
+    }),
+  markBriefSaved: (projectId, chapterId, savedForm) =>
+    set((s) => {
+      const key = directiveKey(projectId, chapterId);
+      const currentKey = directiveKey(
+        s.contextSelection.projectId,
+        s.contextSelection.chapterId,
+      );
+      const stash = s._briefByChapter[key];
+      const map = { ...s._briefByChapter };
+      // 저장본과 다른 작업본(저장 후 추가 입력)은 지우지 않는다.
+      if (!stash || JSON.stringify(stash) === JSON.stringify(savedForm))
+        delete map[key];
+      return key === currentKey
+        ? { _briefDirty: false, _briefByChapter: map }
+        : { _briefByChapter: map };
+    }),
 
   status: "idle",
   streamingText: "",

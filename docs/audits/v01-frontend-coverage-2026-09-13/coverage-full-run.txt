@@ -1,0 +1,268 @@
+=== playwright.chapter-goal.config.ts ===
+
+Running 8 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/chapter-goal.spec.ts:242:3 › D01 회차 목표 영속화 fixture › 목표 저장은 정규화된 payload·expected 버전으로 PUT하고 저장본 배지를 표시한다 (2.6s)
+  ✓  2 [chromium] › e2e/chapter-goal.spec.ts:265:3 › D01 회차 목표 영속화 fixture › 재진입 시 저장본이 폼에 hydrate되고 저장된 purpose가 directive에 되돌아간다 (1.7s)
+  ✓  3 [chromium] › e2e/chapter-goal.spec.ts:300:3 › D01 회차 목표 영속화 fixture › 회차 전환은 미저장 입력을 회차별 작업본으로 보존한다 (3.0s)
+  ✓  4 [chromium] › e2e/chapter-goal.spec.ts:312:3 › D01 회차 목표 영속화 fixture › 늦은 저장 응답은 다른 회차 폼·저장본을 오염시키지 않는다 (2.5s)
+  ✓  5 [chromium] › e2e/chapter-goal.spec.ts:348:3 › D01 회차 목표 영속화 fixture › 409 충돌은 toast를 띄우고 입력을 유지한다 (1.8s)
+  ✓  6 [chromium] › e2e/chapter-goal.spec.ts:374:3 › D01 회차 목표 영속화 fixture › 이력 목록에서 복원하면 POST restore로 새 버전이 기록되고 폼이 갱신된다 (1.8s)
+  ✓  7 [chromium] › e2e/chapter-goal.spec.ts:404:3 › D01 회차 목표 영속화 fixture › 삭제 확인 후 DELETE가 호출되고 미저장 상태로 돌아간다 (1.8s)
+  ✓  8 [chromium] › e2e/chapter-goal.spec.ts:422:3 › D01 회차 목표 영속화 fixture › 패널 열림 상태의 접근성 위반(serious/critical)이 없다 (2.8s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-ChJ8at/violations.jsonl; no escapes
+
+  8 passed (20.2s)
+=== playwright.chapter-flow.config.ts ===
+
+Running 10 tests using 1 worker
+
+  ✓   1 [chromium] › e2e/chapter-flow.spec.ts:238:3 › D03-1 회차 집필 흐름 fixture › 기획 단계 배지와 허용 전이(집필로)만 표시된다 (2.2s)
+  ✓   2 [chromium] › e2e/chapter-flow.spec.ts:251:3 › D03-1 회차 집필 흐름 fixture › 전이 선택은 expected_flow_stage와 함께 POST하고 배지·앵커를 갱신한다 (1.3s)
+  ✓   3 [chromium] › e2e/chapter-flow.spec.ts:262:3 › D03-1 회차 집필 흐름 fixture › 목표 저장본이 없으면 앵커에 원고 revision만 표시한다 (1.3s)
+  ✓   4 [chromium] › e2e/chapter-flow.spec.ts:270:3 › D03-1 회차 집필 흐름 fixture › 409 충돌은 toast를 띄우고 최신 상태를 다시 불러온다 (1.3s)
+  ✓   5 [chromium] › e2e/chapter-flow.spec.ts:281:3 › D03-1 회차 집필 흐름 fixture › confirmed는 재개(퇴고로)만 허용한다 (1.4s)
+  ✓   6 [chromium] › e2e/chapter-flow.spec.ts:291:3 › D03-1 회차 집필 흐름 fixture › 에디터 헤더의 접근성 위반(serious/critical)이 없다 — 배지 표시 상태 포함 (2.3s)
+  ✓   7 [chromium] › e2e/chapter-flow.spec.ts:312:3 › D03-2 회차 재개 정보 fixture › 전이 이력이 없으면 드리프트 배지 없이 재개 정보만 표시한다 (1.3s)
+  ✓   8 [chromium] › e2e/chapter-flow.spec.ts:322:3 › D03-2 회차 재개 정보 fixture › 목표·원고 드리프트와 미해결 감수, 다음 빈 장면을 표시한다 (1.4s)
+  ✓   9 [chromium] › e2e/chapter-flow.spec.ts:342:3 › D03-2 회차 재개 정보 fixture › 전이 후 재개 정보가 refetch되어 드리프트가 해소된다 (1.3s)
+  ✓  10 [chromium] › e2e/chapter-flow.spec.ts:358:3 › D03-2 회차 재개 정보 fixture › 장면 제목이 없으면 '무제'로 표시한다 (1.4s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-rkz9tO/violations.jsonl; no escapes
+
+  10 passed (17.4s)
+=== playwright.preservation.config.ts ===
+
+Running 26 tests using 1 worker
+
+Re-optimizing dependencies because vite config has changed
+Owned manuscript fixture started: 127.0.0.1:15225; proxy={}; latch=/tmp/jippeel-manuscript-http-ItRnRi/violations.jsonl
+  ✓   1 [chromium] › e2e/manuscript-preservation.spec.ts:530:5 › manuscript preservation frontend fixture › serializes delayed per-chapter saves and preserves newer typing (6.0s)
+  ✓   2 [chromium] › e2e/manuscript-preservation.spec.ts:565:5 › manuscript preservation frontend fixture › project switch rejects stale selected chapters and never writes under the new project context (2.3s)
+  ✓   3 [chromium] › e2e/manuscript-preservation.spec.ts:587:5 › manuscript preservation frontend fixture › unresolved mismatched recovery locks editing, survives reload, and local choice remains recoverable while saving (4.3s)
+  ✓   4 [chromium] › e2e/manuscript-preservation.spec.ts:652:5 › manuscript preservation frontend fixture › server choice refreshes to latest paired server body and never PUTs stale displayed text (1.5s)
+  ✓   5 [chromium] › e2e/manuscript-preservation.spec.ts:703:5 › manuscript preservation frontend fixture › failed server recovery choice keeps original draft locked until successful retry (1.7s)
+  ✓   6 [chromium] › e2e/manuscript-preservation.spec.ts:770:5 › manuscript preservation frontend fixture › server recovery choice disables competing actions while latest server body is pending (1.5s)
+  ✓   7 [chromium] › e2e/manuscript-preservation.spec.ts:838:5 › manuscript preservation frontend fixture › keeps ApiError detail for 409 and shows local/server conflict recovery (2.5s)
+  ✓   8 [chromium] › e2e/manuscript-preservation.spec.ts:890:5 › manuscript preservation frontend fixture › recovers reload drafts, survives storage failure, and preserves text after network error (4.0s)
+  ✓   9 [chromium] › e2e/manuscript-preservation.spec.ts:917:5 › manuscript preservation frontend fixture › preserves local text on network failure and reconciles lost save acknowledgements (1.8s)
+  ✓  10 [chromium] › e2e/manuscript-preservation.spec.ts:947:5 › manuscript preservation frontend fixture › does not let a pending refine accept response overwrite a late local edit (1.8s)
+  ✓  11 [chromium] › e2e/manuscript-preservation.spec.ts:994:5 › manuscript preservation frontend fixture › does not let a pending scene merge response overwrite a late edit or transfer to another chapter (2.2s)
+  ✓  12 [chromium] › e2e/manuscript-preservation.spec.ts:1041:5 › manuscript preservation frontend fixture › does not let a pending snapshot restore response overwrite a late local edit (1.9s)
+  ✓  13 [chromium] › e2e/manuscript-preservation.spec.ts:1079:5 › manuscript preservation frontend fixture › does not acknowledge lost save responses when GET returns different text (1.8s)
+  ✓  14 [chromium] › e2e/manuscript-preservation.spec.ts:1105:5 › manuscript preservation frontend fixture › pagehide uses revision contract and beforeunload leaves recoverable text (1.6s)
+  ✓  15 [chromium] › e2e/manuscript-preservation.spec.ts:1145:5 › manuscript preservation frontend fixture › flushes before refine start, sends expected_revision, and blocks stale accept safely (2.0s)
+  ✓  16 [chromium] › e2e/manuscript-preservation.spec.ts:1192:5 › manuscript preservation frontend fixture › scene trigger is accessible and merge flushes with expected_revision (1.9s)
+  ✓  17 [chromium] › e2e/manuscript-preservation.spec.ts:1219:5 › manuscript preservation frontend fixture › shows snapshot text before explicit restore and restore uses current revision (1.9s)
+  ✓  18 [chromium] › e2e/manuscript-preservation.spec.ts:1264:3 › M02 held save after editor unmount refreshes origin only while viewing 1 (4.1s)
+  ✓  19 [chromium] › e2e/manuscript-preservation.spec.ts:1264:3 › M02 held save after editor unmount refreshes origin only while viewing 2 (4.2s)
+  ✓  20 [chromium] › e2e/manuscript-preservation.spec.ts:1297:3 › M02 live save success only refreshes memory on revision success (2.3s)
+  ✓  21 [chromium] › e2e/manuscript-preservation.spec.ts:1297:3 › M02 live save failure only refreshes memory on revision success (2.1s)
+  ✓  22 [chromium] › e2e/manuscript-preservation.spec.ts:1315:3 › M02 restore success preserves text and refreshes only successful revision (2.5s)
+  ✓  23 [chromium] › e2e/manuscript-preservation.spec.ts:1315:3 › M02 restore late-edit preserves text and refreshes only successful revision (2.5s)
+  ✓  24 [chromium] › e2e/manuscript-preservation.spec.ts:1315:3 › M02 restore failure preserves text and refreshes only successful revision (2.3s)
+  ✓  25 [chromium] › e2e/manuscript-preservation.spec.ts:1350:1 › fixture lifecycle routes pagehide keepalive through context on reload and page close (3.0s)
+  ✓  26 [chromium] › e2e/manuscript-preservation.spec.ts:1367:1 › M02 cache notification exception cannot reclassify an acknowledged UI save (2.1s)
+Owned manuscript fixture closed; no escapes; latch=/tmp/jippeel-manuscript-http-ItRnRi/violations.jsonl
+
+  26 passed (1.1m)
+=== playwright.ai-context.fixture.config.ts ===
+
+Running 15 tests using 1 worker
+
+  ✓   1 [chromium] › e2e/ai-context-ui.spec.ts:578:5 › AI-context Task3 fixture UI boundaries › generation waits for flush and sends one complete pre-await snapshot with saved revision (4.5s)
+  ✓   2 [chromium] › e2e/ai-context-ui.spec.ts:635:5 › AI-context Task3 fixture UI boundaries › failed flush, close, and navigation cancel pending provider starts (5.9s)
+  ✓   3 [chromium] › e2e/ai-context-ui.spec.ts:674:5 › AI-context Task3 fixture UI boundaries › result from another chapter blocks insert and replace but keeps copy enabled (2.4s)
+  ✓   4 [chromium] › e2e/ai-context-ui.spec.ts:697:5 › AI-context Task3 fixture UI boundaries › active editor preview tab remains editor-bound while respecting body opt-out (2.1s)
+  ✓   5 [chromium] › e2e/ai-context-ui.spec.ts:726:5 › AI-context Task3 fixture UI boundaries › canon and quality use shared purpose, payoff, relationship, flush revision, and hook applicability (2.6s)
+  ✓   6 [chromium] › e2e/ai-context-ui.spec.ts:766:5 › AI-context Task3 fixture UI boundaries › canon relationship opt-in is project-level with zero selected generation characters (2.1s)
+  ✓   7 [chromium] › e2e/ai-context-ui.spec.ts:791:5 › AI-context Task3 fixture UI boundaries › canon relationship opt-in is project-level with one selected generation character (2.1s)
+  ✓   8 [chromium] › e2e/ai-context-ui.spec.ts:820:5 › AI-context Task3 fixture UI boundaries › generation relationship control stays disabled with zero or one selected character (2.1s)
+  ✓   9 [chromium] › e2e/ai-context-ui.spec.ts:843:5 › AI-context Task3 fixture UI boundaries › quality dialog is purpose-only and does not expose relationship controls (1.8s)
+  ✓  10 [chromium] › e2e/ai-context-ui.spec.ts:863:5 › AI-context Task3 fixture UI boundaries › character standalone AI after unresolved editor recovery does not flush or inherit stale chapter identity (3.1s)
+  ✓  11 [chromium] › e2e/ai-context-ui.spec.ts:929:5 › AI-context Task3 fixture UI boundaries › lore standalone AI after same-project editor visit does not flush or inherit stale chapter identity (3.3s)
+  ✓  12 [chromium] › e2e/ai-context-ui.spec.ts:967:5 › AI-context Task3 fixture UI boundaries › cross-project lore standalone AI uses explicit page project and not stale editor project or chapter (3.0s)
+  ✓  13 [chromium] › e2e/ai-context-ui.spec.ts:1001:5 › AI-context Task3 fixture UI boundaries › delayed canon result from chapter A is ignored after navigating to chapter B (2.6s)
+  ✓  14 [chromium] › e2e/ai-context-ui.spec.ts:1025:5 › AI-context Task3 fixture UI boundaries › closing A, visiting B, and returning A does not revive a cancelled canon result (2.5s)
+  ✓  15 [chromium] › e2e/ai-context-ui.spec.ts:1051:5 › AI-context Task3 fixture UI boundaries › older delayed canon success or failure cannot override a newer completed canon result (3.4s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-sOUbF9/violations.jsonl; no escapes
+
+  15 passed (46.1s)
+=== playwright.memory.config.ts ===
+
+Running 31 tests using 1 worker
+
+  ✓   1 [chromium] › e2e/memory-governance.spec.ts:7:1 › 작품별 장편 기억을 추가·승인하고 stale 경고를 표시한다 (4.1s)
+  ✓   2 [chromium] › e2e/memory-governance.spec.ts:169:3 › draft 승인 sends the selected visibility (1.8s)
+  ✓   3 [chromium] › e2e/memory-governance.spec.ts:169:3 › draft 폐기 sends the selected visibility (2.1s)
+  ✓   4 [chromium] › e2e/memory-governance.spec.ts:169:3 › approved 폐기 sends the selected visibility (2.0s)
+  ✓   5 [chromium] › e2e/memory-governance.spec.ts:189:3 › pending creation protects all inputs and clears on success (2.0s)
+  ✓   6 [chromium] › e2e/memory-governance.spec.ts:189:3 › pending creation protects all inputs and preserves on failure (2.0s)
+  ✓   7 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 POST success after SPA A-B isolates the screen (2.1s)
+  ✓   8 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 POST success after SPA A-B-A isolates the screen (2.6s)
+  ✓   9 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 POST error after SPA A-B isolates the screen (2.1s)
+  ✓  10 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 POST error after SPA A-B-A isolates the screen (2.2s)
+  ✓  11 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 PATCH success after SPA A-B isolates the screen (2.8s)
+  ✓  12 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 PATCH success after SPA A-B-A isolates the screen (2.3s)
+  ✓  13 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 PATCH error after SPA A-B isolates the screen (2.5s)
+  ✓  14 [chromium] › e2e/memory-governance.spec.ts:255:7 › M01 PATCH error after SPA A-B-A isolates the screen (2.1s)
+  ✓  15 [chromium] › e2e/memory-governance.spec.ts:332:5 › M03 작품 정보 initial failure retries without losing input (2.9s)
+  ✓  16 [chromium] › e2e/memory-governance.spec.ts:332:5 › M03 작품 정보 refetch failure retries without losing input (2.7s)
+  ✓  17 [chromium] › e2e/memory-governance.spec.ts:332:5 › M03 근거 회차 목록 initial failure retries without losing input (2.7s)
+  ✓  18 [chromium] › e2e/memory-governance.spec.ts:332:5 › M03 근거 회차 목록 refetch failure retries without losing input (3.5s)
+  ✓  19 [chromium] › e2e/memory-governance.spec.ts:332:5 › M03 기억 목록 initial failure retries without losing input (3.4s)
+  ✓  20 [chromium] › e2e/memory-governance.spec.ts:332:5 › M03 기억 목록 refetch failure retries without losing input (3.4s)
+  ✓  21 [chromium] › e2e/memory-governance.spec.ts:374:1 › M03 pending memory is distinct from successful empty lists (1.7s)
+  ✓  22 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 승인 cancel all restores stable focus (2.5s)
+  ✓  23 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 승인 cancel filtered restores stable focus (2.7s)
+  ✓  24 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 승인 complete all restores stable focus (2.4s)
+  ✓  25 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 승인 complete filtered restores stable focus (3.0s)
+  ✓  26 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 폐기 cancel all restores stable focus (2.9s)
+  ✓  27 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 폐기 cancel filtered restores stable focus (3.1s)
+  ✓  28 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 폐기 complete all restores stable focus (2.7s)
+  ✓  29 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 폐기 complete filtered restores stable focus (2.6s)
+  ✓  30 [chromium] › e2e/memory-governance.spec.ts:419:1 › M04 completion waits for held list refetch before resolving removed trigger focus (1.4s)
+  ✓  31 [chromium] › e2e/memory-governance.spec.ts:440:1 › M01 current-screen PATCH failure retains confirmation and input and permits retry (1.7s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-TMzOjh/violations.jsonl; no escapes
+
+  31 passed (1.4m)
+=== playwright.serial-state.config.ts ===
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/serial-state.spec.ts:127:3 › D03-3 연재 상태 › 기본값 ongoing — '연재 중' 표시 (2.1s)
+  ✓  2 [chromium] › e2e/serial-state.spec.ts:133:3 › D03-3 연재 상태 › serial_state 없는 레거시 응답도 ongoing으로 표시 (1.3s)
+  ✓  3 [chromium] › e2e/serial-state.spec.ts:142:3 › D03-3 연재 상태 › 완결 전환 — PATCH 본문에 serial_state만, 시각 표시 (1.3s)
+  ✓  4 [chromium] › e2e/serial-state.spec.ts:155:3 › D03-3 연재 상태 › 완결 → 연재 중 복귀 — 시각 표시 사라짐 (1.4s)
+  ✓  5 [chromium] › e2e/serial-state.spec.ts:169:3 › D03-3 연재 상태 › 연재 상태는 회차 집필 확정과 별개임이 레이블에 명시됨 (1.3s)
+  ✓  6 [chromium] › e2e/serial-state.spec.ts:177:3 › D03-3 연재 상태 › 접근성 — axe serious/critical 위반 0 (2.9s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-DOvnfo/violations.jsonl; no escapes
+
+  6 passed (12.5s)
+=== playwright.evidence-links.config.ts ===
+
+Running 8 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/evidence-links.spec.ts:262:3 › D03-4 근거 연결 › 링크 목록과 파생 상태 배지를 표시한다 (2.8s)
+  ✓  2 [chromium] › e2e/evidence-links.spec.ts:277:3 › D03-4 근거 연결 › 선택 본문을 목표 항목에 연결한다 — POST 본문 계약 (1.9s)
+  ✓  3 [chromium] › e2e/evidence-links.spec.ts:300:3 › D03-4 근거 연결 › 스칼라 목표(cost) 연결은 item_index null을 보낸다 (1.9s)
+  ✓  4 [chromium] › e2e/evidence-links.spec.ts:316:3 › D03-4 근거 연결 › 목표 삭제된 링크는 '목표 삭제됨' 배지를 표시한다 (1.7s)
+  ✓  5 [chromium] › e2e/evidence-links.spec.ts:338:3 › D03-4 근거 연결 › 선택 없이 연결하면 경고 toast만 띄우고 요청하지 않는다 (2.0s)
+  ✓  6 [chromium] › e2e/evidence-links.spec.ts:348:3 › D03-4 근거 연결 › 링크 삭제는 DELETE 후 목록을 비운다 (1.6s)
+  ✓  7 [chromium] › e2e/evidence-links.spec.ts:358:3 › D03-4 근거 연결 › 목표 항목이 없으면 항목 선택기가 없다 (1.6s)
+  ✓  8 [chromium] › e2e/evidence-links.spec.ts:379:3 › D03-4 근거 연결 › 접근성 — axe serious/critical 위반 0 (3.2s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-11uGXy/violations.jsonl; no escapes
+
+  8 passed (19.4s)
+=== playwright.foreshadow-disposition.config.ts ===
+
+Running 7 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/foreshadow-disposition.spec.ts:150:3 › D03-5 복선 이관 구분 › disposition 배지를 표시하고 미분류는 배지 없음 (2.2s)
+  ✓  2 [chromium] › e2e/foreshadow-disposition.spec.ts:169:3 › D03-5 복선 이관 구분 › status 필터 버튼 회귀 — 기존 동작 유지 (1.6s)
+  ✓  3 [chromium] › e2e/foreshadow-disposition.spec.ts:186:3 › D03-5 복선 이관 구분 › disposition select가 PATCH 본문 계약을 지킨다 (1.3s)
+  ✓  4 [chromium] › e2e/foreshadow-disposition.spec.ts:201:3 › D03-5 복선 이관 구분 › 설치 상태 행은 disposition select가 disabled (1.3s)
+  ✓  5 [chromium] › e2e/foreshadow-disposition.spec.ts:209:3 › D03-5 복선 이관 구분 › disposition 있는 행을 설치로 변경하면 단일 PATCH로 해제 포함 (1.2s)
+  ✓  6 [chromium] › e2e/foreshadow-disposition.spec.ts:224:3 › D03-5 복선 이관 구분 › disposition 없는 행을 설치로 변경하면 disposition 키를 보내지 않는다 (1.2s)
+  ✓  7 [chromium] › e2e/foreshadow-disposition.spec.ts:234:3 › D03-5 복선 이관 구분 › 접근성 — axe serious/critical 위반 0 (2.1s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-cBhgWV/violations.jsonl; no escapes
+
+  7 passed (13.1s)
+=== playwright.final-edition.config.ts ===
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/final-edition.spec.ts:151:3 › D03-6 완결본 관리 › 완결 점검표 수치·배지·미회수 복선 표시 (2.5s)
+  ✓  2 [chromium] › e2e/final-edition.spec.ts:169:3 › D03-6 완결본 관리 › 완결본 생성 — 라벨 없으면 '완결본 {id}'로 목록 반영 (1.6s)
+  ✓  3 [chromium] › e2e/final-edition.spec.ts:183:3 › D03-6 완결본 관리 › 완결본 상세 — 매니페스트·원고 전문 표시 (1.4s)
+  ✓  4 [chromium] › e2e/final-edition.spec.ts:194:3 › D03-6 완결본 관리 › 완결본 삭제 — 목록에서 제거 (1.3s)
+  ✓  5 [chromium] › e2e/final-edition.spec.ts:205:3 › D03-6 완결본 관리 › 연재 상태 배지 표시 — 완결 라벨 (1.2s)
+  ✓  6 [chromium] › e2e/final-edition.spec.ts:213:3 › D03-6 완결본 관리 › a11y — serious/critical 위반 없음 (2.0s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-Cwqp0k/violations.jsonl; no escapes
+
+  6 passed (12.1s)
+=== playwright.ending-impact.config.ts ===
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/ending-impact.spec.ts:128:3 › D03-7 결말 변경 영향 › 결말 후보 저장 — PATCH 본문과 변경 시각 표시 (2.1s)
+  ✓  2 [chromium] › e2e/ending-impact.spec.ts:142:3 › D03-7 결말 변경 영향 › 빈 결말은 null로 전송 — 지우기 계약 (1.3s)
+  ✓  3 [chromium] › e2e/ending-impact.spec.ts:156:3 › D03-7 결말 변경 영향 › 잠금 토글 — PATCH ending_locked, textarea disabled + 잠김 배지 (1.6s)
+  ✓  4 [chromium] › e2e/ending-impact.spec.ts:170:3 › D03-7 결말 변경 영향 › 잠긴 상태 저장 — 단일 PATCH로 해제+저장 (1.3s)
+  ✓  5 [chromium] › e2e/ending-impact.spec.ts:186:3 › D03-7 결말 변경 영향 › 변경 영향 — 미해결 복선·오래된 목표·최종화 회차 표시 (1.3s)
+  ✓  6 [chromium] › e2e/ending-impact.spec.ts:198:3 › D03-7 결말 변경 영향 › a11y — serious/critical 위반 없음 (2.1s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-pG9aEB/violations.jsonl; no escapes
+
+  6 passed (11.9s)
+=== playwright.quality.config.ts ===
+
+Running 5 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/quality-dialog.spec.ts:34:3 › QualityDialog empty preserves numeric records and explains reference signals (2.9s)
+  ✓  2 [chromium] › e2e/quality-dialog.spec.ts:34:3 › QualityDialog nonempty preserves numeric records and explains reference signals (1.8s)
+  ✓  3 [chromium] › e2e/quality-dialog.spec.ts:34:3 › QualityDialog external-without-score preserves numeric records and explains reference signals (1.9s)
+  ✓  4 [chromium] › e2e/quality-dialog.spec.ts:198:3 › Dialog omitted optional name preserves escape close (656ms)
+  ✓  5 [chromium] › e2e/quality-dialog.spec.ts:198:3 › Dialog omitted optional name preserves backdrop close (721ms)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-URxMry/violations.jsonl; no escapes
+
+  5 passed (10.0s)
+raw files: 127, src entries merged: 7030
+skipped non-src prefixes: e2e, @vite, @react-refresh, node_modules, http://127.0.0.1:15227/, projects, http://127.0.0.1:15232/
+TOTAL lines 83.27% (9702/11651) | branches 83.28% (1450/1741) | functions 60.92% (410/673)
+  src/components/editor/QualityDialog.tsx: lines 98.44% (443/450), branches 90.74% (49/54)
+  src/components/ui/dialog.tsx: lines 100% (101/101), branches 100% (16/16)
+  src/components/ui/toast.tsx: lines 100% (74/74), branches 100% (15/15)
+  src/index.css: lines 100% (6/6), branches 100% (1/1)
+  src/lib/api.ts: lines 100% (570/570), branches 84.84% (28/33)
+  src/stores/aiPanelStore.ts: lines 94.32% (532/564), branches 100% (88/88)
+  src/stores/editorStore.ts: lines 83.13% (69/83), branches 100% (10/10)
+  src/components/editor/AiContextControls.tsx: lines 99.09% (109/110), branches 94.11% (32/34)
+  src/components/ui/button.tsx: lines 100% (46/46), branches 100% (1/1)
+  src/components/ui/progress.tsx: lines 100% (29/29), branches 100% (1/1)
+  src/lib/utils.ts: lines 100% (4/4), branches 100% (1/1)
+  src/components/ui/checkbox.tsx: lines 100% (22/22), branches 100% (1/1)
+  src/components/ui/select.tsx: lines 100% (18/18), branches 100% (1/1)
+  src/components/ui/label.tsx: lines 100% (8/8), branches 100% (1/1)
+  src/lib/manuscriptDrafts.ts: lines 100% (727/727), branches 75.12% (145/193)
+  src/main.tsx: lines 100% (14/14), branches 0% (0/2)
+  src/App.tsx: lines 100% (50/50), branches 100% (1/1)
+  src/stores/uiStore.ts: lines 91.66% (44/48), branches 66.66% (4/6)
+  src/components/layout/AppShell.tsx: lines 82.5% (33/40), branches 100% (8/8)
+  src/pages/HomePage.tsx: lines 90.2% (221/245), branches 57.14% (16/28)
+  src/pages/CharactersPage.tsx: lines 84.46% (386/457), branches 66.66% (40/60)
+  src/pages/EditorPage.tsx: lines 93.03% (668/718), branches 89.58% (129/144)
+  src/pages/LorebookPage.tsx: lines 89.18% (264/296), branches 68.75% (33/48)
+  src/pages/ForeshadowsPage.tsx: lines 80.36% (348/433), branches 84.9% (45/53)
+  src/pages/CompletionPage.tsx: lines 99.57% (236/237), branches 78.57% (33/42)
+  src/pages/PlanPage.tsx: lines 77.01% (258/335), branches 97.72% (43/44)
+  src/lib/queryClient.ts: lines 100% (25/25), branches 100% (7/7)
+  src/pages/MemoryPage.tsx: lines 97.97% (533/544), branches 96.58% (113/117)
+  src/pages/SettingsPage.tsx: lines 16.42% (104/633), branches 100% (0/0)
+  src/components/layout/LeftSidebar.tsx: lines 91.48% (215/235), branches 78.37% (29/37)
+  src/components/layout/TopBar.tsx: lines 84.61% (33/39), branches 62.5% (5/8)
+  src/components/layout/RightPanel.tsx: lines 100% (27/27), branches 100% (12/12)
+  src/components/layout/StatusBar.tsx: lines 100% (30/30), branches 100% (15/15)
+  src/components/ui/input.tsx: lines 100% (21/21), branches 100% (1/1)
+  src/components/ui/alert.tsx: lines 94.11% (32/34), branches 100% (2/2)
+  src/components/ui/badge.tsx: lines 100% (38/38), branches 50% (2/4)
+  src/components/home/BootstrapDialog.tsx: lines 54.68% (210/384), branches 33.33% (5/15)
+  src/components/home/PlusStatusWidget.tsx: lines 98.64% (73/74), branches 73.91% (17/23)
+  src/components/ui/sheet.tsx: lines 94.2% (65/69), branches 92.3% (12/13)
+  src/components/ui/textarea.tsx: lines 100% (17/17), branches 100% (1/1)
+  src/lib/wordCount.ts: lines 100% (23/23), branches 66.66% (2/3)
+  src/components/editor/SaveIndicator.tsx: lines 89.47% (34/38), branches 94.44% (17/18)
+  src/components/editor/CodeMirrorEditor.tsx: lines 94.73% (108/114), branches 75% (9/12)
+  src/lib/export.ts: lines 32.78% (20/61), branches 100% (0/0)
+  src/components/editor/EditorPreview.tsx: lines 100% (18/18), branches 100% (2/2)
+  src/components/editor/WordCountFooter.tsx: lines 100% (30/30), branches 50% (2/4)
+  src/components/editor/CanonDialog.tsx: lines 91.55% (271/296), branches 83.09% (59/71)
+  src/components/ui/tabs.tsx: lines 100% (75/75), branches 90% (9/10)
+  src/components/ui/dropdown-menu.tsx: lines 66% (66/100), branches 62.5% (5/8)
+  src/components/ui/slider.tsx: lines 100% (19/19), branches 100% (1/1)
+  src/stores/settingsStore.ts: lines 90.47% (57/63), branches 50% (2/4)
+  src/components/ui/icons.tsx: lines 76.92% (50/65), branches 100% (3/3)
+  src/components/ui/scroll-area.tsx: lines 100% (10/10), branches 100% (1/1)
+  src/components/panels/AiPanel.tsx: lines 79.57% (1500/1885), branches 87.43% (313/358)
+  src/components/panels/RefineReport.tsx: lines 79.06% (340/430), branches 64% (32/50)
+  src/lib/aiStream.ts: lines 54.29% (177/326), branches 36.84% (14/38)
+  src/components/panels/SceneManager.tsx: lines 82.71% (201/243), branches 94.11% (16/17)
+RUN_EXIT=0

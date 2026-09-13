@@ -1,0 +1,42 @@
+{
+  "slice": "V02",
+  "title": "복원 실패 시나리오 보강 — 백업·검증기 failure injection",
+  "spec": "docs/superpowers/plans/2026-09-13-v02-restore-failure-injection.md",
+  "status": "accepted",
+  "committed": false,
+  "scope": {
+    "in": [
+      "backend/app/services/restore_verify.py — create_backup + verify_backup_dir (stdlib만)",
+      "backend/tests/test_restore_verify.py — 합성 TEMP DB failure injection 15건",
+      "실패 코드: MANIFEST_MISSING·MANIFEST_INVALID·FILE_MISSING·CHECKSUM_MISMATCH·NOT_SQLITE·SCHEMA_HEAD_MISMATCH·INTEGRITY_FAILED·FK_VIOLATION·BACKUP_WRITE_FAILED"
+    ],
+    "out": [
+      "운영 DB·실제 백업 대상 접근",
+      "wrong-key 복원 검증 (G03 승인 범위, 모듈 docstring 명시)",
+      "복원 실행 자체·롤백·교체 절차 (G01/G03)"
+    ]
+  },
+  "verification": {
+    "backend_focused": "15 passed · 0 isolation violations",
+    "backend_full": "656 passed · 1 skipped(외부 metrics V04 잔여) · 0 violations",
+    "frontend": "not applicable — 백엔드 서비스 계층만",
+    "known_warnings": ["pre-existing SyntaxWarning app/services/wordcount.py:30"]
+  },
+  "evidence": {
+    "red_log": "red-log.txt",
+    "backend_focused": "backend-focused.txt",
+    "backend_full": "backend-full.txt",
+    "source_hashes": "source-hashes.txt",
+    "review_log": "review-log.md",
+    "acceptance": "acceptance.md"
+  },
+  "reviews": {
+    "backend": {
+      "agent": "subagent_explore (독립 검토 1건)",
+      "verdict": "PASS_WITH_NOTES",
+      "findings": "MED 5건·LOW 3건·NOTE 4건 — 전부 반영 또는 명시 수용",
+      "post_remediation": "15P focused · 656P 전체 회귀 재검증"
+    },
+    "frontend": "not applicable"
+  }
+}

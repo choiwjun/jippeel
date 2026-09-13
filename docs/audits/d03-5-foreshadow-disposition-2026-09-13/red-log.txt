@@ -1,0 +1,20 @@
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_create_disposition_on_closed_status
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_create_defaults_to_null_and_rejects_open
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_patch_disposition_set_clear_and_reopen
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_patch_disposition_rejects_open_result
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_patch_reopen_requires_clearing_disposition
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_patch_rejects_unknown_disposition
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_list_filters_by_disposition
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_populated_historical_upgrade_from_initial_with_references
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_populated_upgrade_backfills_serial_state
+FAILED ../../../../../../../tmp/jippeel-isolated-5pg6mj_1::test_populated_upgrade_downgrade_foreshadow_disposition
+=================== 10 failed, 10 passed, 1 warning in 2.57s ===================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

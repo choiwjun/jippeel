@@ -397,6 +397,68 @@ async function setupFixture(page: Page) {
       chapters.set(id, next);
       return json(200, next);
     }
+    // D01: AI 패널이 회차 목표를 조회한다.
+    const goalMatch = path.match(/^\/chapters\/(\d+)\/goal$/);
+    if (method === "GET" && goalMatch) {
+      const id = Number(goalMatch[1]);
+      const current = chapters.get(id);
+      if (!current) return json(404, { detail: "not found" });
+      return json(200, {
+        chapter_id: id,
+        project_id: current.project_id ?? 1,
+        goal: null,
+        current_chapter_revision: current.revision,
+        history_count: 0,
+      });
+    }
+    const goalHistoryMatch = path.match(/^\/chapters\/(\d+)\/goal\/history$/);
+    if (method === "GET" && goalHistoryMatch) {
+      return chapters.has(Number(goalHistoryMatch[1]))
+        ? json(200, [])
+        : json(404, { detail: "not found" });
+    }
+    // D03-1/D03-2: 에디터 마운트 시 ChapterFlowControl이 항상 조회한다.
+    const flowMatch = path.match(/^\/chapters\/(\d+)\/flow$/);
+    if (method === "GET" && flowMatch) {
+      const id = Number(flowMatch[1]);
+      const current = chapters.get(id);
+      if (!current) return json(404, { detail: "not found" });
+      return json(200, {
+        chapter_id: id,
+        project_id: current.project_id ?? 1,
+        flow_stage: "planning",
+        last_event: null,
+        current_goal_version: null,
+        current_chapter_revision: current.revision,
+      });
+    }
+    // D03-4: 브리프 섹션이 열리면 근거 링크를 조회한다.
+    const linksMatch = path.match(/^\/chapters\/(\d+)\/evidence-links$/);
+    if (method === "GET" && linksMatch) {
+      const id = Number(linksMatch[1]);
+      return chapters.has(id)
+        ? json(200, { chapter_id: id, links: [] })
+        : json(404, { detail: "not found" });
+    }
+    const resumeMatch = path.match(/^\/chapters\/(\d+)\/resume$/);
+    if (method === "GET" && resumeMatch) {
+      const id = Number(resumeMatch[1]);
+      const current = chapters.get(id);
+      if (!current) return json(404, { detail: "not found" });
+      return json(200, {
+        chapter_id: id,
+        project_id: current.project_id ?? 1,
+        flow_stage: "planning",
+        last_event: null,
+        current_goal_version: null,
+        current_chapter_revision: current.revision,
+        goal_changed_since_transition: false,
+        manuscript_changed_since_transition: false,
+        pending_refine_runs: 0,
+        next_scene: null,
+        scene_count: 0,
+      });
+    }
     throw new Error(
       `Unexpected production API request in preservation fixture: ${method} ${path}`,
     );

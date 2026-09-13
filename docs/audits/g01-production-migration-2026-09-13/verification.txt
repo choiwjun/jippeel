@@ -1,0 +1,32 @@
+G01 실 DB migration 검증 — 2026-09-13
+대상: /mnt/c/Users/wj941/Documents/jippeel/backend/jippeel.db (679,936 bytes)
+
+백업: /mnt/c/Users/wj941/.jippeel/backups/2026-09-13-g01/jippeel.db
+  sha256: b5b3b80a3167a2e23b64ca13a810d25bc557924a56a273388677c8cf0b7c826e
+  복원 검증: checksum OK · integrity_check ok · foreign_key_check 0 violations
+
+스키마 정합: alembic_version 부재(create_all 기원) — chapters.revision/flow_stage·
+  chapter_snapshots·memory_entries 등 0a1b2c3d4e5f 이후 산출물 전부 부재,
+  scenes/foreshadows/canon_runs/quality_checks/volume_notes·reasoning_effort 존재
+  → stamp f9a1b2c3d4e5 확정. ALTER 대상 컬럼 전부 부재 확인(중복 추가 없음).
+
+리허설(Linux 복사본): stamp → upgrade head 10개 migration 전부 성공 →
+  alembic_version=9d0e1f2a3747 · integrity ok · FK 0 · 14테이블 row count 전부 보존
+  · 신규 테이블 9개 생성 · schema assert PASS · 엔드포인트 smoke 200×5
+
+실 적용: 동일 절차 — upgrade log 참조. 사후:
+  alembic_version=[('9d0e1f2a3747',)] · integrity ok · FK 0 violations
+  데이터 손실 NONE(기준선 14테이블 전부 일치)
+  assert_manuscript_schema_current: PASS
+
+rollback 경로:
+  1. 백업 복원: 앱 중지 후 backups/2026-09-13-g01/jippeel.db 를 원래 경로에 복사
+     (sha256 상기 기록으로 무결성 대조 가능)
+  2. 스키마만 되돌리기: alembic downgrade f9a1b2c3d4e5 (신규 테이블·컬럼 제거,
+     기존 테이블 데이터는 유지되나 신규 데이터는 제거됨)
+
+비고:
+  - 기존 코드(main 체크아웃)와의 하위호환: 신규 컬럼은 전부 nullable/server_default
+    추가이므로 구 코드가 읽는 컬럼은 불변. 오히려 구 코드의 schema guard가 요구하던
+    chapter_snapshots·revision이 이번에 생성되어 구 코드도 기동 가능.
+  - Jippeel실행.bat 의 OneDrive 경로는 폐기된 경로(대상 부재) — 선존 문제로 기록만.

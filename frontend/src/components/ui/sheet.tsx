@@ -8,11 +8,13 @@ interface SheetProps {
   side?: 'right' | 'left';
   /** 설계서 §1.2 — XL 480px / L 420px / M 380px (MVP는 고정 폭 + 반응형 max) */
   width?: number;
+  /** role="dialog"의 accessible name — SheetTitle 텍스트와 동일하게 전달 */
+  'aria-label': string;
   children: ReactNode;
 }
 
 /** shadcn/ui Sheet 수동 구현 — 우측 슬라이드 드로어(S5/S6 오버레이) */
-export function Sheet({ open, onOpenChange, side = 'right', width = 480, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, side = 'right', width = 480, 'aria-label': ariaLabel, children }: SheetProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -29,6 +31,7 @@ export function Sheet({ open, onOpenChange, side = 'right', width = 480, childre
       <aside
         role="dialog"
         aria-modal="true"
+        aria-label={ariaLabel}
         style={{ width: `min(${width}px, 100vw)` }}
         className={cn(
           'absolute top-0 flex h-full flex-col border-border bg-card text-card-foreground shadow-soft',

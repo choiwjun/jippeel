@@ -15,7 +15,11 @@ from tests.test_ai_generate_stream import FakeAsyncOpenAI, _parse_sse
 # ---------- fixtures ----------
 @pytest.fixture()
 def db(client):
-    return next(iter(client.app.dependency_overrides[get_db]()))
+    gen = client.app.dependency_overrides[get_db]()
+    try:
+        yield next(gen)
+    finally:
+        gen.close()
 
 
 @pytest.fixture()

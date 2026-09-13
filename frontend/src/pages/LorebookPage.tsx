@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type LoreCategory, type LoreEntry } from '@/lib/api';
+import { api, type Chapter, type LoreCategory, type LoreEntry } from '@/lib/api';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { toast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
@@ -220,7 +220,7 @@ function LoreDrawer({
   });
 
   return (
-    <Sheet open onOpenChange={(o) => (!o ? onClose() : undefined)}>
+    <Sheet open onOpenChange={(o) => (!o ? onClose() : undefined)} aria-label={isNew ? '새 로어 항목' : detailQuery.data?.title ?? ''}>
       <SheetHeader>
         <SheetTitle>{isNew ? '새 로어 항목' : detailQuery.data?.title ?? ''}</SheetTitle>
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="닫기">닫기</Button>
@@ -245,6 +245,11 @@ function LoreDrawer({
           <Input id="lo-keywords" value={keywordsText} onChange={(e) => setKeywordsText(e.target.value)} />
         </div>
 
+        {/* U02 참조 회차 (F-016) — 기존 항목만 */}
+        {!isNew && typeof entryId === 'number' && (
+          <ReferencingChaptersSection entryId={entryId} />
+        )}
+
         <div className="mt-1 flex items-center gap-2">
           <Button
             disabled={save.isPending || !title.trim()}
@@ -257,6 +262,52 @@ function LoreDrawer({
         </div>
       </SheetBody>
     </Sheet>
+  );
+}
+
+/** U02 — 이 로어 항목을 본문에서 참조하는 회차 목록 (접이식). */
+function ReferencingChaptersSection({ entryId }: { entryId: number }) {
+  const [open, setOpen] = useState(false);
+  const refsQuery = useQuery({
+    queryKey: ['lore-refs', entryId],
+    queryFn: () => api.get<Chapter[]>(`/lore/${entryId}/referencing-chapters`),
+    enabled: open,
+  });
+  const refs = refsQuery.data ?? [];
+
+  return (
+    <section className="rounded-md border border-border p-3">
+      <button
+        type="button"
+        className="flex w-full items-center gap-1 text-left text-xs font-semibold text-muted-foreground"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+        참조 회차{open && refsQuery.data ? ` (${refs.length})` : ''}
+      </button>
+      {open && (
+        <div className="mt-2">
+          {refsQuery.isPending ? (
+            <p className="text-xs text-muted-foreground">불러오는 중…</p>
+          ) : refsQuery.isError ? (
+            <p className="text-xs text-destructive">{(refsQuery.error as Error).message}</p>
+          ) : refs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              본문에서 이 항목을 언급하는 회차가 없습니다.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {refs.map((ch) => (
+                <li key={ch.id} className="rounded-sm bg-background px-2 py-1 text-sm">
+                  {ch.volume ? `${ch.volume}권 ` : ''}{ch.title}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

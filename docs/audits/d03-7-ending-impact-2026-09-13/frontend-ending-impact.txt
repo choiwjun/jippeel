@@ -1,0 +1,12 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/ending-impact.spec.ts:127:3 › D03-7 결말 변경 영향 › 결말 후보 저장 — PATCH 본문과 변경 시각 표시 (2.0s)
+  ✓  2 [chromium] › e2e/ending-impact.spec.ts:141:3 › D03-7 결말 변경 영향 › 빈 결말은 null로 전송 — 지우기 계약 (1.2s)
+  ✓  3 [chromium] › e2e/ending-impact.spec.ts:155:3 › D03-7 결말 변경 영향 › 잠금 토글 — PATCH ending_locked, textarea disabled + 잠김 배지 (1.0s)
+  ✓  4 [chromium] › e2e/ending-impact.spec.ts:169:3 › D03-7 결말 변경 영향 › 잠긴 상태 저장 — 단일 PATCH로 해제+저장 (978ms)
+  ✓  5 [chromium] › e2e/ending-impact.spec.ts:185:3 › D03-7 결말 변경 영향 › 변경 영향 — 미해결 복선·오래된 목표·최종화 회차 표시 (842ms)
+  ✓  6 [chromium] › e2e/ending-impact.spec.ts:197:3 › D03-7 결말 변경 영향 › a11y — serious/critical 위반 없음 (1.6s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-vkWbr8/violations.jsonl; no escapes
+
+  6 passed (9.8s)

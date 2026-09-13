@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { markdown } from '@codemirror/lang-markdown';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { UI_SCALE_FACTOR, useSettingsStore, type FontFamily, type UiScale } from '@/stores/settingsStore';
 import { useEditorStore } from '@/stores/editorStore';
 
 interface Props {
@@ -16,6 +16,35 @@ interface Props {
 
 /** m-7 — lineNumbers 기본 OFF + Compartment로 런타임 토글 (에디터 재생성 없음) */
 const lineNumbersCompartment = new Compartment();
+
+/** U04 — 본문 타이포그래피(폰트·행간·확대 배율) 런타임 재구성용 Compartment */
+const typographyCompartment = new Compartment();
+
+const FONT_STACKS: Record<FontFamily, string> = {
+  pretendard: 'var(--font-sans, "Pretendard", sans-serif)',
+  'noto-serif-kr': 'var(--font-serif, "Noto Serif KR", serif)',
+};
+
+function typographyExtension(s: { fontFamily: FontFamily; lineHeight: number; uiScale: UiScale }) {
+  const factor = UI_SCALE_FACTOR[s.uiScale] ?? 1;
+  return EditorView.theme({
+    '&': {
+      fontFamily: FONT_STACKS[s.fontFamily] ?? FONT_STACKS['noto-serif-kr'],
+      fontSize: `${(1.0625 * factor).toFixed(4)}rem`,
+      lineHeight: String(s.lineHeight),
+      letterSpacing: '0.005em',
+      backgroundColor: 'hsl(var(--background))',
+      color: 'hsl(var(--foreground))',
+    },
+    '&.cm-focused': { outline: 'none' },
+    '.cm-content': { caretColor: 'hsl(var(--primary))' },
+    '.cm-cursor': { borderLeftColor: 'hsl(var(--primary))' },
+    '.cm-gutters': { background: 'transparent', borderRight: '1px solid hsl(var(--border))', color: 'hsl(var(--muted-foreground))' },
+    '.cm-activeLine': { background: 'hsl(var(--muted) / 0.35)' },
+    '.cm-selectionBackground': { background: 'hsl(var(--primary) / 0.18) !important' },
+    '&.cm-focused .cm-selectionBackground': { background: 'hsl(var(--primary) / 0.18) !important' },
+  });
+}
 
 /**
  * CodeMirror 6 래퍼 — NFR-101 가상 스크롤(수만~십만 자 무지연),
@@ -46,23 +75,7 @@ export function CodeMirrorEditor({ value, onChange, onSave, ariaLabel = '원고 
           keymap.of([
             { key: 'Mod-s', run: () => { onSaveRef.current(); return true; } },
           ]),
-          EditorView.theme({
-            '&': {
-              fontFamily: 'var(--font-serif, "Noto Serif KR", serif)',
-              fontSize: '1.0625rem',
-              lineHeight: '1.85',
-              letterSpacing: '0.005em',
-              backgroundColor: 'hsl(var(--background))',
-              color: 'hsl(var(--foreground))',
-            },
-            '&.cm-focused': { outline: 'none' },
-            '.cm-content': { caretColor: 'hsl(var(--primary))' },
-            '.cm-cursor': { borderLeftColor: 'hsl(var(--primary))' },
-            '.cm-gutters': { background: 'transparent', borderRight: '1px solid hsl(var(--border))', color: 'hsl(var(--muted-foreground))' },
-            '.cm-activeLine': { background: 'hsl(var(--muted) / 0.35)' },
-            '.cm-selectionBackground': { background: 'hsl(var(--primary) / 0.18) !important' },
-            '&.cm-focused .cm-selectionBackground': { background: 'hsl(var(--primary) / 0.18) !important' },
-          }),
+          typographyCompartment.of(typographyExtension(useSettingsStore.getState())),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) onChangeRef.current(u.state.doc.toString());
           }),
@@ -100,6 +113,15 @@ export function CodeMirrorEditor({ value, onChange, onSave, ariaLabel = '원고 
   useEffect(() => {
     const lineNumbersModule = lineNumbers;
     const unsub = useSettingsStore.subscribe((state, prev) => {
+      if (
+        state.fontFamily !== prev.fontFamily ||
+        state.lineHeight !== prev.lineHeight ||
+        state.uiScale !== prev.uiScale
+      ) {
+        viewRef.current?.dispatch({
+          effects: typographyCompartment.reconfigure(typographyExtension(state)),
+        });
+      }
       if (state.lineNumbers === prev.lineNumbers) return;
       viewRef.current?.dispatch({
         effects: lineNumbersCompartment.reconfigure(

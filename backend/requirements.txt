@@ -10,3 +10,4 @@ pytest
 httpx
 httpx2>=2.0.0
 alembic>=1.13
+python-multipart>=0.0.9

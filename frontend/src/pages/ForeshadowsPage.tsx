@@ -22,6 +22,8 @@ export interface Foreshadow {
   content: string | null;
   keywords: string[] | null;
   status: '설치' | '회수' | '보류';
+  /** D03-5 이관 구분 — 닫힌 복선의 처분 라벨(status='설치'이면 항상 null) */
+  disposition?: 'resolved' | 'intentional_unresolved' | 'side_story' | null;
   audience_knows?: boolean;
   planted_chapter_id: number | null;
   resolved_chapter_id: number | null;
@@ -60,6 +62,18 @@ const statusVariant: Record<Foreshadow['status'], string> = {
   회수: 'text-success',
   보류: 'text-muted-foreground',
 };
+
+/** D03-5 — disposition 값 ↔ 표시 라벨 */
+const DISPOSITIONS: Array<{
+  value: NonNullable<Foreshadow['disposition']>;
+  label: string;
+}> = [
+  { value: 'resolved', label: '해결' },
+  { value: 'intentional_unresolved', label: '의도적 미해결' },
+  { value: 'side_story', label: '외전 이관' },
+];
+const dispositionLabel = (d: Foreshadow['disposition']) =>
+  DISPOSITIONS.find((x) => x.value === d)?.label ?? null;
 
 export function ForeshadowsPage() {
   const params = useParams();
@@ -123,10 +137,29 @@ export function ForeshadowsPage() {
   });
 
   const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: Foreshadow['status'] }) =>
-      api.patch<Foreshadow>(`/foreshadows/${id}`, { status }),
+    // D03-5 — 설치로 되돌릴 때 disposition이 있으면 같은 요청에 명시적 해제를 포함한다
+    // (서버 불변조건: status='설치' + disposition non-null → 422)
+    mutationFn: ({ id, status, disposition }: {
+      id: number;
+      status: Foreshadow['status'];
+      disposition?: Foreshadow['disposition'];
+    }) =>
+      api.patch<Foreshadow>(`/foreshadows/${id}`, {
+        status,
+        ...(status === '설치' && disposition != null ? { disposition: null } : {}),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['foreshadows', pid] }),
     onError: (e) => toast(`상태 변경 실패: ${(e as Error).message}`, 'error'),
+  });
+
+  const setDisposition = useMutation({
+    mutationFn: ({ id, disposition }: {
+      id: number;
+      disposition: Foreshadow['disposition'];
+    }) =>
+      api.patch<Foreshadow>(`/foreshadows/${id}`, { disposition }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['foreshadows', pid] }),
+    onError: (e) => toast(`처분 변경 실패: ${(e as Error).message}`, 'error'),
   });
 
   const toggleAudience = useMutation({
@@ -317,6 +350,11 @@ export function ForeshadowsPage() {
                 <span className={cn('text-xs font-semibold', statusVariant[f.status])}>
                   {f.status}
                 </span>
+                {dispositionLabel(f.disposition ?? null) && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {dispositionLabel(f.disposition ?? null)}
+                  </Badge>
+                )}
                 {f.audience_knows !== undefined && (
                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <input
@@ -341,17 +379,40 @@ export function ForeshadowsPage() {
                 </div>
               )}
             </div>
-            <select
-              aria-label={`복선 상태 변경: ${f.title}`}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={f.status}
-              onChange={(e) =>
-                setStatus.mutate({ id: f.id, status: e.target.value as Foreshadow['status'] })}
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <div className="flex flex-col gap-1">
+              <select
+                aria-label={`복선 상태 변경: ${f.title}`}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={f.status}
+                onChange={(e) =>
+                  setStatus.mutate({
+                    id: f.id,
+                    status: e.target.value as Foreshadow['status'],
+                    disposition: f.disposition ?? null,
+                  })}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <select
+                aria-label={`복선 처분: ${f.title}`}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={f.disposition ?? ''}
+                disabled={f.status === '설치' || setDisposition.isPending}
+                title={f.status === '설치' ? '미회수 복선에는 처분을 지정할 수 없습니다' : undefined}
+                onChange={(e) =>
+                  setDisposition.mutate({
+                    id: f.id,
+                    disposition: (e.target.value || null) as Foreshadow['disposition'],
+                  })}
+              >
+                <option value="">처분 미분류…</option>
+                {DISPOSITIONS.map((d) => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            </div>
             <Button
               size="sm" variant="ghost" className="text-destructive"
               disabled={remove.isPending}

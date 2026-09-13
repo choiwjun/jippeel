@@ -1,0 +1,5 @@
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 565 passed, 1 skipped, 1 warning in 33.45s ==================
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 7, "violations": []}

@@ -6,10 +6,11 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import SessionLocal, init_db
+from app.database import DATABASE_URL, SessionLocal, init_db
 from app.routers import (ai_panel, characters, foreshadows, lorebook,
                          projects, quality, refine, scenes, system, volumes)
 from app.routers.memories import router as memories_router  # pyright: ignore[reportMissingImports]
+from app.services.auto_backup import AutoBackupConfig, start_scheduler
 from app.services.fts import ensure_fts_index
 from app.services.presets import seed_presets
 
@@ -26,7 +27,21 @@ async def lifespan(app: FastAPI):
         session.commit()
     finally:
         session.close()
+
+    # O02 — opt-in 자동 주기 백업(JIPPEEL_AUTOBACKUP_INTERVAL_MIN 설정 시에만)
+    stop_autobackup = None
+    autobackup_cfg = AutoBackupConfig.from_env()
+    if autobackup_cfg.enabled:
+        from app.database import _sqlite_file_from_url
+
+        source_db = _sqlite_file_from_url(DATABASE_URL)
+        if source_db is not None:
+            stop_autobackup = start_scheduler(autobackup_cfg, source_db)
+
     yield
+
+    if stop_autobackup is not None:
+        stop_autobackup()
 
 
 app = FastAPI(title="jippeel-dashboard API", version="0.1.0", lifespan=lifespan)

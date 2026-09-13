@@ -9,8 +9,37 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, create_db_engine, get_db
+from app.database import engine as app_engine
 from app.main import app
 from app.services.presets_seed import ensure_builtin_presets
+
+
+@pytest.fixture(autouse=True)
+def _dispose_app_engine():
+    """lifespan의 모듈 수준 엔진 풀 연결이 GC까지 남아 ResourceWarning을 내지 않게 한다."""
+    yield
+    app_engine.dispose()
+
+
+_db_gens = []
+
+
+@pytest.fixture(autouse=True)
+def _close_db_gens():
+    """_db()가 연 제너레이터를 매 테스트 종료 시 닫아 세션/연결 누수를 막는다."""
+    _db_gens.clear()
+    yield
+    for gen in _db_gens:
+        gen.close()
+    _db_gens.clear()
+
+
+def _db(client):
+    """get_db dependency override 제너레이터를 열어 세션을 반환한다. 폐기는 _close_db_gens가 담당."""
+    from app.database import get_db
+    gen = client.app.dependency_overrides[get_db]()
+    _db_gens.append(gen)
+    return next(gen)
 
 
 @pytest.fixture()

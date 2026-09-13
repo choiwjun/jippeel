@@ -7,6 +7,7 @@ import { CharactersPage } from "@/pages/CharactersPage";
 import { LorebookPage } from "@/pages/LorebookPage";
 import { ForeshadowsPage } from "@/pages/ForeshadowsPage";
 import { PlanPage } from "@/pages/PlanPage";
+import { CompletionPage } from "@/pages/CompletionPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { MemoryPage } from "@/pages/MemoryPage";
 import { queryClient } from "@/lib/queryClient";
@@ -34,6 +35,10 @@ export default function App() {
               element={<ForeshadowsPage />}
             />
             <Route path="/projects/:pid/plan" element={<PlanPage />} />
+            <Route
+              path="/projects/:pid/completion"
+              element={<CompletionPage />}
+            />
             <Route path="/projects/:pid/memory" element={<MemoryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<HomePage />} />

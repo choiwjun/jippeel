@@ -1,0 +1,6 @@
+  ✓  29 [chromium] › e2e/memory-governance.spec.ts:397:7 › M04 keyboard 폐기 complete filtered restores stable focus (7.2s)
+  ✓  30 [chromium] › e2e/memory-governance.spec.ts:419:1 › M04 completion waits for held list refetch before resolving removed trigger focus (3.8s)
+  ✓  31 [chromium] › e2e/memory-governance.spec.ts:440:1 › M01 current-screen PATCH failure retains confirmation and input and permits retry (3.7s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-t4apWt/violations.jsonl; no escapes
+
+  31 passed (1.3m)

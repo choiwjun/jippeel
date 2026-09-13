@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Project, type ProjectCreate } from '@/lib/api';
+import { api, type Project, type ProjectCreate, type SerialState } from '@/lib/api';
+import { toast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,13 @@ import {
 } from '@/components/ui/dialog';
 import { BootstrapDialog } from '@/components/home/BootstrapDialog';
 import { PlusStatusWidget } from '@/components/home/PlusStatusWidget';
+
+/** D03-3 연재 상태 표시 — 회차 집필 확정(confirmed)과 별개의 작품 수명주기 */
+const SERIAL_STATE_LABEL: Record<SerialState, string> = {
+  ongoing: '연재 중',
+  hiatus: '휴재',
+  completed: '완결',
+};
 
 /**
  * S1 홈 / 프로젝트 목록 (`/`) — FR-101 프로젝트 CRUD 카드 그리드.
@@ -40,6 +48,14 @@ export function HomePage() {
   const deleteProject = useMutation({
     mutationFn: (pid: number) => api.del<void>(`/projects/${pid}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+  });
+
+  // D03-3 — 연재 상태는 명시적 작품 단위 변경. 회차 confirmed와 연동되지 않는다.
+  const updateSerialState = useMutation({
+    mutationFn: ({ id, serial_state }: { id: number; serial_state: SerialState }) =>
+      api.patch<Project>(`/projects/${id}`, { serial_state }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    onError: () => toast('연재 상태 변경에 실패했습니다.', 'error'),
   });
 
   return (
@@ -96,9 +112,43 @@ export function HomePage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 최근 수정: {new Date(project.updated_at).toLocaleString('ko-KR')}
               </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">연재 상태</span>
+                <select
+                  aria-label="연재 상태 변경 (회차 집필 확정과 별개)"
+                  title="연재·완결 상태 — 회차의 집필 확정과는 별개입니다"
+                  className="h-7 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={project.serial_state ?? 'ongoing'}
+                  disabled={updateSerialState.isPending && updateSerialState.variables?.id === project.id}
+                  onChange={(e) =>
+                    updateSerialState.mutate({
+                      id: project.id,
+                      serial_state: e.target.value as SerialState,
+                    })
+                  }
+                >
+                  <option value="ongoing">{SERIAL_STATE_LABEL.ongoing}</option>
+                  <option value="hiatus">{SERIAL_STATE_LABEL.hiatus}</option>
+                  <option value="completed">{SERIAL_STATE_LABEL.completed}</option>
+                </select>
+                {project.serial_state === 'hiatus' && (
+                  <Badge variant="secondary" className="text-xs">휴재</Badge>
+                )}
+                {project.serial_state === 'completed' && (
+                  <Badge variant="default" className="text-xs">완결</Badge>
+                )}
+                {project.serial_state === 'completed' && project.serial_completed_at ? (
+                  <span className="text-xs text-muted-foreground">
+                    완결 {new Date(project.serial_completed_at).toLocaleDateString('ko-KR')}
+                  </span>
+                ) : null}
+              </div>
               <div className="mt-4 flex items-center gap-2">
                 <Link to={`/projects/${project.id}/write`}>
                   <Button size="sm">열기 →</Button>
+                </Link>
+                <Link to={`/projects/${project.id}/completion`}>
+                  <Button size="sm" variant="outline">완결 관리</Button>
                 </Link>
                 <Button
                   size="sm"

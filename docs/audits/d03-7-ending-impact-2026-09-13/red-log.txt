@@ -1,0 +1,20 @@
+tests/test_ending_impact.py:25: AssertionError
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_project_out_exposes_ending_fields
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_set_ending_intent_records_timestamp
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_same_value_does_not_update_timestamp
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_changed_value_updates_timestamp_and_clear
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_locked_ending_rejects_change_with_409
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_lock_toggle_only_and_partial_patch_preserves
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_impact_lists_open_foreshadows_only
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_impact_stale_goal_chapters
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_impact_finale_chapters
+FAILED ../../../../../../../tmp/jippeel-isolated-gor2sssq::test_impact_is_derived_and_read_only
+=================== 10 failed, 1 passed, 1 warning in 0.61s ====================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

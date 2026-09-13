@@ -1,0 +1,12 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/chapter-flow.spec.ts:183:3 › D03-1 회차 집필 흐름 fixture › 기획 단계 배지와 허용 전이(집필로)만 표시된다 (3.5s)
+  ✓  2 [chromium] › e2e/chapter-flow.spec.ts:196:3 › D03-1 회차 집필 흐름 fixture › 전이 선택은 expected_flow_stage와 함께 POST하고 배지·앵커를 갱신한다 (1.6s)
+  ✓  3 [chromium] › e2e/chapter-flow.spec.ts:207:3 › D03-1 회차 집필 흐름 fixture › 목표 저장본이 없으면 앵커에 원고 revision만 표시한다 (1.7s)
+  ✓  4 [chromium] › e2e/chapter-flow.spec.ts:215:3 › D03-1 회차 집필 흐름 fixture › 409 충돌은 toast를 띄우고 최신 상태를 다시 불러온다 (2.6s)
+  ✓  5 [chromium] › e2e/chapter-flow.spec.ts:226:3 › D03-1 회차 집필 흐름 fixture › confirmed는 재개(퇴고로)만 허용한다 (1.5s)
+  ✓  6 [chromium] › e2e/chapter-flow.spec.ts:236:3 › D03-1 회차 집필 흐름 fixture › 에디터 헤더의 접근성 위반(serious/critical)이 없다 (2.9s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-JCJPIE/violations.jsonl; no escapes
+
+  6 passed (18.1s)

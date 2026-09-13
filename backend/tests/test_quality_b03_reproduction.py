@@ -4,6 +4,7 @@ No literary-quality threshold is asserted. External metrics are synthetic only.
 Run only through scripts/run_backend_pytest.py; conftest requires isolation.
 """
 import json
+from contextlib import closing
 
 import pytest
 
@@ -217,14 +218,15 @@ def test_reanalysis_keeps_old_score_and_content_purpose_dedup(client):
     assert client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
         "content_md": text, "expected_revision": 0,
     }).status_code == 200
-    db = next(iter(client.app.dependency_overrides[get_db]()))
-    db.add(QualityCheck(
-        chapter_id=chapter["id"], score=65,
-        content_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
-        metrics_json={"episode_purpose": "serial"},
-        suggestions_json=[], presets_json=[],
-    ))
-    db.commit()
+    with closing(client.app.dependency_overrides[get_db]()) as gen:
+        db = next(gen)
+        db.add(QualityCheck(
+            chapter_id=chapter["id"], score=65,
+            content_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            metrics_json={"episode_purpose": "serial"},
+            suggestions_json=[], presets_json=[],
+        ))
+        db.commit()
     url = f"/api/v1/chapters/{chapter['id']}/quality"
     response = client.get(url)
     assert response.status_code == 200

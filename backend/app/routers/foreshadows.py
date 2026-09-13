@@ -20,6 +20,8 @@ from app.services.bootstrap import _extract_json
 router = APIRouter()
 
 VALID_STATUS = ("설치", "회수", "보류")
+# D03-5 이관 구분 — 닫힌 복선의 처분 라벨(모델 ck_foreshadow_disposition과 동일 사전)
+VALID_DISPOSITIONS = ("resolved", "intentional_unresolved", "side_story")
 
 _SUGGEST_SYSTEM = (
     "너는 웹소설 연재 편집장이다. 회차 본문에서 '아직 해결되지 않은 떡밥·복선'을 "
@@ -212,6 +214,7 @@ def _validate_chapter_refs(payload, project_id: int, db: Session) -> None:
 
 @router.get("/projects/{pid}/foreshadows", response_model=list[ForeshadowOut])
 def list_foreshadows(pid: int, status_filter: str | None = None,
+                     disposition: str | None = None,
                      db: Session = Depends(get_db)):
     _get_project_or_404(pid, db)
     stmt = select(Foreshadow).where(Foreshadow.project_id == pid).order_by(
@@ -221,6 +224,13 @@ def list_foreshadows(pid: int, status_filter: str | None = None,
             raise HTTPException(status_code=422,
                                 detail="status는 설치|회수|보류 중 하나여야 합니다")
         stmt = stmt.where(Foreshadow.status == status_filter)
+    if disposition is not None:
+        if disposition not in VALID_DISPOSITIONS:
+            raise HTTPException(
+                status_code=422,
+                detail="disposition은 resolved|intentional_unresolved|side_story 중 하나여야 합니다",
+            )
+        stmt = stmt.where(Foreshadow.disposition == disposition)
     return list(db.scalars(stmt).all())
 
 
@@ -229,12 +239,20 @@ def list_foreshadows(pid: int, status_filter: str | None = None,
 def create_foreshadow(pid: int, payload: ForeshadowCreate, db: Session = Depends(get_db)):
     _get_project_or_404(pid, db)
     _validate_chapter_refs(payload, pid, db)
+    # D03-5 불변조건: 설치(미회수) 복선에 처분 라벨은 모순이다
+    if payload.status == "설치" and payload.disposition is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="설치 상태의 복선에는 disposition을 지정할 수 없습니다",
+        )
     row = Foreshadow(
         project_id=pid,
         title=payload.title,
         content=payload.content,
         keywords=payload.keywords or [],
         status=payload.status,
+        disposition=payload.disposition,
+        audience_knows=payload.audience_knows,
         planted_chapter_id=payload.planted_chapter_id,
         resolved_chapter_id=payload.resolved_chapter_id,
     )
@@ -251,6 +269,15 @@ def update_foreshadow(fid: int, payload: ForeshadowUpdate, db: Session = Depends
     _validate_chapter_refs(payload, row.project_id, db)
     if "status" in data and data["status"] not in VALID_STATUS:
         raise HTTPException(status_code=422, detail="status는 설치|회수|보류 중 하나여야 합니다")
+    # D03-5 불변조건: 패치 적용 결과 status='설치' + disposition non-null이면 거절한다.
+    # 설치로 되돌리려면 같은 요청에 disposition=null을 명시해야 한다(자동 해제 없음).
+    next_status = data.get("status", row.status)
+    next_disposition = data["disposition"] if "disposition" in data else row.disposition
+    if next_status == "설치" and next_disposition is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="설치 상태의 복선에는 disposition을 지정할 수 없습니다",
+        )
     for field, value in data.items():
         setattr(row, field, value)
     db.commit()

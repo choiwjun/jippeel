@@ -22,6 +22,15 @@
 | D01 목표 저장 조사·요구 선택 | [질문·근거](superpowers/plans/2026-09-13-d01-contract-questions.md) | 소스 조사 완료, 최신값/과거 목표 조회·복원 범위 결정 대기. 상세 사양·구현 미착수 |
 | 후속 순차 진행 승인 | [잔여 순차 실행](superpowers/plans/2026-09-12-remaining-sequence.md) | M01~M05/B03 수용 완료, 다음 D01/D03/D04 상세 계약·기획. 실제 자원은 개별 gate 충족 후 |
 | 지원 backend 테스트 실행 | [격리 runner 가이드](runbooks/isolated-backend-tests.md) | `backend/scripts/run_backend_pytest.py`가 공식 진입점. direct pytest는 fail-closed |
+| D01 회차 목표 영속화 수용 | [수용](audits/d01-goal-contract-2026-09-13/acceptance.md) | 목표 저장·이력·복원 계약. backend47P/전체520P, fixture·독립 검토 통과 |
+| D03 집필 수명주기 전 단위 수용 | D03-1 [flow](audits/d03-1-flow-stage-2026-09-13/acceptance.md) · D03-2 [resume](audits/d03-2-resume-2026-09-13/acceptance.md) · D03-3 [serial](audits/d03-3-serial-state-2026-09-13/acceptance.md) · D03-4 [근거](audits/d03-4-evidence-links-2026-09-13/acceptance.md) · D03-5 [이관](audits/d03-5-foreshadow-disposition-2026-09-13/acceptance.md) · D03-6 [완결본](audits/d03-6-final-edition-2026-09-13/acceptance.md) · D03-7 [결말영향](audits/d03-7-ending-impact-2026-09-13/acceptance.md) | 흐름 상태 기계·재개 파생·연재 상태·근거 링크·이관 구분·완결본 스냅샷·결말 영향. 전부 독립 검토 2건 통과 |
+| D04-1 summary_jobs/fake worker 수용 | [수용](audits/d04-1-summary-worker-2026-09-13/acceptance.md) | 서비스 계층만. idempotency·draft-only memory·retry/recovery. 실제 provider는 G gate |
+| V02 복원 실패 주입 수용 | [수용](audits/v02-restore-verify-2026-09-13/acceptance.md) | 합성 TEMP 백업/검증 9종 실패 코드 15P. 실제 운영 복원·wrong-key는 G01/G03 |
+| V04 외부 metrics 버전 검증기 수용 | [수용](audits/v04-metrics-version-2026-09-13/acceptance.md) | AST 전용 계약 비교 20P. 실물 파일 미설치 — 실제 비교는 설치 후 동일 검증기 실행 |
+| G-045 audience_knows 유실 수정 수용 | [수용](audits/g045-audience-knows-2026-09-13/acceptance.md) | foreshadow POST 1행 수정. RED 재현→수정→677P 회귀. 독립 검토 PASS |
+| V01 프론트 coverage 계측 수용 | [수용](audits/v01-frontend-coverage-2026-09-13/acceptance.md) | PW_COVERAGE=1 opt-in V8 수집→fs 경로 키 union 병합. 11 스위트 128P·측정값 lines 83.27%. 임계 주장 아닌 측정 인프라 |
+| G01 실 DB migration·G03/G04 부분 실행 | [수용](audits/g01-production-migration-2026-09-13/acceptance.md) | 실 DB head `9d0e1f2a3747` 적용·데이터 보존 검증. wrong-key/키 복구 temp 검증·Windows 네이티브 스위트. 수동 실기기·실 credential 시연 잔여 |
+| U01~U04·O01~O03·O05·V03 실행 수용 | [수용](audits/uo-options-v03-2026-09-13/acceptance.md) / O01 [사양](specs/2026-09-13-o01-card-png-novelwriter-import.md) · O02 [사양](specs/2026-09-13-o02-auto-backup.md) · O03 [사양](specs/2026-09-13-o03-writing-activity.md) | card_json UI·로어 참조 회차·uiScale·카드 PNG/novelWriter·자동 백업·활동 캘린더. O05 ResourceWarning 근본 수정(warnings 0)·V03 다중 프로세스 PASS. 전체 714P |
 
 ## 기록 문서의 해석
 

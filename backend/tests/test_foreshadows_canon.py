@@ -1,5 +1,6 @@
 """고도화 G-020~G-023 — 복선 CRUD·미회수 자동 주입·canon 검사 테스트."""
 import json
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -186,17 +187,19 @@ def test_project_delete_cascades_foreshadows(client, chapter):
     _fs(client, pid, "삭제 회귀 복선", status="설치")
     r = client.delete(f"/api/v1/projects/{pid}")
     assert r.status_code in (204, 200)
-    db = next(iter(client.app.dependency_overrides[get_db]()))
-    assert db.scalars(select(Foreshadow).where(Foreshadow.project_id == pid)).all() == []
+    with closing(client.app.dependency_overrides[get_db]()) as gen:
+        db = next(gen)
+        assert db.scalars(select(Foreshadow).where(Foreshadow.project_id == pid)).all() == []
 
 
 def test_project_delete_cascades_canon_and_quality_runs(client, chapter, monkeypatch):
     """canon/quality 이력이 있어도 프로젝트 삭제가 FK 오류 없이 성공(회귀)."""
     from app.models import CanonRun, QualityCheck
-    db = next(iter(client.app.dependency_overrides[get_db]()))
-    db.add(CanonRun(chapter_id=chapter["id"], model="m", issues_json=[]))
-    db.add(QualityCheck(chapter_id=chapter["id"], score=80, content_hash="h"))
-    db.commit()
+    with closing(client.app.dependency_overrides[get_db]()) as gen:
+        db = next(gen)
+        db.add(CanonRun(chapter_id=chapter["id"], model="m", issues_json=[]))
+        db.add(QualityCheck(chapter_id=chapter["id"], score=80, content_hash="h"))
+        db.commit()
     r = client.delete(f"/api/v1/projects/{chapter['project_id']}")
     assert r.status_code in (204, 200)
 
@@ -214,11 +217,12 @@ def test_canon_checked_context_preserves_input_revision_and_hash(client, monkeyp
     class _Completions:
         async def create(self, **kwargs):
             holder["calls"].append(kwargs)
-            db = next(iter(client.app.dependency_overrides[get_db]()))
-            row = db.get(Chapter, chapter["id"])
-            row.content_md = "provider 중 바뀐 본문"
-            row.revision += 1
-            db.commit()
+            with closing(client.app.dependency_overrides[get_db]()) as gen:
+                db = next(gen)
+                row = db.get(Chapter, chapter["id"])
+                row.content_md = "provider 중 바뀐 본문"
+                row.revision += 1
+                db.commit()
             return _Response(json.dumps({"issues": []}, ensure_ascii=False))
 
     class _FakeClient:

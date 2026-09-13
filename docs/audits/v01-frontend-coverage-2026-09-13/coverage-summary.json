@@ -1,0 +1,1278 @@
+{
+  "src/components/editor/QualityDialog.tsx": {
+    "lines": {
+      "total": 450,
+      "covered": 443,
+      "pct": 98.44
+    },
+    "branches": {
+      "total": 54,
+      "covered": 49,
+      "pct": 90.74
+    },
+    "functions": {
+      "total": 7,
+      "covered": 7,
+      "pct": 100
+    },
+    "statements": {
+      "total": 450,
+      "covered": 443,
+      "pct": 98.44
+    }
+  },
+  "src/components/ui/dialog.tsx": {
+    "lines": {
+      "total": 101,
+      "covered": 101,
+      "pct": 100
+    },
+    "branches": {
+      "total": 16,
+      "covered": 16,
+      "pct": 100
+    },
+    "functions": {
+      "total": 8,
+      "covered": 8,
+      "pct": 100
+    },
+    "statements": {
+      "total": 101,
+      "covered": 101,
+      "pct": 100
+    }
+  },
+  "src/components/ui/toast.tsx": {
+    "lines": {
+      "total": 74,
+      "covered": 74,
+      "pct": 100
+    },
+    "branches": {
+      "total": 15,
+      "covered": 15,
+      "pct": 100
+    },
+    "functions": {
+      "total": 5,
+      "covered": 4,
+      "pct": 80
+    },
+    "statements": {
+      "total": 74,
+      "covered": 74,
+      "pct": 100
+    }
+  },
+  "src/index.css": {
+    "lines": {
+      "total": 6,
+      "covered": 6,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 0,
+      "covered": 0,
+      "pct": 100
+    },
+    "statements": {
+      "total": 6,
+      "covered": 6,
+      "pct": 100
+    }
+  },
+  "src/lib/api.ts": {
+    "lines": {
+      "total": 570,
+      "covered": 570,
+      "pct": 100
+    },
+    "branches": {
+      "total": 33,
+      "covered": 28,
+      "pct": 84.84
+    },
+    "functions": {
+      "total": 11,
+      "covered": 11,
+      "pct": 100
+    },
+    "statements": {
+      "total": 570,
+      "covered": 570,
+      "pct": 100
+    }
+  },
+  "src/stores/aiPanelStore.ts": {
+    "lines": {
+      "total": 564,
+      "covered": 532,
+      "pct": 94.32
+    },
+    "branches": {
+      "total": 88,
+      "covered": 88,
+      "pct": 100
+    },
+    "functions": {
+      "total": 43,
+      "covered": 26,
+      "pct": 60.46
+    },
+    "statements": {
+      "total": 564,
+      "covered": 532,
+      "pct": 94.32
+    }
+  },
+  "src/stores/editorStore.ts": {
+    "lines": {
+      "total": 83,
+      "covered": 69,
+      "pct": 83.13
+    },
+    "branches": {
+      "total": 10,
+      "covered": 10,
+      "pct": 100
+    },
+    "functions": {
+      "total": 8,
+      "covered": 6,
+      "pct": 75
+    },
+    "statements": {
+      "total": 83,
+      "covered": 69,
+      "pct": 83.13
+    }
+  },
+  "src/components/editor/AiContextControls.tsx": {
+    "lines": {
+      "total": 110,
+      "covered": 109,
+      "pct": 99.09
+    },
+    "branches": {
+      "total": 34,
+      "covered": 32,
+      "pct": 94.11
+    },
+    "functions": {
+      "total": 7,
+      "covered": 7,
+      "pct": 100
+    },
+    "statements": {
+      "total": 110,
+      "covered": 109,
+      "pct": 99.09
+    }
+  },
+  "src/components/ui/button.tsx": {
+    "lines": {
+      "total": 46,
+      "covered": 46,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 46,
+      "covered": 46,
+      "pct": 100
+    }
+  },
+  "src/components/ui/progress.tsx": {
+    "lines": {
+      "total": 29,
+      "covered": 29,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 29,
+      "covered": 29,
+      "pct": 100
+    }
+  },
+  "src/lib/utils.ts": {
+    "lines": {
+      "total": 4,
+      "covered": 4,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 4,
+      "covered": 4,
+      "pct": 100
+    }
+  },
+  "src/components/ui/checkbox.tsx": {
+    "lines": {
+      "total": 22,
+      "covered": 22,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 22,
+      "covered": 22,
+      "pct": 100
+    }
+  },
+  "src/components/ui/select.tsx": {
+    "lines": {
+      "total": 18,
+      "covered": 18,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 18,
+      "covered": 18,
+      "pct": 100
+    }
+  },
+  "src/components/ui/label.tsx": {
+    "lines": {
+      "total": 8,
+      "covered": 8,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 8,
+      "covered": 8,
+      "pct": 100
+    }
+  },
+  "src/lib/manuscriptDrafts.ts": {
+    "lines": {
+      "total": 727,
+      "covered": 727,
+      "pct": 100
+    },
+    "branches": {
+      "total": 193,
+      "covered": 145,
+      "pct": 75.12
+    },
+    "functions": {
+      "total": 55,
+      "covered": 46,
+      "pct": 83.63
+    },
+    "statements": {
+      "total": 727,
+      "covered": 727,
+      "pct": 100
+    }
+  },
+  "src/main.tsx": {
+    "lines": {
+      "total": 14,
+      "covered": 14,
+      "pct": 100
+    },
+    "branches": {
+      "total": 2,
+      "covered": 0,
+      "pct": 0
+    },
+    "functions": {
+      "total": 0,
+      "covered": 0,
+      "pct": 100
+    },
+    "statements": {
+      "total": 14,
+      "covered": 14,
+      "pct": 100
+    }
+  },
+  "src/App.tsx": {
+    "lines": {
+      "total": 50,
+      "covered": 50,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 50,
+      "covered": 50,
+      "pct": 100
+    }
+  },
+  "src/stores/uiStore.ts": {
+    "lines": {
+      "total": 48,
+      "covered": 44,
+      "pct": 91.66
+    },
+    "branches": {
+      "total": 6,
+      "covered": 4,
+      "pct": 66.66
+    },
+    "functions": {
+      "total": 6,
+      "covered": 3,
+      "pct": 50
+    },
+    "statements": {
+      "total": 48,
+      "covered": 44,
+      "pct": 91.66
+    }
+  },
+  "src/components/layout/AppShell.tsx": {
+    "lines": {
+      "total": 40,
+      "covered": 33,
+      "pct": 82.5
+    },
+    "branches": {
+      "total": 8,
+      "covered": 8,
+      "pct": 100
+    },
+    "functions": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "statements": {
+      "total": 40,
+      "covered": 33,
+      "pct": 82.5
+    }
+  },
+  "src/pages/HomePage.tsx": {
+    "lines": {
+      "total": 245,
+      "covered": 221,
+      "pct": 90.2
+    },
+    "branches": {
+      "total": 28,
+      "covered": 16,
+      "pct": 57.14
+    },
+    "functions": {
+      "total": 22,
+      "covered": 6,
+      "pct": 27.27
+    },
+    "statements": {
+      "total": 245,
+      "covered": 221,
+      "pct": 90.2
+    }
+  },
+  "src/pages/CharactersPage.tsx": {
+    "lines": {
+      "total": 457,
+      "covered": 386,
+      "pct": 84.46
+    },
+    "branches": {
+      "total": 60,
+      "covered": 40,
+      "pct": 66.66
+    },
+    "functions": {
+      "total": 40,
+      "covered": 11,
+      "pct": 27.5
+    },
+    "statements": {
+      "total": 457,
+      "covered": 386,
+      "pct": 84.46
+    }
+  },
+  "src/pages/EditorPage.tsx": {
+    "lines": {
+      "total": 718,
+      "covered": 668,
+      "pct": 93.03
+    },
+    "branches": {
+      "total": 144,
+      "covered": 129,
+      "pct": 89.58
+    },
+    "functions": {
+      "total": 55,
+      "covered": 36,
+      "pct": 65.45
+    },
+    "statements": {
+      "total": 718,
+      "covered": 668,
+      "pct": 93.03
+    }
+  },
+  "src/pages/LorebookPage.tsx": {
+    "lines": {
+      "total": 296,
+      "covered": 264,
+      "pct": 89.18
+    },
+    "branches": {
+      "total": 48,
+      "covered": 33,
+      "pct": 68.75
+    },
+    "functions": {
+      "total": 25,
+      "covered": 8,
+      "pct": 32
+    },
+    "statements": {
+      "total": 296,
+      "covered": 264,
+      "pct": 89.18
+    }
+  },
+  "src/pages/ForeshadowsPage.tsx": {
+    "lines": {
+      "total": 433,
+      "covered": 348,
+      "pct": 80.36
+    },
+    "branches": {
+      "total": 53,
+      "covered": 45,
+      "pct": 84.9
+    },
+    "functions": {
+      "total": 37,
+      "covered": 13,
+      "pct": 35.13
+    },
+    "statements": {
+      "total": 433,
+      "covered": 348,
+      "pct": 80.36
+    }
+  },
+  "src/pages/CompletionPage.tsx": {
+    "lines": {
+      "total": 237,
+      "covered": 236,
+      "pct": 99.57
+    },
+    "branches": {
+      "total": 42,
+      "covered": 33,
+      "pct": 78.57
+    },
+    "functions": {
+      "total": 16,
+      "covered": 14,
+      "pct": 87.5
+    },
+    "statements": {
+      "total": 237,
+      "covered": 236,
+      "pct": 99.57
+    }
+  },
+  "src/pages/PlanPage.tsx": {
+    "lines": {
+      "total": 335,
+      "covered": 258,
+      "pct": 77.01
+    },
+    "branches": {
+      "total": 44,
+      "covered": 43,
+      "pct": 97.72
+    },
+    "functions": {
+      "total": 28,
+      "covered": 11,
+      "pct": 39.28
+    },
+    "statements": {
+      "total": 335,
+      "covered": 258,
+      "pct": 77.01
+    }
+  },
+  "src/lib/queryClient.ts": {
+    "lines": {
+      "total": 25,
+      "covered": 25,
+      "pct": 100
+    },
+    "branches": {
+      "total": 7,
+      "covered": 7,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 25,
+      "covered": 25,
+      "pct": 100
+    }
+  },
+  "src/pages/MemoryPage.tsx": {
+    "lines": {
+      "total": 544,
+      "covered": 533,
+      "pct": 97.97
+    },
+    "branches": {
+      "total": 117,
+      "covered": 113,
+      "pct": 96.58
+    },
+    "functions": {
+      "total": 31,
+      "covered": 29,
+      "pct": 93.54
+    },
+    "statements": {
+      "total": 544,
+      "covered": 533,
+      "pct": 97.97
+    }
+  },
+  "src/pages/SettingsPage.tsx": {
+    "lines": {
+      "total": 633,
+      "covered": 104,
+      "pct": 16.42
+    },
+    "branches": {
+      "total": 0,
+      "covered": 0,
+      "pct": 100
+    },
+    "functions": {
+      "total": 9,
+      "covered": 0,
+      "pct": 0
+    },
+    "statements": {
+      "total": 633,
+      "covered": 104,
+      "pct": 16.42
+    }
+  },
+  "src/components/layout/LeftSidebar.tsx": {
+    "lines": {
+      "total": 235,
+      "covered": 215,
+      "pct": 91.48
+    },
+    "branches": {
+      "total": 37,
+      "covered": 29,
+      "pct": 78.37
+    },
+    "functions": {
+      "total": 9,
+      "covered": 5,
+      "pct": 55.55
+    },
+    "statements": {
+      "total": 235,
+      "covered": 215,
+      "pct": 91.48
+    }
+  },
+  "src/components/layout/TopBar.tsx": {
+    "lines": {
+      "total": 39,
+      "covered": 33,
+      "pct": 84.61
+    },
+    "branches": {
+      "total": 8,
+      "covered": 5,
+      "pct": 62.5
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 39,
+      "covered": 33,
+      "pct": 84.61
+    }
+  },
+  "src/components/layout/RightPanel.tsx": {
+    "lines": {
+      "total": 27,
+      "covered": 27,
+      "pct": 100
+    },
+    "branches": {
+      "total": 12,
+      "covered": 12,
+      "pct": 100
+    },
+    "functions": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "statements": {
+      "total": 27,
+      "covered": 27,
+      "pct": 100
+    }
+  },
+  "src/components/layout/StatusBar.tsx": {
+    "lines": {
+      "total": 30,
+      "covered": 30,
+      "pct": 100
+    },
+    "branches": {
+      "total": 15,
+      "covered": 15,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 30,
+      "covered": 30,
+      "pct": 100
+    }
+  },
+  "src/components/ui/input.tsx": {
+    "lines": {
+      "total": 21,
+      "covered": 21,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 21,
+      "covered": 21,
+      "pct": 100
+    }
+  },
+  "src/components/ui/alert.tsx": {
+    "lines": {
+      "total": 34,
+      "covered": 32,
+      "pct": 94.11
+    },
+    "branches": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "functions": {
+      "total": 3,
+      "covered": 2,
+      "pct": 66.66
+    },
+    "statements": {
+      "total": 34,
+      "covered": 32,
+      "pct": 94.11
+    }
+  },
+  "src/components/ui/badge.tsx": {
+    "lines": {
+      "total": 38,
+      "covered": 38,
+      "pct": 100
+    },
+    "branches": {
+      "total": 4,
+      "covered": 2,
+      "pct": 50
+    },
+    "functions": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "statements": {
+      "total": 38,
+      "covered": 38,
+      "pct": 100
+    }
+  },
+  "src/components/home/BootstrapDialog.tsx": {
+    "lines": {
+      "total": 384,
+      "covered": 210,
+      "pct": 54.68
+    },
+    "branches": {
+      "total": 15,
+      "covered": 5,
+      "pct": 33.33
+    },
+    "functions": {
+      "total": 15,
+      "covered": 1,
+      "pct": 6.66
+    },
+    "statements": {
+      "total": 384,
+      "covered": 210,
+      "pct": 54.68
+    }
+  },
+  "src/components/home/PlusStatusWidget.tsx": {
+    "lines": {
+      "total": 74,
+      "covered": 73,
+      "pct": 98.64
+    },
+    "branches": {
+      "total": 23,
+      "covered": 17,
+      "pct": 73.91
+    },
+    "functions": {
+      "total": 4,
+      "covered": 4,
+      "pct": 100
+    },
+    "statements": {
+      "total": 74,
+      "covered": 73,
+      "pct": 98.64
+    }
+  },
+  "src/components/ui/sheet.tsx": {
+    "lines": {
+      "total": 69,
+      "covered": 65,
+      "pct": 94.2
+    },
+    "branches": {
+      "total": 13,
+      "covered": 12,
+      "pct": 92.3
+    },
+    "functions": {
+      "total": 7,
+      "covered": 5,
+      "pct": 71.42
+    },
+    "statements": {
+      "total": 69,
+      "covered": 65,
+      "pct": 94.2
+    }
+  },
+  "src/components/ui/textarea.tsx": {
+    "lines": {
+      "total": 17,
+      "covered": 17,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 17,
+      "covered": 17,
+      "pct": 100
+    }
+  },
+  "src/lib/wordCount.ts": {
+    "lines": {
+      "total": 23,
+      "covered": 23,
+      "pct": 100
+    },
+    "branches": {
+      "total": 3,
+      "covered": 2,
+      "pct": 66.66
+    },
+    "functions": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "statements": {
+      "total": 23,
+      "covered": 23,
+      "pct": 100
+    }
+  },
+  "src/components/editor/SaveIndicator.tsx": {
+    "lines": {
+      "total": 38,
+      "covered": 34,
+      "pct": 89.47
+    },
+    "branches": {
+      "total": 18,
+      "covered": 17,
+      "pct": 94.44
+    },
+    "functions": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "statements": {
+      "total": 38,
+      "covered": 34,
+      "pct": 89.47
+    }
+  },
+  "src/components/editor/CodeMirrorEditor.tsx": {
+    "lines": {
+      "total": 114,
+      "covered": 108,
+      "pct": 94.73
+    },
+    "branches": {
+      "total": 12,
+      "covered": 9,
+      "pct": 75
+    },
+    "functions": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "statements": {
+      "total": 114,
+      "covered": 108,
+      "pct": 94.73
+    }
+  },
+  "src/lib/export.ts": {
+    "lines": {
+      "total": 61,
+      "covered": 20,
+      "pct": 32.78
+    },
+    "branches": {
+      "total": 0,
+      "covered": 0,
+      "pct": 100
+    },
+    "functions": {
+      "total": 5,
+      "covered": 0,
+      "pct": 0
+    },
+    "statements": {
+      "total": 61,
+      "covered": 20,
+      "pct": 32.78
+    }
+  },
+  "src/components/editor/EditorPreview.tsx": {
+    "lines": {
+      "total": 18,
+      "covered": 18,
+      "pct": 100
+    },
+    "branches": {
+      "total": 2,
+      "covered": 2,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 18,
+      "covered": 18,
+      "pct": 100
+    }
+  },
+  "src/components/editor/WordCountFooter.tsx": {
+    "lines": {
+      "total": 30,
+      "covered": 30,
+      "pct": 100
+    },
+    "branches": {
+      "total": 4,
+      "covered": 2,
+      "pct": 50
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 30,
+      "covered": 30,
+      "pct": 100
+    }
+  },
+  "src/components/editor/CanonDialog.tsx": {
+    "lines": {
+      "total": 296,
+      "covered": 271,
+      "pct": 91.55
+    },
+    "branches": {
+      "total": 71,
+      "covered": 59,
+      "pct": 83.09
+    },
+    "functions": {
+      "total": 9,
+      "covered": 9,
+      "pct": 100
+    },
+    "statements": {
+      "total": 296,
+      "covered": 271,
+      "pct": 91.55
+    }
+  },
+  "src/components/ui/tabs.tsx": {
+    "lines": {
+      "total": 75,
+      "covered": 75,
+      "pct": 100
+    },
+    "branches": {
+      "total": 10,
+      "covered": 9,
+      "pct": 90
+    },
+    "functions": {
+      "total": 6,
+      "covered": 6,
+      "pct": 100
+    },
+    "statements": {
+      "total": 75,
+      "covered": 75,
+      "pct": 100
+    }
+  },
+  "src/components/ui/dropdown-menu.tsx": {
+    "lines": {
+      "total": 100,
+      "covered": 66,
+      "pct": 66
+    },
+    "branches": {
+      "total": 8,
+      "covered": 5,
+      "pct": 62.5
+    },
+    "functions": {
+      "total": 9,
+      "covered": 4,
+      "pct": 44.44
+    },
+    "statements": {
+      "total": 100,
+      "covered": 66,
+      "pct": 66
+    }
+  },
+  "src/components/ui/slider.tsx": {
+    "lines": {
+      "total": 19,
+      "covered": 19,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 19,
+      "covered": 19,
+      "pct": 100
+    }
+  },
+  "src/stores/settingsStore.ts": {
+    "lines": {
+      "total": 63,
+      "covered": 57,
+      "pct": 90.47
+    },
+    "branches": {
+      "total": 4,
+      "covered": 2,
+      "pct": 50
+    },
+    "functions": {
+      "total": 8,
+      "covered": 1,
+      "pct": 12.5
+    },
+    "statements": {
+      "total": 63,
+      "covered": 57,
+      "pct": 90.47
+    }
+  },
+  "src/components/ui/icons.tsx": {
+    "lines": {
+      "total": 65,
+      "covered": 50,
+      "pct": 76.92
+    },
+    "branches": {
+      "total": 3,
+      "covered": 3,
+      "pct": 100
+    },
+    "functions": {
+      "total": 5,
+      "covered": 3,
+      "pct": 60
+    },
+    "statements": {
+      "total": 65,
+      "covered": 50,
+      "pct": 76.92
+    }
+  },
+  "src/components/ui/scroll-area.tsx": {
+    "lines": {
+      "total": 10,
+      "covered": 10,
+      "pct": 100
+    },
+    "branches": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "functions": {
+      "total": 1,
+      "covered": 1,
+      "pct": 100
+    },
+    "statements": {
+      "total": 10,
+      "covered": 10,
+      "pct": 100
+    }
+  },
+  "src/components/panels/AiPanel.tsx": {
+    "lines": {
+      "total": 1885,
+      "covered": 1500,
+      "pct": 79.57
+    },
+    "branches": {
+      "total": 358,
+      "covered": 313,
+      "pct": 87.43
+    },
+    "functions": {
+      "total": 97,
+      "covered": 69,
+      "pct": 71.13
+    },
+    "statements": {
+      "total": 1885,
+      "covered": 1500,
+      "pct": 79.57
+    }
+  },
+  "src/components/panels/RefineReport.tsx": {
+    "lines": {
+      "total": 430,
+      "covered": 340,
+      "pct": 79.06
+    },
+    "branches": {
+      "total": 50,
+      "covered": 32,
+      "pct": 64
+    },
+    "functions": {
+      "total": 26,
+      "covered": 14,
+      "pct": 53.84
+    },
+    "statements": {
+      "total": 430,
+      "covered": 340,
+      "pct": 79.06
+    }
+  },
+  "src/lib/aiStream.ts": {
+    "lines": {
+      "total": 326,
+      "covered": 177,
+      "pct": 54.29
+    },
+    "branches": {
+      "total": 38,
+      "covered": 14,
+      "pct": 36.84
+    },
+    "functions": {
+      "total": 5,
+      "covered": 4,
+      "pct": 80
+    },
+    "statements": {
+      "total": 326,
+      "covered": 177,
+      "pct": 54.29
+    }
+  },
+  "src/components/panels/SceneManager.tsx": {
+    "lines": {
+      "total": 243,
+      "covered": 201,
+      "pct": 82.71
+    },
+    "branches": {
+      "total": 17,
+      "covered": 16,
+      "pct": 94.11
+    },
+    "functions": {
+      "total": 24,
+      "covered": 9,
+      "pct": 37.5
+    },
+    "statements": {
+      "total": 243,
+      "covered": 201,
+      "pct": 82.71
+    }
+  },
+  "__total__": {
+    "lines": {
+      "total": 11651,
+      "covered": 9702,
+      "pct": 83.27
+    },
+    "branches": {
+      "total": 1741,
+      "covered": 1450,
+      "pct": 83.28
+    },
+    "functions": {
+      "total": 673,
+      "covered": 410,
+      "pct": 60.92
+    },
+    "statements": {
+      "total": 11651,
+      "covered": 9702,
+      "pct": 83.27
+    }
+  }
+}

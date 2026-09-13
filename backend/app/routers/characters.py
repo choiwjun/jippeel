@@ -1,10 +1,10 @@
 """캐릭터 카드 라우터 (사양 §5 M2, FR-201~205 / Sprint 2)."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Character, Project, Relationship
+from app.models import Chapter, Character, Project, Relationship
 from app.schemas import (
     CardJsonPatch,
     CharacterCreate,
@@ -147,3 +147,79 @@ def delete_relation(rid: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="relation not found")
     db.delete(relation)
     db.commit()
+
+
+@router.get("/characters/{chid}/card.png")
+def export_card_png(chid: int, db: Session = Depends(get_db)):
+    """캐릭터를 SillyTavern V2 카드 PNG로 내보낸다 (O01)."""
+    from app.services import card_png
+
+    character = _get_character_or_404(chid, db)
+    png = card_png.build_card_png(card_png.character_to_card(character))
+    from urllib.parse import quote
+
+    safe_name = quote((character.name or "card").encode("utf-8"))
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f"attachment; filename*=utf-8''{safe_name}.png"
+        },
+    )
+
+
+@router.post(
+    "/projects/{pid}/characters/import-card",
+    response_model=CharacterOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_card_png(
+    pid: int, file: UploadFile = File(...), db: Session = Depends(get_db)
+):
+    """SillyTavern 카드 PNG에서 캐릭터를 생성한다 (O01)."""
+    from app.services import card_png
+
+    _get_project_or_404(pid, db)
+    try:
+        card = card_png.parse_card_png(await file.read())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    fields = card_png.card_to_character_fields(card)
+    character = Character(project_id=pid, name=fields.pop("name", "가져온 캐릭터"), **fields)
+    db.add(character)
+    db.commit()
+    db.refresh(character)
+    return character
+
+
+@router.post("/projects/{pid}/import/novelwriter", status_code=status.HTTP_201_CREATED)
+async def import_novelwriter(
+    pid: int, file: UploadFile = File(...), db: Session = Depends(get_db)
+):
+    """novelWriter 프로젝트 zip의 소설 문서를 회차로 가져온다 (O01)."""
+    from app.services import novelwriter_import
+
+    _get_project_or_404(pid, db)
+    try:
+        imported = novelwriter_import.parse_project_zip(await file.read())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    chapters = []
+    for index, ch in enumerate(imported.chapters):
+        chapter = Chapter(
+            project_id=pid,
+            title=ch.title,
+            content_md=ch.content,
+            sort_order=float(index),
+            status="초고",
+        )
+        db.add(chapter)
+        chapters.append(chapter)
+    db.commit()
+    for chapter in chapters:
+        db.refresh(chapter)
+    return {
+        "project_name": imported.project_name,
+        "created": len(chapters),
+        "chapter_ids": [c.id for c in chapters],
+    }

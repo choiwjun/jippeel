@@ -53,6 +53,8 @@ export function RefineReport() {
     },
     onSuccess: (result) => {
       setRun({ result, routeOverride });
+      // D03-2: 새 윤문 실행은 미해결 감수 수를 바꾼다.
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
       toast(`윤문 실행 완료 — 변경률 ${(result.changed_ratio * 100).toFixed(1)}%`, 'info');
     },
     onError: (e) => toast((e as Error).message, 'error'),
@@ -78,6 +80,7 @@ export function RefineReport() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ['refine-run', runId] });
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
       setRun(null);
       close();
     },
@@ -87,6 +90,7 @@ export function RefineReport() {
   const reject = useMutation({
     mutationFn: (runId: number) => api.post(`/refine/runs/${runId}/reject`),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
       toast('윤문을 폐기했습니다. 기록만 남습니다.', 'info');
       setRun(null);
     },

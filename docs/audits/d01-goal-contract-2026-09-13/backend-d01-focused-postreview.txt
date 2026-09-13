@@ -1,0 +1,10 @@
+{"isolation": "ready-before-pytest", "root": "/tmp/jippeel-isolated-p37k7z48", "destinations": {"DATABASE_URL": "sqlite:////tmp/jippeel-isolated-p37k7z48/lifespan.db", "JIPPEEL_KEY_FILE": "/tmp/jippeel-isolated-p37k7z48/dummy.key", "COVERAGE_FILE": "/tmp/jippeel-isolated-p37k7z48/test.coverage", "JIPPEEL_TEST_BASETEMP": "/tmp/jippeel-isolated-p37k7z48/pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+...............................................                          [100%]
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+47 passed, 1 warning in 2.91s
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

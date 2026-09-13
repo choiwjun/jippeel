@@ -1,0 +1,21 @@
+G03 부분 검증 — credential·key (2026-09-13, 실행 가능 범위만)
+
+환경 사실:
+- ~/.jippeel/api_key.key 두 부(Linux home·Windows user) 존재하나 내용 상이
+- 실 DB ai_endpoints 1행("ChatGPT OAuth eval")의 api_key_encrypted = EMPTY
+  → 복호화 대상 실 credential 부재. 실 저장 비밀 복구 시험은 대상이 없어 불가.
+- DPAPI/keyring 경로는 Linux에서 검증 불가(Windows 세션 필요)
+
+검증 결과(전부 PASS):
+1. wrong-key 거부: 실제 Linux 키 파일로 만든 Fernet 암호문을 랜덤 키로
+   복호화 → InvalidToken 정상 발생(묵시 폐기 없음)
+2. 키 유실 감지: temp JIPPEEL_KEY_FILE에서 키 삭제→재기동 시뮬레이션 시
+   새 키가 생성되고 구 암호문 복호화가 "마스터 키가 일치하지 않습니다"
+   ValueError로 명시 실패 — 조용한 성공/빈값 처리 아님
+3. 키 복구: 백업해둔 키 파일을 복원하면 reset_cipher_cache 후 동일
+   암호문 복호화 성공 — 키 파일 백업→복원이 유효한 recovery 절차임을 확인
+
+잔여(승인·환경 필요):
+- 지정 테스트 credential로 실제 OAuth 로그인→저장→복호화 왕복 (G02와 결합)
+- Windows DPAPI(keyring) 경로 검증 — 지정 Windows 장치에서(G04와 결합)
+- 로그아웃 UI/절차 — 코드에 로그아웃 기능 없음(선존), 별도 슬라이스 후보

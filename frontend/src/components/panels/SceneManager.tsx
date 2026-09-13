@@ -48,7 +48,11 @@ export function SceneManager({
   });
   const scenes = scenesQuery.data ?? [];
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['scenes', chapterId] });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['scenes', chapterId] });
+    // D03-2: 장면 변경은 재개 정보의 다음 빈 장면·scene_count를 바꾼다.
+    void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+  };
 
   const createScene = useMutation({
     mutationFn: () => api.post<Scene>(`/chapters/${chapterId}/scenes`, {

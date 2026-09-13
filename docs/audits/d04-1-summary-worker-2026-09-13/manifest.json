@@ -1,0 +1,36 @@
+{
+  "slice": "D04-1",
+  "title": "summary_jobs 영속 + fake worker 생명주기 (서비스 계층)",
+  "date": "2026-09-13",
+  "branch": "choiwjun/d01-contract-analysis",
+  "worktree": "/home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis",
+  "status": "accepted",
+  "committed": false,
+  "spec": "docs/superpowers/plans/2026-09-13-d04-1-summary-worker-spec.md",
+  "parent_design": "docs/superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md",
+  "alembic_head": "9d0e1f2a3747",
+  "scope_notes": "service layer only — no HTTP endpoints, no frontend, no real provider, no auto-invocation. Provider/production wiring gated behind G01/G02/G03 approvals.",
+  "verification": {
+    "backend_focused": "41 passed (summary_worker+migrations+summary_jobs), 0 isolation violations",
+    "backend_full": "641 passed, 1 skipped, 0 isolation violations",
+    "frontend": "not applicable — no frontend surface in this slice",
+    "known_warning": "pre-existing SyntaxWarning in backend/app/services/wordcount.py:30"
+  },
+  "isolation": {
+    "backend_db": "synthetic TEMP SQLite only",
+    "provider": "fake provider callable only — injected, no real provider path exists",
+    "external": "no production DB, no real provider, no credentials, no deploy"
+  },
+  "reviews": {
+    "backend": "PASS_WITH_NOTES — findings applied, re-verified",
+    "contract_design": "PASS_WITH_NOTES — findings applied, re-verified"
+  },
+  "evidence": [
+    "red-log.txt",
+    "backend-focused.txt",
+    "backend-full.txt",
+    "source-hashes.txt",
+    "review-log.md",
+    "acceptance.md"
+  ]
+}

@@ -1,0 +1,163 @@
+Output from command in shell dba2f4:
+{"isolation": "ready-before-pytest", "root": "/tmp/jippeel-isolated-chc7zfw3", "destinations": {"DATABASE_URL": "sqlite:////tmp/jippeel-isolated-chc7zfw3/lifespan.db", "JIPPEEL_KEY_FILE": "/tmp/jippeel-isolated-chc7zfw3/dummy.key", "COVERAGE_FILE": "/tmp/jippeel-isolated-chc7zfw3/test.coverage", "JIPPEEL_TEST_BASETEMP": "/tmp/jippeel-isolated-chc7zfw3/pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+============================= test session starts ==============================
+platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
+cachedir: pytest-cache
+rootdir: /tmp/jippeel-isolated-chc7zfw3
+configfile: pytest.ini
+collected 9 items
+
+../../../../../../../tmp/jippeel-isolated-chc7zfw3 F.FFFFFFF             [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_resume_new_chapter_defaults _______________________
+
+client = <starlette.testclient.TestClient object at 0x75bb533fbcb0>
+
+    def test_resume_new_chapter_defaults(client):
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        r = _resume(client, cid)
+>       assert r.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_chapter_resume.py:85: AssertionError
+___________________ test_resume_goal_drift_after_transition ____________________
+
+client = <starlette.testclient.TestClient object at 0x75bb53034e10>
+
+    def test_resume_goal_drift_after_transition(client):
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        _save_goal(client, cid)  # v1
+        _transition(client, cid, "writing", "planning")
+>       assert _resume(client, cid).json()["goal_changed_since_transition"] is False
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'goal_changed_since_transition'
+
+tests/test_chapter_resume.py:111: KeyError
+________________ test_resume_manuscript_drift_after_transition _________________
+
+client = <starlette.testclient.TestClient object at 0x75bb51e05940>
+
+    def test_resume_manuscript_drift_after_transition(client):
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        _transition(client, cid, "writing", "planning")
+>       assert _resume(client, cid).json()["manuscript_changed_since_transition"] is False
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'manuscript_changed_since_transition'
+
+tests/test_chapter_resume.py:124: KeyError
+_____________________ test_resume_no_drift_without_events ______________________
+
+client = <starlette.testclient.TestClient object at 0x75bb51e06060>
+
+    def test_resume_no_drift_without_events(client):
+        """전이 이력이 없으면 목표·원고 변경이 있어도 drift는 false다."""
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        _save_goal(client, cid)
+        _save_content(client, cid, "본문", 0)
+        body = _resume(client, cid).json()
+>       assert body["goal_changed_since_transition"] is False
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'goal_changed_since_transition'
+
+tests/test_chapter_resume.py:140: KeyError
+______________ test_resume_pending_refine_runs_counts_unaccepted _______________
+
+client_db = (<starlette.testclient.TestClient object at 0x75bb51ea9490>, sessionmaker(class_='Session', bind=Engine(sqlite:////tmp/jippeel-isolated-chc7zfw3/pytest/test_resume_pending_refine_run0/test.db), autoflush=False, expire_on_commit=False))
+
+    def test_resume_pending_refine_runs_counts_unaccepted(client_db):
+        client, Session = client_db
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        with Session() as db:
+            db.add(RefineRun(chapter_id=cid, route_hint="standard", result_text="a", accepted=False))
+            db.add(RefineRun(chapter_id=cid, route_hint="light", result_text="b", accepted=True))
+            db.add(RefineRun(chapter_id=cid, route_hint="light", result_text="c", accepted=False))
+            db.commit()
+    
+>       assert _resume(client, cid).json()["pending_refine_runs"] == 2
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'pending_refine_runs'
+
+tests/test_chapter_resume.py:158: KeyError
+____________________ test_resume_next_scene_is_first_empty _____________________
+
+client = <starlette.testclient.TestClient object at 0x75bb51d4a030>
+
+    def test_resume_next_scene_is_first_empty(client):
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "s1", "content_md": "본문"})
+        client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "s2"})
+        client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "s3"})
+    
+        body = _resume(client, cid).json()
+>       assert body["scene_count"] == 3
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'scene_count'
+
+tests/test_chapter_resume.py:171: KeyError
+_________________ test_resume_next_scene_none_when_all_written _________________
+
+client = <starlette.testclient.TestClient object at 0x75bb51d4b020>
+
+    def test_resume_next_scene_none_when_all_written(client):
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "s1", "content_md": "본문"})
+    
+        body = _resume(client, cid).json()
+>       assert body["scene_count"] == 1
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'scene_count'
+
+tests/test_chapter_resume.py:181: KeyError
+___________________________ test_resume_is_read_only ___________________________
+
+client_db = (<starlette.testclient.TestClient object at 0x75bb51d997b0>, sessionmaker(class_='Session', bind=Engine(sqlite:////tmp/jippeel-isolated-chc7zfw3/pytest/test_resume_is_read_only0/test.db), autoflush=False, expire_on_commit=False))
+
+    def test_resume_is_read_only(client_db):
+        client, Session = client_db
+        pid = _mk_project(client)
+        cid = _mk_chapter(client, pid)["id"]
+        _save_goal(client, cid)
+        _save_content(client, cid, "본문", 0)
+        _transition(client, cid, "writing", "planning")
+    
+        with Session() as db:
+            events_before = len(list(db.scalars(select(ChapterFlowEvent))))
+            snaps_before = len(list(db.scalars(select(ChapterSnapshot))))
+    
+        r = _resume(client, cid)
+>       assert r.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests/test_chapter_resume.py:200: AssertionError
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_new_chapter_defaults
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_goal_drift_after_transition
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_manuscript_drift_after_transition
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_no_drift_without_events
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_pending_refine_runs_counts_unaccepted
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_next_scene_is_first_empty
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_next_scene_none_when_all_written
+FAILED ../../../../../../../tmp/jippeel-isolated-chc7zfw3::test_resume_is_read_only
+==================== 8 failed, 1 passed, 1 warning in 0.69s ====================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}
+
+
+Exit code: 1
+
+`| tail -12` was parsed out (12 of 157 total lines shown).

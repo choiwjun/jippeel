@@ -54,7 +54,7 @@ def get_db():
         db.close()
 
 
-ALEMBIC_HEAD = "1b2c3d4e5f60"
+ALEMBIC_HEAD = "9d0e1f2a3747"
 TEMP_CREATE_ALL_ENV = "JIPPEEL_ALLOW_TEMP_CREATE_ALL"
 
 
@@ -83,50 +83,106 @@ def assert_manuscript_schema_current(bind: Engine) -> None:
     if _allow_temp_create_all(str(bind.url)):
         return
 
-    inspector = inspect(bind)
-    tables = set(inspector.get_table_names())
-    problems: list[str] = []
-    if "chapters" not in tables:
-        problems.append("empty or unmigrated database")
-    else:
-        chapter_cols = {col["name"] for col in inspector.get_columns("chapters")}
-        if "revision" not in chapter_cols:
-            problems.append("chapters.revision")
+    with bind.connect() as conn:
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
 
-        if "refine_runs" in tables:
-            refine_cols = {col["name"] for col in inspector.get_columns("refine_runs")}
-            if "base_revision" not in refine_cols:
-                problems.append("refine_runs.base_revision")
+        problems: list[str] = []
+        if "chapters" not in tables:
+            problems.append("empty or unmigrated database")
         else:
-            problems.append("refine_runs table")
+            chapter_cols = {col["name"] for col in inspector.get_columns("chapters")}
+            if "revision" not in chapter_cols:
+                problems.append("chapters.revision")
+            if "flow_stage" not in chapter_cols:
+                problems.append("chapters.flow_stage")
 
-        if "chapter_snapshots" not in tables:
-            problems.append("chapter_snapshots table")
+            if "refine_runs" in tables:
+                refine_cols = {col["name"] for col in inspector.get_columns("refine_runs")}
+                if "base_revision" not in refine_cols:
+                    problems.append("refine_runs.base_revision")
+            else:
+                problems.append("refine_runs table")
+
+            if "chapter_snapshots" not in tables:
+                problems.append("chapter_snapshots table")
+            else:
+                unique_cols = {
+                    tuple(constraint.get("column_names") or [])
+                    for constraint in inspector.get_unique_constraints("chapter_snapshots")
+                }
+                if ("chapter_id", "revision") not in unique_cols:
+                    problems.append("chapter_snapshots(chapter_id, revision) unique")
+                index_cols = {
+                    tuple(index.get("column_names") or [])
+                    for index in inspector.get_indexes("chapter_snapshots")
+                }
+                if ("chapter_id",) not in index_cols:
+                    problems.append("chapter_snapshots.chapter_id index")
+                if ("created_at",) not in index_cols:
+                    problems.append("chapter_snapshots.created_at index")
+
+        # D01 회차 목표 영속화 테이블
+        for goal_table in ("chapter_goals", "chapter_goal_revisions"):
+            if goal_table not in tables:
+                problems.append(f"{goal_table} table")
+
+        # D03-1 집필 흐름 전이 로그 테이블
+        if "chapter_flow_events" not in tables:
+            problems.append("chapter_flow_events table")
+
+        # D03-3 연재 상태 컬럼 + check constraint
+        if "projects" in tables:
+            project_cols = {col["name"] for col in inspector.get_columns("projects")}
+            if "serial_state" not in project_cols:
+                problems.append("projects.serial_state")
+            if "serial_completed_at" not in project_cols:
+                problems.append("projects.serial_completed_at")
+            check_names = {
+                constraint["name"]
+                for constraint in inspector.get_check_constraints("projects")
+            }
+            if "ck_project_serial_state" not in check_names:
+                problems.append("projects.ck_project_serial_state")
+
+            # D03-7 결말 후보 컬럼
+            for ending_col in ("ending_intent", "ending_locked", "ending_updated_at"):
+                if ending_col not in project_cols:
+                    problems.append(f"projects.{ending_col}")
+
+        # D03-4 근거 연결 테이블
+        if "chapter_goal_evidence_links" not in tables:
+            problems.append("chapter_goal_evidence_links table")
+
+        # D03-5 복선 이관 구분 컬럼 + check constraint
+        if "foreshadows" in tables:
+            foreshadow_cols = {col["name"] for col in inspector.get_columns("foreshadows")}
+            if "disposition" not in foreshadow_cols:
+                problems.append("foreshadows.disposition")
+            foreshadow_checks = {
+                constraint["name"]
+                for constraint in inspector.get_check_constraints("foreshadows")
+            }
+            if "ck_foreshadow_disposition" not in foreshadow_checks:
+                problems.append("foreshadows.ck_foreshadow_disposition")
+
+        # D03-6 완결본 스냅샷 테이블
+        if "project_final_editions" not in tables:
+            problems.append("project_final_editions table")
+
+        # D04-1 자동 요약 작업 테이블
+        if "summary_jobs" not in tables:
+            problems.append("summary_jobs table")
+
+        if "alembic_version" not in tables:
+            problems.append("alembic_version table")
         else:
-            unique_cols = {
-                tuple(constraint.get("column_names") or [])
-                for constraint in inspector.get_unique_constraints("chapter_snapshots")
-            }
-            if ("chapter_id", "revision") not in unique_cols:
-                problems.append("chapter_snapshots(chapter_id, revision) unique")
-            index_cols = {
-                tuple(index.get("column_names") or [])
-                for index in inspector.get_indexes("chapter_snapshots")
-            }
-            if ("chapter_id",) not in index_cols:
-                problems.append("chapter_snapshots.chapter_id index")
-            if ("created_at",) not in index_cols:
-                problems.append("chapter_snapshots.created_at index")
-
-    if "alembic_version" not in tables:
-        problems.append("alembic_version table")
-    else:
-        with bind.connect() as connection:
-            current = connection.exec_driver_sql(
-                "SELECT version_num FROM alembic_version"
-            ).scalar()
-        if current != ALEMBIC_HEAD:
-            problems.append(f"alembic head {current!r} != {ALEMBIC_HEAD}")
+            with bind.connect() as connection:
+                current = connection.exec_driver_sql(
+                    "SELECT version_num FROM alembic_version"
+                ).scalar()
+            if current != ALEMBIC_HEAD:
+                problems.append(f"alembic head {current!r} != {ALEMBIC_HEAD}")
 
     if problems:
         missing = ", ".join(problems)

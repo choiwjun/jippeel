@@ -1,0 +1,9 @@
+=== RED run (recorded at implementation start, before ChapterGoal existed) ===
+command: .venv/bin/python -I -B scripts/run_backend_pytest.py -q tests/test_chapter_goals.py
+
+ImportError: cannot import name 'ChapterGoal' from 'app.models'
+  at: from app.models import Chapter, ChapterGoal, ChapterGoalRevision, MemoryEntry, Project
+
+isolation: complete, pytest_exit=1, internal_ipc_count=0, subprocess_attempts=0, fake_keyring_calls=0, violations=[]
+
+Note: collection-time RED observed in the runner output before implementation; verbatim summary preserved here.

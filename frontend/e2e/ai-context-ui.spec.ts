@@ -1,4 +1,5 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { type Page, type Route } from "@playwright/test";
+import { expect, test } from "./coverage-test";
 
 type Chapter = {
   id: number;
@@ -456,6 +457,9 @@ async function setupFixture(page: Page): Promise<FixtureState> {
       path === `/chapters/${FIRST_CHAPTER_ID}/quality/history`
     )
       return json(200, []);
+    // D03-4: 브리프 섹션이 열리면 근거 링크를 조회한다.
+    if (method === "GET" && /^\/chapters\/\d+\/evidence-links$/.test(path))
+      return json(200, { chapter_id: Number(path.match(/\d+/)?.[0]), links: [] });
 
     return json(599, {
       detail: `Unexpected API request in ai-context fixture: ${method} ${path}${url.search}`,

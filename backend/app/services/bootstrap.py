@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 import openai  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
 
-from app.models import (Chapter, Character, Foreshadow, LoreEntry, Project,
+from app.models import (Chapter, Character, LoreEntry, Project,
                         Relationship, VolumeNote)
 from app.services import gpt_oauth, llm, usage as usage_service
 

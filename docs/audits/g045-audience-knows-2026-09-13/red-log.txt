@@ -1,0 +1,39 @@
+Output from command in shell 78a828:
+{"isolation": "ready-before-pytest", "root": "/tmp/jippeel-isolated-62002yfk", "destinations": {"DATABASE_URL": "sqlite:////tmp/jippeel-isolated-62002yfk/lifespan.db", "JIPPEEL_KEY_FILE": "/tmp/jippeel-isolated-62002yfk/dummy.key", "COVERAGE_FILE": "/tmp/jippeel-isolated-62002yfk/test.coverage", "JIPPEEL_TEST_BASETEMP": "/tmp/jippeel-isolated-62002yfk/pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+============================= test session starts ==============================
+platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
+cachedir: pytest-cache
+rootdir: /tmp/jippeel-isolated-62002yfk
+configfile: pytest.ini
+collected 11 items
+
+../../../../../../../tmp/jippeel-isolated-62002yfk F..........           [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_create_persists_audience_knows ______________________
+
+client = <starlette.testclient.TestClient object at 0x774a5f8de120>
+
+    def test_create_persists_audience_knows(client):
+        """G-045: POST가 audience_knows를 받았으면 저장해야 한다(과거 묵시적 폐기 결함)."""
+        pid = _mk_project(client)
+        row = _mk_foreshadow(client, pid, audience_knows=True)
+>       assert row["audience_knows"] is True
+E       assert False is True
+
+tests/test_foreshadow_disposition.py:28: AssertionError
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../../tmp/jippeel-isolated-62002yfk::test_create_persists_audience_knows
+=================== 1 failed, 10 passed, 1 warning in 0.62s ====================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}
+
+
+Exit code: 1
+
+`| tail -6` was parsed out (6 of 33 total lines shown).

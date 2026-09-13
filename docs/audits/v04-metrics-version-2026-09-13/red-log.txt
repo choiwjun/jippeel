@@ -1,0 +1,30 @@
+{"isolation": "ready-before-pytest", "root": "/tmp/jippeel-isolated-jejgjtpz", "destinations": {"DATABASE_URL": "sqlite:////tmp/jippeel-isolated-jejgjtpz/lifespan.db", "JIPPEEL_KEY_FILE": "/tmp/jippeel-isolated-jejgjtpz/dummy.key", "COVERAGE_FILE": "/tmp/jippeel-isolated-jejgjtpz/test.coverage", "JIPPEEL_TEST_BASETEMP": "/tmp/jippeel-isolated-jejgjtpz/pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+============================= test session starts ==============================
+platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
+cachedir: pytest-cache
+rootdir: /tmp/jippeel-isolated-jejgjtpz
+configfile: pytest.ini
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+________________________ ERROR collecting test session _________________________
+ImportError while importing test module '/home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/tests/test_metrics_version.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_metrics_version.py:9: in <module>
+    from app.services.metrics_version import (
+E   ModuleNotFoundError: No module named 'app.services.metrics_version'
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR ../../../../../../../tmp/jippeel-isolated-jejgjtpz
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+========================= 1 warning, 1 error in 0.14s ==========================
+{"isolation": "complete", "pytest_exit": 2, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}

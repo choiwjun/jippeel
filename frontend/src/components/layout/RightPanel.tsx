@@ -12,7 +12,7 @@ export function RightPanel() {
   const mode = useAiPanelStore((s) => s.mode);
 
   return (
-    <Sheet open={isOpen} onOpenChange={(o) => (!o ? close() : undefined)} width={480}>
+    <Sheet open={isOpen} onOpenChange={(o) => (!o ? close() : undefined)} width={480} aria-label={mode === 'refine' ? '윤문 리포트' : 'AI 어시스턴트'}>
       <SheetHeader>
         <SheetTitle>{mode === 'refine' ? '윤문 리포트' : 'AI 어시스턴트'}</SheetTitle>
         <Button variant="ghost" size="sm" onClick={close} aria-label="패널 닫기">

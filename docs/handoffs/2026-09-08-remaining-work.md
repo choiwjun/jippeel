@@ -10,6 +10,36 @@
 
 **2026-09-13 별도 Git 승인:** 사용자가 “핸드오프에 모두 남기고 커밋 푸시해”를 요청했다. [통합 인계·게시 경계](2026-09-13-commit-handoff.md)에 완료/증거/D01 제안·미선택/다음 순서를 기록한다. 초기 로컬·원격 main은 c1a92c4로 확인했으며, 아래 수용 당시 Git 미실행 기록을 이번 승인과 구분한다. D01 구현·운영/외부 실행 승인은 추가되지 않았다.
 
+**2026-09-13 D01 수용:** 사용자가 전체 순차 진행과 추천안 자율 결정을 지시했다. Q1~Q7 추천 기본값(회차 목표만, option B 현재값+append-only 이력+최소 복원, purpose 함께 저장, 빈 저장≠삭제, 회차 삭제 cascade, 명시적 불러오기만 생성 반영, 명시 저장만)으로 [좁은 사양](../superpowers/plans/2026-09-13-d01-detailed-spec.md)을 확정하고 구현·격리 검증·독립 검토 2건 PASS_WITH_NOTES·지적 수정·재검증을 완료했다. [최종 수용](../audits/d01-goal-contract-2026-09-13/acceptance.md). backend focused 47P·전체 520P/skip1, frontend fixture 8+15+31P·tripwire 0, tsc exit0. 변경은 `choiwjun/d01-contract-analysis` worktree의 uncommitted 상태 — 게시는 별도 승인. 운영 DB·실제 provider·credential·실기기는 G gate 유지.
+
+**2026-09-13 D03-1 수용:** D03의 첫 얇은 단위로 회차 집필 흐름 상태 기계를 수용했다. `Chapter.status`(원고 성숙도, plus-status 의존)와 독립된 `flow_stage`(planning→writing→revising→confirmed, revising→writing, confirmed→revising)와 append-only 전이 이벤트를 추가했다. `confirmed`는 집필 확정이며 연재/발행 완결이 아니다. CAS 409·불법 전이 422·BUSY 409, 이벤트는 전이 시점의 `goal_version`(nullable)·원고 revision을 앵커로 기록, 전이는 원고/snapshot/memo/목표/status 불변. migration `3d4e5f6a7b81`은 status·본문 유무로 backfill하고 downgrade는 전부 제거. [좁은 사양](../superpowers/plans/2026-09-13-d03-1-flow-stage-spec.md) · [수용](../audits/d03-1-flow-stage-2026-09-13/acceptance.md). backend focused 69P·전체 543P/skip1·violations 0, frontend fixture 6+8+15+31P·tripwire 0, tsc exit0. 독립 검토 2건(백엔드 PASS_WITH_NOTES·프론트 FAIL→지적 수정·재검증) 후 수용. 변경은 동일 worktree의 uncommitted 상태 — 게시는 별도 승인. D03 후속 단위(장면 재개·완결/연재 분리·이관)는 잔여.
+
+**2026-09-13 D03-2 수용:** 회차 재개 계약(`GET /chapters/{cid}/resume`)을 수용했다. 순수 파생 읽기 — 마지막 전이 앵커 대비 목표/원고 드리프트, 미해결 감수(`RefineRun.accepted=false`) 수, sort_order 순 첫 빈 장면을 반환한다. 프론트는 에디터 헤더에 드리프트·감수·다음 장면 배지를 표시하고 모든 관련 mutation(전이·목표·원고·장면·윤문)에서 resume 캐시를 무효화한다. [좁은 사양](../superpowers/plans/2026-09-13-d03-2-resume-spec.md) · [수용](../audits/d03-2-resume-2026-09-13/acceptance.md). backend focused 74P·전체 558P/skip1·violations 0, frontend fixture 10+26+8+15P·tripwire 0, tsc exit0. 독립 검토 2건 PASS_WITH_NOTES — 검토에서 발견된 선존 회귀(preservation fixture의 `/flow`·`/resume`·`/goal` 미모킹, D01/D03-1 잠재 파손)를 mock 추가로 복구했다. uncommitted 유지, 게시 별도 승인. 잔여 D03 단위: 근거 연결·완결/연재 분리·이관.
+
+**2026-09-13 D03-3 수용:** §6.3 "집필 확정(원문 상태)과 연재 완결(작품 상태)은 다른 수명주기"의 작품 측 대응물로 `projects.serial_state`(ongoing|hiatus|completed) + `serial_completed_at`을 수용했다. PATCH /projects/{pid}의 명시적 전이 — 회차 confirmed와 무연동, 양방향 불변을 테스트로 단정. 완결 진입·재진입마다 시각 갱신, 이탈 시 NULL, serial_state 없는 부분 PATCH는 보존, 명시적 null·사전 외 값 422. migration `4e5f6a7b8c92`는 ongoing/NULL backfill + `ck_project_serial_state` + downgrade 보존. 홈 카드에 select+휴재/완결 배지+완결 시각. [좁은 사양](../superpowers/plans/2026-09-13-d03-3-serial-state-spec.md) · [수용](../audits/d03-3-serial-state-2026-09-13/acceptance.md). backend focused 17P·전체 565P/skip1·violations 0, frontend fixture 6+10+8+26+15+31P·tripwire 0, tsc exit0. 독립 검토 2건 PASS_WITH_NOTES — 지적 14건 반영·1건 수용. uncommitted 유지, 게시 별도 승인. 잔여 D03 단위: 근거 연결·결말 영향·이관·완결 산출물.
+
+**2026-09-13 D03-4 수용:** §6.2 근거 연결 — 저장된 회차 목표 항목(core_events·character_choices·cost) ↔ 원문 발췌(≤500자)의 수동 링크를 수용했다. 자동 판정·자동 발췌 없음. `chapter_goal_evidence_links`(migration `5f6a7b8c9d03`, head)는 생성 시점 `goal_version`·`goal_item_text`·`excerpt`를 앵커로 보존하고, GET은 파생 상태만 계산(manuscript_status intact|broken, goal_status unchanged|drifted|goal_deleted, current_goal_version). POST는 원문 존재·목표 항목 존재 검증 + BEGIN IMMEDIATE writer lock, BUSY→409. DELETE는 명시적·타 회차 소속 404, 회차 삭제 시 FK cascade. 프론트는 브리프 섹션 내 근거 연결 그룹(role=group)에서 저장본 항목 선택 + CodeMirror 선택 발췌 연결(POST 전 draft flush), 파생 배지·명시 삭제, 목표/원고/링크 모든 변경 경로에서 캐시 무효화. [좁은 사양](../superpowers/plans/2026-09-13-d03-4-evidence-links-spec.md) · [수용](../audits/d03-4-evidence-links-2026-09-13/acceptance.md). backend focused 22P·전체 576P/skip1·violations 0, frontend fixture 8+8+10+26+15+31+6P·tripwire 0, tsc exit0. 독립 검토 2건 PASS_WITH_NOTES — 지적 11건 중 5건 수정·6건 수용, 테스트 갭 보강. uncommitted 유지, 게시 별도 승인. 잔여 D03 단위: 결말 변경 영향·해결/의도적 미해결/외전 이관·완결 산출물.
+
+**2026-09-13 D03-5 수용:** §6.2 이관 구분 — 닫힌 복선(status=회수·보류)의 처분 라벨 `foreshadows.disposition`(resolved/intentional_unresolved/side_story/NULL)을 수용했다. 자동 추론 없음·작가 명시 지정만. 불변조건 status='설치' ⇒ disposition IS NULL은 POST·PATCH 적용 결과로 422 강제, 해제는 명시적 null만. GET disposition 필터(status_filter와 AND), migration `6a7b8c9d0e14`(head)는 populated 보존·downgrade 제거. 프론트는 행 배지 + per-row 처분 select(설치 시 disabled), 설치 복귀 시 단일 PATCH로 명시 해제 포함. [좁은 사양](../superpowers/plans/2026-09-13-d03-5-foreshadow-disposition-spec.md) · [수용](../audits/d03-5-foreshadow-disposition-2026-09-13/acceptance.md). backend focused 36P·전체 587P/skip1·violations 0, frontend fixture 7+8+10+26+15+31+6+8P·tripwire 0, tsc exit0. 독립 검토 2건 PASS_WITH_NOTES — 지적 13건 중 5건 수정·8건 수용. 범위 밖 선존 결함 발견: `create_foreshadow`가 `audience_knows`를 받지만 저장하지 않음(G-045) — 별도 슬라이스 후보로 기록. uncommitted 유지, 게시 별도 승인. 잔여 D03 단위: 결말 변경 영향·완결본 관리.
+
+**2026-09-13 D03-6 수용:** §6.2 완결 분리 잔여분 + 감사 §8.2 완결 점검표·완결본 스냅샷을 수용했다. `project_final_editions`(migration `7b8c9d0e1f25`, head)는 명시적 POST의 불변 스냅샷 — 전 회차 조립 원고(content_md, sort_order+id 순)·매니페스트·동결 점검표·캡처 시점 serial_state. UPDATE 경로 없음·삭제만 명시적. `GET /projects/{pid}/completion-checklist`는 파생 읽기 — 회차 단계별 집계, 복선 open 목록+처분 4버킷, 미수용 윤문, 파손 근거 링크, ending_intent 없는 최종화 목표. 자동 완결 판정 없음. 프론트 `/projects/:pid/completion` 페이지 + 홈 카드 링크. [좁은 사양](../superpowers/plans/2026-09-13-d03-6-final-edition-spec.md) · [수용](../audits/d03-6-final-edition-2026-09-13/acceptance.md). backend focused 31P·전체 605P/skip1·violations 0, frontend fixture 6+8+10+26+15+31+6+8+7P·tripwire 0, tsc exit0. 독립 검토 2건 PASS_WITH_NOTES — 지적 19건 중 9건 수정·10건 수용. uncommitted 유지, 게시 별도 승인. 잔여 D03 단위: 결말 변경 영향.
+
+**2026-09-13 D03-7 수용:** §8.5 결말 변경 영향 — 작품 수준 `projects.ending_intent`·`ending_locked`·`ending_updated_at`(migration `8c9d0e1f2636`, head)을 수용했다. PATCH는 명시 지우기·`""`→null 정규화·실제 변경 시에만 시각 갱신·잠긴 결말은 동일 요청의 `ending_locked:false` 필요·명시적 `ending_locked:null`은 422. `GET /projects/{pid}/ending-impact`는 파생 읽기 — 미해결 복선·잠재적 오래된 목표 회차·최종화 목표의 결말 보유 여부. 자동 전파·자동 완결 판정 없음. PlanPage 결말 후보 섹션(저장·잠금 토글·영향 3목록). [좁은 사양](../superpowers/plans/2026-09-13-d03-7-ending-impact-spec.md) · [수용](../audits/d03-7-ending-impact-2026-09-13/acceptance.md). backend focused 33P·전체 618P/skip1·violations 0, frontend fixture 6P·tripwire 0(기존 9종 전부 green), tsc exit0. 독립 검토 2건 PASS_WITH_NOTES — 지적 9건 반영·재검증. **D03 전 단위 수용 완료** — 다음은 D04 fake worker. uncommitted 유지, 게시 별도 승인.
+
+**2026-09-13 D04-1 수용:** D04 첫 얇은 단위 — `summary_jobs` manifest 영속(migration `9d0e1f2a3747`, head, idempotency_key UNIQUE) + fake worker 생명주기를 수용했다. 설계 §5 선택지 1(별도 테이블+unique) 채택. 서비스 계층만 — HTTP·프론트·자동 호출 없음, provider는 주입 fake callable만. 상태 기계 planned→running→draft_saved|skipped_empty|stale_source|provider_error|rejected|duplicate_skipped, running 복구(attempt_count 보존), provider_error만 명시 재시도, 호출 전후 source 재검증, 결과는 MemoryEntry draft append-only(provenance 7키). chapter 삭제 시 job SET NULL 보존. [좁은 사양](../superpowers/plans/2026-09-13-d04-1-summary-worker-spec.md) · [수용](../audits/d04-1-summary-worker-2026-09-13/acceptance.md). backend focused 41P·전체 641P/skip1·violations 0. 독립 검토 2건(backend·contract/design) PASS_WITH_NOTES — MED 5건·테스트 갭 반영·재검증. uncommitted 유지. 잔여 D04: 실제 provider 어댑터·비용 cap·평가 manifest·승인 UI·운영 절차 — §9 체크리스트·G01/G02/G03 승인 필요. 다음은 V01/V02/V04 검증 보강.
+
+**2026-09-13 V02 수용:** 복원 실패 시나리오 보강을 수용했다. `backend/app/services/restore_verify.py` — stdlib만·합성 TEMP 경계의 `create_backup`+`verify_backup_dir`(읽기 전용, `query_only`). 9개 실패 코드 계약(manifest 결손·무효/파일 누락/checksum/비-SQLite/schema head 불일치/integrity/FK 위반/대상 쓰기 실패), 다중 실패 수집, 잘못된 manifest·경로 탈출 이름은 `MANIFEST_INVALID`, 비-jippeel 원본·쓰기 실패 코드 분리. [사양](../superpowers/plans/2026-09-13-v02-restore-failure-injection.md) · [수용](../audits/v02-restore-verify-2026-09-13/acceptance.md). backend focused 15P·전체 656P/skip1·violations 0. 독립 검토 PASS_WITH_NOTES — MED 5·LOW 3 수정, NOTE 4 수용. 실제 운영 DB·복원 실행·wrong-key는 G01/G03 범위로 유지. uncommitted 유지. 잔여: V01(실행 중)·V04.
+
+**2026-09-13 V04 수용(검증 도구 범위):** 외부 im-not-ai metrics 버전 동기화의 검증 절차를 코드로 고정했다. `backend/app/services/metrics_version.py` — 대상 파일을 실행하지 않고 AST로 `compute_all_v2(text, genre)` 시그니처(genre 키워드 바인딩 가능·필수 위치 인자 ≤2·비-async)와 `CHANGE_RATE_WARN/ABORT` 상수를 `humanize.WARN_RATIO/BLOCK_RATIO` 라이브 값과 비교한다. 파일 부재·파싱 불가·비-리터럴 상수는 예외 없이 보고(fail-closed). [사양](../superpowers/plans/2026-09-13-v04-external-metrics-version-spec.md) · [수용](../audits/v04-metrics-version-2026-09-13/acceptance.md). backend focused 20P·전체 676P/skip1·violations 0. 독립 검토 PASS_WITH_NOTES — MED 2건 수정(1건 부분 반증 후 방어 확장). 실물 metrics_v2.py는 호스트 미설치 확인 — 실제 상수 비교는 스킬 설치 승인 후 `verify_metrics_module(실물경로)` 1회 실행으로 완료하며 이번 수용으로 주장하지 않음. uncommitted 유지. 잔여: V01(검토 진행).
+
+**2026-09-13 V01 수용:** 프론트 source-mapped coverage 계측을 수용했다. `PW_COVERAGE=1` opt-in만 — 미설정 시 순수 passthrough. `e2e/coverage-test.ts` V8 수집 + 기존 scoped 래퍼(memory·quality) 공유, `coverage-report.mjs`가 소스맵 경유 **실제 fs 경로 키 union 병합**(검토 BLOCKER: 포트별 분리 병합을 수정), `.ts/.tsx/.css` 필터·정렬·per-file 예외 격리, html+text+json 산출. `run-coverage.sh` 11개 fixture config 순차·실패 전파. [사양](../superpowers/plans/2026-09-13-v01-frontend-coverage-spec.md) · [수용](../audits/v01-frontend-coverage-2026-09-13/acceptance.md). 11 스위트 **128P·tripwire 0**·57 소스 파일 측정값 lines 83.27%·branches 83.28%·functions 60.92% — 측정 기록이며 임계 주장 아님. 독립 검토 2건(①PASS_WITH_NOTES ②FAIL→수정·재검증). uncommitted 유지. **V01/V02/V04 검증 보강 전부 완료** — 다음은 최종 정리·G/U/O 잔여 보고.
+
+**2026-09-13 G-045 수용:** D03-5 검토에서 발견된 선존 결함 — `POST /projects/{pid}/foreshadows`가 `audience_knows`를 받았지만 `Foreshadow()` 생성자에 전달하지 않아 항상 False로 저장(프론트 생성 폼 체크박스가 이미 전송 중 — 실제 데이터 유실). 생성자 인자 1행 추가로 수정. [수용](../audits/g045-audience-knows-2026-09-13/acceptance.md). RED 재현 후 수정, focused 24P·전체 677P/skip1·violations 0, fixture POST 목+UI 왕복 테스트 추가 8/8·tsc exit0. 독립 검토 PASS — 다른 쓰기 경로·필드 유실 없음 확인. uncommitted 유지.
+
+**2026-09-13 게이트 실행 — G01 수용·G03/G04 부분:** 사용자 전체 위임(“나대신 승인하고 남은거 다 작업해”)으로 로컬 실행 가능 게이트를 실행했다. **G01 완료** — 실 운영 DB(`C:\Users\wj941\.jippeel\jippeel.db`, create_all 생성·alembic_version 없음, 스키마 정합 `f9a1b2c3d4e5`)를 일관 백업(sha256 manifest)→복원 검증→리허설→실 적용으로 `9d0e1f2a3747`(head)까지 10개 migration 적용, 14개 테이블 row counts 전부 보존·`assert_manuscript_schema_current` 통과. **G03 부분** — 두 인스턴스 키 파일 상이 확인·저장 암호문 실데이터 부재 기록·실제 키 기반 wrong-key 거부/키 유실 감지/복구 temp 검증. **G04 부분** — Windows 네이티브 전체 스위트 714P/violations 0/warnings 0, alembic 10개 네이티브 완주; 수동 실기기 영역(브라우저·NVDA·성능표)은 잔여. [수용](../audits/g01-production-migration-2026-09-13/acceptance.md).
+
+**2026-09-13 U/O/V03 실행:** **U01** card_json 편집 UI(merge-patch 재사용, fixture 5/5)·**U02** `GET /lore/{lid}/referencing-chapters`+상세 접이식 목록(backend 17P·fixture 4/4)·**U03** 프리셋은 선존 충족으로 종결(중복층 추가하지 않음)·**U04** `uiScale` 3단 영속+CodeMirror typography compartment(fontFamily/lineHeight 선존 갭 실제 적용, fixture 3/3). **O01** ST 카드 PNG import/export+novelWriter ZIP import(16P)·**O02** `JIPPEEL_AUTOBACKUP_INTERVAL_MIN` opt-in 자동 백업+프루닝(11P)·**O03** `GET /projects/{pid}/writing-activity`(5P). **O05** ResourceWarning 19건 근본 수정 — `inspect(bind)` transient Inspector 연결 유지를 `with bind.connect()` 스코프로 교체, 테스트 측 엔진/제너레이터 폐기 정리, 진단 probe 전부 제거 → **warnings 0**. **V03** `scripts/sqlite_multiprocess_check.py` 다중 프로세스 동시 쓰기 2회 PASS(무손실·integrity ok·WAL). Linux 전체 **714P/1skip/70subtests/violations 0/warnings 0**. [수용](../audits/uo-options-v03-2026-09-13/acceptance.md).
+
 **후속 순차 진행 승인:** 사용자가 M01~M05 → B03 → 회차 목표/완결·재개/summary worker → V01/V02/V04 → 실제 자원 수용의 순서를 승인했다. M01~M05와 B03은 회귀·독립 검토·부모 수용을 완료했으며 다음은 D01/D03/D04 상세 계약·기획이다. [실행·승인 기록](../superpowers/plans/2026-09-12-remaining-sequence.md)을 따르며, 실제 자원은 대상·예산·계정·백업·장치와 실행 허가가 갖춰지기 전 접근하지 않는다.
 
 - 기본 집필·관리 기능, 원고 보존, 공통 AI 맥락, 관리 무결성 보정, 수동 장편 기억 기반과
@@ -83,10 +113,10 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 
 | ID | 작업 | 이미 있는 것 | 실제 남은 범위·착수 조건 |
 | --- | --- | --- | --- |
-| D01 | 영속 회차 브리프/목표 | EpisodeBrief 입력·요청 전달, Chapter.memo, 회차 목적 지시 | **소스 조사 완료 / 목표 이력 요구 결정 대기**. [질문·근거](../superpowers/plans/2026-09-13-d01-contract-questions.md). 최신값만 저장할지 과거 내용 조회·복원까지 포함할지 먼저 결정. 상세 사양·구현은 미착수 |
+| D01 | 영속 회차 브리프/목표 | EpisodeBrief 입력·요청 전달, Chapter.memo, 회차 목적 지시 | **수용 완료(2026-09-13)** — 회차당 현재 목표 + append-only 이력 + 목록·복원, purpose 영속, CAS 409, 명시 불러오기만 생성 반영. [수용](../audits/d01-goal-contract-2026-09-13/acceptance.md). 게시·운영 적용은 별도 승인 |
 | D02 | 인지·상태를 구분하는 장편 기억 확장 | 근거·적용 시점·승인/stale, 미래 복선 구분, 복선의 audience_knows | 모든 사실의 작가/독자/인물별 인지, 고정 설정과 변화 상태, 사건/관계 영향 추적. 현재 수동 memory 기능 전체의 재구현이 아니라 추가 도메인 설계 |
-| D03 | 기획→집필→퇴고→완결·재개 흐름 | 권 개요·인물 설정·장면·감수·원고 이력, 최종화 목적 | 목표/사건/선택/대가와 원문 근거 연결, 미해결 감수·다음 장면 재개, 결말 변경 영향, 해결/의도적 미해결/외전 이관, 집필 확정과 연재 여부 분리·완결본 관리. D01 이후 얇은 단위로 승인 |
-| D04 | 실제 자동 요약·backfill | C10의 provider-free manifest planner | job/idempotency 저장 방식·schema, worker, draft 저장, stale/중복/중단·재개·실패 처리. 먼저 승인된 fake-worker 구현·검증; 실제 provider/운영 실행은 추가로 G01/G02/G03 필요 |
+| D03 | 기획→집필→퇴고→완결·재개 흐름 | 권 개요·인물 설정·장면·감수·원고 이력, 최종화 목적 | **D03-1 수용(2026-09-13)** — flow_stage 상태 기계·전이 이벤트 앵커 [수용](../audits/d03-1-flow-stage-2026-09-13/acceptance.md). **D03-2 수용(2026-09-13)** — 재개 계약(드리프트·미해결 감수·다음 장면) [수용](../audits/d03-2-resume-2026-09-13/acceptance.md). **D03-3 수용(2026-09-13)** — projects.serial_state 연재 수명주기 분리 [수용](../audits/d03-3-serial-state-2026-09-13/acceptance.md). **D03-4 수용(2026-09-13)** — 목표 항목↔원문 발췌 근거 링크·파생 파손/드리프트 안내 [수용](../audits/d03-4-evidence-links-2026-09-13/acceptance.md). **D03-5 수용(2026-09-13)** — 복선 disposition(해결/의도적 미해결/외전 이관) 구분 표시 [수용](../audits/d03-5-foreshadow-disposition-2026-09-13/acceptance.md). **D03-6 수용(2026-09-13)** — 완결 점검표 + 완결본 불변 스냅샷 [수용](../audits/d03-6-final-edition-2026-09-13/acceptance.md). **D03-7 수용(2026-09-13)** — 작품 결말 후보·잠금·파생 영향 표시 [수용](../audits/d03-7-ending-impact-2026-09-13/acceptance.md). **D03 전 단위 수용 완료** |
+| D04 | 실제 자동 요약·backfill | C10의 provider-free manifest planner | **D04-1 수용(2026-09-13)** — summary_jobs 영속 + fake worker 생명주기(계획 중복 차단·복구·재시도·draft append) [수용](../audits/d04-1-summary-worker-2026-09-13/acceptance.md). 잔여: 실제 provider 어댑터·비용 cap·평가 manifest·작가 승인 UI·운영 실행 — G01/G02/G03 승인 필요 |
 
 근거: [원래 집필 로드맵 §8.4–8.5](../audits/소설집필_관리_감사.md),
 [자동 요약 설계](../superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md), 현재 모델·store.
@@ -100,19 +130,19 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 
 | ID | 작업 | 완료된 근거 | 미실시 범위 |
 | --- | --- | --- | --- |
-| V01 | 프론트 source-mapped coverage | TS/Vite build, Memory E2E/axe 통과 | 계측 설정·수치 coverage. E2E 통과만으로 프론트 80%를 주장하지 않음 |
-| V02 | 복원 실패 시나리오 보강 | C11의 합성 데이터 백업/복원·migration 검증 완료 | manifest 불일치·파일 누락·잘못된 schema·disk-full 등 미수행 failure injection. wrong-key 검증은 G03 승인 범위와 분리 |
-| V03 | 추가 환경/부하 범위 | 실제 독립 SQLite 세션을 이용한 CAS·잠금 경합 검증 완료 | 다중 HTTP 프로세스 부하·다른 DB/transaction 설정 검증은 미실시. 배포 구성상 필요할 때 범위를 정하며 완료된 경쟁 테스트를 실패로 되돌리지 않음 |
-| V04 | 외부 im-not-ai metrics 버전 동기화 | 내부 경계 회귀 유지. 부모가 기존 미설치 skip 1건을 분리해 허용 | 실제 외부 `metrics_v2.py` 상수 비교 미실시(todo #18). B01/B02/B04 수용을 다시 차단하지 않음 |
+| V01 | 프론트 source-mapped coverage | TS/Vite build, Memory E2E/axe 통과 | **수용 완료(2026-09-13)** — `PW_COVERAGE=1` opt-in V8 수집→Istanbul union 병합 [수용](../audits/v01-frontend-coverage-2026-09-13/acceptance.md). 11 스위트 128P·tripwire 0·57 소스 파일 측정값: lines 83.27%·branches 83.28%·functions 60.92%. 측정 기록이며 임계 목표 주장 아님 |
+| V02 | 복원 실패 시나리오 보강 | C11의 합성 데이터 백업/복원·migration 검증 완료 | **수용 완료(2026-09-13)** — manifest 무효·파일 누락·잘못된 schema·disk-full·integrity·FK failure injection 15P [수용](../audits/v02-restore-verify-2026-09-13/acceptance.md). wrong-key는 G03 범위 유지. 실제 운영 DB 복원 실행은 G01/G03 |
+| V03 | 추가 환경/부하 범위 | 실제 독립 SQLite 세션을 이용한 CAS·잠금 경합 검증 완료 | **다중 프로세스 검증 완료(2026-09-13)** — `sqlite_multiprocess_check.py` 8×50·16×100 동시 쓰기 무손실·integrity ok·WAL [수용](../audits/uo-options-v03-2026-09-13/acceptance.md). 실제 HTTP 다중 프로세스 배포 구성 검증은 배포 형태 확정 시 별도 |
+| V04 | 외부 im-not-ai metrics 버전 동기화 | 내부 경계 회귀 유지. 부모가 기존 미설치 skip 1건을 분리해 허용 | **검증 도구 수용(2026-09-13)** — AST 전용 `verify_metrics_module`로 계약 비교 절차 코드화 20P [수용](../audits/v04-metrics-version-2026-09-13/acceptance.md). 실물 metrics_v2.py는 호스트 미설치 — 실제 상수 비교는 스킬 설치 후 동일 검증기 1회 실행으로 완료(별도 승인) |
 
 ## 6. 운영·외부·장치 승인 대기 — 지금 자동 실행하지 않음
 
 | ID | 승인 단위 | 준비 완료 | 필요한 입력/실행과 완료 증거 |
 | --- | --- | --- | --- |
-| G01 | 기존 DB migration·운영 적용 | migration 코드·임시 검증·운영 런북 | 승인자/변경 창/백업·복원 담당자 → 실제 DB의 일관된 백업·manifest·복원 증거 → 승인 migration 및 데이터 보존/negative corpus/앱 smoke → 교체·rollback. 기존 DB가 head보다 뒤처졌다는 것은 마지막 확인 기록이며 이번에는 재조회하지 않음 |
+| G01 | 기존 DB migration·운영 적용 | migration 코드·임시 검증·운영 런북 | **실행 완료(2026-09-13)** — 실 DB를 `f9a1b2c3d4e5` 수준에서 head `9d0e1f2a3747`로 10개 migration 적용, 백업→복원 검증→리허설→실 적용→데이터 보존 검증 전 과정 수행 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md) |
 | G02 | 실제 OAuth/provider 수용·문학 품질 파일럿 | 고정 provider fake 계약·평가 설계 | bridge availability/정책/모델 확인, 승인 원고 6사례와 source owner, 블라인드 독립 평가자 2명, 기대/금지 결과, raw usage/latency/비용, **USD 20 hard cap** 확정 후 호출. 실제 장편 1/20/50/100화 평가는 짧은 파일럿과 별도 후속 단계 |
-| G03 | credential·key 복구/로그아웃 | bridge credential 소유 경계와 키 분리 설계 | 지정 테스트 credential/계정과 접근 승인, 복구·로그아웃·rollback 및 잘못된 키의 실패 검증. 앱이 legacy endpoint key 저장 UI를 다시 제공하는 작업은 아님 |
-| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | Windows 11 x64 장치/QA 계정/전용 port/test DB·dummy key/시간 창 지정. batch·경로·인코딩·공존·복원, DPAPI/keyring, 브라우저·NVDA·키보드·zoom, 5만 자 입력/검색 성능 결과표. 이미 수행한 native pytest와는 다른 수용 시험 |
+| G03 | credential·key 복구/로그아웃 | bridge credential 소유 경계와 키 분리 설계 | **부분 실행(2026-09-13)** — 인스턴스별 키 분리·wrong-key 거부·키 유실 감지·복구 절차 검증, 저장 암호문 실데이터 부재 기록 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md). 잔여: 지정 테스트 credential/계정의 실제 로그아웃·복구 시연(계정 승인) |
+| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | **부분 실행(2026-09-13)** — Windows 네이티브 전체 스위트+alembic 완주 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md). 잔여: 브라우저·NVDA·키보드·zoom·5만 자 성능 결과표 등 수동 실기기 영역(장치 창 승인) |
 
 운영 DB, 실제 OAuth/provider, keyring, 지정 장치에 이번 정리로 새 승인이 생기지 않는다.
 실행 순서는 [운영 런북](../runbooks/long-memory-governance-release.md)과 각 승인서에서 확정한다.
@@ -123,18 +153,18 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 
 | ID | 항목 | 상태·다음 판단 |
 | --- | --- | --- |
-| U01 | 캐릭터 card_json 자유 확장 UI (F-011) | DB/API 확장과 기본 7필드 UI는 있음. `CharactersPage`에 자유 확장 편집 UI는 없음. 기존 mapping 문서와 사용자 수요를 확인해 UI 범위를 승인 |
-| U02 | 로어 참조 회차 표시 (F-016, 선택 기능) | 기본 검색/편집 UI는 있음. `LorebookPage` 상세에 참조 회차 목록 UI 없음. 선택 범위를 채택할 때 연결 |
-| U03 | 윤문 명령 프리셋 UI | 과거 디자인/인계의 미연결 항목. 현재 RefineTab은 기본 강도·고지 중심. 고정 OAuth/외부 humanize 경계에 맞춰 필요한지 재결정; 임의 shell 실행 UI를 추가하지 않음 |
-| U04 | 시니어 전용 확대 모드 | 다크/라이트·본문 폰트·행간은 있음. 전용 글자 확대 토큰은 없음. G04의 zoom/가독성 결과로 필요성을 판단 |
+| U01 | 캐릭터 card_json 자유 확장 UI (F-011) | **구현 완료(2026-09-13)** — `CardJsonSection`(merge-patch 재사용), fixture 5/5 [수용](../audits/uo-options-v03-2026-09-13/acceptance.md) |
+| U02 | 로어 참조 회차 표시 (F-016, 선택 기능) | **구현 완료(2026-09-13)** — `GET /lore/{lid}/referencing-chapters`+접이식 목록, backend 17P·fixture 4/4 [수용](../audits/uo-options-v03-2026-09-13/acceptance.md) |
+| U03 | 윤문 명령 프리셋 UI | **이미 충족(2026-09-13)** — prompt_presets CRUD+Settings UI+AiPanel `preset_id` 왕복 선존, 중복층 미추가 |
+| U04 | 시니어 전용 확대 모드 | **구현 완료(2026-09-13)** — `uiScale` 3단 영속+에디터 typography compartment, fixture 3/3 [수용](../audits/uo-options-v03-2026-09-13/acceptance.md) |
 
 ### 현재 우선순위 밖의 선택 확장
 
-- O01: SillyTavern 카드 PNG import/export, novelWriter import.
-- O02: 자동 주기 백업·클라우드 동기화·Git 기반 버전 관리·추가 삭제 복구 UI. 기존 snapshot·수동 백업 검증과 별개.
-- O03: 연재 캘린더·멀티 작품 통계, 플랫폼 직접 발행 연동(정책 확인 전 보류).
+- O01: ~~SillyTavern 카드 PNG import/export, novelWriter import~~ — **구현 완료(2026-09-13)** 16P [수용](../audits/uo-options-v03-2026-09-13/acceptance.md).
+- O02: ~~자동 주기 백업~~ — **구현 완료(2026-09-13)** `JIPPEEL_AUTOBACKUP_INTERVAL_MIN` opt-in 11P. 클라우드 동기화·Git 버전 관리·추가 삭제 복구 UI는 미채택 잔여.
+- O03: ~~연재 캘린더~~ — **구현 완료(2026-09-13)** `GET /projects/{pid}/writing-activity` 5P(멀티 작품 합계는 기존 목록 제공). 플랫폼 직접 발행 연동은 정책 확인 전 보류 유지.
 - O04: 새 provider/모델 선택지, KoboldCpp native, 임베딩 검색·병렬 작업자 수 확대. 현재 고정 OAuth 계약에서는 우선하지 않음.
-- O05: 비차단 ResourceWarning/호환 helper 중복 정리·유지보수 모니터링. 해결된 Vite/AnyIO 경고를 포함하지 않음.
+- O05: ~~비차단 ResourceWarning~~ — **정리 완료(2026-09-13)** `inspect(bind)` 연결 유지 근본 수정, warnings 19→0.
 - O06: 배포/게시 판단 전 플랫폼 규정·의존성/라이선스 최신 근거 재확인. 오래된 리서치를 최신 사실로 취급하지 않음.
 
 **되살리지 않을 것:** 신규 endpoint/API key/base URL·모델 선택 UI는 의도적으로 제거했다.
@@ -155,6 +185,9 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 
 | 증거 층 | 가장 최근 확인한 결과 | 해석 한계 |
 | --- | --- | --- |
+| 전체 backend — 최신(2026-09-13 O05 후) | **714 passed / 1 skipped / 70 subtests / warnings 0** | native isolated runner, violations 0. ResourceWarning 19건 근본 수정으로 경고 소거 |
+| 전체 backend — Windows 네이티브 | **714 passed / 1 skipped / violations 0 / warnings 0** | Windows 11 네이티브 Python 3.14.4 + 격리 러너 그대로. 수동 실기기 수용(G04 잔여)과 구분 |
+| V03 다중 프로세스 부하 | 8×50·16×100 동시 쓰기 **rows 무손실·integrity ok·journal wal** | `scripts/sqlite_multiprocess_check.py` — 실제 HTTP 다중 프로세스 배포 구성 아님 |
 | 전체 backend — B03 최종 | **482 passed / 1 skipped / 70 subtests / 19 warnings** | native isolated runner, exit0·guard 위반0·실제 subprocess 시도0. 기존 외부 metrics skip(V04) 유지 |
 | B03 frontend·접근성 | **quality5 + memory31 + preservation26 + AI15 = 77 passed**, app/helper TS·build PASS | 전용 fixture-only/no escapes. quality fullaxe3회 violations/incomplete 0, 지정 실기기 아님 |
 | B03 변경범위 coverage | quality **19/20·10/10**, QualityDialog **278/284·42/48**, Dialog **41/41·14/14** (line·branch) | Python L34는 미계측 실행행으로 미충족 유지. source/map 일치·raw merge/Istanbul 독립 재구성. 전체 V01 아님 |

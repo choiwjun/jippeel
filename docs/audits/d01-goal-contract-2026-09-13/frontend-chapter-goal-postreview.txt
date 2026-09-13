@@ -1,0 +1,15 @@
+
+Running 8 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/chapter-goal.spec.ts:238:3 › D01 회차 목표 영속화 fixture › 목표 저장은 정규화된 payload·expected 버전으로 PUT하고 저장본 배지를 표시한다 (1.5s)
+  ✓  2 [chromium] › e2e/chapter-goal.spec.ts:261:3 › D01 회차 목표 영속화 fixture › 재진입 시 저장본이 폼에 hydrate되고 저장된 purpose가 directive에 되돌아간다 (874ms)
+  ✓  3 [chromium] › e2e/chapter-goal.spec.ts:296:3 › D01 회차 목표 영속화 fixture › 회차 전환은 미저장 입력을 회차별 작업본으로 보존한다 (1.4s)
+  ✓  4 [chromium] › e2e/chapter-goal.spec.ts:308:3 › D01 회차 목표 영속화 fixture › 늦은 저장 응답은 다른 회차 폼·저장본을 오염시키지 않는다 (1.4s)
+  ✓  5 [chromium] › e2e/chapter-goal.spec.ts:344:3 › D01 회차 목표 영속화 fixture › 409 충돌은 toast를 띄우고 입력을 유지한다 (986ms)
+  ✓  6 [chromium] › e2e/chapter-goal.spec.ts:370:3 › D01 회차 목표 영속화 fixture › 이력 목록에서 복원하면 POST restore로 새 버전이 기록되고 폼이 갱신된다 (951ms)
+  ✓  7 [chromium] › e2e/chapter-goal.spec.ts:400:3 › D01 회차 목표 영속화 fixture › 삭제 확인 후 DELETE가 호출되고 미저장 상태로 돌아간다 (1.0s)
+  ✓  8 [chromium] › e2e/chapter-goal.spec.ts:418:3 › D01 회차 목표 영속화 fixture › 패널 열림 상태의 접근성 위반(serious/critical)이 없다 (2.3s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-VkPdpx/violations.jsonl; no escapes
+
+  8 passed (12.4s)
+PLAYWRIGHT_EXIT=0

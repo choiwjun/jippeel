@@ -1,0 +1,42 @@
+=== chapter-goal ===
+  ✓  7 [chromium] › e2e/chapter-goal.spec.ts:403:3 › D01 회차 목표 영속화 fixture › 삭제 확인 후 DELETE가 호출되고 미저장 상태로 돌아간다 (1.6s)
+  ✓  8 [chromium] › e2e/chapter-goal.spec.ts:421:3 › D01 회차 목표 영속화 fixture › 패널 열림 상태의 접근성 위반(serious/critical)이 없다 (3.2s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-opnKTp/violations.jsonl; no escapes
+
+  8 passed (20.7s)
+=== chapter-flow ===
+  ✓   9 [chromium] › e2e/chapter-flow.spec.ts:341:3 › D03-2 회차 재개 정보 fixture › 전이 후 재개 정보가 refetch되어 드리프트가 해소된다 (1.1s)
+  ✓  10 [chromium] › e2e/chapter-flow.spec.ts:357:3 › D03-2 회차 재개 정보 fixture › 장면 제목이 없으면 '무제'로 표시한다 (1.0s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-41k6B0/violations.jsonl; no escapes
+
+  10 passed (16.0s)
+=== preservation ===
+  ✓  25 [chromium] › e2e/manuscript-preservation.spec.ts:1350:1 › fixture lifecycle routes pagehide keepalive through context on reload and page close (2.0s)
+  ✓  26 [chromium] › e2e/manuscript-preservation.spec.ts:1367:1 › M02 cache notification exception cannot reclassify an acknowledged UI save (1.6s)
+Owned manuscript fixture closed; no escapes; latch=/tmp/jippeel-manuscript-http-Ql0X2p/violations.jsonl
+
+  26 passed (49.3s)
+=== ai-context.fixture ===
+  ✓  14 [chromium] › e2e/ai-context-ui.spec.ts:1024:5 › AI-context Task3 fixture UI boundaries › closing A, visiting B, and returning A does not revive a cancelled canon result (1.3s)
+  ✓  15 [chromium] › e2e/ai-context-ui.spec.ts:1050:5 › AI-context Task3 fixture UI boundaries › older delayed canon success or failure cannot override a newer completed canon result (1.7s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-50zKeA/violations.jsonl; no escapes
+
+  15 passed (24.5s)
+=== memory ===
+  ✓  30 [chromium] › e2e/memory-governance.spec.ts:419:1 › M04 completion waits for held list refetch before resolving removed trigger focus (1.4s)
+  ✓  31 [chromium] › e2e/memory-governance.spec.ts:440:1 › M01 current-screen PATCH failure retains confirmation and input and permits retry (1.3s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-mJDQxz/violations.jsonl; no escapes
+
+  31 passed (1.1m)
+=== serial-state ===
+  ✓  5 [chromium] › e2e/serial-state.spec.ts:168:3 › D03-3 연재 상태 › 연재 상태는 회차 집필 확정과 별개임이 레이블에 명시됨 (1.1s)
+  ✓  6 [chromium] › e2e/serial-state.spec.ts:176:3 › D03-3 연재 상태 › 접근성 — axe serious/critical 위반 0 (2.0s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-J6zGwb/violations.jsonl; no escapes
+
+  6 passed (12.3s)
+=== evidence-links ===
+  ✓  7 [chromium] › e2e/evidence-links.spec.ts:357:3 › D03-4 근거 연결 › 목표 항목이 없으면 항목 선택기가 없다 (1.3s)
+  ✓  8 [chromium] › e2e/evidence-links.spec.ts:378:3 › D03-4 근거 연결 › 접근성 — axe serious/critical 위반 0 (2.9s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-RgiKvY/violations.jsonl; no escapes
+
+  8 passed (16.2s)

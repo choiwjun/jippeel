@@ -194,7 +194,7 @@ function CharacterDrawer({
   });
 
   return (
-    <Sheet open onOpenChange={(o) => (!o ? onClose() : undefined)}>
+    <Sheet open onOpenChange={(o) => (!o ? onClose() : undefined)} aria-label={isNew ? '새 캐릭터' : `캐릭터 — ${detailQuery.data?.name ?? ''}`}>
       <SheetHeader>
         <SheetTitle>{isNew ? '새 캐릭터' : `캐릭터 — ${detailQuery.data?.name ?? ''}`}</SheetTitle>
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="닫기">닫기</Button>
@@ -251,6 +251,11 @@ function CharacterDrawer({
         {/* FR-203 관계 편집 */}
         {!isNew && typeof characterId === 'number' && (
           <RelationsSection pid={pid} characterId={characterId} />
+        )}
+
+        {/* U01 확장 필드(card_json) 자유 편집 — 기존 캐릭터만 (PATCH merge 계약) */}
+        {!isNew && detailQuery.data && (
+          <CardJsonSection character={detailQuery.data} />
         )}
 
         <div className="mt-1 flex items-center gap-2">
@@ -421,6 +426,109 @@ function RelationsSection({ pid, characterId }: { pid: number; characterId: numb
 }
 
 // ---- 폼 헬퍼 ----
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/** prev→next의 RFC 7386식 merge patch diff. 변경 없음은 undefined. */
+function mergePatchDiff(prev: unknown, next: unknown): unknown {
+  if (Object.is(prev, next)) return undefined;
+  if (!isRecord(prev) || !isRecord(next)) return next;
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(prev)) if (!(k in next)) out[k] = null;
+  for (const k of Object.keys(next)) {
+    const d = mergePatchDiff(prev[k], next[k]);
+    if (d !== undefined) out[k] = d;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** U01 — card_json 자유 확장 편집기. 최상위 객체만 허용, 저장은 merge-patch PATCH. */
+function CardJsonSection({ character }: { character: Character }) {
+  const queryClient = useQueryClient();
+  const [text, setText] = useState(() =>
+    JSON.stringify(character.card_json ?? {}, null, 2),
+  );
+  const [loadedId, setLoadedId] = useState(character.id);
+  const [error, setError] = useState<string | null>(null);
+  // 다른 캐릭터로 전환되면 편집 내용 리셋
+  if (loadedId !== character.id) {
+    setLoadedId(character.id);
+    setText(JSON.stringify(character.card_json ?? {}, null, 2));
+    setError(null);
+  }
+
+  const save = useMutation({
+    mutationFn: (patch: Record<string, unknown>) =>
+      api.patch<Character>(`/characters/${character.id}/card_json`, { patch }),
+    onSuccess: (updated) => {
+      setText(JSON.stringify(updated.card_json ?? {}, null, 2));
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ['character', character.id] });
+      toast('확장 필드가 저장되었습니다.', 'success');
+    },
+    onError: (e) => toast((e as Error).message, 'error'),
+  });
+
+  const onSave = () => {
+    let parsed: unknown;
+    try {
+      parsed = text.trim() ? JSON.parse(text) : {};
+    } catch {
+      setError('JSON 형식이 올바르지 않습니다.');
+      return;
+    }
+    if (!isRecord(parsed)) {
+      setError('최상위는 JSON 객체({})여야 합니다.');
+      return;
+    }
+    setError(null);
+    const diff = mergePatchDiff(character.card_json ?? {}, parsed);
+    if (diff === undefined) {
+      toast('변경된 내용이 없습니다.', 'info');
+      return;
+    }
+    save.mutate(diff as Record<string, unknown>);
+  };
+
+  return (
+    <section className="rounded-md border border-border p-3">
+      <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
+        확장 필드 (card_json)
+      </h3>
+      <Textarea
+        id="ch-card-json"
+        aria-label="확장 필드 JSON"
+        rows={6}
+        className="font-mono text-xs"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        spellCheck={false}
+      />
+      <p className="mt-1 text-xs text-muted-foreground">
+        최상위 객체만 저장됩니다. 키를 지우면 제거되고, 나머지는 기존 값과 병합됩니다.
+      </p>
+      {error && (
+        <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>
+      )}
+      <div className="mt-2 flex items-center gap-2">
+        <Button size="sm" disabled={save.isPending} onClick={onSave}>
+          확장 필드 저장
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setText(JSON.stringify(character.card_json ?? {}, null, 2));
+            setError(null);
+          }}
+        >
+          되돌리기
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 interface CharacterFormValues {
   name: string;
   aliases: string;

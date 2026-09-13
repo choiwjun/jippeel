@@ -9,9 +9,7 @@ from app.services.ai_context import build_context_bundle, request_from_canon, re
 from tests.test_ai_generate_stream import DEFAULT_CHUNKS, FakeAsyncOpenAI, _parse_sse
 
 
-def _db(client):
-    from app.database import get_db
-    return next(iter(client.app.dependency_overrides[get_db]()))
+from tests.conftest import _db
 
 
 def _project_with_chapter(client, title="P", body="본문"):

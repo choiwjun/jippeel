@@ -7,15 +7,22 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShieldCheckIcon, CloudUploadIcon } from "@/components/ui/icons";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   api,
+  ApiError,
   type ChapterDetail,
+  type ChapterGoalOut,
+  type ChapterGoalPayload,
+  type ChapterGoalRevision,
+  type EvidenceLinkField,
+  type EvidenceLinkList,
   type PromptPreset,
   volumeLabel,
 } from "@/lib/api";
 import { streamGenerate, streamParallelGenerate } from "@/lib/aiStream";
 import {
+  EMPTY_EPISODE_BRIEF,
   useAiPanelStore,
   type AiPanelState,
   type AiResultOrigin,
@@ -29,6 +36,13 @@ import { toast } from "@/components/ui/toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -162,6 +176,56 @@ function parseEpisodeBrief(
   if (brief.scene_type) out.scene_type = brief.scene_type;
   if (brief.target_chars_novelpia !== "") out.target_chars_novelpia = target;
   return { ok: true, brief: out };
+}
+
+/** D01 저장용 직렬화 — 부분·빈 저장 허용(필수값 검증 없음). 서버가 동일하게 정규화한다. */
+function serializeGoalPayload(brief: EpisodeBriefState): ChapterGoalPayload {
+  const text = (raw: string) => (raw.trim() === "" ? null : raw.trim());
+  const list = (raw: string) => {
+    const items = raw
+      .split("\n")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    return items.length > 0 ? items : null;
+  };
+  const target = Number(brief.target_chars_novelpia);
+  return {
+    emotion_goal: text(brief.emotion_goal),
+    core_events: list(brief.core_events),
+    character_choices: list(brief.character_choices),
+    cost: text(brief.cost),
+    prohibitions: list(brief.prohibitions),
+    next_hook: text(brief.next_hook),
+    ending_intent: text(brief.ending_intent),
+    scene_type: brief.scene_type === "" ? null : brief.scene_type,
+    target_chars_novelpia:
+      brief.target_chars_novelpia !== "" && Number.isInteger(target)
+        ? target
+        : null,
+  };
+}
+
+/** 저장본 payload → 폼 상태 (배열은 줄바꿈 원문으로 되돌린다) */
+function goalToBriefState(goal: ChapterGoalPayload): EpisodeBriefState {
+  const text = (v: unknown) => (typeof v === "string" ? v : "");
+  const lines = (v: unknown) =>
+    Array.isArray(v)
+      ? v.filter((x): x is string => typeof x === "string").join("\n")
+      : "";
+  return {
+    emotion_goal: text(goal.emotion_goal),
+    core_events: lines(goal.core_events),
+    character_choices: lines(goal.character_choices),
+    cost: text(goal.cost),
+    prohibitions: lines(goal.prohibitions),
+    next_hook: text(goal.next_hook),
+    ending_intent: text(goal.ending_intent),
+    scene_type: text(goal.scene_type),
+    target_chars_novelpia:
+      goal.target_chars_novelpia == null
+        ? ""
+        : String(goal.target_chars_novelpia),
+  };
 }
 
 const GPT_OAUTH_PROVIDER = {
@@ -892,7 +956,7 @@ function ContextSection({
   );
 }
 
-/** 이번 화 브리프 — 선택적 생성 계약 입력. 필수 항목이 비면 brief 없이 생성된다. */
+/** 이번 화 브리프 — 선택적 생성 계약 입력 + D01 회차 목표 영속화. */
 function EpisodeBriefSection() {
   const [open, setOpen] = useState(false);
   const brief = useAiPanelStore((s) => s.episodeBrief);
@@ -903,6 +967,24 @@ function EpisodeBriefSection() {
   );
   // 브리프 필수값이 모두 유효해 실제로 전송되는 상태 — 배지로 항상 공개한다(NFR-201)
   const applying = parseEpisodeBrief(brief, episodePurpose).ok;
+  // D01 — 저장된 목표는 dirty가 아닐 때만 폼에 적재하고, 저장 purpose를 되돌린다.
+  const goalQuery = useChapterGoal();
+  useEffect(() => {
+    const data = goalQuery.data;
+    if (!data?.goal) return;
+    const st = useAiPanelStore.getState();
+    // 늦은 응답 격리 — 응답 회차가 현재 회차와 다르거나 사용자 입력이 있으면 덮지 않는다
+    if (st.contextSelection.chapterId !== data.chapter_id || st._briefDirty)
+      return;
+    st.hydrateEpisodeBrief(
+      data.project_id,
+      data.chapter_id,
+      goalToBriefState(data.goal.goal),
+    );
+    st.setDirectives(data.project_id, data.chapter_id, {
+      episodePurpose: data.goal.episode_purpose,
+    });
+  }, [goalQuery.data]);
   return (
     <section className="rounded-md border border-border p-3">
       <button
@@ -918,11 +1000,14 @@ function EpisodeBriefSection() {
               이번 화 브리프 적용 중
             </Badge>
           )}
+          <GoalSavedBadge />
         </span>
         <span aria-hidden="true">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
         <div className="mt-2 flex flex-col gap-2">
+          <ChapterGoalControls episodePurpose={episodePurpose} />
+          <EvidenceLinksSection />
           <div>
             <Label htmlFor="brief-emotion-goal">감정 목표</Label>
             <Input
@@ -1043,6 +1128,535 @@ function EpisodeBriefSection() {
         </div>
       )}
     </section>
+  );
+}
+
+/** D01 — 현재 회차 목표 조회. query key는 회차별로 분리한다(['chapter', id]와 별개). */
+function useChapterGoal() {
+  const chapterId = useAiPanelStore((s) => s.contextSelection.chapterId);
+  return useQuery({
+    queryKey: ["chapter-goal", chapterId],
+    queryFn: () => api.get<ChapterGoalOut>(`/chapters/${chapterId}/goal`),
+    enabled: chapterId !== null,
+  });
+}
+
+/** 섹션 헤더 저장 상태 배지 — 저장본 vN · 기준 rM / 미저장 / 원고 변경 안내 */
+function GoalSavedBadge() {
+  const chapterId = useAiPanelStore((s) => s.contextSelection.chapterId);
+  const goalQuery = useChapterGoal();
+  if (chapterId === null) return null;
+  const data = goalQuery.data;
+  if (!data) return null;
+  const saved = data.goal;
+  if (!saved) {
+    return (
+      <Badge variant="outline" className="text-[10px]" aria-label="저장된 회차 목표 없음">
+        미저장
+      </Badge>
+    );
+  }
+  const stale =
+    saved.base_manuscript_revision !== null &&
+    saved.base_manuscript_revision !== data.current_chapter_revision;
+  return (
+    <Badge
+      variant="outline"
+      className="text-[10px]"
+      aria-label={`저장된 회차 목표 v${saved.goal_version}`}
+      title={`목표 저장 시 본 원고 revision r${saved.base_manuscript_revision ?? "-"}`}
+    >
+      저장본 v{saved.goal_version} · 기준 r
+      {saved.base_manuscript_revision ?? "-"}
+      {stale && ` · 원고 r${data.current_chapter_revision}로 변경됨`}
+    </Badge>
+  );
+}
+
+/** D01 — 저장본 불러오기/저장/이력/삭제. 생성 경로는 바꾸지 않고 폼 적재만 한다. */
+function ChapterGoalControls({
+  episodePurpose,
+}: {
+  episodePurpose: EpisodePurpose;
+}) {
+  const ctx = useAiPanelStore((s) => s.contextSelection);
+  const chapterId = ctx.chapterId;
+  const projectId = ctx.projectId;
+  const brief = useAiPanelStore((s) => s.episodeBrief);
+  const queryClient = useQueryClient();
+  const goalQuery = useChapterGoal();
+  const saved = goalQuery.data?.goal ?? null;
+  const historyCount = goalQuery.data?.history_count ?? 0;
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const saveGoal = useMutation({
+    mutationFn: (input: { form: EpisodeBriefState; expected: number | null }) =>
+      api.put<ChapterGoalOut>(`/chapters/${chapterId}/goal`, {
+        project_id: projectId,
+        goal: serializeGoalPayload(input.form),
+        episode_purpose: episodePurpose,
+        expected_goal_version: input.expected,
+      }),
+    onSuccess: (data, vars) => {
+      queryClient.setQueryData(["chapter-goal", chapterId], data);
+      // D03-2: 목표 버전이 바뀌면 재개 드리프트(목표 변경됨)도 갱신 대상이다.
+      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", chapterId] });
+      // D03-4: 목표 항목이 바뀌면 근거 링크의 drifted 판정도 갱신 대상이다.
+      void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+      const st = useAiPanelStore.getState();
+      const isCurrentChapter =
+        st.contextSelection.chapterId === chapterId &&
+        st.contextSelection.projectId === projectId;
+      const formUnchanged =
+        JSON.stringify(st.episodeBrief) === JSON.stringify(vars.form);
+      if (!isCurrentChapter || formUnchanged)
+        st.markBriefSaved(projectId, chapterId, vars.form);
+      toast(
+        `회차 목표를 저장했습니다 (v${data.goal?.goal_version ?? "?"}).`,
+        "success",
+      );
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 409) {
+        toast(
+          "목표가 다른 곳에서 먼저 저장되었습니다. 최신 목표를 확인한 뒤 다시 시도하세요.",
+          "warning",
+        );
+        // 입력은 유지 — dirty라면 refetch hydrate가 폼을 덮지 않는다
+        void queryClient.invalidateQueries({
+          queryKey: ["chapter-goal", chapterId],
+        });
+        // 다른 곳의 목표 저장은 근거 링크 drifted 판정도 바꾼다
+        void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+        return;
+      }
+      toast(
+        e instanceof Error ? e.message : "회차 목표 저장에 실패했습니다.",
+        "error",
+      );
+    },
+  });
+
+  const deleteGoal = useMutation({
+    mutationFn: () => api.del(`/chapters/${chapterId}/goal`),
+    onSuccess: () => {
+      setConfirmDelete(false);
+      void queryClient.invalidateQueries({
+        queryKey: ["chapter-goal", chapterId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+      // 저장본 삭제 후에도 폼 입력은 유지 — dirty로 표시해 회차 전환 시 보존한다.
+      const st = useAiPanelStore.getState();
+      if (
+        st.contextSelection.chapterId === chapterId &&
+        st.contextSelection.projectId === projectId &&
+        JSON.stringify(st.episodeBrief) !== JSON.stringify(EMPTY_EPISODE_BRIEF)
+      )
+        st.setEpisodeBrief({});
+      toast("저장된 회차 목표를 삭제했습니다. 변경 이력은 보존됩니다.", "success");
+    },
+    onError: (e) =>
+      toast(
+        e instanceof Error ? e.message : "회차 목표 삭제에 실패했습니다.",
+        "error",
+      ),
+  });
+
+  const restoreGoal = useMutation({
+    mutationFn: (goalVersion: number) =>
+      api.post<ChapterGoalOut>(`/chapters/${chapterId}/goal/restore`, {
+        goal_version: goalVersion,
+        expected_goal_version: saved?.goal_version ?? null,
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["chapter-goal", chapterId], data);
+      void queryClient.invalidateQueries({
+        queryKey: ["chapter-goal-history", chapterId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+      const st = useAiPanelStore.getState();
+      if (
+        data.goal &&
+        st.contextSelection.chapterId === data.chapter_id
+      ) {
+        st.loadEpisodeBrief(goalToBriefState(data.goal.goal));
+        st.setDirectives(data.project_id, data.chapter_id, {
+          episodePurpose: data.goal.episode_purpose,
+        });
+      }
+      setHistoryOpen(false);
+      toast(
+        `목표 이력을 복원했습니다 (v${data.goal?.goal_version ?? "?"}).`,
+        "success",
+      );
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 409) {
+        toast(
+          "목표가 다른 곳에서 먼저 저장되었습니다. 최신 목표를 확인한 뒤 다시 시도하세요.",
+          "warning",
+        );
+        void queryClient.invalidateQueries({
+          queryKey: ["chapter-goal", chapterId],
+        });
+        void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+        return;
+      }
+      toast(
+        e instanceof Error ? e.message : "목표 이력 복원에 실패했습니다.",
+        "error",
+      );
+    },
+  });
+
+  if (chapterId === null) return null;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-sm bg-muted/40 p-1.5">
+      <div
+        className="flex flex-wrap items-center gap-1.5"
+        role="group"
+        aria-label="회차 목표 저장"
+      >
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            if (!saved) return;
+            const st = useAiPanelStore.getState();
+            st.loadEpisodeBrief(goalToBriefState(saved.goal));
+            st.setDirectives(projectId, chapterId, {
+              episodePurpose: saved.episode_purpose,
+            });
+          }}
+          disabled={!saved}
+        >
+          불러오기
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            saveGoal.mutate({
+              form: structuredClone(brief),
+              expected: saved?.goal_version ?? null,
+            })
+          }
+          disabled={saveGoal.isPending}
+        >
+          {saveGoal.isPending ? "저장 중…" : "목표 저장"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setHistoryOpen(true)}
+          disabled={historyCount === 0}
+        >
+          이력{historyCount > 0 ? ` (${historyCount})` : ""}
+        </Button>
+        {confirmDelete ? (
+          <span
+            role="group"
+            aria-label="회차 목표 삭제 확인"
+            className="flex items-center gap-1 text-[11px]"
+          >
+            저장본을 삭제할까요? 이력은 남습니다.
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => deleteGoal.mutate()}
+              disabled={deleteGoal.isPending}
+            >
+              확인
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setConfirmDelete(false)}
+            >
+              취소
+            </Button>
+          </span>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setConfirmDelete(true)}
+            disabled={!saved}
+          >
+            삭제
+          </Button>
+        )}
+      </div>
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        목표는 회차별로 저장됩니다. 생성에는 현재 입력값이 사용되며, 저장본을
+        쓰려면 불러오기로 폼에 적재하세요.
+      </p>
+      <GoalHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        chapterId={chapterId}
+        currentVersion={saved?.goal_version ?? null}
+        restoring={restoreGoal.isPending}
+        onRestore={(v) => {
+          if (
+            window.confirm(
+              `목표 이력 v${v}을(를) 현재 목표로 복원할까요? 새 버전으로 기록됩니다.`,
+            )
+          )
+            restoreGoal.mutate(v);
+        }}
+      />
+    </div>
+  );
+}
+
+/** D03-4 근거 연결 — 목표 필드(사건/선택/대가) ↔ 원문 발췌의 수동 링크. */
+function EvidenceLinksSection() {
+  const chapterId = useAiPanelStore((s) => s.contextSelection.chapterId);
+  const projectId = useAiPanelStore((s) => s.contextSelection.projectId);
+  const queryClient = useQueryClient();
+  const goalQuery = useChapterGoal();
+  const [pick, setPick] = useState("");
+
+  const linksQuery = useQuery({
+    queryKey: ["evidence-links", chapterId],
+    queryFn: () =>
+      api.get<EvidenceLinkList>(`/chapters/${chapterId}/evidence-links`),
+    enabled: chapterId !== null,
+  });
+
+  // 연결 가능한 목표 항목 — 저장본 기준(core_events/character_choices는 목록, cost는 스칼라)
+  const goal = goalQuery.data?.goal?.goal;
+  const items = useMemo(() => {
+    const out: Array<{
+      key: string;
+      label: string;
+      field: EvidenceLinkField;
+      item_index: number | null;
+    }> = [];
+    (goal?.core_events ?? []).forEach((t, i) =>
+      out.push({ key: `core_events:${i}`, label: `사건 ${i + 1} · ${t}`, field: "core_events", item_index: i }),
+    );
+    (goal?.character_choices ?? []).forEach((t, i) =>
+      out.push({ key: `character_choices:${i}`, label: `선택 ${i + 1} · ${t}`, field: "character_choices", item_index: i }),
+    );
+    if (goal?.cost)
+      out.push({ key: "cost", label: `대가 · ${goal.cost}`, field: "cost", item_index: null });
+    return out;
+  }, [goal]);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+
+  const createLink = useMutation({
+    mutationFn: (body: {
+      goal_field: EvidenceLinkField;
+      item_index: number | null;
+      excerpt: string;
+    }) => api.post(`/chapters/${chapterId}/evidence-links`, body),
+    onSuccess: () => void invalidate(),
+    onError: (e) =>
+      toast(e instanceof Error ? e.message : "근거 연결에 실패했습니다.", "error"),
+  });
+
+  const deleteLink = useMutation({
+    mutationFn: (lid: number) =>
+      api.del(`/chapters/${chapterId}/evidence-links/${lid}`),
+    onSuccess: () => void invalidate(),
+    onError: (e) =>
+      toast(e instanceof Error ? e.message : "근거 링크 삭제에 실패했습니다.", "error"),
+  });
+
+  if (chapterId === null) return null;
+  const links = linksQuery.data?.links ?? [];
+  const picked = items.find((it) => it.key === pick);
+
+  return (
+    <div
+      role="group"
+      className="flex flex-col gap-1.5 rounded-sm bg-muted/40 p-1.5"
+      aria-label="목표 근거 연결"
+    >
+      <div className="text-[11px] font-medium text-muted-foreground">
+        근거 연결 — 목표 항목과 본문 선택을 연결합니다(자동 판정 없음)
+      </div>
+      {items.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          <Select
+            aria-label="연결할 목표 항목"
+            className="h-7 flex-1 text-xs"
+            value={pick}
+            onChange={(e) => setPick(e.target.value)}
+          >
+            <option value="">목표 항목 선택…</option>
+            {items.map((it) => (
+              <option key={it.key} value={it.key}>
+                {it.label}
+              </option>
+            ))}
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!picked || createLink.isPending}
+            onClick={() => {
+              if (!picked) return;
+              // 클릭 시점의 편집기 선택 — 다른 회차/빈 선택이면 거절한다
+              const st = useEditorStore.getState();
+              const view = st.view;
+              if (!view || st.chapterId !== chapterId || projectId === null) {
+                toast("에디터에서 연결할 본문을 먼저 선택하세요.", "warning");
+                return;
+              }
+              const { from, to } = view.state.selection.main;
+              const excerpt = to > from ? view.state.sliceDoc(from, to) : "";
+              if (!excerpt.trim()) {
+                toast("에디터에서 연결할 본문을 먼저 선택하세요.", "warning");
+                return;
+              }
+              if (excerpt.length > 500) {
+                toast("발췌는 500자 이하로 선택하세요.", "warning");
+                return;
+              }
+              // 미저장 편집분이 서버 content_md에 반영되도록 먼저 flush한다
+              void (async () => {
+                try {
+                  await flushManuscriptDraft(projectId, chapterId);
+                } catch (e) {
+                  toast((e as Error).message, "error");
+                  return;
+                }
+                createLink.mutate({
+                  goal_field: picked.field,
+                  item_index: picked.item_index,
+                  excerpt,
+                });
+              })();
+            }}
+          >
+            선택 본문 연결
+          </Button>
+        </div>
+      )}
+      {links.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground">연결된 근거가 없습니다.</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {links.map((link) => (
+            <li
+              key={link.id}
+              className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-1.5 py-1 text-[11px]"
+            >
+              <span className="min-w-0 flex-1 truncate" title={link.excerpt}>
+                {link.goal_item_text} → {link.excerpt}
+              </span>
+              {link.manuscript_status === "broken" && (
+                <Badge variant="revising" className="text-[10px]">
+                  원문 파손
+                </Badge>
+              )}
+              {link.goal_status === "drifted" && (
+                <Badge variant="secondary" className="text-[10px]">
+                  목표 변경됨
+                </Badge>
+              )}
+              {link.goal_status === "goal_deleted" && (
+                <Badge variant="outline" className="text-[10px]">
+                  목표 삭제됨
+                </Badge>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-5 px-1 text-[10px] text-destructive"
+                aria-label={`근거 링크 삭제: ${link.goal_item_text}`}
+                onClick={() => deleteLink.mutate(link.id)}
+                disabled={deleteLink.isPending}
+              >
+                삭제
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** D01 이력 dialog — 버전 목록 + 명시적 복원(새 버전 기록). */
+function GoalHistoryDialog({
+  open,
+  onOpenChange,
+  chapterId,
+  currentVersion,
+  restoring,
+  onRestore,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  chapterId: number;
+  currentVersion: number | null;
+  restoring: boolean;
+  onRestore: (goalVersion: number) => void;
+}) {
+  const historyQuery = useQuery({
+    queryKey: ["chapter-goal-history", chapterId],
+    queryFn: () =>
+      api.get<ChapterGoalRevision[]>(`/chapters/${chapterId}/goal/history`),
+    enabled: open,
+  });
+  const rows = historyQuery.data ?? [];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} aria-label="회차 목표 이력">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>회차 목표 이력</DialogTitle>
+          <DialogDescription>
+            복원은 과거를 덮지 않고 새 버전으로 기록됩니다.
+          </DialogDescription>
+        </DialogHeader>
+        {historyQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground">이력을 불러오는 중…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">목표 이력이 없습니다.</p>
+        ) : (
+          <ul className="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
+            {rows.map((row) => (
+              <li
+                key={row.id}
+                className="flex items-center justify-between gap-2 rounded-sm border border-border px-2 py-1.5 text-xs"
+              >
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-medium">
+                    v{row.goal_version}
+                    {row.goal_version === currentVersion ? " · 현재" : ""}
+                    {row.restored_from !== null
+                      ? ` · v${row.restored_from}에서 복원됨`
+                      : ""}
+                  </span>
+                  <span className="truncate text-muted-foreground">
+                    {row.goal.emotion_goal || "(감정 목표 없음)"} · 기준 r
+                    {row.base_manuscript_revision ?? "-"} ·{" "}
+                    {row.created_at.slice(0, 19).replace("T", " ")}
+                  </span>
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={restoring || row.goal_version === currentVersion}
+                  onClick={() => onRestore(row.goal_version)}
+                >
+                  이 버전으로 복원
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

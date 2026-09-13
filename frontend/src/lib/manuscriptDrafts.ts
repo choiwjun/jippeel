@@ -350,7 +350,7 @@ class ManuscriptDraftCoordinator {
     }
 
     const localChangedAfterRequest = this.editSequence !== token.editSequence || this.text !== token.text;
-    void refreshMemoriesAfterRevision(this.projectId, this.serverRevision, detail.revision);
+    void refreshMemoriesAfterRevision(this.projectId, this.chapterId, this.serverRevision, detail.revision);
     this.serverRevision = detail.revision ?? this.serverRevision;
     this.serverText = detail.content_md;
     this.emitAck(detail);
@@ -504,7 +504,7 @@ class ManuscriptDraftCoordinator {
       this.emit();
       return;
     }
-    void refreshMemoriesAfterRevision(this.projectId, this.serverRevision, detail.revision);
+    void refreshMemoriesAfterRevision(this.projectId, this.chapterId, this.serverRevision, detail.revision);
     this.serverRevision = detail.revision ?? this.serverRevision;
     this.serverText = detail.content_md;
     this.savedSequence = Math.max(this.savedSequence, sentSeq);

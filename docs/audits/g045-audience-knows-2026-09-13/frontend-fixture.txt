@@ -1,0 +1,14 @@
+
+Running 8 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/foreshadow-disposition.spec.ts:173:3 › D03-5 복선 이관 구분 › disposition 배지를 표시하고 미분류는 배지 없음 (1.7s)
+  ✓  2 [chromium] › e2e/foreshadow-disposition.spec.ts:192:3 › D03-5 복선 이관 구분 › status 필터 버튼 회귀 — 기존 동작 유지 (1.1s)
+  ✓  3 [chromium] › e2e/foreshadow-disposition.spec.ts:209:3 › D03-5 복선 이관 구분 › disposition select가 PATCH 본문 계약을 지킨다 (882ms)
+  ✓  4 [chromium] › e2e/foreshadow-disposition.spec.ts:224:3 › D03-5 복선 이관 구분 › 설치 상태 행은 disposition select가 disabled (786ms)
+  ✓  5 [chromium] › e2e/foreshadow-disposition.spec.ts:232:3 › D03-5 복선 이관 구분 › disposition 있는 행을 설치로 변경하면 단일 PATCH로 해제 포함 (780ms)
+  ✓  6 [chromium] › e2e/foreshadow-disposition.spec.ts:247:3 › D03-5 복선 이관 구분 › disposition 없는 행을 설치로 변경하면 disposition 키를 보내지 않는다 (720ms)
+  ✓  7 [chromium] › e2e/foreshadow-disposition.spec.ts:257:3 › D03-5 복선 이관 구분 › G-045 — 생성 폼의 독자 인지가 POST에 저장된다 (861ms)
+  ✓  8 [chromium] › e2e/foreshadow-disposition.spec.ts:275:3 › D03-5 복선 이관 구분 › 접근성 — axe serious/critical 위반 0 (1.7s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-mYRYCP/violations.jsonl; no escapes
+
+  8 passed (10.6s)

@@ -1,0 +1,14 @@
+
+Running 8 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/evidence-links.spec.ts:261:3 › D03-4 근거 연결 › 링크 목록과 파생 상태 배지를 표시한다 (2.2s)
+  ✓  2 [chromium] › e2e/evidence-links.spec.ts:276:3 › D03-4 근거 연결 › 선택 본문을 목표 항목에 연결한다 — POST 본문 계약 (1.5s)
+  ✓  3 [chromium] › e2e/evidence-links.spec.ts:299:3 › D03-4 근거 연결 › 스칼라 목표(cost) 연결은 item_index null을 보낸다 (1.4s)
+  ✓  4 [chromium] › e2e/evidence-links.spec.ts:315:3 › D03-4 근거 연결 › 목표 삭제된 링크는 '목표 삭제됨' 배지를 표시한다 (1.3s)
+  ✓  5 [chromium] › e2e/evidence-links.spec.ts:337:3 › D03-4 근거 연결 › 선택 없이 연결하면 경고 toast만 띄우고 요청하지 않는다 (1.8s)
+  ✓  6 [chromium] › e2e/evidence-links.spec.ts:347:3 › D03-4 근거 연결 › 링크 삭제는 DELETE 후 목록을 비운다 (1.5s)
+  ✓  7 [chromium] › e2e/evidence-links.spec.ts:357:3 › D03-4 근거 연결 › 목표 항목이 없으면 항목 선택기가 없다 (1.7s)
+  ✓  8 [chromium] › e2e/evidence-links.spec.ts:378:3 › D03-4 근거 연결 › 접근성 — axe serious/critical 위반 0 (4.2s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-P8Zbpw/violations.jsonl; no escapes
+
+  8 passed (18.1s)

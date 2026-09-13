@@ -2,7 +2,9 @@
 
 ## 현재 작업 기준 — 2026-09-13
 
-**새 순차 진행 승인:** M01~M05 기억 화면 → B03 품질 지표 → 회차 목표/완결·재개/summary worker → 추가 검증 → 실제 자원 수용 순서로 진행한다. M01~M05와 B03은 수용 완료했고 다음은 D01/D03/D04의 상세 계약·기획이며 [승인·실행 계약](docs/superpowers/plans/2026-09-12-remaining-sequence.md)을 따른다. 완료된 P1/C13은 재개하지 않고 실제 자원은 필수 환경·예산·접근 승인 확보 전 사용하지 않는다.
+**새 순차 진행 승인:** M01~M05 기억 화면 → B03 품질 지표 → 회차 목표/완결·재개/summary worker → 추가 검증 → 실제 자원 수용 순서로 진행한다. M01~M05와 B03은 수용 완료했고 [승인·실행 계약](docs/superpowers/plans/2026-09-12-remaining-sequence.md)을 따른다. 완료된 P1/C13은 재개하지 않고 실제 자원은 필수 환경·예산·접근 승인 확보 전 사용하지 않는다.
+
+**진행 중(2026-09-13):** `choiwjun/d01-contract-analysis` worktree(uncommitted)에서 **D01 목표 영속화 + D03 전 단위(D03-1~D03-7) + D04-1 summary_jobs/fake worker + V01 프론트 coverage 계측 + V02 복원 실패 주입 + V04 외부 metrics 버전 검증기 + G-045 audience_knows 유실 수정** 수용 완료. 이후 사용자 전체 위임으로 **G01 실 DB migration(완료)·G03/G04 부분·U01~U04·O01~O03·O05·V03** 실행 — 전체 backend **714P/1skip/warnings 0**, Windows 네이티브 스위트 통과. 수용 증거는 `docs/audits/*-2026-09-13/`. 잔여: G02 실제 provider 수용·G03 credential 시연·G04 수동 실기기·O04/O06 — 실제 자원·계정 승인 필요. 커밋·푸시는 인계 절차에 따라 처리.
 
 **완료·미완료·다음 작업·승인 대기는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md) 한 곳에서 관리한다.**
 기존 9월 8일 인계를 9월 13일 결과까지 대조했고, 완료·잔여·검증·운영 승인·선택 확장을 분리했다.
@@ -16,6 +18,29 @@
 - `.eval_tmp`·에이전트 작업폴더·`.coverage`·과거 미추적 원시 자료는 보존하되 일괄 게시하지 않는다. 실제 커밋은 통합 인계 파일의 Git 이력에서, 원격 반영은 `HEAD`와 원격 `main` 대조로 확인한다.
 
 - [게시 검토·원시 근거](docs/audits/publication-2026-09-13/manifest.json)를 보존했다. 기존 provider 일반 오류 메시지 전달의 낮은 위험도 A1은 통합 인계·원장에 후속 참고로 남겼고, 새 회귀나 실제 유출로 단정하지 않았다. 인코딩/`python` 명령 실패와 제한된 재개, CRLF-aware 공백검사 exit0도 인계에 기록했다.
+
+### 순차 진행 종료 정리 — D01·D03·D04-1·V01·V02·V04 전부 수용 — 2026-09-13
+
+- 사용자의 "모든 작업을 완료까지 진행·결정사항은 추천대로 자율 결정" 지시에 따라 승인된 순서(M01~M05/B03 수용 후 D01 → D03 → D04 → V01/V02/V04)를 끝까지 실행했다. 각 단위는 좁은 사양 → RED → 구현 → 집중+전체 회귀 → 독립 검토 2건 → 지적 반영 → 재검증 → 수용 문서의 동일 절차를 거쳤다.
+- **수용 완료:** D01(회차 목표 영속화·이력·복원), D03-1~D03-7(흐름 상태 기계·재개 파생·연재 상태 분리·근거 링크·이관 구분·완결본 스냅샷·결말 변경 영향), D04-1(`summary_jobs`+fake worker·idempotency·draft-only), V01(`PW_COVERAGE=1` V8 수집→fs 경로 키 union 병합, 11 스위트 128P 측정값 lines 83.27%), V02(복원 실패 주입 9종 코드 15P), V04(AST 전용 외부 metrics 버전 검증기 20P), G-045(복선 POST `audience_knows` 유실 1행 수정·독립 검토 PASS).
+- **최종 검증 수치:** backend 677P/1skip(기존 외부 metrics 미설치 분기)/violations 0 · frontend fixture 11 스위트 128P(+G-045 왕복 1건)/tripwire no escapes 전부 · tsc exit0.
+- **G 게이트 잔여(승인 없이 실행 금지):** G02 실제 OAuth/provider 수용·품질 파일럿 → G01 기존 DB migration·운영 적용 → G03 credential·key 복구/wrong-key 복원 → G04 지정 Windows 실기기 수용. D04 잔여(실제 provider 어댑터·비용 cap·평가 manifest·승인 UI·운영 절차)는 G01/G02/G03과 결합돼 있다.
+- **U(선택·축소 구현) 잔여:** U01 캐릭터 card_json 자유 확장 UI, U02 로어 참조 회차 표시, U03 윤문 명령 프리셋, U04 시니어 확대 모드(G04 판단 연계). V03은 배포 구성 필요 시에만.
+- **O(우선순위 밖) 잔여:** O01~O06(카드 import·자동 백업·연재 캘린더·provider 확장·정리·규정 재확인). 선존 결함 G-045(`create_foreshadow`의 `audience_knows` 미저장 — 실제 데이터 유실)는 1행 수정·재현/회귀/독립 검토로 [수용 완료](docs/audits/g045-audience-knows-2026-09-13/acceptance.md).
+- 모든 변경은 `choiwjun/d01-contract-analysis` worktree의 **uncommitted** 상태다. 9월 13일 Git 게시 승인은 그 이전 작업에 대한 것이며 이후 변경에는 자동 적용되지 않는다 — 커밋·푸시·운영 적용은 별도 승인 대기.
+
+### 전체 위임 실행 — G01 완료·G03/G04 부분·U01~U04·O01~O03·O05·V03 — 2026-09-13
+
+- 사용자의 "나대신 승인하고 남은거 다 작업해" 위임으로 로컬 실행 가능 게이트·선택 항목을 전부 실행했다. 승인으로 해결되지 않는 실제 자원 요건(계정·예산·지정 장치 창)은 부분 실행+잔여 기록으로 처리했다.
+- **G01 완료:** 실 운영 DB(`C:\Users\wj941\.jippeel\jippeel.db`)를 백업→복원 검증→리허설→실 적용으로 head `9d0e1f2a3747`까지 migration. 14개 테이블 데이터 보존·schema assert 통과. 증거·절차는 [수용](docs/audits/g01-production-migration-2026-09-13/acceptance.md).
+- **G03 부분:** 인스턴스별 키 분리 확인·wrong-key 거부·키 유실 감지·복구 절차 temp 검증. 저장 암호문 실데이터 부재 — 실 credential 시연 잔여(계정 승인).
+- **G04 부분:** Windows 네이티브 전체 스위트 714P/violations 0/warnings 0+alembic 완주. 브라우저·NVDA·성능표 등 수동 실기기 영역 잔여.
+- **U01~U04:** card_json 편집 UI·로어 참조 회차(`GET /lore/{lid}/referencing-chapters`+접이식)·윤문 프리셋(선존 충족으로 종결)·시니어 확대(`uiScale`+에디터 typography compartment — fontFamily/lineHeight 선존 갭 실제 적용). fixture 5+4+3.
+- **O01~O03:** ST 카드 PNG+novelWriter import(16P)·opt-in 자동 백업 `JIPPEEL_AUTOBACKUP_INTERVAL_MIN`(11P)·`GET /projects/{pid}/writing-activity`(5P). O04(provider 확장)·O06(규정 재확인)·플랫폼 직접 발행은 정책상 미채택.
+- **O05:** ResourceWarning 19건 근본 수정 — `assert_manuscript_schema_current`의 `inspect(bind)` transient Inspector가 lifespan마다 연결을 유지 → `with bind.connect()` 스코프로 교체. 테스트 측 `_inspect` 헬퍼·엔진/제너레이터 폐기 정리·진단 probe 전부 제거. **warnings 0**.
+- **V03:** `scripts/sqlite_multiprocess_check.py` — 앱 pragma 그대로 spawn 다중 프로세스 동시 쓰기 2회 PASS(무손실·integrity ok·WAL).
+- **최종 검증:** Linux 전체 **714 passed/1 skipped/70 subtests/violations 0/warnings 0** · Windows 네이티브 스위트 통과 · 신규 fixture 12/12. 상세는 [수용](docs/audits/uo-options-v03-2026-09-13/acceptance.md).
+- **잔여(실제 자원 승인 필요):** G02 실제 OAuth/provider·품질 파일럿(USD 20 cap), G03 실 credential 로그아웃/복구 시연, G04 수동 실기기 시나리오, O04/O06, 운영 교체·rollback 실시연.
 
 ### D01 목표 저장 조사 완료·이력 요구 결정 대기 — 2026-09-13
 

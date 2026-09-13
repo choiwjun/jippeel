@@ -138,3 +138,64 @@ class TestSearch:
         client.delete(f"/api/v1/lore/{lid}")
         res = client.get(f"/api/v1/projects/{pid}/lore/search", params={"q": "새로운"})
         assert res.json() == []
+
+
+# ---------- U02 참조 회차 (F-016) ----------
+
+def _mk_chapter(client, pid: int, title: str, content: str, sort_order: float | None = None) -> dict:
+    body: dict = {"title": title}
+    if sort_order is not None:
+        body["sort_order"] = sort_order
+    res = client.post(f"/api/v1/projects/{pid}/chapters", json=body)
+    assert res.status_code == 201
+    cid = res.json()["id"]
+    if content:
+        put = client.put(f"/api/v1/chapters/{cid}/content", json={
+            "content_md": content, "expected_revision": res.json()["revision"],
+        })
+        assert put.status_code == 200
+    return client.get(f"/api/v1/chapters/{cid}").json()
+
+
+class TestReferencingChapters:
+    def test_title_match_lists_chapter(self, client):
+        pid = _create_project(client)
+        entry = _create_entry(client, pid, "검기(劍氣)", keywords=["검기"])
+        _mk_chapter(client, pid, "1화", "주인공이 검기를 폭발시켰다.", 1.0)
+        _mk_chapter(client, pid, "2화", "아무 관련 없는 이야기.", 2.0)
+
+        res = client.get(f"/api/v1/lore/{entry['id']}/referencing-chapters")
+        assert res.status_code == 200
+        rows = res.json()
+        assert [r["title"] for r in rows] == ["1화"]
+
+    def test_keyword_match_and_casefold(self, client):
+        pid = _create_project(client)
+        entry = _create_entry(client, pid, "철혈단", keywords=["Iron Blood"])
+        _mk_chapter(client, pid, "1화", "the iron blood legion marched", 1.0)
+        _mk_chapter(client, pid, "2화", "철혈단이 등장했다", 2.0)
+
+        rows = client.get(f"/api/v1/lore/{entry['id']}/referencing-chapters").json()
+        assert [r["title"] for r in rows] == ["1화", "2화"]
+
+    def test_empty_and_no_match(self, client):
+        pid = _create_project(client)
+        entry = _create_entry(client, pid, "미언급 용어", keywords=["미언급"])
+        _mk_chapter(client, pid, "1화", "관련 없는 본문", 1.0)
+        res = client.get(f"/api/v1/lore/{entry['id']}/referencing-chapters")
+        assert res.status_code == 200
+        assert res.json() == []
+
+    def test_scoped_to_entry_project_and_sort_order(self, client):
+        pid = _create_project(client)
+        other = _create_project(client)
+        entry = _create_entry(client, pid, "공통어", keywords=["공통어"])
+        _mk_chapter(client, pid, "뒤번호", "공통어 언급", 2.0)
+        _mk_chapter(client, pid, "앞번호", "공통어 언급", 1.0)
+        _mk_chapter(client, other, "타작품", "공통어 언급", 1.0)
+
+        rows = client.get(f"/api/v1/lore/{entry['id']}/referencing-chapters").json()
+        assert [r["title"] for r in rows] == ["앞번호", "뒤번호"]
+
+    def test_missing_entry_404(self, client):
+        assert client.get("/api/v1/lore/999999/referencing-chapters").status_code == 404

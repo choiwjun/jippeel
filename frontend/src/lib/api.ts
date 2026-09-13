@@ -74,6 +74,9 @@ export const api = {
 /** ChapterStatus = "초고" | "수정중" | "완료" */
 export type ChapterStatus = "초고" | "수정중" | "완료";
 
+/** D03-3 연재 상태 — 회차 집필 확정(confirmed)과 다른 수명주기 */
+export type SerialState = "ongoing" | "hiatus" | "completed";
+
 export interface Project {
   id: number;
   title: string;
@@ -81,6 +84,11 @@ export interface Project {
   synopsis: string | null;
   platform_note: string | null;
   style_profile?: string | null; // 문체 프로파일 (G-040)
+  serial_state?: SerialState; // D03-3 연재 상태
+  serial_completed_at?: string | null; // 완결 시각 (completed일 때만)
+  ending_intent?: string | null; // D03-7 작품 수준 결말 후보
+  ending_locked?: boolean; // D03-7 결말 잠금
+  ending_updated_at?: string | null; // D03-7 결말 실제 변경 시각
   created_at: string;
   updated_at: string;
   /** 목록 카드용 집계 — 상세 조회에는 없을 수 있음 */
@@ -93,6 +101,17 @@ export interface ProjectCreate {
   genre?: string | null;
   synopsis?: string | null;
   platform_note?: string | null;
+}
+
+export interface ProjectUpdate {
+  title?: string;
+  genre?: string | null;
+  synopsis?: string | null;
+  platform_note?: string | null;
+  style_profile?: string | null;
+  serial_state?: SerialState;
+  ending_intent?: string | null;
+  ending_locked?: boolean;
 }
 
 /** 권 표시 텍스트 — null(권 없음) 폴백 포함 */
@@ -203,6 +222,131 @@ export interface RevisionConflictDetail {
   code?: string;
   message?: string;
   current_revision?: number;
+}
+
+// ---- ChapterGoal (D01 회차 목표 영속화) ----
+export type EpisodePurposeValue = "serial" | "volume_end" | "series_finale";
+
+/** 저장용 목표 payload — 부분·빈 저장 허용, 서버가 trim/빈값 정규화 */
+export interface ChapterGoalPayload {
+  emotion_goal?: string | null;
+  core_events?: string[] | null;
+  character_choices?: string[] | null;
+  cost?: string | null;
+  prohibitions?: string[] | null;
+  next_hook?: string | null;
+  ending_intent?: string | null;
+  scene_type?: string | null;
+  target_chars_novelpia?: number | null;
+}
+
+export interface ChapterGoalVersion {
+  goal_version: number;
+  goal: ChapterGoalPayload;
+  episode_purpose: EpisodePurposeValue;
+  base_manuscript_revision: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChapterGoalOut {
+  chapter_id: number;
+  project_id: number;
+  /** null = 저장된 목표 없음(오류와 구분) */
+  goal: ChapterGoalVersion | null;
+  current_chapter_revision: number;
+  history_count: number;
+}
+
+export interface ChapterGoalRevision {
+  id: number;
+  goal_version: number;
+  goal: ChapterGoalPayload;
+  episode_purpose: EpisodePurposeValue;
+  base_manuscript_revision: number | null;
+  restored_from: number | null;
+  created_at: string;
+}
+
+export interface GoalConflictDetail {
+  code?: string;
+  message?: string;
+  current_goal_version?: number | null;
+}
+
+// ---- ChapterFlow (D03-1 집필 흐름) ----
+/** status(초고/수정중/완료)와 독립인 작업 흐름 단계. confirmed=집필 확정(연재 완결 아님) */
+export type FlowStage = "planning" | "writing" | "revising" | "confirmed";
+
+export interface ChapterFlowEvent {
+  id: number;
+  chapter_id: number;
+  from_stage: FlowStage;
+  to_stage: FlowStage;
+  /** 전이 시점 저장본 목표 버전 참조 — 목표 내용이 아니다 */
+  goal_version: number | null;
+  manuscript_revision: number;
+  created_at: string;
+}
+
+export interface ChapterFlowOut {
+  chapter_id: number;
+  project_id: number;
+  flow_stage: FlowStage;
+  last_event: ChapterFlowEvent | null;
+  current_goal_version: number | null;
+  current_chapter_revision: number;
+}
+
+// ---- ChapterResume (D03-2 재개 계약) — 순수 파생 읽기 ----
+export interface ChapterResumeScene {
+  id: number;
+  sort_order: number;
+  title: string;
+}
+
+export interface ChapterResumeOut {
+  chapter_id: number;
+  project_id: number;
+  flow_stage: FlowStage;
+  last_event: ChapterFlowEvent | null;
+  current_goal_version: number | null;
+  current_chapter_revision: number;
+  /** last_event 앵커 대비 목표 버전·원고 revision 변경 여부 */
+  goal_changed_since_transition: boolean;
+  manuscript_changed_since_transition: boolean;
+  /** accepted=false 윤문 실행 수 (거절/미적용 구분 불가는 기존 스키마 한계) */
+  pending_refine_runs: number;
+  /** 본문이 비어 있는 첫 장면 — 없으면 null */
+  next_scene: ChapterResumeScene | null;
+  scene_count: number;
+}
+
+// ---- EvidenceLinks (D03-4 근거 연결) ----
+/** 목표 필드(사건/선택/대가) ↔ 원문 발췌의 수동 링크 — 자동 판정 없음 */
+export type EvidenceLinkField = "core_events" | "character_choices" | "cost";
+export type EvidenceManuscriptStatus = "intact" | "broken";
+export type EvidenceGoalStatus = "unchanged" | "drifted" | "goal_deleted";
+
+export interface EvidenceLink {
+  id: number;
+  chapter_id: number;
+  goal_field: EvidenceLinkField;
+  item_index: number | null;
+  /** 링크 생성 시점의 목표 항목 스냅샷 — 드리프트 비교 기준 */
+  goal_item_text: string;
+  excerpt: string;
+  /** 링크 생성 시점의 목표 버전 앵커 */
+  goal_version: number;
+  current_goal_version: number | null;
+  manuscript_status: EvidenceManuscriptStatus;
+  goal_status: EvidenceGoalStatus;
+  created_at: string;
+}
+
+export interface EvidenceLinkList {
+  chapter_id: number;
+  links: EvidenceLink[];
 }
 
 // ---- Character / Relationship (Sprint 2 M2) ----
@@ -358,4 +502,69 @@ export interface RefineResult {
   changed_ratio: number;
   gate: "pass" | "warn" | "block";
   status: "ok" | "blocked";
+}
+
+// ---- FinalEdition (D03-6 완결본 관리) ----
+
+export interface FinalEditionChapterEntry {
+  chapter_id: number;
+  title: string;
+  sort_order: number;
+  revision: number;
+  flow_stage: string;
+  status: string;
+  chars: number;
+}
+
+export interface FinalEdition {
+  id: number;
+  project_id: number;
+  label: string | null;
+  created_at: string;
+  serial_state: SerialState;
+  chapter_count: number;
+  total_chars: number;
+}
+
+export interface FinalEditionDetail extends FinalEdition {
+  manifest: FinalEditionChapterEntry[];
+  content_md: string;
+  checklist: CompletionChecklist;
+}
+
+export interface CompletionChecklist {
+  serial_state: SerialState;
+  serial_completed_at: string | null;
+  chapters: {
+    total: number;
+    by_stage: Record<string, number>;
+    unconfirmed: number;
+  };
+  foreshadows: {
+    total: number;
+    open: Array<{ id: number; title: string; status: string }>;
+    by_disposition: Record<string, number>;
+  };
+  pending_refine_runs: number;
+  broken_evidence_links: number;
+  finale_goals_missing_ending: Array<{ chapter_id: number; title: string }>;
+}
+
+// ---- EndingImpact (D03-7 결말 변경 영향) ----
+
+export interface EndingImpact {
+  ending_intent: string | null;
+  ending_locked: boolean;
+  ending_updated_at: string | null;
+  open_foreshadows: Array<{ id: number; title: string }>;
+  stale_goal_chapters: Array<{
+    chapter_id: number;
+    title: string;
+    goal_version: number;
+  }>;
+  finale_chapters: Array<{
+    chapter_id: number;
+    title: string;
+    has_ending_intent: boolean;
+  }>;
 }

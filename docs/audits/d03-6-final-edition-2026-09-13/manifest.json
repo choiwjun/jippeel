@@ -1,0 +1,44 @@
+{
+  "slice": "D03-6",
+  "title": "완결본 관리 — 완결 점검표 + 완결본 스냅샷",
+  "date": "2026-09-13",
+  "branch": "choiwjun/d01-contract-analysis",
+  "worktree": "/home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis",
+  "committed": false,
+  "spec": "docs/superpowers/plans/2026-09-13-d03-6-final-edition-spec.md",
+  "alembic_head": "7b8c9d0e1f25",
+  "verification": {
+    "backend_focused": "31 passed, 0 isolation violations",
+    "backend_full": "605 passed, 1 skipped, 0 isolation violations",
+    "frontend_final_edition_fixture": "6 passed, tripwire no escapes",
+    "frontend_chapter_goal_fixture": "8 passed, tripwire no escapes",
+    "frontend_chapter_flow_fixture": "10 passed, tripwire no escapes",
+    "frontend_preservation_fixture": "26 passed, no escapes",
+    "frontend_ai_context_fixture": "15 passed, tripwire no escapes",
+    "frontend_memory_fixture": "31 passed, tripwire no escapes",
+    "frontend_serial_state_fixture": "6 passed, tripwire no escapes",
+    "frontend_evidence_links_fixture": "8 passed, tripwire no escapes",
+    "frontend_foreshadow_disposition_fixture": "7 passed, tripwire no escapes",
+    "typescript": "TSC_EXIT=0",
+    "known_warning": "pre-existing SyntaxWarning in backend/app/services/wordcount.py:30"
+  },
+  "isolation": {
+    "backend_db": "synthetic TEMP SQLite only",
+    "frontend": "fixture routes only, dedicated port 15235",
+    "external": "no production DB, no real provider, no credentials, no deploy"
+  },
+  "reviews": {
+    "backend": "PASS_WITH_NOTES — 12 findings (5 fixed incl. sort_order·checklist-freeze test gaps; 7 accepted)",
+    "frontend": "PASS_WITH_NOTES — 7 findings (4 fixed incl. dual-invalidation·scoped badge assert; 3 accepted)"
+  },
+  "evidence": [
+    "red-log.txt",
+    "backend-focused.txt",
+    "backend-full.txt",
+    "frontend-final-edition.txt",
+    "frontend-tsc.txt",
+    "source-hashes.txt",
+    "review-log.md",
+    "acceptance.md"
+  ]
+}

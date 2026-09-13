@@ -1,0 +1,12 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/serial-state.spec.ts:126:3 › D03-3 연재 상태 › 기본값 ongoing — '연재 중' 표시 (1.4s)
+  ✓  2 [chromium] › e2e/serial-state.spec.ts:132:3 › D03-3 연재 상태 › serial_state 없는 레거시 응답도 ongoing으로 표시 (645ms)
+  ✓  3 [chromium] › e2e/serial-state.spec.ts:141:3 › D03-3 연재 상태 › 완결 전환 — PATCH 본문에 serial_state만, 시각 표시 (692ms)
+  ✓  4 [chromium] › e2e/serial-state.spec.ts:154:3 › D03-3 연재 상태 › 완결 → 연재 중 복귀 — 시각 표시 사라짐 (703ms)
+  ✓  5 [chromium] › e2e/serial-state.spec.ts:168:3 › D03-3 연재 상태 › 연재 상태는 회차 집필 확정과 별개임이 레이블에 명시됨 (644ms)
+  ✓  6 [chromium] › e2e/serial-state.spec.ts:176:3 › D03-3 연재 상태 › 접근성 — axe serious/critical 위반 0 (1.5s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-xNMjvf/violations.jsonl; no escapes
+
+  6 passed (7.5s)

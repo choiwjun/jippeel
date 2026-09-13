@@ -1,0 +1,16 @@
+
+Running 10 tests using 1 worker
+
+  ✓   1 [chromium] › e2e/chapter-flow.spec.ts:234:3 › D03-1 회차 집필 흐름 fixture › 기획 단계 배지와 허용 전이(집필로)만 표시된다 (1.9s)
+  ✓   2 [chromium] › e2e/chapter-flow.spec.ts:247:3 › D03-1 회차 집필 흐름 fixture › 전이 선택은 expected_flow_stage와 함께 POST하고 배지·앵커를 갱신한다 (962ms)
+  ✓   3 [chromium] › e2e/chapter-flow.spec.ts:258:3 › D03-1 회차 집필 흐름 fixture › 목표 저장본이 없으면 앵커에 원고 revision만 표시한다 (1.0s)
+  ✓   4 [chromium] › e2e/chapter-flow.spec.ts:266:3 › D03-1 회차 집필 흐름 fixture › 409 충돌은 toast를 띄우고 최신 상태를 다시 불러온다 (1.2s)
+  ✓   5 [chromium] › e2e/chapter-flow.spec.ts:277:3 › D03-1 회차 집필 흐름 fixture › confirmed는 재개(퇴고로)만 허용한다 (981ms)
+  ✓   6 [chromium] › e2e/chapter-flow.spec.ts:287:3 › D03-1 회차 집필 흐름 fixture › 에디터 헤더의 접근성 위반(serious/critical)이 없다 — 배지 표시 상태 포함 (1.9s)
+  ✓   7 [chromium] › e2e/chapter-flow.spec.ts:308:3 › D03-2 회차 재개 정보 fixture › 전이 이력이 없으면 드리프트 배지 없이 재개 정보만 표시한다 (1.0s)
+  ✓   8 [chromium] › e2e/chapter-flow.spec.ts:318:3 › D03-2 회차 재개 정보 fixture › 목표·원고 드리프트와 미해결 감수, 다음 빈 장면을 표시한다 (941ms)
+  ✓   9 [chromium] › e2e/chapter-flow.spec.ts:338:3 › D03-2 회차 재개 정보 fixture › 전이 후 재개 정보가 refetch되어 드리프트가 해소된다 (997ms)
+  ✓  10 [chromium] › e2e/chapter-flow.spec.ts:354:3 › D03-2 회차 재개 정보 fixture › 장면 제목이 없으면 '무제'로 표시한다 (974ms)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-ngr0J4/violations.jsonl; no escapes
+
+  10 passed (14.0s)

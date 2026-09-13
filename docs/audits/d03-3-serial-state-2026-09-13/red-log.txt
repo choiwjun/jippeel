@@ -1,0 +1,390 @@
+Output from command in shell 6abbe0:
+{"isolation": "ready-before-pytest", "root": "/tmp/jippeel-isolated-bw97wu3v", "destinations": {"DATABASE_URL": "sqlite:////tmp/jippeel-isolated-bw97wu3v/lifespan.db", "JIPPEEL_KEY_FILE": "/tmp/jippeel-isolated-bw97wu3v/dummy.key", "COVERAGE_FILE": "/tmp/jippeel-isolated-bw97wu3v/test.coverage", "JIPPEEL_TEST_BASETEMP": "/tmp/jippeel-isolated-bw97wu3v/pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+============================= test session starts ==============================
+platform linux -- Python 3.14.4, pytest-9.1.1, pluggy-1.6.0
+cachedir: pytest-cache
+rootdir: /tmp/jippeel-isolated-bw97wu3v
+configfile: pytest.ini
+collected 16 items
+
+../../../../../../../tmp/jippeel-isolated-bw97wu3v FFF.F......F..F.      [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_new_project_defaults_to_ongoing _____________________
+
+client = <starlette.testclient.TestClient object at 0x7c58e1689550>
+
+    def test_new_project_defaults_to_ongoing(client):
+        p = _mk_project(client)
+>       assert p["serial_state"] == "ongoing"
+               ^^^^^^^^^^^^^^^^^
+E       KeyError: 'serial_state'
+
+tests/test_serial_state.py:31: KeyError
+________________ test_serial_state_transitions_and_completed_at ________________
+
+client = <starlette.testclient.TestClient object at 0x7c58e149f750>
+
+    def test_serial_state_transitions_and_completed_at(client):
+        pid = _mk_project(client)["id"]
+    
+        r = _patch(client, pid, serial_state="hiatus")
+        assert r.status_code == 200
+>       assert r.json()["serial_state"] == "hiatus"
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'serial_state'
+
+tests/test_serial_state.py:45: KeyError
+_____________________ test_serial_state_invalid_value_422 ______________________
+
+client = <starlette.testclient.TestClient object at 0x7c58e0b587d0>
+
+    def test_serial_state_invalid_value_422(client):
+        pid = _mk_project(client)["id"]
+        r = _patch(client, pid, serial_state="bogus")
+>       assert r.status_code == 422
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_serial_state.py:66: AssertionError
+________________ test_serial_state_independent_of_chapter_flow _________________
+
+client = <starlette.testclient.TestClient object at 0x7c58e0b5f6f0>
+
+    def test_serial_state_independent_of_chapter_flow(client):
+        pid = _mk_project(client)["id"]
+        cid = _mk_chapter(client, pid)["id"]
+    
+        _patch(client, pid, serial_state="completed")
+        # 완결이어도 회차 전이는 계속 가능 — 완결은 동결이 아니다
+        r = _transition(client, cid, "writing", "planning")
+        assert r.status_code == 200
+    
+        # 회차 confirmed도 serial_state를 바꾸지 않는다
+        _transition(client, cid, "revising", "writing")
+        _transition(client, cid, "confirmed", "revising")
+        p = client.get(f"/api/v1/projects/{pid}").json()
+>       assert p["serial_state"] == "completed"
+               ^^^^^^^^^^^^^^^^^
+E       KeyError: 'serial_state'
+
+tests/test_serial_state.py:93: KeyError
+________ test_populated_historical_upgrade_from_initial_with_references ________
+
+alembic_config = <alembic.config.Config object at 0x7c58dbe61d00>
+
+    def test_populated_historical_upgrade_from_initial_with_references(alembic_config):
+        """Regression for FK failure while upgrading populated d85 DB through nullable volume."""
+        from sqlalchemy import text
+    
+        command.upgrade(alembic_config, "d85fdcab0808")
+    
+        engine = create_db_engine(_current_url())
+        with engine.begin() as conn:
+            conn.execute(text("INSERT INTO projects (id, title) VALUES (1, 'historical')"))
+            conn.execute(text(
+                "INSERT INTO chapters "
+                "(id, project_id, volume, sort_order, title, content_md, status, word_count_cache) "
+                "VALUES (1, 1, 1, 1.0, 'one', 'old manuscript', '초고', 13)"
+            ))
+            conn.execute(text(
+                "INSERT INTO refine_runs "
+                "(id, chapter_id, route_hint, changed_ratio, report_json, result_text, accepted) "
+                "VALUES (1, 1, 'standard', 0.1, '{}', 'refined', 0)"
+            ))
+            conn.execute(text(
+                "INSERT INTO characters (id, project_id, name, aliases, card_json) "
+                "VALUES (1, 1, 'A', '[]', '{}')"
+            ))
+            conn.execute(text(
+                "INSERT INTO characters (id, project_id, name, aliases, card_json) "
+                "VALUES (2, 1, 'B', '[]', '{}')"
+            ))
+            conn.execute(text(
+                "INSERT INTO relationships (id, from_character_id, to_character_id, label, note) "
+                "VALUES (1, 1, 2, 'ally', 'kept')"
+            ))
+            conn.execute(text(
+                "INSERT INTO lore_entries (id, project_id, category, title, content, keywords) "
+                "VALUES (1, 1, '용어', '검', 'kept lore', '[]')"
+            ))
+        engine.dispose()
+    
+        command.upgrade(alembic_config, "head")
+    
+        engine = create_db_engine(_current_url())
+        with engine.connect() as conn:
+            chapter = conn.execute(text(
+                "SELECT volume, content_md, revision FROM chapters WHERE id = 1"
+            )).mappings().one()
+            run = conn.execute(text(
+                "SELECT chapter_id, base_revision FROM refine_runs WHERE id = 1"
+            )).mappings().one()
+            rel_count = conn.execute(text("SELECT count(*) FROM relationships WHERE note = 'kept'")).scalar_one()
+            lore_count = conn.execute(text("SELECT count(*) FROM lore_entries WHERE content = 'kept lore'")).scalar_one()
+            version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        engine.dispose()
+    
+        assert chapter == {"volume": 1, "content_md": "old manuscript", "revision": 0}
+        assert run == {"chapter_id": 1, "base_revision": None}
+        assert rel_count == 1
+        assert lore_count == 1
+>       assert version == "4e5f6a7b8c92"
+E       AssertionError: assert '3d4e5f6a7b81' == '4e5f6a7b8c92'
+E         
+E         - 4e5f6a7b8c92
+E         ?          ^^^
+E         + 3d4e5f6a7b81
+E         ? ++         ^
+
+tests/test_migrations.py:188: AssertionError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> d85fdcab0808, initial schema (Sprint 1+2)
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade d85fdcab0808 -> a1b2c3d4e5f6, add project.memo (작품 부트스트랩 메타 보관 — 후보 제목·주제의식 등)
+INFO  [alembic.runtime.migration] Running upgrade a1b2c3d4e5f6 -> b3c4d5e6f7a8, T-002 chapter.volume nullable 전환 (기술설계 §4.2 변경 1 — Q1 결정안)
+INFO  [alembic.runtime.migration] Running upgrade b3c4d5e6f7a8 -> c5d6e7f8a9b0, F-040 ChatGPT 구독(OAuth) 대응 — ai_endpoints.temperature nullable 전환
+INFO  [alembic.runtime.migration] Running upgrade c5d6e7f8a9b0 -> d7e8f9a0b1c2, F-040 ChatGPT 구독(OAuth) 대응 — ai_endpoints.reasoning_effort 컬럼 추가
+INFO  [alembic.runtime.migration] Running upgrade d7e8f9a0b1c2 -> e8f0a1b2c3d4, 고도화 v1 — scenes(장면)·foreshadows(복선) 테이블 추가
+INFO  [alembic.runtime.migration] Running upgrade e8f0a1b2c3d4 -> f9a1b2c3d4e5, 고도화 v2 — canon 이력·품질 이력·권 개요·독자 인지·문체 프로파일·AI 사용량
+INFO  [alembic.runtime.migration] Running upgrade f9a1b2c3d4e5 -> 0a1b2c3d4e5f, manuscript preservation revisions and snapshots
+INFO  [alembic.runtime.migration] Running upgrade 0a1b2c3d4e5f -> 1b2c3d4e5f60, provenance-aware long memory entries
+INFO  [alembic.runtime.migration] Running upgrade 1b2c3d4e5f60 -> 2c3d4e5f6a70, chapter goal persistence (D01) — current value + append-only revisions
+INFO  [alembic.runtime.migration] Running upgrade 2c3d4e5f6a70 -> 3d4e5f6a7b81, chapter flow stage (D03-1) — flow_stage column + append-only transition events
+________________ test_populated_upgrade_backfills_serial_state _________________
+
+self = <sqlalchemy.engine.base.Connection object at 0x7c58db8f0230>
+dialect = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7c58db886210>
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7c58dba57f50>
+statement = <sqlalchemy.dialects.sqlite.base.SQLiteCompiler object at 0x7c58db874c00>
+parameters = [()]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7c58db886210>
+cursor = <sqlite3.Cursor object at 0x7c58db8bd240>
+statement = 'SELECT serial_state, serial_completed_at, title FROM projects WHERE id = 1'
+parameters = ()
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7c58dba57f50>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlite3.OperationalError: no such column: serial_state
+
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+
+The above exception was the direct cause of the following exception:
+
+alembic_config = <alembic.config.Config object at 0x7c58e0281050>
+
+    def test_populated_upgrade_backfills_serial_state(alembic_config):
+        """D03-3 — 기존 프로젝트는 serial_state='ongoing', completed_at=NULL로 backfill된다."""
+        from sqlalchemy import text
+    
+        command.upgrade(alembic_config, "3d4e5f6a7b81")  # serial_state 이전 head
+    
+        engine = create_db_engine(_current_url())
+        with engine.begin() as conn:
+            conn.execute(text("INSERT INTO projects (id, title) VALUES (1, 'existing')"))
+        engine.dispose()
+    
+        command.upgrade(alembic_config, "head")
+    
+        engine = create_db_engine(_current_url())
+        with engine.connect() as conn:
+>           row = conn.execute(
+                text("SELECT serial_state, serial_completed_at, title FROM projects WHERE id = 1")
+            ).mappings().one()
+
+tests/test_migrations.py:306: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+.venv/lib/python3.14/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7c58db886210>
+cursor = <sqlite3.Cursor object at 0x7c58db8bd240>
+statement = 'SELECT serial_state, serial_completed_at, title FROM projects WHERE id = 1'
+parameters = ()
+context = <sqlalchemy.dialects.sqlite.base.SQLiteExecutionContext object at 0x7c58dba57f50>
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+>       cursor.execute(statement, parameters)
+E       sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: serial_state
+E       [SQL: SELECT serial_state, serial_completed_at, title FROM projects WHERE id = 1]
+E       (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py:952: OperationalError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> d85fdcab0808, initial schema (Sprint 1+2)
+INFO  [alembic.runtime.migration] Running upgrade d85fdcab0808 -> a1b2c3d4e5f6, add project.memo (작품 부트스트랩 메타 보관 — 후보 제목·주제의식 등)
+INFO  [alembic.runtime.migration] Running upgrade a1b2c3d4e5f6 -> b3c4d5e6f7a8, T-002 chapter.volume nullable 전환 (기술설계 §4.2 변경 1 — Q1 결정안)
+INFO  [alembic.runtime.migration] Running upgrade b3c4d5e6f7a8 -> c5d6e7f8a9b0, F-040 ChatGPT 구독(OAuth) 대응 — ai_endpoints.temperature nullable 전환
+INFO  [alembic.runtime.migration] Running upgrade c5d6e7f8a9b0 -> d7e8f9a0b1c2, F-040 ChatGPT 구독(OAuth) 대응 — ai_endpoints.reasoning_effort 컬럼 추가
+INFO  [alembic.runtime.migration] Running upgrade d7e8f9a0b1c2 -> e8f0a1b2c3d4, 고도화 v1 — scenes(장면)·foreshadows(복선) 테이블 추가
+INFO  [alembic.runtime.migration] Running upgrade e8f0a1b2c3d4 -> f9a1b2c3d4e5, 고도화 v2 — canon 이력·품질 이력·권 개요·독자 인지·문체 프로파일·AI 사용량
+INFO  [alembic.runtime.migration] Running upgrade f9a1b2c3d4e5 -> 0a1b2c3d4e5f, manuscript preservation revisions and snapshots
+INFO  [alembic.runtime.migration] Running upgrade 0a1b2c3d4e5f -> 1b2c3d4e5f60, provenance-aware long memory entries
+INFO  [alembic.runtime.migration] Running upgrade 1b2c3d4e5f60 -> 2c3d4e5f6a70, chapter goal persistence (D01) — current value + append-only revisions
+INFO  [alembic.runtime.migration] Running upgrade 2c3d4e5f6a70 -> 3d4e5f6a7b81, chapter flow stage (D03-1) — flow_stage column + append-only transition events
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+=============================== warnings summary ===============================
+app/services/wordcount.py:30
+  /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis/backend/app/services/wordcount.py:30: SyntaxWarning: "\p" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\p"? A raw string is also an option.
+    프론트 countNovelpia(/[^\p{L}\p{N}]/gu 제외)와 동일한 집계다.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../../../tmp/jippeel-isolated-bw97wu3v::test_new_project_defaults_to_ongoing
+FAILED ../../../../../../../tmp/jippeel-isolated-bw97wu3v::test_serial_state_transitions_and_completed_at
+FAILED ../../../../../../../tmp/jippeel-isolated-bw97wu3v::test_serial_state_invalid_value_422
+FAILED ../../../../../../../tmp/jippeel-isolated-bw97wu3v::test_serial_state_independent_of_chapter_flow
+FAILED ../../../../../../../tmp/jippeel-isolated-bw97wu3v::test_populated_historical_upgrade_from_initial_with_references
+FAILED ../../../../../../../tmp/jippeel-isolated-bw97wu3v::test_populated_upgrade_backfills_serial_state
+=================== 6 failed, 10 passed, 1 warning in 2.46s ====================
+{"isolation": "complete", "pytest_exit": 1, "internal_ipc_count": 0, "subprocess_attempts": 0, "fake_keyring_calls": 0, "violations": []}
+
+
+Exit code: 1
+
+`| tail -12` was parsed out (12 of 384 total lines shown).

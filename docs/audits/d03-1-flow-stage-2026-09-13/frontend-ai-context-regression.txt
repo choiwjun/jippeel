@@ -1,0 +1,6 @@
+  ✓  13 [chromium] › e2e/ai-context-ui.spec.ts:997:5 › AI-context Task3 fixture UI boundaries › delayed canon result from chapter A is ignored after navigating to chapter B (1.7s)
+  ✓  14 [chromium] › e2e/ai-context-ui.spec.ts:1021:5 › AI-context Task3 fixture UI boundaries › closing A, visiting B, and returning A does not revive a cancelled canon result (1.9s)
+  ✓  15 [chromium] › e2e/ai-context-ui.spec.ts:1047:5 › AI-context Task3 fixture UI boundaries › older delayed canon success or failure cannot override a newer completed canon result (2.5s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-tD1U2A/violations.jsonl; no escapes
+
+  15 passed (37.4s)

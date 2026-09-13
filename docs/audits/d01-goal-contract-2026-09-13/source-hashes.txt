@@ -1,0 +1,22 @@
+# D01 소스 해시 (sha256) — 독립 검토 후 수정 반영 최종본
+# worktree: /home/hunter8891/orca/workspaces/jippeel/d01-contract-analysis
+# branch: choiwjun/d01-contract-analysis (HEAD == main c2e4f6a5, 변경은 uncommitted working tree)
+# captured: 2026-09-13 (post-review)
+
+0a7ae2a8f77a129fdb67aed9a11328cf88430e1d3bbfb79ebbbb410b66ae4b4e  backend/app/models.py
+eaced1d2fa9f84ced35485692d7977ee9b65472fe4bf84a3758f6f84f3bb5940  backend/app/schemas.py
+6bb2a440254311ea1a3875a5837b44efa131791c569d12b4a0747bfc2e8e5150  backend/app/routers/projects.py
+4cf8e2e99b9e40f521d2eeb4686d8b59045d2ef02a8ccd9bec420fe547ec14f5  backend/app/database.py
+90d8aa51bfa6d55dd3ae7333aeb145ce89ebd8ac78286addacd01e5222bb15b1  backend/alembic/versions/2c3d4e5f6a70_chapter_goals.py
+7dec8cc7ce989bf0bdfcf56b86920ec197c36b798b16bb1520a17e9056dbfa8a  backend/tests/test_chapter_goals.py
+f5f2ca73bd4f3147d840591bc8671dcd2f812033a79898481606005a082e270b  backend/tests/test_migrations.py
+19fbf3076d9151f1d69b8d3a4f952a23de481d5df9de838633cdaf71852bf258  frontend/src/stores/aiPanelStore.ts
+ee0e00a72afd9b6e5b0266813140e6e49639298ea61b7da1a13e9665fc784041  frontend/src/components/panels/AiPanel.tsx
+c06912df1bdae511566ec3d648bd219f2c554d4ff485cf7a7df8eab212b5804a  frontend/src/lib/api.ts
+fe8048c18d681da3daee31d2291cdcd69b8038caf538bb05b9f70f5b94d12348  frontend/src/components/ui/sheet.tsx
+1c13170d23ab37725b88c6a07b5861f3fdd23cb8743b12c09f1af02fd406fc9d  frontend/src/components/layout/RightPanel.tsx
+b56bec4b4001a1d8cc060f97d95acf2c0ce3d92e145fef7a3a649d54a9a08b87  frontend/src/pages/CharactersPage.tsx
+157d45fffddba891cbcc000e7689e3c02f92f29ba3adc168b782f09aec0916e0  frontend/src/pages/LorebookPage.tsx
+391ecc9b5445e01584d4336c673e1cb0e6a1d85169d907b2d145d58ed6f41b03  frontend/e2e/chapter-goal.spec.ts
+d88cc3dbaea752e1607464f3f63ddef4b59c5ad2df25044e7d28c772e039fa0b  frontend/playwright.chapter-goal.config.ts
+a0f7ae31713ad3b38155840013a6bacfc9493b7e8a75bad98002141f312d843a  docs/superpowers/plans/2026-09-13-d01-detailed-spec.md

@@ -1,0 +1,12 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/final-edition.spec.ts:150:3 › D03-6 완결본 관리 › 완결 점검표 수치·배지·미회수 복선 표시 (2.3s)
+  ✓  2 [chromium] › e2e/final-edition.spec.ts:168:3 › D03-6 완결본 관리 › 완결본 생성 — 라벨 없으면 '완결본 {id}'로 목록 반영 (1.3s)
+  ✓  3 [chromium] › e2e/final-edition.spec.ts:182:3 › D03-6 완결본 관리 › 완결본 상세 — 매니페스트·원고 전문 표시 (1.1s)
+  ✓  4 [chromium] › e2e/final-edition.spec.ts:193:3 › D03-6 완결본 관리 › 완결본 삭제 — 목록에서 제거 (915ms)
+  ✓  5 [chromium] › e2e/final-edition.spec.ts:204:3 › D03-6 완결본 관리 › 연재 상태 배지 표시 — 완결 라벨 (1.2s)
+  ✓  6 [chromium] › e2e/final-edition.spec.ts:212:3 › D03-6 완결본 관리 › a11y — serious/critical 위반 없음 (1.8s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-QWoj7y/violations.jsonl; no escapes
+
+  6 passed (11.5s)
