@@ -2,8 +2,8 @@
 # Jippeel 대시보드 통합 실행 스크립트 (WSL)
 # 용도: 백엔드(uvicorn:8000) + 프론트(vite:5173) 기동 → 브라우저 오픈
 set -u
-PROJ="/mnt/c/Users/wj941/OneDrive/바탕 화면/WJproject/jippeel"
-BUILD="$HOME/jippeel-build/frontend"
+PROJ="/mnt/c/Users/wj941/Documents/jippeel"
+BUILD="$PROJ/frontend"
 LOG_DIR="$HOME/.jippeel-logs"
 mkdir -p "$LOG_DIR"
 
@@ -23,7 +23,7 @@ else
    (cd "$PROJ/backend" && setsid nohup env \
       IM_NOT_AI_DIAGNOSE_CMD='cp {input} {diagnosis}' \
       IM_NOT_AI_REFINE_CMD='cp {input} {output}' \
-      .venv/bin/python -m uvicorn app.main:app --port 8000 \
+      .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000 \
       >"$LOG_DIR/backend.log" 2>&1 </dev/null &)
    for i in $(seq 1 30); do
       curl -sf http://localhost:8000/health >/dev/null && break
