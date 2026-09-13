@@ -7,7 +7,7 @@
 
 ## G01 — 실 DB migration ✅
 
-대상: `C:\Users\wj941\.jippeel\jippeel.db`(664K, projects 2·chapters 20·ai_usage 1418행). `alembic_version` 없는 `create_all` 생성 DB, 스키마 정합은 `f9a1b2c3d4e5` 수준(preservation 이전).
+대상: `C:\Users\wj941\Documents\jippeel\backend\jippeel.db`(664K, projects 2·chapters 20·ai_usage 1418행). `alembic_version` 없는 `create_all` 생성 DB, 스키마 정합은 `f9a1b2c3d4e5` 수준(preservation 이전).
 
 절차(런북 순서):
 1. **일관 백업** — sqlite backup API로 `real-backup-copy.db` 생성 + sha256 manifest(`backup-manifest.json`). `create_backup()`은 `alembic_version`을 요구해 수동 manifest 경로 사용.

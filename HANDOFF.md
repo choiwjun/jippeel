@@ -4,7 +4,7 @@
 
 **새 순차 진행 승인:** M01~M05 기억 화면 → B03 품질 지표 → 회차 목표/완결·재개/summary worker → 추가 검증 → 실제 자원 수용 순서로 진행한다. M01~M05와 B03은 수용 완료했고 [승인·실행 계약](docs/superpowers/plans/2026-09-12-remaining-sequence.md)을 따른다. 완료된 P1/C13은 재개하지 않고 실제 자원은 필수 환경·예산·접근 승인 확보 전 사용하지 않는다.
 
-**진행 중(2026-09-13):** `choiwjun/d01-contract-analysis` worktree(uncommitted)에서 **D01 목표 영속화 + D03 전 단위(D03-1~D03-7) + D04-1 summary_jobs/fake worker + V01 프론트 coverage 계측 + V02 복원 실패 주입 + V04 외부 metrics 버전 검증기 + G-045 audience_knows 유실 수정** 수용 완료. 이후 사용자 전체 위임으로 **G01 실 DB migration(완료)·G03/G04 부분·U01~U04·O01~O03·O05·V03** 실행 — 전체 backend **714P/1skip/warnings 0**, Windows 네이티브 스위트 통과. 수용 증거는 `docs/audits/*-2026-09-13/`. 잔여: G02 실제 provider 수용·G03 credential 시연·G04 수동 실기기·O04/O06 — 실제 자원·계정 승인 필요. 커밋·푸시는 인계 절차에 따라 처리.
+**진행 중(2026-09-13):** `choiwjun/d01-contract-analysis` worktree(uncommitted)에서 **D01 목표 영속화 + D03 전 단위(D03-1~D03-7) + D04-1 summary_jobs/fake worker + V01 프론트 coverage 계측 + V02 복원 실패 주입 + V04 외부 metrics 버전 검증기 + G-045 audience_knows 유실 수정** 수용 완료. 이후 사용자 전체 위임으로 **G01 실 DB migration(완료)·G03/G04 부분·U01~U04·O01~O03·O05·V03** 실행 — 전체 backend **721P/1skip/warnings 0**, Windows 네이티브 스위트 통과. 수용 증거는 `docs/audits/*-2026-09-13/`. 잔여: G02 실제 provider 수용·G03 credential 시연·G04 수동 실기기·O04/O06 — 실제 자원·계정 승인 필요. 커밋·푸시는 인계 절차에 따라 처리.
 
 **완료·미완료·다음 작업·승인 대기는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md) 한 곳에서 관리한다.**
 기존 9월 8일 인계를 9월 13일 결과까지 대조했고, 완료·잔여·검증·운영 승인·선택 확장을 분리했다.
@@ -32,7 +32,7 @@
 ### 전체 위임 실행 — G01 완료·G03/G04 부분·U01~U04·O01~O03·O05·V03 — 2026-09-13
 
 - 사용자의 "나대신 승인하고 남은거 다 작업해" 위임으로 로컬 실행 가능 게이트·선택 항목을 전부 실행했다. 승인으로 해결되지 않는 실제 자원 요건(계정·예산·지정 장치 창)은 부분 실행+잔여 기록으로 처리했다.
-- **G01 완료:** 실 운영 DB(`C:\Users\wj941\.jippeel\jippeel.db`)를 백업→복원 검증→리허설→실 적용으로 head `9d0e1f2a3747`까지 migration. 14개 테이블 데이터 보존·schema assert 통과. 증거·절차는 [수용](docs/audits/g01-production-migration-2026-09-13/acceptance.md).
+- **G01 완료:** 실 운영 DB(`C:\Users\wj941\Documents\jippeel\backend\jippeel.db`)를 백업→복원 검증→리허설→실 적용으로 head `9d0e1f2a3747`까지 migration. 14개 테이블 데이터 보존·schema assert 통과. 증거·절차는 [수용](docs/audits/g01-production-migration-2026-09-13/acceptance.md).
 - **G03 부분:** 인스턴스별 키 분리 확인·wrong-key 거부·키 유실 감지·복구 절차 temp 검증. 저장 암호문 실데이터 부재 — 실 credential 시연 잔여(계정 승인).
 - **G04 부분:** Windows 네이티브 전체 스위트 714P/violations 0/warnings 0+alembic 완주. 브라우저·NVDA·성능표 등 수동 실기기 영역 잔여.
 - **U01~U04:** card_json 편집 UI·로어 참조 회차(`GET /lore/{lid}/referencing-chapters`+접이식)·윤문 프리셋(선존 충족으로 종결)·시니어 확대(`uiScale`+에디터 typography compartment — fontFamily/lineHeight 선존 갭 실제 적용). fixture 5+4+3.

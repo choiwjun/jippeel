@@ -1,0 +1,22 @@
+G04 부분 — Windows 네이티브 실기동·부하 프로브 — 2026-09-13
+
+환경: Windows 11 x64 네이티브 실행(WSL 경유 아님), Python 3.14.4 venv,
+  최신 코드 jippeel-g04 복사본, 실 DB 복사본(head 9d0e1f2a3747)에 대해 uvicorn 기동.
+스크립트: g04_windows_probe.py (동일 디렉터리)
+
+결과(2회 실행, 최종 기록):
+- boot_ready: 3.79s (init_db + assert_manuscript_schema_current + FTS + presets)
+- GET /api/v1/projects: 200, 실 데이터 2행, 0.107s
+- GET /api/v1/projects/1/chapters: 200, 10행
+- GET /api/v1/chapters/1: 200, revision=0, 본문 7,829자
+- PUT /api/v1/chapters/1/content 54,300자 본문: 200, 0.043s — CAS revision 0→1
+- 두 번째 CAS 저장: 200, 0.067s
+- GET snapshots: 200, 자동저장 스냅샷 2행 생성 확인
+- GET /chapters/{cid}/resume: 200, flow_stage/revision 파생 필드 정상
+- 옛 expected_revision 저장 → 409 CAS 거부 정상
+- PROBE PASS, 프로세스 정상 종료
+
+커버한 G04 영역: Windows 네이티브 기동·실(migrated) DB 서빙·5만 자+ 입력 저장 성능·
+CAS 동작·신규 D 기능(snapshot/resume) 실데이터 동작.
+잔여 수동 영역: 실제 브라우저 조작·NVDA 스크린리더·키보드 전용 탐색·zoom 조작 확인 —
+  지정 장치/계정/시간 창이 필요한 대화형 수용으로 유지.

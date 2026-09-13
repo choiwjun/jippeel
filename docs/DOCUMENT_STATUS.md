@@ -29,8 +29,9 @@
 | V04 외부 metrics 버전 검증기 수용 | [수용](audits/v04-metrics-version-2026-09-13/acceptance.md) | AST 전용 계약 비교 20P. 실물 파일 미설치 — 실제 비교는 설치 후 동일 검증기 실행 |
 | G-045 audience_knows 유실 수정 수용 | [수용](audits/g045-audience-knows-2026-09-13/acceptance.md) | foreshadow POST 1행 수정. RED 재현→수정→677P 회귀. 독립 검토 PASS |
 | V01 프론트 coverage 계측 수용 | [수용](audits/v01-frontend-coverage-2026-09-13/acceptance.md) | PW_COVERAGE=1 opt-in V8 수집→fs 경로 키 union 병합. 11 스위트 128P·측정값 lines 83.27%. 임계 주장 아닌 측정 인프라 |
-| G01 실 DB migration·G03/G04 부분 실행 | [수용](audits/g01-production-migration-2026-09-13/acceptance.md) | 실 DB head `9d0e1f2a3747` 적용·데이터 보존 검증. wrong-key/키 복구 temp 검증·Windows 네이티브 스위트. 수동 실기기·실 credential 시연 잔여 |
-| U01~U04·O01~O03·O05·V03 실행 수용 | [수용](audits/uo-options-v03-2026-09-13/acceptance.md) / O01 [사양](specs/2026-09-13-o01-card-png-novelwriter-import.md) · O02 [사양](specs/2026-09-13-o02-auto-backup.md) · O03 [사양](specs/2026-09-13-o03-writing-activity.md) | card_json UI·로어 참조 회차·uiScale·카드 PNG/novelWriter·자동 백업·활동 캘린더. O05 ResourceWarning 근본 수정(warnings 0)·V03 다중 프로세스 PASS. 전체 714P |
+| G01 실 DB migration·G03/G04 부분 실행 | [수용](audits/g01-production-migration-2026-09-13/acceptance.md) | 실 DB head `9d0e1f2a3747` 적용·데이터 보존 검증. 실 crypto 경로 wrong-key 거부·Windows 네이티브 스위트 714P·실기동 프로브(54,300자 43ms). 브라우저/NVDA 수동 실기기·브릿지 로그아웃 잔여 |
+| U01~U04·O01~O03·O05·V03·D04 어댑터 실행 수용 | [수용](audits/uo-options-v03-2026-09-13/acceptance.md) / O01 [사양](specs/2026-09-13-o01-card-png-novelwriter-import.md) · O02 [사양](specs/2026-09-13-o02-auto-backup.md) · O03 [사양](specs/2026-09-13-o03-writing-activity.md) | card_json UI·로어 참조 회차·uiScale·카드 PNG/novelWriter·자동 백업·활동 캘린더. O05 ResourceWarning 근본 수정(warnings 0)·V03 다중 프로세스 PASS·summary 실제 provider 어댑터 7P. 전체 721P |
+| 플랫폼 AI 규정 재확인 | [규정추적_2026-09-13](../규정추적_2026-09-13.md) | 노벨피아 순수창작/이벤트 AI 금지·약관 시행 8-13 확인, 문피아 신규 AI 공지 없음, 조아라 명문 부재 지속. 게시 전 재확인 필요 |
 
 ## 기록 문서의 해석
 

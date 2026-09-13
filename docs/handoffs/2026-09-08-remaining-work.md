@@ -36,9 +36,11 @@
 
 **2026-09-13 G-045 수용:** D03-5 검토에서 발견된 선존 결함 — `POST /projects/{pid}/foreshadows`가 `audience_knows`를 받았지만 `Foreshadow()` 생성자에 전달하지 않아 항상 False로 저장(프론트 생성 폼 체크박스가 이미 전송 중 — 실제 데이터 유실). 생성자 인자 1행 추가로 수정. [수용](../audits/g045-audience-knows-2026-09-13/acceptance.md). RED 재현 후 수정, focused 24P·전체 677P/skip1·violations 0, fixture POST 목+UI 왕복 테스트 추가 8/8·tsc exit0. 독립 검토 PASS — 다른 쓰기 경로·필드 유실 없음 확인. uncommitted 유지.
 
-**2026-09-13 게이트 실행 — G01 수용·G03/G04 부분:** 사용자 전체 위임(“나대신 승인하고 남은거 다 작업해”)으로 로컬 실행 가능 게이트를 실행했다. **G01 완료** — 실 운영 DB(`C:\Users\wj941\.jippeel\jippeel.db`, create_all 생성·alembic_version 없음, 스키마 정합 `f9a1b2c3d4e5`)를 일관 백업(sha256 manifest)→복원 검증→리허설→실 적용으로 `9d0e1f2a3747`(head)까지 10개 migration 적용, 14개 테이블 row counts 전부 보존·`assert_manuscript_schema_current` 통과. **G03 부분** — 두 인스턴스 키 파일 상이 확인·저장 암호문 실데이터 부재 기록·실제 키 기반 wrong-key 거부/키 유실 감지/복구 temp 검증. **G04 부분** — Windows 네이티브 전체 스위트 714P/violations 0/warnings 0, alembic 10개 네이티브 완주; 수동 실기기 영역(브라우저·NVDA·성능표)은 잔여. [수용](../audits/g01-production-migration-2026-09-13/acceptance.md).
+**2026-09-13 게이트 실행 — G01 수용·G03/G04 부분:** 사용자 전체 위임(“나대신 승인하고 남은거 다 작업해”)으로 로컬 실행 가능 게이트를 실행했다. **G01 완료** — 실 운영 DB(`C:\Users\wj941\Documents\jippeel\backend\jippeel.db`, create_all 생성·alembic_version 없음, 스키마 정합 `f9a1b2c3d4e5`)를 일관 백업(sha256 manifest)→복원 검증→리허설→실 적용으로 `9d0e1f2a3747`(head)까지 10개 migration 적용, 14개 테이블 row counts 전부 보존·`assert_manuscript_schema_current` 통과. **G03 부분** — 두 인스턴스 키 파일 상이 확인·저장 암호문 실데이터 부재 기록·실제 키 기반 wrong-key 거부/키 유실 감지/복구 temp 검증. **G04 부분** — Windows 네이티브 전체 스위트 714P/violations 0/warnings 0, alembic 10개 네이티브 완주; 수동 실기기 영역(브라우저·NVDA·성능표)은 잔여. [수용](../audits/g01-production-migration-2026-09-13/acceptance.md).
 
 **2026-09-13 U/O/V03 실행:** **U01** card_json 편집 UI(merge-patch 재사용, fixture 5/5)·**U02** `GET /lore/{lid}/referencing-chapters`+상세 접이식 목록(backend 17P·fixture 4/4)·**U03** 프리셋은 선존 충족으로 종결(중복층 추가하지 않음)·**U04** `uiScale` 3단 영속+CodeMirror typography compartment(fontFamily/lineHeight 선존 갭 실제 적용, fixture 3/3). **O01** ST 카드 PNG import/export+novelWriter ZIP import(16P)·**O02** `JIPPEEL_AUTOBACKUP_INTERVAL_MIN` opt-in 자동 백업+프루닝(11P)·**O03** `GET /projects/{pid}/writing-activity`(5P). **O05** ResourceWarning 19건 근본 수정 — `inspect(bind)` transient Inspector 연결 유지를 `with bind.connect()` 스코프로 교체, 테스트 측 엔진/제너레이터 폐기 정리, 진단 probe 전부 제거 → **warnings 0**. **V03** `scripts/sqlite_multiprocess_check.py` 다중 프로세스 동시 쓰기 2회 PASS(무손실·integrity ok·WAL). Linux 전체 **714P/1skip/70subtests/violations 0/warnings 0**. [수용](../audits/uo-options-v03-2026-09-13/acceptance.md).
+
+**2026-09-13 심야 후속 실행(“남은작업모두진행해”):** **G03** 실 `get_cipher()` 폴백 키 왕복·실 Windows 키 cross-decrypt 거부 확인(`g03-real-crypto-path.txt`). **G04** Windows 네이티브 uvicorn 실기동 프로브 — 실 DB 복사본 기동 3.79s·54,300자 저장 43ms·CAS 409·snapshot/resume 정상(`g04-windows-realdevice-probe.txt`). **O06** 플랫폼 규정 재확인 — `규정추적_2026-09-13.md`(변화 없음, 공모전 AI 금지 유지). **D04** 실제 provider 어댑터 `summary_provider.py` 구현·7P — 실 호출은 G02 게이트 유지(`openai-oauth` 미설치, 대화형 로그인 필요). 전체 **721P/1skip/warnings 0**. [수용](../audits/uo-options-v03-2026-09-13/acceptance.md).
 
 **후속 순차 진행 승인:** 사용자가 M01~M05 → B03 → 회차 목표/완결·재개/summary worker → V01/V02/V04 → 실제 자원 수용의 순서를 승인했다. M01~M05와 B03은 회귀·독립 검토·부모 수용을 완료했으며 다음은 D01/D03/D04 상세 계약·기획이다. [실행·승인 기록](../superpowers/plans/2026-09-12-remaining-sequence.md)을 따르며, 실제 자원은 대상·예산·계정·백업·장치와 실행 허가가 갖춰지기 전 접근하지 않는다.
 
@@ -116,7 +118,7 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 | D01 | 영속 회차 브리프/목표 | EpisodeBrief 입력·요청 전달, Chapter.memo, 회차 목적 지시 | **수용 완료(2026-09-13)** — 회차당 현재 목표 + append-only 이력 + 목록·복원, purpose 영속, CAS 409, 명시 불러오기만 생성 반영. [수용](../audits/d01-goal-contract-2026-09-13/acceptance.md). 게시·운영 적용은 별도 승인 |
 | D02 | 인지·상태를 구분하는 장편 기억 확장 | 근거·적용 시점·승인/stale, 미래 복선 구분, 복선의 audience_knows | 모든 사실의 작가/독자/인물별 인지, 고정 설정과 변화 상태, 사건/관계 영향 추적. 현재 수동 memory 기능 전체의 재구현이 아니라 추가 도메인 설계 |
 | D03 | 기획→집필→퇴고→완결·재개 흐름 | 권 개요·인물 설정·장면·감수·원고 이력, 최종화 목적 | **D03-1 수용(2026-09-13)** — flow_stage 상태 기계·전이 이벤트 앵커 [수용](../audits/d03-1-flow-stage-2026-09-13/acceptance.md). **D03-2 수용(2026-09-13)** — 재개 계약(드리프트·미해결 감수·다음 장면) [수용](../audits/d03-2-resume-2026-09-13/acceptance.md). **D03-3 수용(2026-09-13)** — projects.serial_state 연재 수명주기 분리 [수용](../audits/d03-3-serial-state-2026-09-13/acceptance.md). **D03-4 수용(2026-09-13)** — 목표 항목↔원문 발췌 근거 링크·파생 파손/드리프트 안내 [수용](../audits/d03-4-evidence-links-2026-09-13/acceptance.md). **D03-5 수용(2026-09-13)** — 복선 disposition(해결/의도적 미해결/외전 이관) 구분 표시 [수용](../audits/d03-5-foreshadow-disposition-2026-09-13/acceptance.md). **D03-6 수용(2026-09-13)** — 완결 점검표 + 완결본 불변 스냅샷 [수용](../audits/d03-6-final-edition-2026-09-13/acceptance.md). **D03-7 수용(2026-09-13)** — 작품 결말 후보·잠금·파생 영향 표시 [수용](../audits/d03-7-ending-impact-2026-09-13/acceptance.md). **D03 전 단위 수용 완료** |
-| D04 | 실제 자동 요약·backfill | C10의 provider-free manifest planner | **D04-1 수용(2026-09-13)** — summary_jobs 영속 + fake worker 생명주기(계획 중복 차단·복구·재시도·draft append) [수용](../audits/d04-1-summary-worker-2026-09-13/acceptance.md). 잔여: 실제 provider 어댑터·비용 cap·평가 manifest·작가 승인 UI·운영 실행 — G01/G02/G03 승인 필요 |
+| D04 | 실제 자동 요약·backfill | C10의 provider-free manifest planner | **D04-1 수용(2026-09-13)** — summary_jobs 영속 + fake worker 생명주기(계획 중복 차단·복구·재시도·draft append) [수용](../audits/d04-1-summary-worker-2026-09-13/acceptance.md). **실제 provider 어댑터 `summary_provider.py` 구현·7P** — 실 호출은 G02 게이트. 잔여: 브릿지 기동 후 smoke·평가 manifest·작가 승인 UI·운영 실행 |
 
 근거: [원래 집필 로드맵 §8.4–8.5](../audits/소설집필_관리_감사.md),
 [자동 요약 설계](../superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md), 현재 모델·store.
@@ -141,8 +143,8 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 | --- | --- | --- | --- |
 | G01 | 기존 DB migration·운영 적용 | migration 코드·임시 검증·운영 런북 | **실행 완료(2026-09-13)** — 실 DB를 `f9a1b2c3d4e5` 수준에서 head `9d0e1f2a3747`로 10개 migration 적용, 백업→복원 검증→리허설→실 적용→데이터 보존 검증 전 과정 수행 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md) |
 | G02 | 실제 OAuth/provider 수용·문학 품질 파일럿 | 고정 provider fake 계약·평가 설계 | bridge availability/정책/모델 확인, 승인 원고 6사례와 source owner, 블라인드 독립 평가자 2명, 기대/금지 결과, raw usage/latency/비용, **USD 20 hard cap** 확정 후 호출. 실제 장편 1/20/50/100화 평가는 짧은 파일럿과 별도 후속 단계 |
-| G03 | credential·key 복구/로그아웃 | bridge credential 소유 경계와 키 분리 설계 | **부분 실행(2026-09-13)** — 인스턴스별 키 분리·wrong-key 거부·키 유실 감지·복구 절차 검증, 저장 암호문 실데이터 부재 기록 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md). 잔여: 지정 테스트 credential/계정의 실제 로그아웃·복구 시연(계정 승인) |
-| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | **부분 실행(2026-09-13)** — Windows 네이티브 전체 스위트+alembic 완주 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md). 잔여: 브라우저·NVDA·키보드·zoom·5만 자 성능 결과표 등 수동 실기기 영역(장치 창 승인) |
+| G03 | credential·key 복구/로그아웃 | bridge credential 소유 경계와 키 분리 설계 | **실행(2026-09-13)** — 실 `get_cipher()` 폴백 키 왕복·실 Windows 키 wrong-key 거부·복구 경로 검증(`g03-real-crypto-path.txt`). 잔여: 브릿지 OAuth 로그아웃(브릿지 소유)·지정 계정 시연 |
+| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | **실행(2026-09-13)** — 네이티브 전체 스위트 714P·alembic 완주·실기동 프로브(boot 3.79s·54,300자 PUT 43ms·CAS 409·snapshot/resume 정상, `g04-windows-realdevice-probe.txt`). 잔여: 브라우저·NVDA·키보드·zoom 대화형 수동 수용 |
 
 운영 DB, 실제 OAuth/provider, keyring, 지정 장치에 이번 정리로 새 승인이 생기지 않는다.
 실행 순서는 [운영 런북](../runbooks/long-memory-governance-release.md)과 각 승인서에서 확정한다.
@@ -165,7 +167,7 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 - O03: ~~연재 캘린더~~ — **구현 완료(2026-09-13)** `GET /projects/{pid}/writing-activity` 5P(멀티 작품 합계는 기존 목록 제공). 플랫폼 직접 발행 연동은 정책 확인 전 보류 유지.
 - O04: 새 provider/모델 선택지, KoboldCpp native, 임베딩 검색·병렬 작업자 수 확대. 현재 고정 OAuth 계약에서는 우선하지 않음.
 - O05: ~~비차단 ResourceWarning~~ — **정리 완료(2026-09-13)** `inspect(bind)` 연결 유지 근본 수정, warnings 19→0.
-- O06: 배포/게시 판단 전 플랫폼 규정·의존성/라이선스 최신 근거 재확인. 오래된 리서치를 최신 사실로 취급하지 않음.
+- O06: ~~플랫폼 규정 재확인~~ — **실행 완료(2026-09-13)** `규정추적_2026-09-13.md`(AI 정책 변화 없음 확인). 게시·배포 판단 시점에 다시 최신화.
 
 **되살리지 않을 것:** 신규 endpoint/API key/base URL·모델 선택 UI는 의도적으로 제거했다.
 legacy `ai_endpoints`/hidden routes는 보존·migration 호환용이지 재도입 할 일이 아니다.
@@ -185,7 +187,7 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 
 | 증거 층 | 가장 최근 확인한 결과 | 해석 한계 |
 | --- | --- | --- |
-| 전체 backend — 최신(2026-09-13 O05 후) | **714 passed / 1 skipped / 70 subtests / warnings 0** | native isolated runner, violations 0. ResourceWarning 19건 근본 수정으로 경고 소거 |
+| 전체 backend — 최신(2026-09-13 D04 어댑터 후) | **721 passed / 1 skipped / 70 subtests / warnings 0** | native isolated runner, violations 0. ResourceWarning 19건 근본 수정으로 경고 소거 |
 | 전체 backend — Windows 네이티브 | **714 passed / 1 skipped / violations 0 / warnings 0** | Windows 11 네이티브 Python 3.14.4 + 격리 러너 그대로. 수동 실기기 수용(G04 잔여)과 구분 |
 | V03 다중 프로세스 부하 | 8×50·16×100 동시 쓰기 **rows 무손실·integrity ok·journal wal** | `scripts/sqlite_multiprocess_check.py` — 실제 HTTP 다중 프로세스 배포 구성 아님 |
 | 전체 backend — B03 최종 | **482 passed / 1 skipped / 70 subtests / 19 warnings** | native isolated runner, exit0·guard 위반0·실제 subprocess 시도0. 기존 외부 metrics skip(V04) 유지 |

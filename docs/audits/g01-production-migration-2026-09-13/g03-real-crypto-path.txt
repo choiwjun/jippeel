@@ -1,0 +1,11 @@
+G03 실 crypto 경로 시연 — 2026-09-13 (실제 키 파일 사용)
+
+환경: WSL Linux, keyring 부재 → get_cipher() 실제 폴백 경로 사용
+- master_key_source: fallback-file (~/.jippeel/api_key.key, 권한 0600 확인)
+- 실 경로 roundtrip: get_cipher() encrypt→decrypt 동일값 True (Fernet, 암호문 140자)
+- 인스턴스 키 분리: Linux 키 ≠ Windows 키 (keys_differ True)
+- wrong-key 거부: Windows 실제 키로 복호화 시도 → ValueError "api_key 복호화 실패: 마스터 키가 일치하지 않습니다"
+- 무관 신규 키 거부: Fernet.generate_key() 키로 복호화 시도 → 동일 ValueError
+- 키 유실 감지: 키 파일 부재/교체 시 복호화 불가로 감지됨(명시적 오류)
+- 복구 절차: 백업된 api_key.key를 ~/.jippeel/에 복원 → get_cipher()가 동일 키 로드(키 파일 보존이 곧 복구 수단)
+- 잔여: 브릿지 OAuth 로그아웃은 브릿지 소유 범위(앱에 endpoint 없음). 지정 계정 시연 별도.
