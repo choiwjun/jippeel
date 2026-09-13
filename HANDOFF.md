@@ -4,7 +4,7 @@
 
 **새 순차 진행 승인:** M01~M05 기억 화면 → B03 품질 지표 → 회차 목표/완결·재개/summary worker → 추가 검증 → 실제 자원 수용 순서로 진행한다. M01~M05와 B03은 수용 완료했고 [승인·실행 계약](docs/superpowers/plans/2026-09-12-remaining-sequence.md)을 따른다. 완료된 P1/C13은 재개하지 않고 실제 자원은 필수 환경·예산·접근 승인 확보 전 사용하지 않는다.
 
-**진행 중(2026-09-13):** `choiwjun/d01-contract-analysis` worktree(uncommitted)에서 **D01 목표 영속화 + D03 전 단위(D03-1~D03-7) + D04-1 summary_jobs/fake worker + V01 프론트 coverage 계측 + V02 복원 실패 주입 + V04 외부 metrics 버전 검증기 + G-045 audience_knows 유실 수정** 수용 완료. 이후 사용자 전체 위임으로 **G01 실 DB migration(완료)·G03/G04 부분·U01~U04·O01~O03·O05·V03** 실행 — 전체 backend **721P/1skip/warnings 0**, Windows 네이티브 스위트 통과. 수용 증거는 `docs/audits/*-2026-09-13/`. 잔여: G02 실제 provider 수용·G03 credential 시연·G04 수동 실기기·O04/O06 — 실제 자원·계정 승인 필요. 커밋·푸시는 인계 절차에 따라 처리.
+**진행 중(2026-09-14):** `choiwjun/d01-contract-analysis` worktree에서 D01·D03 전 단위·D04-1·V01~V04·G-045 수용 완료. 사용자 전체 위임으로 **G01 실 DB migration(완료)·G03 부분·G04 자동화 가능 영역(네이티브 스위트+실기동 프로브+실제 브라우저 10/10)·U01~U04·O01~O03·O05·O06·V03·D04 provider 어댑터** 실행. 전체 backend **726P/1skip/70subtests/violations 0/warnings 0**, Windows 네이티브 통과. 09-14 추가: **V04 실물 대조 완료**(실제 metrics_v2.py 계약 일치), **SPA fallback 실제 결함 수정**(딥링크 404→index.html, API 404는 JSON 유지), **실행 스크립트 경로 정정**(OneDrive→Documents, Linux venv→Windows venv), Documents checkout `git pull`+dist 리빌드 완료. 커밋 `c9168ec`·`a593e7f`·`701ea52` 전부 `origin/main` 반영. 잔여: **G02 실제 OAuth 로그인**(브릿지 미설치 — `npx openai-oauth login` 사용자 행동 필요)·**G03 계정 시연**·**G04 NVDA 실측** — 전부 사용자 행동 필요. 수용 증거: `docs/audits/*-2026-09-13/`·`g04-real-browser-2026-09-14/`.
 
 **완료·미완료·다음 작업·승인 대기는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md) 한 곳에서 관리한다.**
 기존 9월 8일 인계를 9월 13일 결과까지 대조했고, 완료·잔여·검증·운영 승인·선택 확장을 분리했다.
@@ -41,6 +41,15 @@
 - **V03:** `scripts/sqlite_multiprocess_check.py` — 앱 pragma 그대로 spawn 다중 프로세스 동시 쓰기 2회 PASS(무손실·integrity ok·WAL).
 - **최종 검증:** Linux 전체 **714 passed/1 skipped/70 subtests/violations 0/warnings 0** · Windows 네이티브 스위트 통과 · 신규 fixture 12/12. 상세는 [수용](docs/audits/uo-options-v03-2026-09-13/acceptance.md).
 - **잔여(실제 자원 승인 필요):** G02 실제 OAuth/provider·품질 파일럿(USD 20 cap), G03 실 credential 로그아웃/복구 시연, G04 수동 실기기 시나리오, O04/O06, 운영 교체·rollback 실시연.
+
+### 2026-09-14 후속 — V04 실물 대조·G04 실제 브라우저·SPA fallback 수정·실행 스크립트 정정
+
+- **V04 완료:** 실물 `metrics_v2.py`가 Windows 측 `C:\Users\wj941\.agents\im-not-ai\skills\humanize-korean\references\`에 설치돼 있음을 확인(Linux `~/.agents`가 아니라 Windows 측이었음). `verify_metrics_module` 실물 실행으로 `compute_all_v2` 시그니처·`CHANGE_RATE_WARN=0.3`/`ABORT=0.5`·warn≤abort 전 항목 일치 — [증거](docs/audits/v04-metrics-version-2026-09-13/real-file-verification.txt).
+- **G04 실제 브라우저 검증 10/10:** mock 없이 실제 `npm run build` dist + 실제 uvicorn + 실 DB 복사본 + Playwright Chromium. 실 API 왕복(프로젝트 2·챕터 10 실데이터)·키보드 Tab 포커스 이동·uiScale 영속+실 DOM 적용(16→20.8px, `data-ui-scale=xlarge`)·**에디터 5만 자 실제 입력 경로(insertText 932ms)→자동저장 PUT→API 재조회로 +50,027자 실증**·콘솔 오류 0. 증거·스크린샷: [수용](docs/audits/g04-real-browser-2026-09-14/acceptance.md).
+- **실제 결함 발견·수정 — SPA fallback 부재:** 운영 모드(A-040 uvicorn 단일 서빙)에서 `/settings`·`/projects/1/write` 직접 접근·새로고침이 JSON `{"detail":"Not Found"}`였다. `StaticFiles(html=True)`는 디렉터리 인덱스만 처리. `_SPAStaticFiles` 추가 — 비-API 404→index.html fallback, `/api`·`/health` 404는 JSON 유지. `test_spa_fallback.py` 5P·전체 726P 회귀 통과.
+- **실행 스크립트 정정(`701ea52`):** `Jippeel실행.bat`·`scripts/prod.sh`·`scripts/dev.sh`의 폐기된 `OneDrive/바탕 화면/WJproject/jippeel` 경로→`Documents/jippeel` 실 경로, `.venv/bin/python`(존재하지 않음)→실제 Windows venv `Scripts/python.exe`로 수정. `dev.sh`의 빌드 경로도 실제 frontend로 교체.
+- **배포:** `c9168ec`·`a593e7f`·`701ea52` 전부 `origin/main` 반영. `C:\Users\wj941\Documents\jippeel` 로컬 checkout은 `git pull`로 `701ea52` 도달, `frontend/dist` 리빌드 완료 — `Jippeel실행.bat`이 실제로 동작 가능한 상태.
+- **잔여(사용자 행동 필요):** G02 `npx openai-oauth login` 브릿지 설치·대화형 로그인, G03 브릿지 소유 OAuth 로그아웃·지정 계정 credential 시연, G04 NVDA 스크린리더 실측(지정 Windows 장치).
 
 ### D01 목표 저장 조사 완료·이력 요구 결정 대기 — 2026-09-13
 

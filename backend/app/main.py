@@ -5,6 +5,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from app.database import DATABASE_URL, SessionLocal, init_db
 from app.routers import (ai_panel, characters, foreshadows, lorebook,
@@ -77,6 +80,20 @@ def health() -> dict[str, str]:
 # frontend/dist가 있으면 uvicorn 단일 프로세스가 API + 프론트를 함께 서빙한다.
 # dist는 프론트 빌드 산출물(npm run build)이며, dev 모드(vite :5173)에서는 미마운트로
 # CORS 프록시 동작에 영향을 주지 않는다. 마운트는 API 라우터 등록 이후라 /api·/health 우선.
+class _SPAStaticFiles(StaticFiles):
+    """SPA fallback — BrowserRouter 클라이언트 경로(/settings, /projects/1/write 등)의
+    직접 접근·새로고침이 파일에 대응되지 않아 404가 되므로 index.html로 돌린다.
+    /api·/health 아래의 404는 API 계약이므로 JSON 404를 그대로 유지한다."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and not path.startswith(("api/", "health")):
+                return await super().get_response("index.html", scope)
+            raise
+
+
 _DIST_DIR = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if _DIST_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=_DIST_DIR, html=True), name="frontend")
+    app.mount("/", _SPAStaticFiles(directory=_DIST_DIR, html=True), name="frontend")

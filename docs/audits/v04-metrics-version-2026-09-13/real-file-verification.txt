@@ -1,0 +1,30 @@
+# V04 real-file verification — 2026-09-14
+# file: /mnt/c/Users/wj941/.agents/im-not-ai/skills/humanize-korean/references/metrics_v2.py
+# file exists: True  size: 32130
+{
+  "expected": {
+    "module": "metrics_v2.py",
+    "function": "compute_all_v2",
+    "params": [
+      "text",
+      "genre"
+    ],
+    "constants": {
+      "CHANGE_RATE_WARN": 0.3,
+      "CHANGE_RATE_ABORT": 0.5
+    },
+    "call_site": "app.services.quality.try_metrics_v2 (genre=\"essay\" 전달)",
+    "ratio_site": "app.services.humanize WARN_RATIO/BLOCK_RATIO"
+  },
+  "report": {
+    "ok": true,
+    "found": true,
+    "mismatches": [],
+    "checked": [
+      "compute_all_v2 signature",
+      "CHANGE_RATE_WARN",
+      "CHANGE_RATE_ABORT",
+      "warn<=abort"
+    ]
+  }
+}

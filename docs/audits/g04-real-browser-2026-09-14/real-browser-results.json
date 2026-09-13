@@ -1,0 +1,52 @@
+[
+  {
+    "name": "landing render",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "no console errors on load",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "real API projects",
+    "ok": true,
+    "detail": "count=2"
+  },
+  {
+    "name": "real chapters API",
+    "ok": true,
+    "detail": "count=10"
+  },
+  {
+    "name": "keyboard Tab moves focus",
+    "ok": true,
+    "detail": "f1=A|text-base font-semibold tracki -> BUTTON|inline-flex items-center justi"
+  },
+  {
+    "name": "editor mounts via real nav",
+    "ok": true,
+    "detail": "cm=1 (before=1) url=http://localhost:18700/projects/1/write"
+  },
+  {
+    "name": "uiScale persists & applies",
+    "ok": true,
+    "detail": "htmlFont 16px -> 20.8px, data-ui-scale=xlarge"
+  },
+  {
+    "name": "editor 50k real input + autosave roundtrip",
+    "ok": true,
+    "detail": "insert=932ms chapter=1 delta=+50027chars"
+  },
+  {
+    "name": "settings page renders",
+    "ok": true,
+    "detail": "Jippeel 라이트 모드 ← 홈으로 ⚙ 설정 설정 ← 뒤로 GPT OAuth 윤문 테마 규정·현황 고급 A"
+  },
+  {
+    "name": "no console errors overall",
+    "ok": true,
+    "detail": ""
+  }
+]

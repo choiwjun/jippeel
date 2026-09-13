@@ -42,6 +42,8 @@
 
 **2026-09-13 심야 후속 실행(“남은작업모두진행해”):** **G03** 실 `get_cipher()` 폴백 키 왕복·실 Windows 키 cross-decrypt 거부 확인(`g03-real-crypto-path.txt`). **G04** Windows 네이티브 uvicorn 실기동 프로브 — 실 DB 복사본 기동 3.79s·54,300자 저장 43ms·CAS 409·snapshot/resume 정상(`g04-windows-realdevice-probe.txt`). **O06** 플랫폼 규정 재확인 — `규정추적_2026-09-13.md`(변화 없음, 공모전 AI 금지 유지). **D04** 실제 provider 어댑터 `summary_provider.py` 구현·7P — 실 호출은 G02 게이트 유지(`openai-oauth` 미설치, 대화형 로그인 필요). 전체 **721P/1skip/warnings 0**. [수용](../audits/uo-options-v03-2026-09-13/acceptance.md).
 
+**2026-09-14 후속 실행(잔여 목록 전달):** **V04 실물 대조 완료** — 실제 `metrics_v2.py`가 Windows 측 `C:\Users\wj941\.agents\im-not-ai\...\metrics_v2.py`에 설치돼 있음을 확인, `verify_metrics_module` 실물 실행으로 계약 전 항목 일치(`ok:true`, [증거](../audits/v04-metrics-version-2026-09-13/real-file-verification.txt)). **G04 실제 브라우저 검증** — mock 없이 실제 dist 빌드 + 실제 uvicorn + 실 DB 복사본 + Playwright Chromium으로 10/10 PASS: 랜딩·API 왕복(실 데이터)·키보드 Tab·에디터 마운트·uiScale 실 DOM 적용(16→20.8px)·**5만 자 실제 입력→자동저장 왕복(+50,027자 실증)**·/settings 렌더·콘솔 오류 0 ([수용](../audits/g04-real-browser-2026-09-14/acceptance.md)). **실제 결함 발견·수정** — SPA fallback 부재: 운영 모드에서 `/settings` 등 클라이언트 라우트 직접 접근·새로고침이 JSON 404였음 → `_SPAStaticFiles` 추가, `/api`·`/health` 404는 JSON 유지(`test_spa_fallback.py` 5P). **실행 스크립트 정정** — `Jippeel실행.bat`·`prod.sh`·`dev.sh`의 폐기 OneDrive 경로→실 경로, Linux `bin/python`→실제 Windows venv `Scripts/python.exe`로 수정(커밋 `701ea52`, Documents checkout은 `git pull`로 반영·frontend dist 리빌드 완료). 전체 **726P/1skip/violations 0**. 잔여 수동 영역: NVDA 실측·G02 OAuth 로그인·G03 계정 시연.
+
 **후속 순차 진행 승인:** 사용자가 M01~M05 → B03 → 회차 목표/완결·재개/summary worker → V01/V02/V04 → 실제 자원 수용의 순서를 승인했다. M01~M05와 B03은 회귀·독립 검토·부모 수용을 완료했으며 다음은 D01/D03/D04 상세 계약·기획이다. [실행·승인 기록](../superpowers/plans/2026-09-12-remaining-sequence.md)을 따르며, 실제 자원은 대상·예산·계정·백업·장치와 실행 허가가 갖춰지기 전 접근하지 않는다.
 
 - 기본 집필·관리 기능, 원고 보존, 공통 AI 맥락, 관리 무결성 보정, 수동 장편 기억 기반과
@@ -135,7 +137,7 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 | V01 | 프론트 source-mapped coverage | TS/Vite build, Memory E2E/axe 통과 | **수용 완료(2026-09-13)** — `PW_COVERAGE=1` opt-in V8 수집→Istanbul union 병합 [수용](../audits/v01-frontend-coverage-2026-09-13/acceptance.md). 11 스위트 128P·tripwire 0·57 소스 파일 측정값: lines 83.27%·branches 83.28%·functions 60.92%. 측정 기록이며 임계 목표 주장 아님 |
 | V02 | 복원 실패 시나리오 보강 | C11의 합성 데이터 백업/복원·migration 검증 완료 | **수용 완료(2026-09-13)** — manifest 무효·파일 누락·잘못된 schema·disk-full·integrity·FK failure injection 15P [수용](../audits/v02-restore-verify-2026-09-13/acceptance.md). wrong-key는 G03 범위 유지. 실제 운영 DB 복원 실행은 G01/G03 |
 | V03 | 추가 환경/부하 범위 | 실제 독립 SQLite 세션을 이용한 CAS·잠금 경합 검증 완료 | **다중 프로세스 검증 완료(2026-09-13)** — `sqlite_multiprocess_check.py` 8×50·16×100 동시 쓰기 무손실·integrity ok·WAL [수용](../audits/uo-options-v03-2026-09-13/acceptance.md). 실제 HTTP 다중 프로세스 배포 구성 검증은 배포 형태 확정 시 별도 |
-| V04 | 외부 im-not-ai metrics 버전 동기화 | 내부 경계 회귀 유지. 부모가 기존 미설치 skip 1건을 분리해 허용 | **검증 도구 수용(2026-09-13)** — AST 전용 `verify_metrics_module`로 계약 비교 절차 코드화 20P [수용](../audits/v04-metrics-version-2026-09-13/acceptance.md). 실물 metrics_v2.py는 호스트 미설치 — 실제 상수 비교는 스킬 설치 후 동일 검증기 1회 실행으로 완료(별도 승인) |
+| V04 | 외부 im-not-ai metrics 버전 동기화 | 내부 경계 회귀 유지. 부모가 기존 미설치 skip 1건을 분리해 허용 | **완료(2026-09-14)** — AST 전용 `verify_metrics_module` 20P + 실물 `C:\Users\wj941\.agents\im-not-ai\...\metrics_v2.py` 대조 전 항목 일치(`ok:true`, [증거](../audits/v04-metrics-version-2026-09-13/real-file-verification.txt)) [수용](../audits/v04-metrics-version-2026-09-13/acceptance.md) |
 
 ## 6. 운영·외부·장치 승인 대기 — 지금 자동 실행하지 않음
 
@@ -144,7 +146,7 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 | G01 | 기존 DB migration·운영 적용 | migration 코드·임시 검증·운영 런북 | **실행 완료(2026-09-13)** — 실 DB를 `f9a1b2c3d4e5` 수준에서 head `9d0e1f2a3747`로 10개 migration 적용, 백업→복원 검증→리허설→실 적용→데이터 보존 검증 전 과정 수행 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md) |
 | G02 | 실제 OAuth/provider 수용·문학 품질 파일럿 | 고정 provider fake 계약·평가 설계 | bridge availability/정책/모델 확인, 승인 원고 6사례와 source owner, 블라인드 독립 평가자 2명, 기대/금지 결과, raw usage/latency/비용, **USD 20 hard cap** 확정 후 호출. 실제 장편 1/20/50/100화 평가는 짧은 파일럿과 별도 후속 단계 |
 | G03 | credential·key 복구/로그아웃 | bridge credential 소유 경계와 키 분리 설계 | **실행(2026-09-13)** — 실 `get_cipher()` 폴백 키 왕복·실 Windows 키 wrong-key 거부·복구 경로 검증(`g03-real-crypto-path.txt`). 잔여: 브릿지 OAuth 로그아웃(브릿지 소유)·지정 계정 시연 |
-| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | **실행(2026-09-13)** — 네이티브 전체 스위트 714P·alembic 완주·실기동 프로브(boot 3.79s·54,300자 PUT 43ms·CAS 409·snapshot/resume 정상, `g04-windows-realdevice-probe.txt`). 잔여: 브라우저·NVDA·키보드·zoom 대화형 수동 수용 |
+| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | **실행(2026-09-13/14)** — 네이티브 전체 스위트 714P·alembic 완주·실기동 프로브(boot 3.79s·54,300자 PUT 43ms·CAS 409·snapshot/resume 정상) + **실제 브라우저 검증 10/10**(mock 없음: 실 dist+실 uvicorn+실 DB 복사본 — 키보드 Tab·uiScale 실 DOM 적용·5만 자 입력→자동저장 왕복 실증, [수용](../audits/g04-real-browser-2026-09-14/acceptance.md)). 잔여: NVDA 실측·대화형 수동 수용 |
 
 운영 DB, 실제 OAuth/provider, keyring, 지정 장치에 이번 정리로 새 승인이 생기지 않는다.
 실행 순서는 [운영 런북](../runbooks/long-memory-governance-release.md)과 각 승인서에서 확정한다.

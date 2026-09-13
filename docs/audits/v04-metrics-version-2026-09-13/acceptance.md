@@ -2,7 +2,7 @@
 
 - 수용일: 2026-09-13
 - 사양: [V04 사양](../../superpowers/plans/2026-09-13-v04-external-metrics-version-spec.md)
-- 상태: **수용 — 검증 도구 범위** (uncommitted)
+- 상태: **수용 — 실물 파일 검증 완료** (2026-09-14 실물 대조 통과)
 
 ## 수용 범위
 
@@ -27,21 +27,20 @@
 - RED 증거: `red-log.txt` (모듈 부재 확인)
 - 독립 검토: PASS_WITH_NOTES — MED 2건 수정·재검증 ([review-log.md](review-log.md))
 
-## 환경 제약 — 정직 기록
+## 실물 파일 검증 — 2026-09-14 완료
 
-실물 `~/.agents/im-not-ai/skills/humanize-korean/references/metrics_v2.py`는 이 호스트에 **미설치**(`~/.agents/skills` = computer-use·find-skills·orca-cli만). 따라서 "실제 외부 파일과 상수 일치 확인"은 **완료되지 않았고 이 수용으로 주장하지 않는다**. 실물 설치(별도 승인 범위) 후 절차:
+WSL에서 탐색 대상이었던 `~/.agents/`는 Linux 측이었다. 실제 설치 위치는 Windows 측
+`C:\Users\wj941\.agents\im-not-ai\skills\humanize-korean\references\metrics_v2.py`
+(32,130 bytes)로 확인돼 `verify_metrics_module`을 실물 경로에 실행했다.
+전체 결과는 [real-file-verification.txt](real-file-verification.txt):
 
-```bash
-backend/.venv/bin/python -c "
-from pathlib import Path
-from app.services.metrics_version import verify_metrics_module
-import json
-r = verify_metrics_module(Path.home() / '.agents/im-not-ai/skills/humanize-korean/references/metrics_v2.py')
-print(json.dumps(r.to_dict(), ensure_ascii=False, indent=2))"
-```
+- `ok: true`, `found: true`, `mismatches: []`
+- checked: `compute_all_v2 signature` · `CHANGE_RATE_WARN` · `CHANGE_RATE_ABORT` · `warn<=abort`
+
+→ 외부 metrics_v2 버전 동기화는 **실물 대조로 확정**됐다.
 
 ## 비수용(명시 제외)
 
-- 외부 스킬 설치·실행·네트워크 접근 — 없음.
+- 외부 스킬의 런타임 실행·네트워크 접근 — 없음(검증은 AST 읽기 전용).
 - `quality.py`/`humanize.py` 동작 변경 — 없음(읽기 전용 검증기만 추가).
 - 기존 metrics_v2 병합 동작의 재검증 — B03/C13 수용 범위에서 유지.
