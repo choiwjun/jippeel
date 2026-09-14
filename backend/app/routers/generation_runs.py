@@ -107,11 +107,7 @@ def apply_output(oid: int, payload: GenerationOutputApplyIn,
             status.HTTP_409_CONFLICT,
             f"outcome transition {output.outcome} → inserted not allowed",
         )
-    expected = (
-        payload.expected_revision
-        if payload.expected_revision is not None
-        else int(chapter.revision or 0)
-    )
+    expected = payload.expected_revision
     try:
         saved = manuscripts.replace_manuscript(
             db, chapter.id, output.output_text, expected,

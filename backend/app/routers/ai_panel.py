@@ -491,6 +491,23 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
     bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(payload))
     provider = _get_provider_or_503()
     _, messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(payload, db, bundle=bundle)
+    if payload.approved_plan is not None:
+        # 계획→승인→집필: 작가 승인 계획을 계약으로 주입(planner 재호출 없음)
+        try:
+            parallel_writer.validate_plan_for_purpose(
+                payload.approved_plan, bundle.episode_purpose)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        messages[-1] = {
+            "role": "user",
+            "content": (
+                f"{messages[-1]['content']}\n\n"
+                "[작가 승인 집필 계획 — 반드시 따를 것]\n"
+                f"{payload.approved_plan.model_dump_json()}\n"
+                "계획의 장면 순서·objective·choice·cost·결말 의도를 "
+                "행동과 대사로 정확히 집필하라."
+            ),
+        }
     model = _resolve_model(provider, payload.params.model)
     client = llm.make_client(provider.base_url, None)
 
@@ -516,6 +533,9 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
         "scene_id": payload.context.scene_id,
         "has_prompt_override": payload.prompt_override is not None,
         "brief": payload.context.brief.model_dump() if payload.context.brief else None,
+        "plan_source": ("approved" if payload.approved_plan is not None
+                        else "none"),
+        "plan_output_id": payload.plan_output_id,
     }
 
     async def event_stream():
@@ -530,6 +550,10 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                                   ensure_ascii=False)}
         t0 = time.monotonic()
         outputs: list[generation_runs_svc.OutputSpec] = []
+        if payload.approved_plan is not None:
+            outputs.append(generation_runs_svc.OutputSpec(
+                channel="plan",
+                text=payload.approved_plan.model_dump_json()))
         usage_ids: list[int] = []
         saved: dict = {"result": None}
         run_status = "completed"
@@ -698,6 +722,8 @@ def _assistant_context(chapter: Chapter) -> GenerateContext:
         auto_foreshadow=True,
         style_profile=True,
         include_memory=True,
+        auto_characters=True,
+        include_relationships=True,
     )
 
 

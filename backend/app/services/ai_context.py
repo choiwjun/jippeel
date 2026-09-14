@@ -48,6 +48,9 @@ class ContextBundleRequest:
     include_relationships: bool
     include_memory: bool = True
     include_draft_memory: bool = False
+    # 어시스턴트 계획 경로 — 프로젝트 인물 카드 자동 주입(기본 off)
+    auto_characters: bool = False
+    auto_character_limit: int = 12
     # E6 — 작가 승인 개선 규칙 주입(기본 on). 규칙이 없으면 블록 자체가 생기지 않아
     # 기존 컨텍스트와 바이트 단위로 동일하다.
     include_rules: bool = True
@@ -166,6 +169,8 @@ def request_from_generate(payload: GenerateRequest) -> ContextBundleRequest:
         include_relationships=ctx.include_relationships,
         include_memory=ctx.include_memory,
         include_draft_memory=ctx.include_draft_memory,
+        auto_characters=ctx.auto_characters,
+        auto_character_limit=ctx.auto_character_limit,
     )
 
 
@@ -465,6 +470,18 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         project_id = _resolve_project(project_id, scene_chapter.project_id, "scene")
 
     selected_chars, project_id = _ordered_characters(db, request.character_ids, project_id)
+    if request.auto_characters and project_id is not None:
+        # 어시스턴트 계획 경로 — 명시 선택을 앞에 두고 프로젝트 인물을 자동으로 채운다
+        explicit_ids = {row.id for row in selected_chars}
+        auto_rows = db.scalars(
+            select(Character)
+            .where(Character.project_id == project_id)
+            .order_by(Character.id)
+            .limit(request.auto_character_limit)
+        ).all()
+        selected_chars = list(selected_chars) + [
+            row for row in auto_rows if row.id not in explicit_ids
+        ]
     selected_lore, project_id = _ordered_lore(db, request.lore_ids, project_id)
     approved_rows, project_id = _ordered_foreshadows(db, request.approved_foreshadow_ids, project_id)
 

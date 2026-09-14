@@ -225,7 +225,7 @@ def test_apply_terminal_outcome_returns_409(
         json={"outcome": "discarded"})
     r = client.post(
         f"/api/v1/generation-outputs/{draft['draft_output_id']}/apply",
-        json={})
+        json={"expected_revision": 0})
     assert r.status_code == 409
     assert _chapter_content(client, draft["chapter_id"]) == ""
 
@@ -237,5 +237,6 @@ def test_apply_plan_channel_rejected(
         json={})
     plan_output_id = pr.json()["plan_output_id"]
     r = client.post(
-        f"/api/v1/generation-outputs/{plan_output_id}/apply", json={})
+        f"/api/v1/generation-outputs/{plan_output_id}/apply",
+        json={"expected_revision": 0})
     assert r.status_code == 409

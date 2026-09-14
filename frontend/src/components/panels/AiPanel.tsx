@@ -453,6 +453,23 @@ export function AiPanel() {
       const parallel = settingsSnapshot.generationMode === "parallel";
       const body = {
         ...base,
+        // 승인된 계획과 같은 컨텍스트로 집필한다 — 계획은 자동 분석을 전제로 한다
+        ...(approved
+          ? {
+              context: {
+                ...base.context,
+                previous_chapter: true,
+                auto_lore: true,
+                auto_lore_semantic: true,
+                auto_outline: true,
+                auto_foreshadow: true,
+                style_profile: true,
+                include_memory: true,
+                auto_characters: true,
+                include_relationships: true,
+              },
+            }
+          : {}),
         ...(parallel
           ? {
               worker_limit: settingsSnapshot.workerLimit,
@@ -476,6 +493,12 @@ export function AiPanel() {
                       settingsSnapshot.reviewEffort || undefined,
                   }
                 : null,
+              ...(approved
+                ? {
+                    approved_plan: approved.plan,
+                    plan_output_id: approved.planOutputId,
+                  }
+                : {}),
             }),
       };
       useAiPanelStore.getState().startStream({
@@ -577,6 +600,8 @@ export function AiPanel() {
       st.setPlanError(null);
       st.setPendingPlan(null);
       try {
+        // 어시스턴트 계획은 설정·인물·로어·복선·이전 회차·문체·회차 목표를
+        // 자동 분석한다 — 세부 선택을 일일이 고르지 않아도 된다.
         const res = await api.post<{
           run_id: number | null;
           plan_output_id: number | null;
@@ -586,6 +611,18 @@ export function AiPanel() {
         }>("/ai/plan", {
           ...prep.base,
           generation_reasoning_effort: "medium",
+          context: {
+            ...prep.base.context,
+            previous_chapter: true,
+            auto_lore: true,
+            auto_lore_semantic: true,
+            auto_outline: true,
+            auto_foreshadow: true,
+            style_profile: true,
+            include_memory: true,
+            auto_characters: true,
+            include_relationships: true,
+          },
         });
         st.setPendingPlan({
           runId: res.run_id,
@@ -828,30 +865,26 @@ export function AiPanel() {
             ⏹ 중단
           </Button>
         ) : (
-          <Button
-            onClick={() => generate()}
-            title={
-              pendingGenerate ? "집필 요청을 준비하는 중입니다." : undefined
-            }
-          >
-            {pendingGenerate
-              ? "⏳ 생성 시작 (대기 중)"
-              : generationMode === "parallel"
-                ? "✨ 병렬 집필 시작"
-                : "✨ 생성 시작"}
-          </Button>
-        )}
-        {/* P1 — 계획 먼저 검토: 병렬 모드에서만 제공(계획은 장면 계약이다) */}
-        {status !== "streaming" && generationMode === "parallel" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={requestPlan}
-            disabled={planBusy}
-            title="원고를 쓰지 않고 장면 계획만 먼저 받아 검토합니다."
-          >
-            {planBusy ? "⏳ 계획 생성 중" : "🗺 계획 보기"}
-          </Button>
+          <>
+            {/* 어시스턴트 기본 경로 — 계획을 먼저 만들어 한 번에 검토한다 */}
+            <Button
+              onClick={requestPlan}
+              disabled={planBusy}
+              title="설정·인물·로어·복선·이전 회차·문체·회차 목표를 자동 분석해 집필 계획을 먼저 보여줍니다."
+            >
+              {pendingGenerate || planBusy
+                ? "⏳ 계획 준비 중"
+                : "🗺 계획 만들기"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => generate()}
+              title="계획 검토 없이 곧바로 집필합니다."
+            >
+              바로 생성
+            </Button>
+          </>
         )}
         {status === "streaming" && (
           <>

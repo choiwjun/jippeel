@@ -796,6 +796,10 @@ class GenerateContext(BaseModel):
     # provenance 기반 장편 기억 자동 주입. draft는 명시적으로 요청한 미리보기에서만 포함
     include_memory: bool = True
     include_draft_memory: bool = False
+    # 어시스턴트 계획 경로 — 프로젝트의 인물 카드를 자동으로 전부 주입한다.
+    # character_ids에 명시된 인물은 앞순서를 유지하고 나머지를 자동으로 채운다.
+    auto_characters: bool = False
+    auto_character_limit: int = Field(default=12, ge=1, le=30)
 
     @model_validator(mode="after")
     def validate_context_contract(self):
@@ -926,6 +930,9 @@ class GenerateRequest(BaseModel):
     params: GenerateParams = Field(default_factory=GenerateParams)
     # 기존 인라인 감수 SSE 계약 — 별도 /ai/review와 병행 지원
     review: GenerateReviewOptions | None = None
+    # 계획→승인→집필: 작가가 승인한 계획을 계약으로 주입한다(planner 재호출 없음)
+    approved_plan: ParallelPlan | None = None
+    plan_output_id: int | None = Field(default=None, ge=1)
 
 
 class AssistantPlanNextRequest(BaseModel):
@@ -979,7 +986,7 @@ class GenerationOutputApplyIn(BaseModel):
     """초안 산출물을 회차 원고에 적용하는 명시적 작가 액션."""
 
     model_config = ConfigDict(extra="forbid")
-    expected_revision: int | None = Field(default=None, ge=0)  # CAS 앵커
+    expected_revision: int = Field(ge=0)  # CAS 앵커 — 필수
 
 
 class GenerationOutputApplyResult(BaseModel):
