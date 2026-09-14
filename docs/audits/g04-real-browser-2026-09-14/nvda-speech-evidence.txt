@@ -38,3 +38,26 @@ Speaking [LangChangeCommand ('ko_KR'), '열기 →', '버튼', '링크']
 Speaking [LangChangeCommand ('ko_KR'), '다음 라디오 버튼 없음']
 Speaking [LangChangeCommand ('ko_KR'), '완결 관리', '버튼', '링크']
 Speaking [LangChangeCommand ('ko_KR'), 'ZCode, Task completed, Task: manse_engin GitHub 저장소 pull 진행에서 새 알림이 있습니다.. 1/1', '윈도우', CancellableSpeech (still valid)]
+
+# === 2차 패스 (2026-09-14, 전용 창·무중단 순환) ===
+# Chrome 전용 창(localhost:8000) + AppActivate + Tab 순차 전송
+# delta 구간 = 해당 입력 동안 NVDA가 실제로 합성한 발화
+
+Speaking [LangChangeCommand ('ko_KR'), '현재 탭을 북마크에 추가', '버튼', CancellableSpeech (still valid)]
+Speaking [LangChangeCommand ('ko_KR'), 'Jippeel — 웹소설 AI 집필 대시보드 - Chrome', '윈도우', CancellableSpeech (still valid)]
+Speaking [LangChangeCommand ('ko_KR'), 'Jippeel — 웹소설 AI 집필 대시보드 - Chrome', '영역', CancellableSpeech (still valid)]
+Speaking [LangChangeCommand ('ko_KR'), '북마크', '도구 모음', CancellableSpeech (still valid)]
+Speaking [LangChangeCommand ('ko_KR'), '저장된 탭 그룹', '도구 모음', CancellableSpeech (still valid)]
+Speaking [LangChangeCommand ('ko_KR'), ' ✅Claude 그룹, 닫힘', '버튼', '축소됨', CancellableSpeech (still valid)]
+Speaking [LangChangeCommand ('ko_KR'), 'Jippeel — 웹소설 AI 집필 대시보드', '문서', CancellableSpeech (still valid)]
+Speaking [LangChangeCommand ('ko_KR'), '버튼', '삭제']
+Speaking [LangChangeCommand ('ko_KR'), '배너 랜드마크', 'Jippeel', '방문함', '동일 페이지', '링크']
+Speaking [LangChangeCommand ('ko_KR'), '테마 전환 (다크/라이트)', '버튼']
+Speaking [LangChangeCommand ('ko_KR'), '보조 정보 랜드마크', '← 홈으로', '방문함', '동일 페이지', '링크']
+Speaking [LangChangeCommand ('ko_KR'), '⚙ 설정', '링크']
+
+# 1차 패스 delta 중 앱 컨트롤 발화(연재 상태 콤보상자 완전 주석 포함)
+Speaking [LangChangeCommand ('ko_KR'), '연재 상태 변경 (회차 집필 확정과 별개)', '콤보상자', '연재 중', '축소됨', '연재·완결 상태 — 회차의 집필 확정과는 별개입니다']
+Speaking [LangChangeCommand ('ko_KR'), '주요 내용 랜드마크']
+Speaking [LangChangeCommand ('ko_KR'), '열기 →', '버튼', '링크']
+Speaking [LangChangeCommand ('ko_KR'), '완결 관리', '버튼', '링크']

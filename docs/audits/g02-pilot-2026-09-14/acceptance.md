@@ -48,15 +48,30 @@
    review 레그가 브릿지 연결 끊김으로 실패. generate 레그는 3,262자 정상 완성.
    **브릿지 일시 불안정(인프라) — 재시도 시 재현 여부 확인 필요.**
 
+## 1차 평가 (agent-first-pass, 보조 의견)
+
+[acceptance-report.md](acceptance-report.md) · [scores-blinded.jsonl](scores-blinded.jsonl)
+
+- hard gate 6/6 PASS (기계 플래그 4건 전부 계측 한계로 정정, 실 본문 대조로 확인)
+- rubric 축별 median: 인과·구조 5 / 인물·목소리 5 / 리듬·문장 4 / 사건·대가 5 / 연재 목적 5
+- 실제 발견: blind-04 병렬 스티칭 결함(소품·무기 상태·진입 동작 모순) — 단 같은
+  출력의 review 레그가 전부 정확히 식별해 파이프라인 감수 표면의 유효성을 실증.
+  blind-06 감수는 실제 원고 오류(`열 살 전`→`십 년 전`)를 정확 포착하고 수정본에
+  자기 지적 전부 적용.
+- 수집기 갭 수정: review surface의 `refined` 채널이 blind-06.txt에 누락됐던 것을
+  provider-events.jsonl에서 복원해 갱신(8,055자 수정본).
+
 ## 남은 인간 단계
 
-- blind-01..06 출력물의 루브릭 평가(2인 블라인드) — 평가자 지정·세션 필요
-- evaluation-manifest.json의 gold_contract 해시로 평가 대상 동결 완료
+- blind-01..06의 지정 평가자 2인 루브릭 채점 — 위 1차 평가는 보조 의견이며
+  이들 점수·판정을 대체하지 않는다
+- 각 사례의 작가 accept/reject — 사용자 본인 판단 필요
+- 평가 대상·gold 해시는 evaluation-manifest.json으로 동결 완료
 
 ## 결론
 
 실제 OAuth 브릿지 ↔ 실제 앱 엔드포인트 ↔ 실제 모델의 end-to-end 경로가
 6/6 사례에서 동작했다. USD 20 hard cap 대비 marginal $0. 발견된 유일한 실제
 이슈는 parallel review 레그의 일시적 브릿지 끊김 1건(RemoteProtocolError)이며
-제품 코드 결함이 아니다. G02의 기계 실행 부분은 완료, 품질 수용은 지정 평가자의
-블라인드 세션으로 마무리된다.
+제품 코드 결함이 아니다. G02의 기계 실행+1차 평가는 완료, 최종 수용은 지정
+평가자 blind 채점·작가 accept로 마무리된다.
