@@ -35,6 +35,7 @@
 | G04 실제 브라우저 검증 | [수용](audits/g04-real-browser-2026-09-14/acceptance.md) | mock 없는 실제 e2e 10/10 — 실 dist+실 uvicorn+실 DB 복사본. 키보드 Tab·uiScale 실 DOM·5만 자 입력→자동저장 왕복 실증. SPA fallback 결함 발견·수정. **NVDA 실제 음성 발화·포커스 순환 실증**(nvda-speech-evidence.txt). 지정 장치 최종 사인오프 잔여 |
 | G02 실제 provider 6-case 파일럿 | [수용](audits/g02-pilot-2026-09-14/acceptance.md) | 실제 openai-oauth 브릿지(gpt-5.6-luna) 경유 실 호출 6/6 완결. SSE 2,803건·usage·latency·DB 해시 동일·marginal $0. 게이트 플래그 4건 전부 계측 한계로 분석. blind 루브릭 평가 세션 잔여 |
 | G03 OAuth 로그아웃·credential 복구 시연 | [수용](audits/g03-oauth-logout-2026-09-14/acceptance.md) | stop→포트 종료·credential 제거→브릿지 기동 거부·복원→실 호출 성공 전 주기 실증. 임시 사본 파기. 서버 측 세션 폐기·완전 재로그인 절차 문서화 |
+| G02·G03·G04 병렬 Windows 세션 기록 | [기록](audits/g02-g03-g04-user-actions-2026-09-14/acceptance.md) | Documents checkout 병행 세션(ZCode)의 독립 실행 — 최소 smoke·bridge 재기동·NVDA 2026.1.1 설치·4개 화면 UIA 트리 확인 PASS_WITH_NOTES. 발화·순환 갭은 g04 디렉터리의 speech evidence로 보완 |
 
 ## 기록 문서의 해석
 
