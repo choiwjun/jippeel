@@ -14,6 +14,17 @@ if [ ! -f "$DIST/index.html" ]; then
   exit 1
 fi
 
+# GPT OAuth 브릿지 — 죽어 있으면 자동 재기동한다(credential은 브릿지 소유).
+bridge_up() {
+  curl -sf --max-time 2 "http://127.0.0.1:10531/v1/models" >/dev/null 2>&1
+}
+if ! bridge_up; then
+  echo "[llm] GPT OAuth 브릿지 기동 (npx openai-oauth --detach)..."
+  npx openai-oauth --detach >/dev/null 2>&1 || true
+  for i in $(seq 1 15); do bridge_up && break; sleep 1; done
+  bridge_up || echo "[경고] 브릿지 미응답 — 최초 1회 'npx openai-oauth login' 필요"
+fi
+
 # 백엔드는 Windows venv의 python.exe로 뜨므로 리스너는 Windows 측이다.
 # WSL의 curl/ss가 Windows 포트를 보지 못할 수 있어 curl.exe와 netstat.exe도
 # 함께 사용한다. health probe는 127.0.0.1(IPv4)로 고정한다.
