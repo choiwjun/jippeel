@@ -943,3 +943,9 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - 수정(`ai_panel.py`): `/ai/generate-parallel`에서 planner 응답이 `parse_parallel_plan` 검증에 실패하면 1회 재시도. 실패 원문·검증 에러는 `planner_debug.parse_error{detail,raw}`로 run manifest에 보존, `parallel_error` 이벤트에 예외 타입+메시지 포함. `/ai/plan`·assistant plan-next에도 동일 1회 재시도 적용(이 두 경로는 실패 원문을 `plan` 채널 출력으로 이미 보존).
 - 승인된 계획(payload.approved_plan) 경로는 planner 미호출이라 무영향. 검증은 약화하지 않음.
 - 테스트: `test_assistant_flow.py` 신규 2건 — 첫 실패 후 재시도 성공, 2회 연속 실패 시 run이 `provider_error`+planner_debug 보존. 전체 회귀 **810P/1skip/violations 0**.
+
+## 병렬 감수 수정본 활성화 — 2026-09-14 (후속)
+
+- 사용자 지적: 병렬 집필에서 초안·감수 의견 후 수정본이 안 나옴 — `PARALLEL_REVIEW_SYSTEM_PROMPT`가 의도적으로 "[수정본] 출력 금지"였던 설계상 제한.
+- 수정: 병렬 감수도 단일 생성과 동일하게 `[감수]` 지적 + `[수정본]` 전체 수정 원고를 출력. 스트림은 기존 `_split_review_stream()`로 분리해 `review`/`refined` SSE 이벤트·저장 채널(review+refined)로 흘린다. 프론트는 refined 탭/핸들러를 이미 지원해 프론트 변경 없음.
+- 테스트: `test_parallel_review_emits_refined_after_marker` 신규 — 마커 포함 감수가 refined 이벤트와 저장 채널로 분리됨을 검증. 전체 회귀 **811P/1skip**.

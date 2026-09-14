@@ -617,7 +617,8 @@ def _parallel_plan_json() -> str:
 
 @pytest.fixture()
 def parallel_llm(monkeypatch):
-    holder = {"complete_calls": [], "stream_calls": [], "fail_order": None}
+    holder = {"complete_calls": [], "stream_calls": [], "fail_order": None,
+              "review_text": "[감수]\n- 장면 연결이 자연스럽다."}
 
     class FakeClient:
         pass
@@ -645,7 +646,7 @@ def parallel_llm(monkeypatch):
             "model": model, "messages": messages,
             "reasoning_effort": reasoning_effort,
         })
-        yield "[감수]\n- 장면 연결이 자연스럽다."
+        yield holder["review_text"]
 
     monkeypatch.setattr(ai_panel.llm, "make_client", lambda *args, **kwargs: FakeClient())
     monkeypatch.setattr(ai_panel.llm, "complete_chat", complete_chat)
@@ -699,6 +700,30 @@ def test_parallel_review_starts_only_after_ordered_assembly(client, parallel_llm
     assert "[장면 1 — 장면 1]" in review_prompt
     assert review_prompt.index("[장면 1 — 장면 1]") < review_prompt.index("[장면 2 — 장면 2]")
     assert "objective" in review_prompt and "closing_hook" in review_prompt
+
+
+def test_parallel_review_emits_refined_after_marker(client, parallel_llm):
+    """병렬 감수가 [수정본] 마커를 내면 refined 이벤트·채널로 분리된다."""
+    parallel_llm["review_text"] = (
+        "[감수]\n- 구조가 느슨하다.\n[수정본]\n장면 1 수정 원고\n\n장면 2 수정 원고")
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    response = client.post("/api/v1/ai/generate-parallel",
+                           json=_parallel_payload(ep["id"]))
+    assert response.status_code == 200, response.text
+    events = _parse_sse(response.text)
+    names = [name for name, _data in events]
+    assert "review" in names and "refined" in names
+    review = "".join(
+        json.loads(d)["delta"] for n, d in events if n == "review")
+    refined = "".join(
+        json.loads(d)["delta"] for n, d in events if n == "refined")
+    assert "구조가 느슨하다" in review and "수정본" not in review
+    assert "장면 1 수정 원고" in refined and "장면 2 수정 원고" in refined
+    saved = events[[n for n, _d in events].index("generation_saved")][1]
+    outputs = json.loads(saved)["outputs"]
+    assert "review" in outputs and "refined" in outputs
 
 
 def test_parallel_preserves_selected_preset_instruction(client, parallel_llm):

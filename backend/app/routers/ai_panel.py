@@ -102,10 +102,12 @@ PARALLEL_REVIEW_SYSTEM_PROMPT = (
     "너는 한국 웹소설 편집장이다. 아래 장면별 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼/목적 "
     "다섯 관점에서 감수하라('~았다. ~였다.' 단문 나열로 끊기는 단조 리듬도 지적 대상). "
     "episode_purpose에 맞는 마무리인지 보고, 장면 계약은 검수 기준이며 원고에 없는 사실을 추측하지 마라.\n"
-    "[출력 형식]\n"
+    "[출력 형식 — 절대 어긋나지 않는다]\n"
     "[감수]\n"
     "- 중요한 문제만 3~7개. 원문 위치, 근거, 이유, 수정 제안을 한국어로 간결하게 쓴다.\n"
-    "[수정본] 섹션은 출력하지 마라. 원고를 다시 쓰거나 자동 수정하지 마라.\n"
+    "[수정본]\n"
+    "지적을 반영해 조립 원고 전체를 수정한 원고를 그대로 쓴다. 설명·메타 코멘트 금지. "
+    "분량은 원고와 비슷하게 유지하고, 좋은 부분은 함부로 바꾸지 않는다. "
     "컨텍스트와 장면 계약 밖의 사실을 새로 만들지 마라."
 )
 
@@ -1389,14 +1391,15 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     "다음 항목을 반드시 확인하라: episode_purpose에 맞는 마무리, 장면별 purpose·required_beats·closing_hook·ending_intent 달성, "
                     "장면 전환의 인과, 주인공의 objective·choice·cost가 행동과 판단으로 드러나는지, "
                     "캐릭터·세계관·시간축·위치·미회수 복선과 충돌하는지. "
-                    "원고를 다시 쓰지 말고 [감수] 의견만 출력하라.")},
+                    "지적이 끝나면 [수정본] 마커 뒤에 수정 원고 전체를 출력하라.")},
             ]
             review_chars = 0
-            review_parts: list[str] = []
+            channel_parts: dict[str, list[str]] = {"review": [], "refined": []}
             try:
                 # 감수는 원고 조립·message 이벤트 뒤의 부가 단계다. 첫 토큰 전에
                 # bridge가 끊기면 새 client로 한 번 재시도하고, 재시도까지 실패해도
                 # 이미 조립된 원고를 실패로 되돌리지 않는다.
+                feed_review, flush_review = _split_review_stream()
                 for attempt in range(2):
                     reviewer_client = (
                         None if reviewer_cfg["backend"] == "agy"
@@ -1407,9 +1410,14 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                                 reviewer_cfg, review_messages, reviewer_client):
                             attempt_chars += len(delta)
                             review_chars += len(delta)
-                            review_parts.append(delta)
-                            yield {"event": "review",
-                                   "data": json.dumps({"delta": delta}, ensure_ascii=False)}
+                            async for kind, chunk in feed_review(delta):
+                                channel_parts[kind].append(chunk)
+                                yield {"event": kind,
+                                       "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+                        async for kind, chunk in flush_review():
+                            channel_parts[kind].append(chunk)
+                            yield {"event": kind,
+                                   "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
                         break
                     except Exception as exc:  # noqa: BLE001 — 재시도 가능 transport 판별
                         if attempt == 0 and attempt_chars == 0 and (
@@ -1439,9 +1447,10 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                            "stage": "review", "detail": f"감수 실패: {type(exc).__name__}",
                        }, ensure_ascii=False)}
             finally:
-                if review_parts:
-                    outputs.append(generation_runs_svc.OutputSpec(
-                        channel="review", text="".join(review_parts)))
+                for ch in ("review", "refined"):
+                    if channel_parts[ch]:
+                        outputs.append(generation_runs_svc.OutputSpec(
+                            channel=ch, text="".join(channel_parts[ch])))
         except (GeneratorExit, asyncio.CancelledError):
             run_status = "aborted"
             raise
