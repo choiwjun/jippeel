@@ -61,6 +61,11 @@ export interface StreamHandlers {
   onRefinedChunk?: (delta: string) => void;
   /** 감수 실패 — 초안은 이미 수신 완료, 스트림은 계속 진행 */
   onReviewError?: (message: string) => void;
+  /** E1 — 서버가 생성 이력을 확정한 뒤 보내는 run/output id 맵 */
+  onGenerationSaved?: (info: {
+    runId: number | null;
+    outputs: Record<string, number>;
+  }) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -254,6 +259,19 @@ function streamRequest(
           /* noop */
         }
         handlers.onReviewError?.(detail);
+      } else if (eventName === "generation_saved") {
+        try {
+          const parsed = JSON.parse(data);
+          handlers.onGenerationSaved?.({
+            runId: typeof parsed.run_id === "number" ? parsed.run_id : null,
+            outputs:
+              typeof parsed.outputs === "object" && parsed.outputs !== null
+                ? (parsed.outputs as Record<string, number>)
+                : {},
+          });
+        } catch {
+          /* noop */
+        }
       } else if (eventName === "error") {
         finished = true;
         let detail = "스트리밍 중 오류가 발생했습니다.";

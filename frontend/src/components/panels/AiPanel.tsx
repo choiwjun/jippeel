@@ -498,6 +498,8 @@ export function AiPanel() {
             st.appendRefinedChunk(d);
           },
           onReviewError: (msg) => toast(msg, "warning"),
+          onGenerationSaved: (info) =>
+            useAiPanelStore.getState().setGenerationSaved(info),
           onParallelError: (msg, stage) => {
             if (stage === "generation")
               useAiPanelStore.getState().failStream(msg);
@@ -1699,6 +1701,7 @@ function ResultSection() {
   const setResultTab = useAiPanelStore((s) => s.setResultTab);
   const reviewInfo = useAiPanelStore((s) => s.reviewInfo);
   const resultOrigin = useAiPanelStore((s) => s.resultOrigin);
+  const generationOutputIds = useAiPanelStore((s) => s.generationOutputIds);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hasReview =
@@ -1715,6 +1718,43 @@ function ResultSection() {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [streamingText, reviewText, refinedText, resultTab]);
+
+  /** E2 — 작가 처분 기록. 실패해도 편집을 막지 않는다(best-effort). */
+  const recordOutcome = useCallback(
+    (outcome: "inserted" | "replaced" | "copied") => {
+      const channel =
+        resultTab === "refined"
+          ? "refined"
+          : resultTab === "review"
+            ? "review"
+            : "draft";
+      const outputId = generationOutputIds[channel];
+      if (outputId == null) return;
+      const chapterId = resultOrigin?.chapterId ?? null;
+      const text = activeText;
+      void (async () => {
+        let chapterRevision: number | null = null;
+        if (chapterId != null) {
+          try {
+            const ch = await api.get<ChapterDetail>(`/chapters/${chapterId}`);
+            chapterRevision = ch.revision;
+          } catch {
+            /* 처분 앵커 조회 실패는 기록을 막지 않는다 */
+          }
+        }
+        try {
+          await api.post(`/generation-outputs/${outputId}/outcome`, {
+            outcome,
+            landed_text: outcome === "copied" ? undefined : text,
+            chapter_revision: chapterRevision,
+          });
+        } catch {
+          /* 이력 기록 실패는 사용자 액션을 막지 않는다 */
+        }
+      })();
+    },
+    [resultTab, generationOutputIds, resultOrigin, activeText],
+  );
 
   /** 끼워넣기 — 현재 회차 본문 끝 append (P1 명시 클릭) */
   const insertAtEnd = useCallback(() => {
@@ -1735,8 +1775,9 @@ function ResultSection() {
       changes: { from: view.state.doc.length, insert: "\n\n" + text },
     });
     view.focus();
+    recordOutcome("inserted");
     toast("본문 끝에 끼워넣었습니다.", "success");
-  }, [activeText]);
+  }, [activeText, recordOutcome]);
 
   /** 선택 교체 — 에디터 선택 범위만 교체, 선택 없으면 끝에 추가 */
   const replaceSelection = useCallback(() => {
@@ -1759,22 +1800,24 @@ function ResultSection() {
       : { from: sel.from, to: sel.to, insert: text };
     view.dispatch({ changes });
     view.focus();
+    recordOutcome(sel.empty ? "inserted" : "replaced");
     toast(
       sel.empty
         ? "선택 범위가 없어 본문 끝에 추가했습니다."
         : "선택 범위를 교체했습니다.",
       "success",
     );
-  }, [activeText]);
+  }, [activeText, recordOutcome]);
 
   const copyResult = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(activeText);
+      recordOutcome("copied");
       toast("클립보드에 복사했습니다.", "success");
     } catch {
       toast("클립보드 접근이 거부되었습니다.", "error");
     }
-  }, [activeText]);
+  }, [activeText, recordOutcome]);
 
   const busy = status === "streaming";
   const hasText = activeText.length > 0;

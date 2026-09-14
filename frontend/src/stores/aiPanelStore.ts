@@ -133,6 +133,13 @@ export interface AiPanelState {
   ) => void;
   resultOrigin: AiResultOrigin | null;
   setResultOrigin: (origin: AiResultOrigin | null) => void;
+  /** E1 — 서버 확정 생성 이력 id. generation_saved 이벤트로 채워진다 */
+  generationRunId: number | null;
+  generationOutputIds: Record<string, number>;
+  setGenerationSaved: (info: {
+    runId: number | null;
+    outputs: Record<string, number>;
+  }) => void;
   reserveAiStart: (kind: "generate" | "canon") => string | null;
   isAiStartCurrent: (token: string) => boolean;
   clearAiStart: (token?: string) => void;
@@ -403,6 +410,13 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     }),
   resultOrigin: null,
   setResultOrigin: (origin) => set({ resultOrigin: origin }),
+  generationRunId: null,
+  generationOutputIds: {},
+  setGenerationSaved: (info) =>
+    set({
+      generationRunId: info.runId,
+      generationOutputIds: info.outputs,
+    }),
   _pendingAiStart: null,
   _directiveMap: {},
   reserveAiStart: (kind) => {
@@ -500,6 +514,8 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       refinedText: "",
       resultTab: "draft",
       resultOrigin: origin ?? null,
+      generationRunId: null,
+      generationOutputIds: {},
       parallelProgress: {
         phase: "idle",
         sceneCount: 0,
@@ -527,6 +543,8 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       refinedText: "",
       resultTab: "draft",
       resultOrigin: null,
+      generationRunId: null,
+      generationOutputIds: {},
       parallelProgress: {
         phase: "idle",
         sceneCount: 0,

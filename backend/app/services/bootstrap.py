@@ -69,6 +69,7 @@ def _extract_json(text: str) -> dict:
 
 
 async def _call_json(client, model: str, messages: list[dict],
+                     db: Session | None = None,
                      reasoning_effort: str | None = None) -> dict:
     """1회 호출 + 파싱. 실패 시 repair prompt로 1회 재시도."""
     raw = ""
@@ -94,7 +95,8 @@ async def _call_json(client, model: str, messages: list[dict],
         usage_service.record(
             kind="bootstrap", model=model, endpoint_name=None,
             prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
-            completion_chars=len(raw) if isinstance(raw, str) else 0)
+            completion_chars=len(raw) if isinstance(raw, str) else 0,
+            db=db)
 
 
 # --------------------------------------------------------------------------
@@ -660,7 +662,8 @@ def resolve_provider() -> gpt_oauth.GptOAuthProvider:
 async def generate_structure(genre: str, premise: str | None, title_style: str,
                              volume_count: int, chapters_per_volume: int,
                              client, model: str,
-                             reasoning_effort: str | None = None) -> dict:
+                             reasoning_effort: str | None = None,
+                             db: Session | None = None) -> dict:
     """LLM 4회 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
 
     고정 reasoning provider 계약에 맞춰 temperature는 지원·전송하지 않는다.
@@ -668,11 +671,11 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
     idea = await _call_json(
         client, model,
         _idea_messages(genre, premise, title_style),
-        reasoning_effort=reasoning_effort)
+        reasoning_effort=reasoning_effort, db=db)
 
     outline_msgs = _outline_messages(genre, idea, volume_count, chapters_per_volume)
     outline_data = await _call_json(client, model, outline_msgs,
-                                    reasoning_effort=reasoning_effort)
+                                    reasoning_effort=reasoning_effort, db=db)
     preview = _coerce_outline(outline_data, volume_count, chapters_per_volume)
     summary = _outline_anchor_summary(preview, {
         v: _as_str(vol.get("title"))
@@ -684,7 +687,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
     characters_data = await _call_json(
         client, model,
         _characters_messages(genre, idea, summary),
-        reasoning_effort=reasoning_effort)
+        reasoning_effort=reasoning_effort, db=db)
 
     # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
     names = []
@@ -697,7 +700,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
     rellore_data = await _call_json(
         client, model,
         _relations_lore_messages(genre, idea, summary, names),
-        reasoning_effort=reasoning_effort)
+        reasoning_effort=reasoning_effort, db=db)
 
     return {
         "titles": [_as_str(t) for t in _as_list(idea.get("titles"))][:5],

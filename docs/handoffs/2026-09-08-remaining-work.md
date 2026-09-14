@@ -125,6 +125,7 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 | D02 | 인지·상태를 구분하는 장편 기억 확장 | 근거·적용 시점·승인/stale, 미래 복선 구분, 복선의 audience_knows | 모든 사실의 작가/독자/인물별 인지, 고정 설정과 변화 상태, 사건/관계 영향 추적. 현재 수동 memory 기능 전체의 재구현이 아니라 추가 도메인 설계 |
 | D03 | 기획→집필→퇴고→완결·재개 흐름 | 권 개요·인물 설정·장면·감수·원고 이력, 최종화 목적 | **D03-1 수용(2026-09-13)** — flow_stage 상태 기계·전이 이벤트 앵커 [수용](../audits/d03-1-flow-stage-2026-09-13/acceptance.md). **D03-2 수용(2026-09-13)** — 재개 계약(드리프트·미해결 감수·다음 장면) [수용](../audits/d03-2-resume-2026-09-13/acceptance.md). **D03-3 수용(2026-09-13)** — projects.serial_state 연재 수명주기 분리 [수용](../audits/d03-3-serial-state-2026-09-13/acceptance.md). **D03-4 수용(2026-09-13)** — 목표 항목↔원문 발췌 근거 링크·파생 파손/드리프트 안내 [수용](../audits/d03-4-evidence-links-2026-09-13/acceptance.md). **D03-5 수용(2026-09-13)** — 복선 disposition(해결/의도적 미해결/외전 이관) 구분 표시 [수용](../audits/d03-5-foreshadow-disposition-2026-09-13/acceptance.md). **D03-6 수용(2026-09-13)** — 완결 점검표 + 완결본 불변 스냅샷 [수용](../audits/d03-6-final-edition-2026-09-13/acceptance.md). **D03-7 수용(2026-09-13)** — 작품 결말 후보·잠금·파생 영향 표시 [수용](../audits/d03-7-ending-impact-2026-09-13/acceptance.md). **D03 전 단위 수용 완료** |
 | D04 | 실제 자동 요약·backfill | C10의 provider-free manifest planner | **D04-1 수용(2026-09-13)** — summary_jobs 영속 + fake worker 생명주기(계획 중복 차단·복구·재시도·draft append) [수용](../audits/d04-1-summary-worker-2026-09-13/acceptance.md). **실제 provider 어댑터 `summary_provider.py` 구현·7P** — 실 호출은 G02 게이트. 잔여: 브릿지 기동 후 smoke·평가 manifest·작가 승인 UI·운영 실행 |
+| E | 작가 피드백 자가개선 | style_profile·장편 기억·회차 목표·품질 진단·RefineRun accepted·MemoryEntry draft/approved | [전체 설계](../specs/2026-09-14-author-feedback-improvement.md)·[E1 사양](../specs/2026-09-14-e1-generation-runs-spec.md). **E1+E2 수용(2026-09-14)** — generation_runs/outputs append-only, 3 surface SSE 기록·generation_saved, outcome 상태 기계·프론트 계측 [수용](../audits/e1-generation-runs-2026-09-14/acceptance.md). 잔여: E3 결정론 diff 분석 → E4 improvement_rules → E5 제안 job(draft-only) → E6 approved 규칙 주입 → E7 규칙 UI·이력 패널·명시 폐기 |
 
 근거: [원래 집필 로드맵 §8.4–8.5](../audits/소설집필_관리_감사.md),
 [자동 요약 설계](../superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md), 현재 모델·store.
@@ -193,7 +194,7 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 
 | 증거 층 | 가장 최근 확인한 결과 | 해석 한계 |
 | --- | --- | --- |
-| 전체 backend — 최신(2026-09-13 D04 어댑터 후) | **721 passed / 1 skipped / 70 subtests / warnings 0** | native isolated runner, violations 0. ResourceWarning 19건 근본 수정으로 경고 소거 |
+| 전체 backend — 최신(2026-09-14 E1/E2 후) | **738 passed / 1 skipped / 70 subtests / violations 0** | native isolated runner. generation_runs 12P + SPA fallback 5P + 병렬 기록 포함. frontend tsc 0오류·vite build 통과 |
 | 전체 backend — Windows 네이티브 | **714 passed / 1 skipped / violations 0 / warnings 0** | Windows 11 네이티브 Python 3.14.4 + 격리 러너 그대로. 수동 실기기 수용(G04 잔여)과 구분 |
 | V03 다중 프로세스 부하 | 8×50·16×100 동시 쓰기 **rows 무손실·integrity ok·journal wal** | `scripts/sqlite_multiprocess_check.py` — 실제 HTTP 다중 프로세스 배포 구성 아님 |
 | 전체 backend — B03 최종 | **482 passed / 1 skipped / 70 subtests / 19 warnings** | native isolated runner, exit0·guard 위반0·실제 subprocess 시도0. 기존 외부 metrics skip(V04) 유지 |

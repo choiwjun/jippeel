@@ -14,7 +14,7 @@ from app.services.auto_backup import AutoBackupConfig
 def _make_jippeel_db(path: Path) -> Path:
     conn = sqlite3.connect(path)
     conn.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
-    conn.execute("INSERT INTO alembic_version VALUES ('9d0e1f2a3747')")
+    conn.execute("INSERT INTO alembic_version VALUES ('ae1f2b3c4d58')")
     conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
     conn.commit()
     conn.close()
@@ -63,7 +63,7 @@ class TestRunBackupOnce:
         manifest = auto_backup.run_backup_once(cfg, src)
         assert manifest.is_file()
         data = json.loads(manifest.read_text())
-        assert data["alembic_head"] == "9d0e1f2a3747"
+        assert data["alembic_head"] == "ae1f2b3c4d58"
         assert (manifest.parent / "database.sqlite3").is_file()
 
     def test_timestamp_collision_suffix(self, tmp_path):

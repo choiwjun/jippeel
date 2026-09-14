@@ -36,6 +36,8 @@
 | G02 실제 provider 6-case 파일럿 | [수용](audits/g02-pilot-2026-09-14/acceptance.md) | 실제 openai-oauth 브릿지(gpt-5.6-luna) 경유 실 호출 6/6 완결. SSE 2,803건·usage·latency·DB 해시 동일·marginal $0. 게이트 플래그 4건 전부 계측 한계로 분석. blind 루브릭 평가 세션 잔여 |
 | G03 OAuth 로그아웃·credential 복구 시연 | [수용](audits/g03-oauth-logout-2026-09-14/acceptance.md) | stop→포트 종료·credential 제거→브릿지 기동 거부·복원→실 호출 성공 전 주기 실증. 임시 사본 파기. 서버 측 세션 폐기·완전 재로그인 절차 문서화 |
 | G02·G03·G04 병렬 Windows 세션 기록 | [기록](audits/g02-g03-g04-user-actions-2026-09-14/acceptance.md) | Documents checkout 병행 세션(ZCode)의 독립 실행 — 최소 smoke·bridge 재기동·NVDA 2026.1.1 설치·4개 화면 UIA 트리 확인 PASS_WITH_NOTES. 발화·순환 갭은 g04 디렉터리의 speech evidence로 보완 |
+| 작가 피드백 자가개선 설계 | [전체 설계](specs/2026-09-14-author-feedback-improvement.md) / [E1 사양](specs/2026-09-14-e1-generation-runs-spec.md) | 제안→승인→적용 순서, 작품별 완전 분리. E1(생성 이력)~E7(규칙 UI) 단위 분할 |
+| E1·E2 생성 이력+작가 처분 수용 | [수용](audits/e1-generation-runs-2026-09-14/acceptance.md) | generation_runs/outputs append-only·3 surface SSE 기록·generation_saved 이벤트·outcome 상태 기계·프론트 명시 액션 계측. 신규 12P·전체 738P. E3~E7 잔여 |
 
 ## 기록 문서의 해석
 

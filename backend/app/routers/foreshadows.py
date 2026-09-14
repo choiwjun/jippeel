@@ -170,7 +170,7 @@ async def suggest_foreshadows(pid: int, payload: ForeshadowSuggestRequest,
     usage_service.record(kind="foreshadow_suggest", model=model,
                          endpoint_name=provider.name,
                          prompt_chars=sum(len(m["content"]) for m in messages),
-                         completion_chars=len(raw or ""))
+                         completion_chars=len(raw or ""), db=db)
 
     candidates = []
     for item in (data.get("candidates") or [])[:10]:

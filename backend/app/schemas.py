@@ -883,6 +883,9 @@ class ReviewRequest(BaseModel):
     reasoning_effort: str | None = Field(default=None, max_length=20)
     max_tokens: int | None = Field(default=None, ge=1)
     draft: str = Field(min_length=1)
+    # E1 생성 이력 — 프론트가 알 때만 전송하는 이력 스코프(additive, 미전송 시 null)
+    project_id: int | None = Field(default=None, ge=1)
+    chapter_id: int | None = Field(default=None, ge=1)
 
 
 class GenerateRequest(BaseModel):
@@ -894,6 +897,65 @@ class GenerateRequest(BaseModel):
     params: GenerateParams = Field(default_factory=GenerateParams)
     # 기존 인라인 감수 SSE 계약 — 별도 /ai/review와 병행 지원
     review: GenerateReviewOptions | None = None
+
+
+# ---- 생성 이력 (작가 피드백 자가개선 E1/E2) ----
+GenerationOutcome = Literal["inserted", "replaced", "copied", "discarded"]
+
+
+class GenerationOutcomeIn(BaseModel):
+    """산출물 처분 기록 — AiPanel 끼워넣기/교체/복사/폐기의 유일한 반영 경로."""
+
+    model_config = ConfigDict(extra="forbid")
+    outcome: GenerationOutcome
+    landed_text: str | None = None  # 실제 삽입·교체된 텍스트(편집 후 반영이면 원본과 다를 수 있음)
+    chapter_revision: int | None = Field(default=None, ge=0)  # 처분 시점 revision 앵커
+
+
+class GenerationOutputOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    run_id: int
+    channel: str
+    scene_order: int | None
+    output_sha256: str
+    output_chars: int
+    outcome: str
+    outcome_events_json: list
+    chapter_revision_at_action: int | None
+    outcome_at: datetime | None
+    created_at: datetime
+
+
+class GenerationOutputDetail(GenerationOutputOut):
+    output_text: str
+    landed_text: str | None
+
+
+class GenerationRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int | None
+    chapter_id: int | None
+    surface: str
+    preset_id: int | None
+    model: str | None
+    reasoning_effort: str | None
+    prompt_chars: int
+    status: str
+    wall_ms: int
+    created_at: datetime
+    outputs: list[GenerationOutputOut] = []
+
+
+class GenerationRunDetail(GenerationRunOut):
+    input_sha256: str | None
+    input_manifest_json: dict | None
+    applied_rules_json: list | None
+    ai_usage_id: int | None
+    outputs: list[GenerationOutputDetail] = []
 
 
 # ---- Refine (M5, Sprint 3) — 부록05 §⑤-5 span 규격 / 사양 §5 윤문 API ----
