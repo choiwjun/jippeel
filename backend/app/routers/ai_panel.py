@@ -42,7 +42,8 @@ from app.schemas import (
     PromptPresetUpdate,
     ReviewRequest,
 )
-from app.services import (ai_context, generation_runs as generation_runs_svc,
+from app.services import (agy_review, ai_context,
+                          generation_runs as generation_runs_svc,
                           gpt_oauth, injection, llm, manuscripts,
                           parallel_writer, usage as usage_service)
 from app.services.wordcount import count_novelpia_chars
@@ -485,6 +486,39 @@ def _split_review_stream():
     return feed, flush
 
 
+def _review_backend(provider: gpt_oauth.GptOAuthProvider, review_opts,
+                    default_max_tokens: int | None) -> dict:
+    """감수 호출 설정 — JIPPEEL_REVIEW_PROVIDER=agy면 Antigravity CLI로 라우팅.
+
+    생성은 고정 GPT OAuth 브릿지를 유지하고 감수만 두 번째 모델로 보내는
+    교차 감수(cross-model review)다. agy는 모델명 체계가 다르므로 요청의
+    review.model은 무시하고 JIPPEEL_AGY_MODEL만 사용한다.
+    """
+    agy_cfg = agy_review.get_agy_review_config()
+    if agy_cfg is not None:
+        return {"backend": "agy", "provider_name": agy_review.PROVIDER_NAME,
+                "model": agy_cfg.model,
+                "reasoning_effort": review_opts.reasoning_effort or "",
+                "max_tokens": review_opts.max_tokens or default_max_tokens,
+                "agy": agy_cfg}
+    return {"backend": "bridge", "provider_name": provider.name,
+            "model": _resolve_model(provider, review_opts.model),
+            "reasoning_effort": review_opts.reasoning_effort or provider.reasoning_effort,
+            "max_tokens": review_opts.max_tokens or default_max_tokens,
+            "agy": None}
+
+
+def _review_stream(review_cfg: dict, review_messages: list[dict], client):
+    """review_cfg.backend에 따라 감수 텍스트 델타 스트림을 반환한다."""
+    if review_cfg["backend"] == "agy":
+        return agy_review.stream_agy_chat(
+            review_cfg["agy"], review_cfg["model"], review_messages)
+    return llm.stream_chat(
+        client, review_cfg["model"], review_messages,
+        max_tokens=review_cfg["max_tokens"],
+        reasoning_effort=review_cfg["reasoning_effort"])
+
+
 # ---------- AI 생성 스트리밍 ----------
 @router.post("/ai/generate")
 async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
@@ -511,18 +545,12 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
     model = _resolve_model(provider, payload.params.model)
     client = llm.make_client(provider.base_url, None)
 
-    # 감수도 같은 고정 OAuth provider를 사용한다. provider 선택/키 입력은
-    # 클라이언트 요청에서 받지 않아 계정과 과금 경로가 분리되지 않는다.
+    # 감수 provider는 서버 설정이 결정한다 — 기본은 같은 고정 GPT OAuth
+    # 브릿지, JIPPEEL_REVIEW_PROVIDER=agy면 Antigravity CLI(Gemini)로
+    # 교차 감수한다. provider 선택/키 입력은 요청에서 받지 않는다.
     review_cfg = None
     if payload.review is not None:
-        review_cfg = {
-            "client": client,
-            "provider_name": provider.name,
-            "model": _resolve_model(provider, payload.review.model),
-            "reasoning_effort": payload.review.reasoning_effort or provider.reasoning_effort,
-            "max_tokens": payload.review.max_tokens
-            if payload.review.max_tokens is not None else payload.params.max_tokens,
-        }
+        review_cfg = _review_backend(provider, payload.review, payload.params.max_tokens)
 
     manifest = {
         "context_metadata": context_metadata,
@@ -629,10 +657,8 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                     channel_parts: dict[str, list[str]] = {"review": [], "refined": []}
                     try:
                         feed, flush_review = _split_review_stream()
-                        async for delta in llm.stream_chat(
-                                review_cfg["client"], review_cfg["model"], review_messages,
-                                max_tokens=review_cfg["max_tokens"],
-                                reasoning_effort=review_cfg["reasoning_effort"]):
+                        async for delta in _review_stream(
+                                review_cfg, review_messages, client):
                             review_chars += len(delta)
                             async for event_name, chunk in feed(delta):
                                 channel_parts.setdefault(event_name, []).append(chunk)
@@ -1116,8 +1142,10 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         base_payload, db, bundle=bundle)
     model = _resolve_model(provider, payload.params.model)
 
-    reviewer_model = _resolve_model(provider, payload.review.model)
-    reviewer_effort = payload.review.reasoning_effort or provider.reasoning_effort
+    reviewer_cfg = _review_backend(provider, payload.review, payload.params.max_tokens)
+    reviewer_model = reviewer_cfg["model"]
+    reviewer_provider = reviewer_cfg["provider_name"]
+    reviewer_effort = reviewer_cfg["reasoning_effort"]
 
     # 작가 승인 계획이면 planner 호출 없이 그 계획을 그대로 실행한다.
     # 계획이 요청 컨텍스트의 목적과 어긋나면 스트림을 열기 전 422로 거절한다.
@@ -1135,7 +1163,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 "model": model,
                 "generation_reasoning_effort": payload.generation_reasoning_effort,
                 "review_model": reviewer_model,
-                "review_provider": provider.name,
+                "review_provider": reviewer_provider,
                 "review_reasoning_effort": reviewer_effort,
                 "worker_limit": payload.worker_limit,
                 "injected_lore": injected_lore,
@@ -1320,7 +1348,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 "event": "review_start",
                 "data": json.dumps({
                     "model": reviewer_model,
-                    "provider": provider.name,
+                    "provider": reviewer_provider,
                     "reasoning_effort": reviewer_effort,
                 }, ensure_ascii=False),
             }
@@ -1336,18 +1364,17 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
             review_chars = 0
             review_parts: list[str] = []
             try:
-                review_max_tokens = payload.review.max_tokens or payload.params.max_tokens
                 # 감수는 원고 조립·message 이벤트 뒤의 부가 단계다. 첫 토큰 전에
                 # bridge가 끊기면 새 client로 한 번 재시도하고, 재시도까지 실패해도
                 # 이미 조립된 원고를 실패로 되돌리지 않는다.
                 for attempt in range(2):
-                    reviewer_client = llm.make_client(provider.base_url, None)
+                    reviewer_client = (
+                        None if reviewer_cfg["backend"] == "agy"
+                        else llm.make_client(provider.base_url, None))
                     attempt_chars = 0
                     try:
-                        async for delta in llm.stream_chat(
-                                reviewer_client, reviewer_model, review_messages,
-                                max_tokens=review_max_tokens,
-                                reasoning_effort=reviewer_effort):
+                        async for delta in _review_stream(
+                                reviewer_cfg, review_messages, reviewer_client):
                             attempt_chars += len(delta)
                             review_chars += len(delta)
                             review_parts.append(delta)
@@ -1355,15 +1382,18 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                                    "data": json.dumps({"delta": delta}, ensure_ascii=False)}
                         break
                     except Exception as exc:  # noqa: BLE001 — 재시도 가능 transport 판별
-                        if attempt == 0 and attempt_chars == 0 and _is_retryable_bridge_error(exc):
+                        if attempt == 0 and attempt_chars == 0 and (
+                                reviewer_cfg["backend"] == "agy"
+                                or _is_retryable_bridge_error(exc)):
                             continue
                         raise
                     finally:
-                        await _close_llm_client(reviewer_client)
+                        if reviewer_client is not None:
+                            await _close_llm_client(reviewer_client)
                 if review_chars:
                     uid = usage_service.record(
                         kind="parallel_review", model=reviewer_model,
-                        endpoint_name=provider.name,
+                        endpoint_name=reviewer_provider,
                         prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
                         completion_chars=review_chars, db=db,
                     )
@@ -1407,9 +1437,12 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
     SSE 이벤트: review_start / review(지적) / refined(수정본) / review_error / done.
     """
     provider = _get_provider_or_503()
-    model = _resolve_model(provider, payload.model)
-    reasoning_effort = payload.reasoning_effort or provider.reasoning_effort
-    client = llm.make_client(provider.base_url, None)
+    review_cfg = _review_backend(provider, payload, payload.max_tokens)
+    model = review_cfg["model"]
+    provider_name = review_cfg["provider_name"]
+    reasoning_effort = review_cfg["reasoning_effort"]
+    client = (llm.make_client(provider.base_url, None)
+              if review_cfg["backend"] == "bridge" else None)
     review_messages = [
         {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
         {"role": "user", "content": f"[초안 원고]\n{payload.draft}"},
@@ -1417,7 +1450,7 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
 
     async def event_stream():
         yield {"event": "review_start",
-               "data": json.dumps({"model": model, "provider": provider.name,
+               "data": json.dumps({"model": model, "provider": provider_name,
                                    "reasoning_effort": reasoning_effort},
                                   ensure_ascii=False)}
         t0 = time.monotonic()
@@ -1453,9 +1486,7 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
         try:
             try:
                 feed, flush_review = _split_review_stream()
-                async for delta in llm.stream_chat(client, model, review_messages,
-                                                   max_tokens=payload.max_tokens,
-                                                   reasoning_effort=reasoning_effort):
+                async for delta in _review_stream(review_cfg, review_messages, client):
                     review_chars += len(delta)
                     async for event_name, chunk in feed(delta):
                         channel_parts.setdefault(event_name, []).append(chunk)
@@ -1477,7 +1508,7 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
             else:
                 if review_chars:
                     uid = usage_service.record(
-                        kind="review", model=model, endpoint_name=provider.name,
+                        kind="review", model=model, endpoint_name=provider_name,
                         prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
                         completion_chars=review_chars, db=db)
                     if uid is not None:

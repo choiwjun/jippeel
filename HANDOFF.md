@@ -926,3 +926,13 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - AI-context 최신: T2 Spec/Quality PASS와 부모 backend269 PASS 후 `46b1ec2` 커밋. T3 화면의 요청 소유권/공유 선택 연결 구현 중. 실제 HTTP/browser/provider 통합 T4 및 최종 전체 검토는 남아 있으며 운영 미적용이다.
 
 - AI-context 최신: T3 UI fixture/독립재검토/build PASS 후 `03bad73` 커밋. T4 실제 격리 API·SQLite·가짜제공자·브라우저 통합 QA를 시작했다. 아직 전체 완료/운영 반영이 아니며 최종 브랜치 검토도 남아 있다.
+
+## GPT 초안 + Gemini(agy) 교차 감수 — 2026-09-14
+
+- 요청: "소설 생성시 gpt초안 gemini감수 로직" — 생성은 고정 GPT OAuth 브릿지 유지, 감수만 Antigravity CLI(`agy`, Gemini OAuth 계정)로 라우팅.
+- 신설 `backend/app/services/agy_review.py`: `JIPPEEL_REVIEW_PROVIDER=agy`일 때 활성. `agy -p`를 `--output-format stream-json --sandbox`로 실행해 `agent_response`의 `text_delta`를 `llm.stream_chat`과 같은 델타 스트림으로 변환. `JIPPEEL_AGY_MODEL`(기본 `gemini-3.8-flash-high`)·`JIPPEEL_AGY_BIN`·`JIPPEEL_AGY_TIMEOUT_S` 지원. 백엔드가 Windows 프로세스이면 `wsl.exe` 경유 + 프롬프트 stdin 전달(argv 길이 제한 회피).
+- 라우팅: `/ai/generate` 인라인 감수, `/ai/generate-parallel` 감수(재시도 루프 포함), 독립 `/ai/review` — 3곳 전부 `_review_backend`/`_review_stream` 디스패치. SSE `review_start`/`parallel_start`의 provider가 `antigravity-agy`로 보고되고 usage도 동일 endpoint로 기록. agy 경로에서는 요청의 `review.model`(GPT 모델명)을 무시하고 `JIPPEEL_AGY_MODEL`만 사용.
+- `scripts/prod.sh`: 기동 시 `JIPPEEL_REVIEW_PROVIDER=agy`·`JIPPEEL_AGY_MODEL=gemini-3.8-flash-high` 기본 주입(환경변수로 해제 가능 — `JIPPEEL_REVIEW_PROVIDER=` 로 끄면 기존 브릿지 감수로 복귀).
+- credential 경계 유지: 앱 코드·요청에 비밀 없음. Gemini credential은 `~/.gemini`(agy OAuth) 소유, GPT는 기존 브릿지 소유.
+- 검증: 백엔드 **808P/1skip/violations 0** (신규 8 — 파서·라우팅·실패 시 초안 보존). subprocess 경로는 격리 가드상 테스트 불가 → WSL에서 실제 `agy` 수동 스모크로 스트리밍 확인(1회 호출). Windows wsl.exe 경유 경로는 서버 재기동 후 첫 감수에서 실증 예정.
+- 적용 조건: 실행 중인 Windows 백엔드는 재기동해야 반영(`Jippeel실행.bat` 재실행).
