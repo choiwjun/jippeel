@@ -796,16 +796,21 @@ async def assistant_plan_next(
     plan: ParallelPlan | None = None
     error_detail: str | None = None
     try:
-        planner_raw = await _call_planner(
-            provider, model, planner_messages,
-            payload.max_tokens, provider.reasoning_effort)
+        plan_exc: ValueError | None = None
+        for _attempt in range(2):  # 계약 밖 JSON은 일시적 — 1회 재시도
+            planner_raw = await _call_planner(
+                provider, model, planner_messages,
+                payload.max_tokens, provider.reasoning_effort)
+            try:
+                plan = parallel_writer.parse_parallel_plan(
+                    planner_raw, episode_purpose=bundle.episode_purpose)
+                break
+            except ValueError as exc:
+                plan_exc = exc
         outputs.append(generation_runs_svc.OutputSpec(channel="plan", text=planner_raw))
-        try:
-            plan = parallel_writer.parse_parallel_plan(
-                planner_raw, episode_purpose=bundle.episode_purpose)
-        except ValueError as exc:
+        if plan is None:
             status_str = "provider_error"
-            error_detail = f"계획 형식이 올바르지 않습니다: {exc}"
+            error_detail = f"계획 형식이 올바르지 않습니다: {plan_exc}"
     except openai.APIError as exc:
         status_str = "provider_error"
         error_detail = _friendly_api_error(exc)
@@ -1072,16 +1077,21 @@ async def create_plan(payload: PlanRequest, db: Session = Depends(get_db)):
     error_detail: str | None = None
     plan: ParallelPlan | None = None
     try:
-        planner_raw = await _call_planner(
-            provider, model, planner_messages,
-            payload.params.max_tokens, payload.generation_reasoning_effort)
+        plan_exc: ValueError | None = None
+        for _attempt in range(2):  # 계약 밖 JSON은 일시적 — 1회 재시도
+            planner_raw = await _call_planner(
+                provider, model, planner_messages,
+                payload.params.max_tokens, payload.generation_reasoning_effort)
+            try:
+                plan = parallel_writer.parse_parallel_plan(
+                    planner_raw, episode_purpose=bundle.episode_purpose)
+                break
+            except ValueError as exc:
+                plan_exc = exc
         outputs.append(generation_runs_svc.OutputSpec(channel="plan", text=planner_raw))
-        try:
-            plan = parallel_writer.parse_parallel_plan(
-                planner_raw, episode_purpose=bundle.episode_purpose)
-        except ValueError as exc:
+        if plan is None:
             status_str = "provider_error"
-            error_detail = f"계획 형식이 올바르지 않습니다: {exc}"
+            error_detail = f"계획 형식이 올바르지 않습니다: {plan_exc}"
     except openai.APIError as exc:
         status_str = "provider_error"
         error_detail = _friendly_api_error(exc)
@@ -1180,6 +1190,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         usage_ids: list[int] = []
         saved: dict = {"result": None}
         run_status = "completed"
+        planner_debug: dict = {}
 
         def _finalize():
             # E1 생성 이력 — 실패해도 스트림을 막지 않는다(best-effort)
@@ -1208,6 +1219,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                         "brief": (payload.context.brief.model_dump()
                                   if payload.context.brief else None),
                         "ai_usage_ids": usage_ids,
+                        "planner_debug": planner_debug or None,
                     },
                     status=run_status,
                     wall_ms=int((time.monotonic() - t0) * 1000),
@@ -1225,12 +1237,26 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 planner_messages = None
                 if payload.approved_plan is None:
                     planner_messages = _planner_messages(base_messages)
-                    planner_raw = await _call_planner(
-                        provider, model, planner_messages,
-                        payload.params.max_tokens,
-                        payload.generation_reasoning_effort)
-                    plan = parallel_writer.parse_parallel_plan(
-                        planner_raw, episode_purpose=bundle.episode_purpose)
+                    plan = None
+                    last_plan_exc: ValueError | None = None
+                    # LLM이 가끔 계약 밖 JSON을 반환한다 — 검증 실패는 1회 재시도.
+                    for _attempt in range(2):
+                        planner_raw = await _call_planner(
+                            provider, model, planner_messages,
+                            payload.params.max_tokens,
+                            payload.generation_reasoning_effort)
+                        try:
+                            plan = parallel_writer.parse_parallel_plan(
+                                planner_raw, episode_purpose=bundle.episode_purpose)
+                            break
+                        except ValueError as exc:  # ValidationError 포함
+                            last_plan_exc = exc
+                            planner_debug["parse_error"] = {
+                                "detail": str(exc)[:1000],
+                                "raw": planner_raw[:4000],
+                            }
+                    if plan is None:
+                        raise last_plan_exc or ValueError("parallel plan parse failed")
                 else:
                     # 작가가 승인한 계획을 그대로 실행 — planner 재호출 없음
                     plan = payload.approved_plan
@@ -1340,7 +1366,8 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 yield {
                     "event": "parallel_error",
                     "data": json.dumps({
-                        "stage": "generation", "detail": f"병렬 집필 실패: {type(exc).__name__}",
+                        "stage": "generation",
+                        "detail": f"병렬 집필 실패: {type(exc).__name__}: {str(exc)[:300]}",
                     }, ensure_ascii=False),
                 }
 

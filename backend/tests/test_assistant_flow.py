@@ -288,3 +288,95 @@ def test_parallel_review_retries_bridge_disconnect_before_first_token(client, mo
     assert 'event: message' in text
     assert 'event: review' in text
     assert '"stage": "review"' not in text
+
+
+def _valid_plan_json():
+    return json.dumps({
+        "scenes": [
+            {"order": 1, "title": "첫 장면", "purpose": "시작", "objective": "문을 연다",
+             "choice": "문을 연다", "cost": "흔적을 남긴다", "required_beats": ["문 앞"],
+             "characters": ["주인공"], "opening_state": "시작", "closing_hook": "다음 장면"},
+            {"order": 2, "title": "둘째 장면", "purpose": "확대", "objective": "도망친다",
+             "choice": "골목으로 간다", "cost": "길을 잃는다", "required_beats": ["추격"],
+             "characters": ["주인공"], "opening_state": "첫 장면 직후", "closing_hook": "끝"},
+        ]
+    }, ensure_ascii=False)
+
+
+def test_parallel_planner_retries_once_on_invalid_plan(client, monkeypatch):
+    """planner가 계약 밖 JSON을 한 번 반환해도 재시도로 복구된다."""
+    planner_calls = {"n": 0}
+
+    class FakeClient:
+        pass
+
+    async def complete_chat(client_obj, model, messages, temperature=None,
+                            max_tokens=None, reasoning_effort=None):
+        if "[병렬 Planner" not in messages[-1]["content"]:
+            return "장면 본문"
+        planner_calls["n"] += 1
+        if planner_calls["n"] == 1:
+            return json.dumps({"scenes": [{"order": 1, "title": "불완전"}]})
+        return _valid_plan_json()
+
+    async def stream_chat(client_obj, model, messages, temperature=None,
+                          max_tokens=None, reasoning_effort=None):
+        yield "장면 본문"
+
+    monkeypatch.setattr(ai_panel.llm, "make_client", lambda *a, **k: FakeClient())
+    monkeypatch.setattr(ai_panel.llm, "complete_chat", complete_chat)
+    monkeypatch.setattr(ai_panel.llm, "stream_chat", stream_chat)
+
+    response = client.post("/api/v1/ai/generate-parallel", json={
+        "prompt_override": "병렬로 집필하라.", "worker_limit": 2,
+    })
+
+    assert response.status_code == 200, response.text
+    assert planner_calls["n"] == 2
+    text = response.text
+    assert 'event: planner_done' in text
+    assert '"stage": "generation"' not in text
+
+
+def test_parallel_planner_invalid_plan_reports_detail_and_debug(client, monkeypatch):
+    """planner 검증이 재시도까지 실패하면 원인·원시 응답이 남는다."""
+    planner_calls = {"n": 0}
+
+    class FakeClient:
+        pass
+
+    async def complete_chat(client_obj, model, messages, temperature=None,
+                            max_tokens=None, reasoning_effort=None):
+        if "[병렬 Planner" not in messages[-1]["content"]:
+            return "장면 본문"
+        planner_calls["n"] += 1
+        return json.dumps({"scenes": [{"order": 1, "title": "불완전"}]})
+
+    async def stream_chat(client_obj, model, messages, temperature=None,
+                          max_tokens=None, reasoning_effort=None):
+        yield "장면 본문"
+
+    monkeypatch.setattr(ai_panel.llm, "make_client", lambda *a, **k: FakeClient())
+    monkeypatch.setattr(ai_panel.llm, "complete_chat", complete_chat)
+    monkeypatch.setattr(ai_panel.llm, "stream_chat", stream_chat)
+
+    response = client.post("/api/v1/ai/generate-parallel", json={
+        "prompt_override": "병렬로 집필하라.", "worker_limit": 2,
+    })
+
+    assert response.status_code == 200, response.text
+    assert planner_calls["n"] == 2  # 최대 1회 재시도
+    text = response.text
+    assert 'event: parallel_error' in text
+    assert '"stage": "generation"' in text
+    assert "ValidationError" in text  # 타입명 + 상세가 사용자에게 보인다
+
+    db = _db(client)
+    run = db.scalar(select(GenerationRun).where(
+        GenerationRun.surface == "generate_parallel"
+    ).order_by(GenerationRun.id.desc()))
+    assert run is not None
+    debug = (run.input_manifest_json or {}).get("planner_debug")
+    assert debug and "scenes" in debug["parse_error"]["raw"]
+    assert "validation errors" in debug["parse_error"]["detail"]
+    assert run.status == "provider_error"

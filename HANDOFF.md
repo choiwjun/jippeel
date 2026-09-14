@@ -934,5 +934,12 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - 라우팅: `/ai/generate` 인라인 감수, `/ai/generate-parallel` 감수(재시도 루프 포함), 독립 `/ai/review` — 3곳 전부 `_review_backend`/`_review_stream` 디스패치. SSE `review_start`/`parallel_start`의 provider가 `antigravity-agy`로 보고되고 usage도 동일 endpoint로 기록. agy 경로에서는 요청의 `review.model`(GPT 모델명)을 무시하고 `JIPPEEL_AGY_MODEL`만 사용.
 - `scripts/prod.sh`: 기동 시 `JIPPEEL_REVIEW_PROVIDER=agy`·`JIPPEEL_AGY_MODEL=gemini-3.8-flash-high` 기본 주입(환경변수로 해제 가능 — `JIPPEEL_REVIEW_PROVIDER=` 로 끄면 기존 브릿지 감수로 복귀).
 - credential 경계 유지: 앱 코드·요청에 비밀 없음. Gemini credential은 `~/.gemini`(agy OAuth) 소유, GPT는 기존 브릿지 소유.
-- 검증: 백엔드 **808P/1skip/violations 0** (신규 8 — 파서·라우팅·실패 시 초안 보존). subprocess 경로는 격리 가드상 테스트 불가 → WSL에서 실제 `agy` 수동 스모크로 스트리밍 확인(1회 호출). Windows wsl.exe 경유 경로는 서버 재기동 후 첫 감수에서 실증 예정.
-- 적용 조건: 실행 중인 Windows 백엔드는 재기동해야 반영(`Jippeel실행.bat` 재실행).
+- 검증: 백엔드 **808P/1skip/violations 0** (신규 8 — 파서·라우팅·실패 시 초안 보존). subprocess 경로는 격리 가드상 테스트 불가 → WSL에서 실제 `agy` 수동 스모크로 스트리밍 확인(1회 호출).
+- 실증 완료: WSLENV 미전달로 첫 배포에서 agy 미적용이 확인돼 `prod.sh`에 `WSLENV=JIPPEEL_REVIEW_PROVIDER:JIPPEEL_AGY_MODEL` 추가(9009392). 재기동 후 `/ai/review` 실호출로 `provider=antigravity-agy, model=gemini-3.8-flash-high`, `[감수]`+`[수정본]` 스트리밍·이력 저장(run 10) 확인.
+
+## 병렬 planner ValidationError 복원력 — 2026-09-14
+
+- 증상: "병렬 집필 실패: ValidationError" — SSE `parallel_error` 이벤트 내부 실패라 HTTP는 200. planner LLM이 스키마 밖 JSON(필수 필드 누락·scene 수/order 위반)을 반환한 것.
+- 수정(`ai_panel.py`): `/ai/generate-parallel`에서 planner 응답이 `parse_parallel_plan` 검증에 실패하면 1회 재시도. 실패 원문·검증 에러는 `planner_debug.parse_error{detail,raw}`로 run manifest에 보존, `parallel_error` 이벤트에 예외 타입+메시지 포함. `/ai/plan`·assistant plan-next에도 동일 1회 재시도 적용(이 두 경로는 실패 원문을 `plan` 채널 출력으로 이미 보존).
+- 승인된 계획(payload.approved_plan) 경로는 planner 미호출이라 무영향. 검증은 약화하지 않음.
+- 테스트: `test_assistant_flow.py` 신규 2건 — 첫 실패 후 재시도 성공, 2회 연속 실패 시 run이 `provider_error`+planner_debug 보존. 전체 회귀 **810P/1skip/violations 0**.
