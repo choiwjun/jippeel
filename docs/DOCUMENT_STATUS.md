@@ -32,7 +32,9 @@
 | G01 실 DB migration·G03/G04 부분 실행 | [수용](audits/g01-production-migration-2026-09-13/acceptance.md) | 실 DB head `9d0e1f2a3747` 적용·데이터 보존 검증. 실 crypto 경로 wrong-key 거부·Windows 네이티브 스위트 714P·실기동 프로브(54,300자 43ms). 브라우저/NVDA 수동 실기기·브릿지 로그아웃 잔여 |
 | U01~U04·O01~O03·O05·V03·D04 어댑터 실행 수용 | [수용](audits/uo-options-v03-2026-09-13/acceptance.md) / O01 [사양](specs/2026-09-13-o01-card-png-novelwriter-import.md) · O02 [사양](specs/2026-09-13-o02-auto-backup.md) · O03 [사양](specs/2026-09-13-o03-writing-activity.md) | card_json UI·로어 참조 회차·uiScale·카드 PNG/novelWriter·자동 백업·활동 캘린더. O05 ResourceWarning 근본 수정(warnings 0)·V03 다중 프로세스 PASS·summary 실제 provider 어댑터 7P. 전체 721P |
 | 플랫폼 AI 규정 재확인 | [규정추적_2026-09-13](../규정추적_2026-09-13.md) | 노벨피아 순수창작/이벤트 AI 금지·약관 시행 8-13 확인, 문피아 신규 AI 공지 없음, 조아라 명문 부재 지속. 게시 전 재확인 필요 |
-| G04 실제 브라우저 검증 | [수용](audits/g04-real-browser-2026-09-14/acceptance.md) | mock 없는 실제 e2e 10/10 — 실 dist+실 uvicorn+실 DB 복사본. 키보드 Tab·uiScale 실 DOM·5만 자 입력→자동저장 왕복 실증. SPA fallback 결함 발견·수정. NVDA 수동 잔여 |
+| G04 실제 브라우저 검증 | [수용](audits/g04-real-browser-2026-09-14/acceptance.md) | mock 없는 실제 e2e 10/10 — 실 dist+실 uvicorn+실 DB 복사본. 키보드 Tab·uiScale 실 DOM·5만 자 입력→자동저장 왕복 실증. SPA fallback 결함 발견·수정. **NVDA 실제 음성 발화·포커스 순환 실증**(nvda-speech-evidence.txt). 지정 장치 최종 사인오프 잔여 |
+| G02 실제 provider 6-case 파일럿 | [수용](audits/g02-pilot-2026-09-14/acceptance.md) | 실제 openai-oauth 브릿지(gpt-5.6-luna) 경유 실 호출 6/6 완결. SSE 2,803건·usage·latency·DB 해시 동일·marginal $0. 게이트 플래그 4건 전부 계측 한계로 분석. blind 루브릭 평가 세션 잔여 |
+| G03 OAuth 로그아웃·credential 복구 시연 | [수용](audits/g03-oauth-logout-2026-09-14/acceptance.md) | stop→포트 종료·credential 제거→브릿지 기동 거부·복원→실 호출 성공 전 주기 실증. 임시 사본 파기. 서버 측 세션 폐기·완전 재로그인 절차 문서화 |
 
 ## 기록 문서의 해석
 

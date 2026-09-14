@@ -1,0 +1,250 @@
+[
+  {
+    "case_id": "real-case-01",
+    "surface": "generate",
+    "holdout": false,
+    "chapter_id": 2,
+    "title": "열일곱 번째 밤",
+    "input_sha256": "2b225008b1e4c20a59206a071c21d843ca37507365653d105bb47a9028be50c6",
+    "gold_contract_sha256": "ac40e2a71d7733295b11c435c20c0513333662e2f25fc541c513f60d9b739c8c",
+    "model": "gpt-5.6-luna",
+    "wall_ms": 206747,
+    "draft_chars": 1588,
+    "review_chars": 0,
+    "scene_orders": null,
+    "injected_lore": [
+      {
+        "id": 2,
+        "title": "열일곱 번째 밤"
+      },
+      {
+        "id": 1,
+        "title": "회귀 교통사고"
+      },
+      {
+        "id": 4,
+        "title": "각성자 등록제"
+      },
+      {
+        "id": 5,
+        "title": "던전 선점권"
+      },
+      {
+        "id": 6,
+        "title": "3번 폐역 던전"
+      },
+      {
+        "id": 7,
+        "title": "핵실"
+      }
+    ],
+    "hard_gates": [
+      "PASS"
+    ],
+    "blind_label": "blind-01"
+  },
+  {
+    "case_id": "real-case-02",
+    "surface": "generate",
+    "holdout": false,
+    "chapter_id": 3,
+    "title": "선점에는 준비가 필요하다",
+    "input_sha256": "77ef466d2c177f7cbc3efa39649e951419fa95d2ef062293f7fc72c3adfdbdb5",
+    "gold_contract_sha256": "95553e37b2a06989bbef2620f4b9e06bc5ada9e8245cf0036051ef565a59bedf",
+    "model": "gpt-5.6-luna",
+    "wall_ms": 175658,
+    "draft_chars": 1611,
+    "review_chars": 0,
+    "scene_orders": null,
+    "injected_lore": [
+      {
+        "id": 6,
+        "title": "3번 폐역 던전"
+      },
+      {
+        "id": 1,
+        "title": "회귀 교통사고"
+      },
+      {
+        "id": 2,
+        "title": "열일곱 번째 밤"
+      },
+      {
+        "id": 4,
+        "title": "각성자 등록제"
+      },
+      {
+        "id": 5,
+        "title": "던전 선점권"
+      },
+      {
+        "id": 7,
+        "title": "핵실"
+      }
+    ],
+    "hard_gates": [
+      "required cue missing: 서도윤"
+    ],
+    "blind_label": "blind-02"
+  },
+  {
+    "case_id": "real-case-03",
+    "surface": "generate",
+    "holdout": true,
+    "chapter_id": 10,
+    "title": "선점자의 이름",
+    "input_sha256": "6fd534688fe9e4b8567da0d72524da9fb18048e6b146ab68dede9d1958cb7ce2",
+    "gold_contract_sha256": "61f84426bd0c027d011edda0d0c692240069bbc1a1811aa8e95f2bf180444877",
+    "model": "gpt-5.6-luna",
+    "wall_ms": 99889,
+    "draft_chars": 1265,
+    "review_chars": 0,
+    "scene_orders": null,
+    "injected_lore": [
+      {
+        "id": 6,
+        "title": "3번 폐역 던전"
+      },
+      {
+        "id": 7,
+        "title": "핵실"
+      },
+      {
+        "id": 1,
+        "title": "회귀 교통사고"
+      },
+      {
+        "id": 2,
+        "title": "열일곱 번째 밤"
+      },
+      {
+        "id": 4,
+        "title": "각성자 등록제"
+      },
+      {
+        "id": 5,
+        "title": "던전 선점권"
+      }
+    ],
+    "hard_gates": [
+      "PASS"
+    ],
+    "blind_label": "blind-03"
+  },
+  {
+    "case_id": "real-case-04",
+    "surface": "generate-parallel",
+    "holdout": false,
+    "chapter_id": 4,
+    "title": "예정보다 빨리 열린 문",
+    "input_sha256": "99b160a853c257ab1c96d00d97364d24c92158dea02861898fa1650d985befe2",
+    "gold_contract_sha256": "48628d2158cc4ed0c674dba9a9db97a5f4e0e6a9abd9bb5c8f0359ffb90433a5",
+    "model": "gpt-5.6-luna",
+    "wall_ms": 181939,
+    "draft_chars": 2812,
+    "review_chars": 1019,
+    "scene_orders": [
+      1,
+      2,
+      3
+    ],
+    "injected_lore": [
+      {
+        "id": 12,
+        "title": "상태창과 레벨"
+      },
+      {
+        "id": 1,
+        "title": "회귀 교통사고"
+      },
+      {
+        "id": 2,
+        "title": "열일곱 번째 밤"
+      },
+      {
+        "id": 4,
+        "title": "각성자 등록제"
+      },
+      {
+        "id": 5,
+        "title": "던전 선점권"
+      },
+      {
+        "id": 6,
+        "title": "3번 폐역 던전"
+      }
+    ],
+    "hard_gates": [
+      "forbidden cue present: [감수]",
+      "meta marker in draft: [감수]"
+    ],
+    "blind_label": "blind-04"
+  },
+  {
+    "case_id": "real-case-05",
+    "surface": "generate-parallel",
+    "holdout": true,
+    "chapter_id": 5,
+    "title": "첫 클리어의 값",
+    "input_sha256": "8f77fb96aec5ee7bb8dfd2c67657a6c6902862db44cbd0a2f6215cb734249222",
+    "gold_contract_sha256": "d341e7c02fd5203f47f0b4ace265990750ac2c1f49e97ecffd4b8f8ad74fa6b1",
+    "model": "gpt-5.6-luna",
+    "wall_ms": 240427,
+    "draft_chars": 3262,
+    "review_chars": 0,
+    "scene_orders": [
+      1,
+      2,
+      3
+    ],
+    "injected_lore": [
+      {
+        "id": 7,
+        "title": "핵실"
+      },
+      {
+        "id": 6,
+        "title": "3번 폐역 던전"
+      },
+      {
+        "id": 1,
+        "title": "회귀 교통사고"
+      },
+      {
+        "id": 2,
+        "title": "열일곱 번째 밤"
+      },
+      {
+        "id": 4,
+        "title": "각성자 등록제"
+      },
+      {
+        "id": 5,
+        "title": "던전 선점권"
+      }
+    ],
+    "hard_gates": [
+      "error event in stream"
+    ],
+    "blind_label": "blind-05"
+  },
+  {
+    "case_id": "real-case-06",
+    "surface": "review",
+    "holdout": false,
+    "chapter_id": 1,
+    "title": "사고가 끝난 자리 (실제 집필 원고)",
+    "input_sha256": "ac18ccd97e7bbee18ce4c913dd4f64de6988c07c54d2e08866fa8f492e6d1a8d",
+    "gold_contract_sha256": "dc2ec42770c46cfedf6b62d7458bc9b1f5d340ebdbd160c19bbb8aeb66296741",
+    "model": null,
+    "wall_ms": 240375,
+    "draft_chars": 0,
+    "review_chars": 579,
+    "scene_orders": null,
+    "injected_lore": null,
+    "hard_gates": [
+      "meta marker in draft: [감수]"
+    ],
+    "blind_label": "blind-06"
+  }
+]

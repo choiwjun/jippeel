@@ -12,9 +12,12 @@ if [ ! -f "$DIST/index.html" ]; then
   exit 1
 fi
 
-port_up() { ss -tln 2>/dev/null | grep -q ":$1 "; }
+# 백엔드는 Windows venv의 python.exe로 뜨므로 리스너는 Windows 측이다.
+# WSL의 ss는 Windows 포트를 보지 못하고, localhost는 ::1로 해석돼 IPv4-only
+# 리스너에 실패한다 — 127.0.0.1(IPv4) health probe로 판정한다.
+backend_up() { curl -sf --max-time 2 http://127.0.0.1:8000/health >/dev/null 2>&1; }
 
-if port_up 8000; then
+if backend_up; then
   echo "[backend] 이미 실행 중 (:8000)"
 else
   echo "[backend] uvicorn 기동 (정적 서빙 포함 — http://localhost:8000)..."
@@ -23,8 +26,8 @@ else
      IM_NOT_AI_REFINE_CMD='cp {input} {output}' \
      .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000 \
      > "$LOG_DIR/backend-prod.log" 2>&1 < /dev/null &)
-  for i in $(seq 1 30); do curl -sf http://localhost:8000/health >/dev/null && break; sleep 1; done
-  curl -sf http://localhost:8000/health >/dev/null || { echo "[backend] 실패 — $LOG_DIR/backend-prod.log 확인"; exit 1; }
+  for i in $(seq 1 30); do backend_up && break; sleep 1; done
+  backend_up || { echo "[backend] 실패 — $LOG_DIR/backend-prod.log 확인"; exit 1; }
   echo "[backend] OK"
 fi
 

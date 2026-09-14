@@ -1,0 +1,338 @@
+[
+  {
+    "case_id": "real-case-01",
+    "surface": "generate",
+    "holdout": false,
+    "chapter_id": 2,
+    "title": "열일곱 번째 밤",
+    "request": {
+      "context": {
+        "project_id": 1,
+        "chapter_id": 2,
+        "include_chapter_content": true,
+        "expected_revision": 0,
+        "episode_purpose": "serial",
+        "include_relationships": true,
+        "previous_chapter": true,
+        "auto_lore": true,
+        "auto_lore_limit": 6,
+        "auto_foreshadow": true,
+        "auto_foreshadow_limit": 3,
+        "style_profile": true,
+        "brief": {
+          "emotion_goal": "열일곱 번째 반복되는 밤의 공포와 각성 직전의 불안",
+          "core_events": [
+            "서도윤이 같은 밤을 반복하고 있음을 자각한다",
+            "사고 현장의 잔상이 꿈에 침입한다"
+          ],
+          "character_choices": [
+            "서도윤이 반복을 부정하지 않고 기록하기로 한다"
+          ],
+          "cost": "반복을 인정하는 순간 일상이 무너진다",
+          "prohibitions": [
+            "던전 클리어",
+            "한이서와의 만남"
+          ],
+          "next_hook": "반복의 규칙이 바뀌는 첫 이상 징후",
+          "scene_type": "감정"
+        }
+      },
+      "params": {},
+      "preset_id": 2
+    },
+    "gold": {
+      "required_cues": [
+        "서도윤"
+      ],
+      "forbidden_cues": [
+        "한도윤",
+        "윤서린",
+        "강태식",
+        "서민재",
+        "박성호",
+        "이가람",
+        "한미정",
+        "오동혁",
+        "[감수]",
+        "```json",
+        "required_beats"
+      ],
+      "required_beat_desc": "반복 자각 + 기록 결심 + 반복 인정의 대가",
+      "must_not": [
+        "던전 클리어 완료",
+        "한이서와 직접 대면"
+      ]
+    }
+  },
+  {
+    "case_id": "real-case-02",
+    "surface": "generate",
+    "holdout": false,
+    "chapter_id": 3,
+    "title": "선점에는 준비가 필요하다",
+    "request": {
+      "context": {
+        "project_id": 1,
+        "chapter_id": 3,
+        "include_chapter_content": true,
+        "expected_revision": 0,
+        "episode_purpose": "serial",
+        "include_relationships": true,
+        "previous_chapter": true,
+        "auto_lore": true,
+        "auto_lore_limit": 6,
+        "style_profile": true,
+        "brief": {
+          "emotion_goal": "던전 선점을 노리는 자의 냉정한 계산",
+          "core_events": [
+            "서도윤이 3번 폐역 던전 선점을 준비한다",
+            "등록제와 선점권 규칙을 확인한다"
+          ],
+          "character_choices": [
+            "서도윤이 정보를 모으기 위해 등록소를 찾는다"
+          ],
+          "cost": "준비 과정에서 자신의 회귀 지식이 낯설게 드러날 위험",
+          "prohibitions": [
+            "던전 내부 전투"
+          ],
+          "next_hook": "선점권을 노리는 다른 세력의 존재",
+          "scene_type": "정보정리"
+        }
+      },
+      "params": {},
+      "preset_id": 2
+    },
+    "gold": {
+      "required_cues": [
+        "서도윤"
+      ],
+      "forbidden_cues": [
+        "한도윤",
+        "윤서린",
+        "강태식",
+        "서민재",
+        "박성호",
+        "이가람",
+        "한미정",
+        "오동혁",
+        "[감수]",
+        "```json",
+        "required_beats"
+      ],
+      "required_beat_desc": "선점 준비 행동 + 등록제/선점권 규칙 활용 + 지식 노출 위험",
+      "must_not": [
+        "던전 내부 전투 장면"
+      ]
+    }
+  },
+  {
+    "case_id": "real-case-03",
+    "surface": "generate",
+    "holdout": true,
+    "chapter_id": 10,
+    "title": "선점자의 이름",
+    "request": {
+      "context": {
+        "project_id": 1,
+        "chapter_id": 10,
+        "include_chapter_content": true,
+        "expected_revision": 0,
+        "episode_purpose": "volume_end",
+        "include_relationships": true,
+        "auto_lore": true,
+        "auto_lore_limit": 6,
+        "style_profile": true,
+        "brief": {
+          "emotion_goal": "권말의 긴장 — 선점권의 주인이 가려지는 순간",
+          "core_events": [
+            "던전 소유권 등록의 마지막 단계",
+            "서도윤의 이름이 공식 기록에 남는다"
+          ],
+          "character_choices": [
+            "서도윤이 실명 공개의 위험을 감수하고 선점한다"
+          ],
+          "cost": "이름이 드러나면서 다음 권의 적이 생긴다",
+          "prohibitions": [
+            "시리즈 완결"
+          ],
+          "next_hook": "선점 발표 직후 도착하는 경고",
+          "ending_intent": "권을 닫되 다음 권의 위협을 예고",
+          "scene_type": "대립"
+        }
+      },
+      "params": {},
+      "preset_id": 2
+    },
+    "gold": {
+      "required_cues": [
+        "서도윤"
+      ],
+      "forbidden_cues": [
+        "한도윤",
+        "윤서린",
+        "강태식",
+        "서민재",
+        "박성호",
+        "이가람",
+        "한미정",
+        "오동혁",
+        "[감수]",
+        "```json",
+        "required_beats"
+      ],
+      "required_beat_desc": "권말 마무리 + 다음 권 위협 예고(hook 또는 ending)",
+      "must_not": [
+        "시리즈 완결 선언"
+      ]
+    }
+  },
+  {
+    "case_id": "real-case-04",
+    "surface": "generate-parallel",
+    "holdout": false,
+    "chapter_id": 4,
+    "title": "예정보다 빨리 열린 문",
+    "request": {
+      "context": {
+        "project_id": 1,
+        "chapter_id": 4,
+        "include_chapter_content": true,
+        "expected_revision": 0,
+        "episode_purpose": "serial",
+        "include_relationships": true,
+        "previous_chapter": true,
+        "auto_lore": true,
+        "auto_lore_limit": 6,
+        "style_profile": true,
+        "brief": {
+          "emotion_goal": "예상보다 빨리 열린 게이트 앞의 당황과 결단",
+          "core_events": [
+            "3번 폐역의 균열이 예정보다 먼저 열린다",
+            "서도윤이 준비되지 않은 상태에서 진입을 결정한다"
+          ],
+          "character_choices": [
+            "서도윤이 미루지 않고 즉시 움직인다"
+          ],
+          "cost": "불완전한 준비로 인한 위험을 스스로 떠안는다",
+          "prohibitions": [
+            "던전 완전 클리어"
+          ],
+          "next_hook": "문 안쪽에서 발견한 예상 밖의 광경",
+          "scene_type": "액션"
+        }
+      },
+      "params": {},
+      "worker_limit": 3,
+      "generation_reasoning_effort": "medium",
+      "review": {
+        "reasoning_effort": "xhigh"
+      },
+      "preset_id": 2
+    },
+    "gold": {
+      "required_cues": [
+        "서도윤"
+      ],
+      "forbidden_cues": [
+        "한도윤",
+        "윤서린",
+        "강태식",
+        "서민재",
+        "박성호",
+        "이가람",
+        "한미정",
+        "오동혁",
+        "[감수]",
+        "```json",
+        "required_beats"
+      ],
+      "required_beat_desc": "planner 장면 2~4개 순서 유지 + 균열 조기 개방 + 즉시 진입 결단",
+      "must_not": [
+        "던전 완전 클리어"
+      ]
+    }
+  },
+  {
+    "case_id": "real-case-05",
+    "surface": "generate-parallel",
+    "holdout": true,
+    "chapter_id": 5,
+    "title": "첫 클리어의 값",
+    "request": {
+      "context": {
+        "project_id": 1,
+        "chapter_id": 5,
+        "include_chapter_content": true,
+        "expected_revision": 0,
+        "episode_purpose": "serial",
+        "include_relationships": true,
+        "previous_chapter": true,
+        "auto_lore": true,
+        "auto_lore_limit": 6,
+        "style_profile": true,
+        "brief": {
+          "emotion_goal": "첫 클리어의 대가가 명확히 드러나는 회차",
+          "core_events": [
+            "서도윤이 첫 던전을 클리어한다",
+            "클리어 보상과 함께 상처·흔적이 남는다"
+          ],
+          "character_choices": [
+            "서도윤이 보상보다 생존 흔적을 먼저 챙긴다"
+          ],
+          "cost": "몸과 기록에 지워지지 않는 대가",
+          "prohibitions": [
+            "새 파티원 영입"
+          ],
+          "next_hook": "클리어 기록이 외부에 알려진 정황",
+          "scene_type": "액션"
+        }
+      },
+      "params": {},
+      "worker_limit": 3,
+      "generation_reasoning_effort": "medium",
+      "review": {
+        "reasoning_effort": "xhigh"
+      },
+      "preset_id": 2
+    },
+    "gold": {
+      "required_cues": [
+        "서도윤"
+      ],
+      "forbidden_cues": [
+        "한도윤",
+        "윤서린",
+        "강태식",
+        "서민재",
+        "박성호",
+        "이가람",
+        "한미정",
+        "오동혁",
+        "[감수]",
+        "```json",
+        "required_beats"
+      ],
+      "required_beat_desc": "planner 장면 순서 유지 + 클리어 대가의 구체적 드러남",
+      "must_not": [
+        "새 파티원 영입"
+      ]
+    }
+  },
+  {
+    "case_id": "real-case-06",
+    "surface": "review",
+    "holdout": false,
+    "chapter_id": 1,
+    "title": "사고가 끝난 자리 (실제 집필 원고)",
+    "request": "REAL_CHAPTER_1_DRAFT",
+    "gold": {
+      "required_cues": [],
+      "forbidden_cues": [],
+      "required_beat_desc": "감수 지적이 실제 원고에 근거하고 [수정본]이 초안과 분리돼 출력",
+      "must_not": [
+        "원고에 없는 사실을 지적",
+        "메타 구조물 그대로 본문 출력"
+      ]
+    }
+  }
+]

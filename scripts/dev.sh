@@ -7,17 +7,17 @@ BUILD="$PROJ/frontend"
 LOG_DIR="$HOME/.jippeel-logs"
 mkdir -p "$LOG_DIR"
 
+# 백엔드는 Windows venv의 python.exe로 뜬다 — WSL의 ss는 Windows 포트를 보지 못하고
+# localhost는 ::1로 해석돼 IPv4-only 리스너에 실패하므로 127.0.0.1 health probe로 판정.
+backend_up() { curl -sf --max-time 2 http://127.0.0.1:8000/health >/dev/null 2>&1; }
 port_up() { ss -tln 2>/dev/null | grep -q ":$1 "; }
 
 # 1) 백엔드
-if port_up 8000; then
-   if curl -sf http://localhost:8000/health >/dev/null 2>&1; then
-      echo "[backend] 이미 실행 중 (:8000)"
-   else
-      echo "[경고] :8000을 다른 프로세스가 점유 중이고 /health 응답이 없습니다."
-      echo "       movestudio 등 다른 프로젝트의 서버일 수 있으니 확인 후 정리하세요:"
-      echo "       ss -tlnp | grep :8000"
-   fi
+if backend_up; then
+   echo "[backend] 이미 실행 중 (:8000)"
+elif port_up 8000; then
+   echo "[경고] :8000을 다른 프로세스가 점유 중이고 /health 응답이 없습니다."
+   echo "       movestudio 등 다른 프로젝트의 서버일 수 있으니 확인 후 정리하세요."
 else
    echo "[backend] uvicorn 기동..."
    (cd "$PROJ/backend" && setsid nohup env \
@@ -26,10 +26,10 @@ else
       .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000 \
       >"$LOG_DIR/backend.log" 2>&1 </dev/null &)
    for i in $(seq 1 30); do
-      curl -sf http://localhost:8000/health >/dev/null && break
+      backend_up && break
       sleep 1
    done
-   curl -sf http://localhost:8000/health >/dev/null && echo "[backend] OK" || {
+   backend_up && echo "[backend] OK" || {
       echo "[backend] 실패 — $LOG_DIR/backend.log 확인"
       exit 1
    }

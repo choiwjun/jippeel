@@ -1,0 +1,165 @@
+{
+  "ai_usage_rows": [
+    {
+      "kind": "review",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 8476,
+      "completion_chars": 8640,
+      "created_at": "2026-09-14 00:51:03.200322"
+    },
+    {
+      "kind": "parallel_generate",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 2792,
+      "completion_chars": 3262,
+      "created_at": "2026-09-14 00:43:49.428730"
+    },
+    {
+      "kind": "parallel_plan",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 2532,
+      "completion_chars": 1728,
+      "created_at": "2026-09-14 00:43:49.427711"
+    },
+    {
+      "kind": "parallel_review",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 6648,
+      "completion_chars": 1019,
+      "created_at": "2026-09-14 00:43:02.393995"
+    },
+    {
+      "kind": "parallel_generate",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 2811,
+      "completion_chars": 2812,
+      "created_at": "2026-09-14 00:40:36.533975"
+    },
+    {
+      "kind": "parallel_plan",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 2551,
+      "completion_chars": 1439,
+      "created_at": "2026-09-14 00:40:36.532888"
+    },
+    {
+      "kind": "generate",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 2850,
+      "completion_chars": 1265,
+      "created_at": "2026-09-14 00:40:00.452097"
+    },
+    {
+      "kind": "generate",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 2812,
+      "completion_chars": 1611,
+      "created_at": "2026-09-14 00:38:20.560006"
+    },
+    {
+      "kind": "review",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 8476,
+      "completion_chars": 8623,
+      "created_at": "2026-09-14 00:36:15.290603"
+    },
+    {
+      "kind": "generate",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 5357,
+      "completion_chars": 1588,
+      "created_at": "2026-09-14 00:35:24.899294"
+    },
+    {
+      "kind": "generate",
+      "model": "gpt-5.6-luna",
+      "endpoint_name": "ChatGPT OAuth",
+      "prompt_chars": 1276,
+      "completion_chars": 19,
+      "created_at": "2026-09-13 23:55:16.951142"
+    },
+    {
+      "kind": "generate",
+      "model": "m",
+      "endpoint_name": "e",
+      "prompt_chars": 1214,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:33.589904"
+    },
+    {
+      "kind": "generate",
+      "model": "m",
+      "endpoint_name": "e",
+      "prompt_chars": 1181,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:29.867822"
+    },
+    {
+      "kind": "generate",
+      "model": "m",
+      "endpoint_name": "e",
+      "prompt_chars": 1279,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:29.773865"
+    },
+    {
+      "kind": "generate",
+      "model": "m",
+      "endpoint_name": "e",
+      "prompt_chars": 1186,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:29.704878"
+    },
+    {
+      "kind": "generate",
+      "model": "m",
+      "endpoint_name": "e",
+      "prompt_chars": 1279,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:29.626369"
+    },
+    {
+      "kind": "generate",
+      "model": "m",
+      "endpoint_name": "e2",
+      "prompt_chars": 1202,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:28.018278"
+    },
+    {
+      "kind": "generate",
+      "model": "m-1",
+      "endpoint_name": "e",
+      "prompt_chars": 1170,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:27.938174"
+    },
+    {
+      "kind": "generate",
+      "model": "m-1",
+      "endpoint_name": "e",
+      "prompt_chars": 1191,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:27.849811"
+    },
+    {
+      "kind": "generate",
+      "model": "m-1",
+      "endpoint_name": "e",
+      "prompt_chars": 1227,
+      "completion_chars": 10,
+      "created_at": "2026-09-07 08:35:27.743190"
+    }
+  ],
+  "total_wall_ms": 1145035
+}
