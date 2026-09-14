@@ -949,3 +949,11 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - 사용자 지적: 병렬 집필에서 초안·감수 의견 후 수정본이 안 나옴 — `PARALLEL_REVIEW_SYSTEM_PROMPT`가 의도적으로 "[수정본] 출력 금지"였던 설계상 제한.
 - 수정: 병렬 감수도 단일 생성과 동일하게 `[감수]` 지적 + `[수정본]` 전체 수정 원고를 출력. 스트림은 기존 `_split_review_stream()`로 분리해 `review`/`refined` SSE 이벤트·저장 채널(review+refined)로 흘린다. 프론트는 refined 탭/핸들러를 이미 지원해 프론트 변경 없음.
 - 테스트: `test_parallel_review_emits_refined_after_marker` 신규 — 마커 포함 감수가 refined 이벤트와 저장 채널로 분리됨을 검증. 전체 회귀 **811P/1skip**.
+
+## 레퍼런스 스타일 분석 — 2026-09-14
+
+- 사용자 요청: 인기작 구조·문체·캐릭터 구조 수집 학습 → 페르소나 개선. 외부 인기작 크롤링은 저작권·플랫폼 약관상 불가 — 작가가 직접 붙여넣은 레퍼런스 텍스트만 분석하는 방식으로 구현.
+- 신설 `backend/app/services/style_analysis.py`: 순수 Python 결정적 지표(문장 길이 평균/중앙/p90·단문-장문 비율·대화 단락 비율·종결/연결 어미 비율·시점 힌트·단락당 문장 수·상위 어미) + LLM이 지표·원문 샘플을 해석해 문체 프로파일 초안(지시문 목록) 합성.
+- `POST /projects/{pid}/style-analysis` (projects.py): 텍스트(200~20000자) → `{metrics, profile_draft}` 반환만 — 저장 없음. 작가가 검토·수정 후 PATCH style_profile로 적용.
+- 프론트 PlanPage: 문체 프로파일 아래 "레퍼런스 스타일 분석" 섹션 — 텍스트 입력 → 지표 배지 + 초안 편집 → "문체 프로파일에 적용" → 이후 생성 컨텍스트에 주입(기존 style_profile 경로 그대로).
+- 검증: `test_style_analysis.py` 신규 5건(지표·메시지 형태·엔드포인트·미저장·길이 검증), 전체 회귀 **816P/1skip**, 프론트 빌드 PASS.

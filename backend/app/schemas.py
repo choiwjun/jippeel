@@ -1456,3 +1456,18 @@ class ImprovementProposalResult(BaseModel):
     created_count: int
     skipped_existing: int
     signals_evaluated: int
+
+
+# ---- 레퍼런스 스타일 분석 (문체 프로파일 초안 생성) ----
+class StyleAnalysisRequest(BaseModel):
+    """작가가 직접 붙여넣은 레퍼런스 텍스트 — 외부 자동 수집 없음."""
+
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=200, max_length=20000)
+
+
+class StyleAnalysisResponse(BaseModel):
+    """결정적 지표 + LLM 합성 프로파일 초안 — 저장하지 않고 반환만 한다."""
+
+    metrics: dict
+    profile_draft: str

@@ -61,6 +61,8 @@ from app.schemas import (
     ProjectCreate,
     ProjectOut,
     ProjectUpdate,
+    StyleAnalysisRequest,
+    StyleAnalysisResponse,
 )
 
 router = APIRouter()
@@ -1307,3 +1309,39 @@ def writing_activity(
             "chars": sum(b["chars"] for b in buckets),
         },
     }
+
+
+# ---------- 레퍼런스 스타일 분석 ----------
+@router.post("/projects/{pid}/style-analysis", response_model=StyleAnalysisResponse)
+async def analyze_reference_style(
+        pid: int, payload: StyleAnalysisRequest, db: Session = Depends(get_db)):
+    """작가 제공 레퍼런스 텍스트 → 스타일 지표 + 문체 프로파일 초안.
+
+    외부 인기작 자동 수집은 없다 — 작가가 붙여넣은 텍스트만 분석한다.
+    profile_draft는 저장하지 않고 반환만 한다. 작가가 검토·수정 후
+    PATCH /projects/{pid} 의 style_profile로 적용한다.
+    """
+    _get_project_or_404(pid, db)
+    from app.services import gpt_oauth, llm
+    from app.services import style_analysis
+
+    metrics = style_analysis.analyze_text(payload.text)
+    try:
+        provider = gpt_oauth.get_provider()
+    except gpt_oauth.OAuthProviderConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    messages = style_analysis.build_analysis_messages(payload.text, metrics)
+    client = llm.make_client(provider.base_url, None)
+    try:
+        draft = await llm.complete_chat(
+            client, provider.default_model, messages,
+            reasoning_effort=provider.reasoning_effort)
+    except Exception as exc:  # noqa: BLE001 — transport 실패를 502로 변환
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"스타일 분석 호출 실패: {type(exc).__name__}") from exc
+    finally:
+        await client.close()
+    return StyleAnalysisResponse(
+        metrics=metrics.to_dict(), profile_draft=draft.strip())
