@@ -1,6 +1,6 @@
 # 문서 상태 인덱스
 
-최종 대조: 2026-09-13(KST)
+최종 대조: 2026-09-14(KST)
 
 ## 역할과 현재 기준
 
@@ -13,23 +13,23 @@
 | GPT OAuth provider 설계 | [기술설계](../기술설계_GPT_OAuth_브릿지_v1.md) | 고정 OAuth provider와 credential 소유 경계 |
 | 장편 기억 제품 사양 | [governance 사양](superpowers/specs/2026-09-11-long-memory-governance.md) | 기능·데이터·UI 계약. M01~M05 수용 완료; 확장·운영은 원장 참조 |
 | 장편 기억 구현·검증 이력 | [follow-up 계획](superpowers/plans/2026-09-11-long-memory-followup.md) | 기반 구현 및 승인 P1 네 건의 완료·독립 검토 근거 |
-| 자동 요약/backfill | [별도 설계](superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md) | provider-free planner만 완료. worker/schema/provider/운영은 원장 D04와 G gate |
+| 자동 요약/backfill | [별도 설계](superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md) / [운영 runbook](runbooks/summary-backfill-operations.md) | worker·provider 어댑터·실 브릿지 smoke 완료(draft-only). 아크 요약은 [계층 기억 설계](specs/2026-09-14-hierarchical-memory-500ep.md). 운영 실행·승인 UI 통합 잔여 |
 | 운영 적용 절차 | [release runbook](runbooks/long-memory-governance-release.md) | 준비 문서이며 실행 승인 아님 |
 | 자문 결정 | [Astra 기록](decisions/2026-09-11-astra-long-memory-release.md) | 자문일 뿐 실행 승인 아님 |
 | 실패 계약·테스트 격리 최종 수용 | [B01/B02/B04 수용 기록](audits/failure-contracts-2026-09-12/b04-review-fixes.md) | 새 419P/외부 skip1, 독립 검토 2건 PASS, 보존 근거와 사고 한계. C13 완료 |
 | 기억 화면 보정 최종 수용 | [M01~M05 수용 기록](audits/memory-m01-m05-2026-09-12/acceptance.md) | backend421P/기존 skip1·frontend72P, 변경범위 coverage·독립 검토 2건 PASS, 복구·보존 한계 |
 | 품질 지표 B03 최종 수용 | [수용·검증·실패 이력](audits/quality-b03-2026-09-12/acceptance.md) / [계약](superpowers/plans/2026-09-12-quality-metric-corrections.md) | backend482P/기존 skip1·frontend77P·국소coverage·독립 E1종결2PASS. 가중치/API/이력 유지 |
-| D01 목표 저장 조사·요구 선택 | [질문·근거](superpowers/plans/2026-09-13-d01-contract-questions.md) | 소스 조사 완료, 최신값/과거 목표 조회·복원 범위 결정 대기. 상세 사양·구현 미착수 |
-| 후속 순차 진행 승인 | [잔여 순차 실행](superpowers/plans/2026-09-12-remaining-sequence.md) | M01~M05/B03 수용 완료, 다음 D01/D03/D04 상세 계약·기획. 실제 자원은 개별 gate 충족 후 |
+| D01 목표 저장 조사·요구 선택 | [질문·근거](superpowers/plans/2026-09-13-d01-contract-questions.md) | 조사 문서 — 구현은 아래 D01 수용 행으로 종결 |
+| 후속 순차 진행 승인 | [잔여 순차 실행](superpowers/plans/2026-09-12-remaining-sequence.md) | M01~M05/B03/D01/D03/D04-1 수용 완료로 순차 계약 종결. 잔여는 사용자 수용 + D02/D04 후속·G 게이트 잔여 영역 |
 | 지원 backend 테스트 실행 | [격리 runner 가이드](runbooks/isolated-backend-tests.md) | `backend/scripts/run_backend_pytest.py`가 공식 진입점. direct pytest는 fail-closed |
 | D01 회차 목표 영속화 수용 | [수용](audits/d01-goal-contract-2026-09-13/acceptance.md) | 목표 저장·이력·복원 계약. backend47P/전체520P, fixture·독립 검토 통과 |
 | D03 집필 수명주기 전 단위 수용 | D03-1 [flow](audits/d03-1-flow-stage-2026-09-13/acceptance.md) · D03-2 [resume](audits/d03-2-resume-2026-09-13/acceptance.md) · D03-3 [serial](audits/d03-3-serial-state-2026-09-13/acceptance.md) · D03-4 [근거](audits/d03-4-evidence-links-2026-09-13/acceptance.md) · D03-5 [이관](audits/d03-5-foreshadow-disposition-2026-09-13/acceptance.md) · D03-6 [완결본](audits/d03-6-final-edition-2026-09-13/acceptance.md) · D03-7 [결말영향](audits/d03-7-ending-impact-2026-09-13/acceptance.md) | 흐름 상태 기계·재개 파생·연재 상태·근거 링크·이관 구분·완결본 스냅샷·결말 영향. 전부 독립 검토 2건 통과 |
-| D04-1 summary_jobs/fake worker 수용 | [수용](audits/d04-1-summary-worker-2026-09-13/acceptance.md) | 서비스 계층만. idempotency·draft-only memory·retry/recovery. 실제 provider는 G gate |
+| D04-1 summary_jobs/fake worker 수용 | [수용](audits/d04-1-summary-worker-2026-09-13/acceptance.md) | 서비스 계층. idempotency·draft-only memory·retry/recovery. 실제 provider smoke는 d04-2 수용 완료 |
 | V02 복원 실패 주입 수용 | [수용](audits/v02-restore-verify-2026-09-13/acceptance.md) | 합성 TEMP 백업/검증 9종 실패 코드 15P. 실제 운영 복원·wrong-key는 G01/G03 |
 | V04 외부 metrics 버전 검증기 수용 | [수용](audits/v04-metrics-version-2026-09-13/acceptance.md) | AST 전용 계약 비교 20P + **09-14 실물 파일 대조 완료** — Windows 측 실제 metrics_v2.py 전 항목 일치 |
 | G-045 audience_knows 유실 수정 수용 | [수용](audits/g045-audience-knows-2026-09-13/acceptance.md) | foreshadow POST 1행 수정. RED 재현→수정→677P 회귀. 독립 검토 PASS |
 | V01 프론트 coverage 계측 수용 | [수용](audits/v01-frontend-coverage-2026-09-13/acceptance.md) | PW_COVERAGE=1 opt-in V8 수집→fs 경로 키 union 병합. 11 스위트 128P·측정값 lines 83.27%. 임계 주장 아닌 측정 인프라 |
-| G01 실 DB migration·G03/G04 부분 실행 | [수용](audits/g01-production-migration-2026-09-13/acceptance.md) | 실 DB head `9d0e1f2a3747` 적용·데이터 보존 검증. 실 crypto 경로 wrong-key 거부·Windows 네이티브 스위트 714P·실기동 프로브(54,300자 43ms). 브라우저/NVDA 수동 실기기·브릿지 로그아웃 잔여 |
+| G01 실 DB migration·G03/G04 부분 실행 | [수용](audits/g01-production-migration-2026-09-13/acceptance.md) | 실 DB head `9d0e1f2a3747` 적용·데이터 보존 검증(이후 `d1e2f3a4b5c6`까지 추가 적용). 실 crypto 경로 wrong-key 거부·Windows 네이티브 스위트 714P·실기동 프로브(54,300자 43ms). 브라우저/NVDA 수동 실기기·브릿지 로그아웃 잔여 |
 | U01~U04·O01~O03·O05·V03·D04 어댑터 실행 수용 | [수용](audits/uo-options-v03-2026-09-13/acceptance.md) / O01 [사양](specs/2026-09-13-o01-card-png-novelwriter-import.md) · O02 [사양](specs/2026-09-13-o02-auto-backup.md) · O03 [사양](specs/2026-09-13-o03-writing-activity.md) | card_json UI·로어 참조 회차·uiScale·카드 PNG/novelWriter·자동 백업·활동 캘린더. O05 ResourceWarning 근본 수정(warnings 0)·V03 다중 프로세스 PASS·summary 실제 provider 어댑터 7P. 전체 721P |
 | 플랫폼 AI 규정 재확인 | [규정추적_2026-09-13](../규정추적_2026-09-13.md) | 노벨피아 순수창작/이벤트 AI 금지·약관 시행 8-13 확인, 문피아 신규 AI 공지 없음, 조아라 명문 부재 지속. 게시 전 재확인 필요 |
 | G04 실제 브라우저·NVDA 최종 검증 | [최종 수용](audits/g04-real-browser-2026-09-14/acceptance.md) | mock 없는 실제 e2e 10/10 — 실 dist+실 uvicorn+실 DB 복사본. 키보드 Tab·uiScale 실 DOM·5만 자 입력→자동저장 왕복 실증. SPA fallback 결함 발견·수정. **NVDA 실제 음성 발화·포커스 순환·콤보박스 값/상태 발화 실증**, 지정 장치 최종 사인오프 완료 |
