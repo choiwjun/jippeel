@@ -22,6 +22,7 @@
 - **D04:** 실제 GPT OAuth 브릿지 smoke(`summary_smoke.py`, draft_saved·자동 승인 없음) + [운영 runbook](docs/runbooks/summary-backfill-operations.md) + [수용](docs/audits/d04-2-summary-smoke-2026-09-14/acceptance.md).
 - **D02/500화 1차 슬라이스:** 아크 요약 — `summary_jobs.kind='arc'`+`source_ids_json`(migration `d1e2f3a4b5c6`), 승인된 회차 요약 10화 묶음→`arc_summary` draft, `arc-v1` 프롬프트, stale/idempotent 유지. [설계](docs/specs/2026-09-14-hierarchical-memory-500ep.md).
 - **검증:** 전체 backend **786P/1skip/violations 0** + frontend tsc/build 통과.
+- **09-14 사용자 검토 보완(`0c44677`):** ① 일반 AI 패널도 plan-first 기본화 — 주 버튼이 [🗺 계획 만들기](자동 전체 분석)이고 [바로 생성]은 명시적 우회. ② 어시스턴트 컨텍스트에 `auto_characters`+`include_relationships` 자동 주입 추가 — 인물 카드·관계가 수동 선택 없이 들어간다. ③ `apply`의 `expected_revision` 필수화(생략 시 422) — CAS가 계약상 강제. ④ 단일 `/ai/generate`도 `approved_plan` 계약 주입 지원. ⑤ orphan `test_assistant_flow.py`(구 자동저장 계약)를 draft-only 계약으로 이식·추적 파일화. 전체 **792P/1skip/violations 0**.
 
 **완료·미완료·다음 작업·승인 대기는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md) 한 곳에서 관리한다.**
 기존 9월 8일 인계를 9월 13일 결과까지 대조했고, 완료·잔여·검증·운영 승인·선택 확장을 분리했다.
