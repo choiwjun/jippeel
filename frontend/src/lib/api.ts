@@ -464,10 +464,21 @@ export interface BootstrapResponse {
   volume_count: number;
   relationship_count: number;
   volume_note_count?: number; // 권 개요 동시 생성 수 (G-050)
+  first_chapter_id?: number | null;
   title_candidates: string[];
   theme: string | null;
   used_ai: boolean;
   fallback: boolean;
+}
+
+/** 작품 준비 확인 후 다음 빈 회차를 자동 집필·저장하는 응답 */
+export interface AssistantGenerateNextResponse {
+  project_id: number;
+  chapter_id: number;
+  chapter_title: string;
+  revision: number;
+  content_md: string;
+  word_count_cache: number;
 }
 
 // ---- Refine (Sprint 3 M5) — taxonomy ID A~J span ----

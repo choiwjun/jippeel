@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Chapter, type ChapterDetail, type ChapterFlowOut, type ChapterResumeOut, type ChapterSnapshotDetail, type ChapterSnapshotMeta, type ChapterStatus, type FlowStage } from '@/lib/api';
 import { useEditorStore } from '@/stores/editorStore';
@@ -53,6 +53,9 @@ const FLOW_TRANSITIONS: Record<FlowStage, FlowStage[]> = {
 export function EditorPage() {
   const params = useParams();
   const pid = Number(params.pid);
+  const [searchParams] = useSearchParams();
+  const requestedChapterId = Number(searchParams.get('chapter'));
+  const hasRequestedChapter = Number.isFinite(requestedChapterId) && requestedChapterId > 0;
 
   const chapterId = useEditorStore((s) => s.chapterId);
   const setContext = useEditorStore((s) => s.setContext);
@@ -83,13 +86,16 @@ export function EditorPage() {
       (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
     );
     const selected = chapterId === null ? null : sorted.find((c) => c.id === chapterId);
+    const requested = hasRequestedChapter
+      ? sorted.find((c) => c.id === requestedChapterId)
+      : undefined;
     const storeProjectId = useEditorStore.getState().projectId;
     if (!selected) {
-      setContext(pid, sorted[0]?.id ?? null);
+      setContext(pid, requested?.id ?? sorted[0]?.id ?? null);
     } else if (storeProjectId !== pid) {
       setContext(pid, selected.id);
     }
-  }, [chapterId, chaptersQuery.data, pid, setContext]);
+  }, [chapterId, chaptersQuery.data, hasRequestedChapter, pid, requestedChapterId, setContext]);
 
   return (
     <div className="mx-auto flex h-full max-w-[820px] flex-col px-6">

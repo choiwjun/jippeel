@@ -17,8 +17,8 @@ from dataclasses import dataclass, field
 import openai  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
 
-from app.models import (Chapter, Character, LoreEntry, Project,
-                        Relationship, VolumeNote)
+from app.models import (Chapter, ChapterGoal, ChapterGoalRevision, Character,
+                        LoreEntry, Project, Relationship, VolumeNote)
 from app.services import gpt_oauth, llm, usage as usage_service
 
 logger = logging.getLogger(__name__)
@@ -254,6 +254,11 @@ class OutlineLore:
 
 def _as_str(value, fallback: str = "") -> str:
     return value.strip() if isinstance(value, str) and value.strip() else fallback
+
+
+def _clip_text(value: str, limit: int) -> str:
+    """목표 필드의 저장 상한을 지키며 텍스트를 자른다."""
+    return value[:limit]
 
 
 def _as_list(value) -> list:
@@ -526,6 +531,33 @@ def _character_card_json(c: OutlineCharacter) -> dict:
     }
 
 
+def _bootstrap_goal(chapter: OutlineChapter,
+                    next_chapter: OutlineChapter | None) -> dict:
+    """목차의 사건을 즉시 집필 가능한 회차 목표로 정규화한다.
+
+    부트스트랩 응답에는 별도 목표 객체가 없던 기존 계약을 유지하면서도,
+    생성 직후 EpisodeBrief가 빈 상태로 남지 않게 한다. 작가가 나중에 수정할
+    수 있는 초안 목표이며, 본문을 자동으로 덮어쓰는 데이터는 아니다.
+    """
+    core_event = _as_str(chapter.key_event) or _as_str(chapter.synopsis)
+    next_hook = (
+        f"다음 회차 '{next_chapter.title}'로 이어질 미해결 문제를 남긴다"
+        if next_chapter is not None
+        else "다음 국면으로 이어질 미해결 문제를 남긴다"
+    )
+    return {
+        "emotion_goal": "이번 회차의 핵심 사건으로 긴장과 다음 회차 기대감을 높인다",
+        "core_events": [_clip_text(core_event, 500)] if core_event else None,
+        "character_choices": ["핵심 인물이 목표를 향한 선택을 행동으로 실행한다"],
+        "cost": "선택의 결과로 새로운 위험이나 대가가 생긴다",
+        "prohibitions": ["목차·세계관·인물 설정 밖의 독립 사건을 추가하지 않는다"],
+        "next_hook": _clip_text(next_hook, 500),
+        "ending_intent": None,
+        "scene_type": None,
+        "target_chars_novelpia": 5000,
+    }
+
+
 def persist_structure(db: Session, genre: str, premise: str | None,
                       structure: dict, generated_by: str,
                       volume_count: int, chapters_per_volume: int) -> dict:
@@ -549,6 +581,12 @@ def persist_structure(db: Session, genre: str, premise: str | None,
     outline_summary = _summarize_outline(outline, volumes_index)
 
     project = Project(title=title, genre=genre, synopsis=logline or None)
+    # 별도 설정 입력 없이도 첫 집필부터 작품 문체와 컨텍스트가 적용되도록
+    # 안전한 초안을 준비한다. 작가가 프로젝트 설정에서 언제든 수정할 수 있다.
+    project.style_profile = (
+        f"{genre} 웹소설 연재형 문체. 장면 중심으로 쓰고, 인물의 선택과 대가를 "
+        "행동과 대사로 선명하게 보여준다. 회차 끝에는 다음 사건의 압력을 남긴다."
+    )
     # 제목은 후보 중 1번째, 나머지 후보와 기획 메타는 memo에 보관
     project.memo = json.dumps({
         "bootstrap": {
@@ -613,6 +651,24 @@ def persist_structure(db: Session, genre: str, premise: str | None,
 
     db.add(project)
     db.flush()  # FK(id) 채움 — 아직 커밋 전, 동일 트랜잭션
+    chapter_rows = list(project.chapters)
+    for index, (row, outline_chapter) in enumerate(zip(chapter_rows, outline)):
+        next_chapter = outline[index + 1] if index + 1 < len(outline) else None
+        goal_json = _bootstrap_goal(outline_chapter, next_chapter)
+        db.add(ChapterGoal(
+            chapter_id=row.id,
+            goal_json=goal_json,
+            episode_purpose="serial",
+            goal_version=1,
+            base_manuscript_revision=0,
+        ))
+        db.add(ChapterGoalRevision(
+            chapter_id=row.id,
+            goal_version=1,
+            goal_json=goal_json,
+            episode_purpose="serial",
+            base_manuscript_revision=0,
+        ))
     for r in relationships:
         db.add(Relationship(
             from_character_id=char_rows[r["from"]].id,
@@ -622,6 +678,7 @@ def persist_structure(db: Session, genre: str, premise: str | None,
         ))
     db.commit()  # 단일 트랜잭션 커밋
     db.refresh(project)
+    first_chapter_id = chapter_rows[0].id if chapter_rows else None
 
     return {
         "project_id": project.id,
@@ -634,6 +691,7 @@ def persist_structure(db: Session, genre: str, premise: str | None,
         "volume_count": volume_count,
         "relationship_count": len(relationships),
         "volume_note_count": volume_note_count,
+        "first_chapter_id": first_chapter_id,
         "title_candidates": titles[1:],
         "theme": theme,
         "used_ai": generated_by == "ai",

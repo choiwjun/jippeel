@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type BootstrapRequest, type BootstrapResponse } from "@/lib/api";
+import {
+  api,
+  type AssistantGenerateNextResponse,
+  type BootstrapRequest,
+  type BootstrapResponse,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,7 +71,22 @@ export function BootstrapDialog({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 
-  const isBusy = bootstrap.isPending;
+  const assistantGenerate = useMutation({
+    mutationFn: (projectId: number) =>
+      api.post<AssistantGenerateNextResponse>(
+        `/projects/${projectId}/assistant/generate-next`,
+        {},
+      ),
+    onSuccess: (chapter) => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      // 서버가 저장한 정본을 편집기가 다시 읽도록 회차 앵커와 함께 이동한다.
+      bootstrap.reset();
+      onOpenChange(false);
+      navigate(`/projects/${chapter.project_id}/write?chapter=${chapter.chapter_id}`);
+    },
+  });
+
+  const isBusy = bootstrap.isPending || assistantGenerate.isPending;
 
   // 생성 중: 진행 바 애니메이션 + 단계 라벨 순환
   useEffect(() => {
@@ -94,6 +114,7 @@ export function BootstrapDialog({
     setVolumeCount(1);
     setChaptersPerVolume(10);
     bootstrap.reset();
+    assistantGenerate.reset();
   };
 
   /** 생성 중에는 닫기/Esc 무시 — 이탈 방지(P3 저장상태 톤) */
@@ -363,17 +384,42 @@ export function BootstrapDialog({
               )}
             </div>
 
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-medium">
+                AI가 제목·세계관·캐릭터·목차·회차 목표·문체·컨텍스트를 준비했습니다.
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                이 설정으로 다음 빈 회차의 본문을 생성할까요? 생성된 원고는 자동
+                저장된 뒤 편집기에 표시됩니다.
+              </p>
+            </div>
+
+            {assistantGenerate.isError && (
+              <Alert variant="error" className="mt-3">
+                <AlertDescription>
+                  {(assistantGenerate.error as Error).message ||
+                    "다음 회차 생성에 실패했습니다."}
+                </AlertDescription>
+              </Alert>
+            )}
+
             <DialogFooter>
               <Button variant="ghost" onClick={() => handleClose(false)}>
                 닫기
               </Button>
               <Button
                 onClick={() => {
-                  onOpenChange(false);
+                  handleClose(false);
                   navigate(`/projects/${result.project_id}/write`);
                 }}
               >
                 프로젝트 열기 →
+              </Button>
+              <Button
+                disabled={assistantGenerate.isPending}
+                onClick={() => assistantGenerate.mutate(result.project_id)}
+              >
+                {assistantGenerate.isPending ? "다음 회차 생성 중…" : "생성 시작"}
               </Button>
             </DialogFooter>
           </>

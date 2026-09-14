@@ -11,6 +11,7 @@ import asyncio
 import inspect
 import json
 
+import httpx
 import openai  # pyright: ignore[reportMissingImports]
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -23,7 +24,11 @@ from app.schemas import (
     AiEndpointCreate,
     AiEndpointOut,
     AiEndpointUpdate,
+    AssistantGenerateNextRequest,
+    AssistantGenerateNextResponse,
     EpisodeBrief,
+    GenerateContext,
+    GenerateParams,
     GenerateRequest,
     ParallelGenerateRequest,
     PromptPresetCreate,
@@ -31,7 +36,8 @@ from app.schemas import (
     PromptPresetUpdate,
     ReviewRequest,
 )
-from app.services import ai_context, gpt_oauth, injection, llm, parallel_writer, usage as usage_service
+from app.services import (ai_context, gpt_oauth, injection, llm, manuscripts,
+                          parallel_writer, usage as usage_service)
 
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
 # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
@@ -278,6 +284,35 @@ def _friendly_api_error(exc: openai.APIError) -> str:
     if isinstance(exc, openai.RateLimitError):
         return "ChatGPT 요청 한도 초과(429). 잠시 후 다시 시도하세요."
     return f"GPT OAuth 브릿지 오류: {getattr(exc, 'message', None) or type(exc).__name__}"
+
+
+def _is_retryable_bridge_error(exc: Exception) -> bool:
+    """스트림 중 일시적으로 끊긴 localhost bridge 요청만 한 번 재시도한다."""
+    retryable = (
+        openai.APIConnectionError,
+        openai.APITimeoutError,
+        httpx.RemoteProtocolError,
+        httpx.ReadError,
+        httpx.ConnectError,
+    )
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, retryable):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+async def _close_llm_client(client) -> None:
+    """실제 AsyncOpenAI와 테스트 fake 모두에서 안전하게 클라이언트를 닫는다."""
+    closer = getattr(client, "aclose", None)
+    if closer is None:
+        return
+    result = closer()
+    if inspect.isawaitable(result):
+        await result
 
 
 # ---------- Legacy endpoint compatibility ----------
@@ -544,6 +579,131 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
     return EventSourceResponse(event_stream())
 
 
+# ---------- AI 어시스턴트 원클릭 집필 ----------
+@router.post(
+    "/projects/{pid}/assistant/generate-next",
+    response_model=AssistantGenerateNextResponse,
+)
+async def assistant_generate_next(
+    pid: int,
+    payload: AssistantGenerateNextRequest,
+    db: Session = Depends(get_db),
+):
+    """준비된 작품의 다음 빈 회차를 집필·저장해 정본으로 반환한다.
+
+    부트스트랩은 기획 데이터만 만들고 본문은 만들지 않는다. 이 엔드포인트가
+    확인 화면의 [생성 시작]에 대응하는 유일한 실행 경로로, 회차를 서버에서
+    선택하고 공유 컨텍스트를 구성한 뒤 원고 교체 서비스로 원자 저장한다.
+    """
+    project = db.get(Project, pid)
+    if project is None:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    chapters = db.scalars(
+        select(Chapter)
+        .where(Chapter.project_id == pid)
+        .order_by(Chapter.volume.asc().nulls_last(), Chapter.sort_order.asc(), Chapter.id.asc())
+    ).all()
+    chapter = next(
+        (row for row in chapters if not (row.content_md or "").strip()),
+        None,
+    )
+    if chapter is None:
+        raise HTTPException(status_code=409, detail="생성할 빈 회차가 없습니다.")
+
+    context = GenerateContext(
+        project_id=pid,
+        chapter_id=chapter.id,
+        include_chapter_content=False,
+        expected_revision=chapter.revision,
+        previous_chapter=True,
+        auto_lore=True,
+        auto_lore_semantic=True,
+        auto_outline=True,
+        auto_foreshadow=True,
+        style_profile=True,
+        include_memory=True,
+    )
+    request = GenerateRequest(
+        prompt_override=(
+            "현재 회차의 제목·회차 목표·목차·세계관·인물 설정을 정본으로 삼아 "
+            "다음 빈 회차 본문을 완성된 한국어 웹소설 원고로 집필하라. "
+            "이전 회차의 끝에서 자연스럽게 이어지고, 이번 회차의 핵심 사건과 "
+            "인물 선택·대가를 행동과 대사로 보여줘라. 회차 끝에는 다음 사건의 "
+            "압력을 남겨라. 원고 본문만 출력하고 설명·요약·메타 문구는 쓰지 마라."
+        ),
+        context=context,
+        params=GenerateParams(max_tokens=payload.max_tokens),
+    )
+
+    provider = _get_provider_or_503()
+    model = _resolve_model(provider)
+    client = llm.make_client(provider.base_url, None)
+    try:
+        bundle = ai_context.build_context_bundle(
+            db, ai_context.request_from_generate(request)
+        )
+        _, messages, injected_lore, injected_outline, injected_foreshadows, _ = _build_messages(
+            request, db, bundle=bundle
+        )
+        raw = await llm.complete_chat(
+            client,
+            model,
+            messages,
+            max_tokens=payload.max_tokens,
+            reasoning_effort=provider.reasoning_effort,
+        )
+        content = str(raw or "").strip()
+        if not content:
+            raise HTTPException(status_code=502, detail="AI가 빈 원고를 반환했습니다.")
+
+        try:
+            saved = manuscripts.replace_manuscript(
+                db,
+                chapter.id,
+                content,
+                chapter.revision,
+                reason="assistant_generate",
+            )
+            db.commit()
+        except manuscripts.RevisionConflict as exc:
+            db.rollback()
+            raise HTTPException(status_code=409, detail=exc.detail()) from exc
+        db.refresh(saved)
+        usage_service.record(
+            kind="assistant_generate",
+            model=model,
+            endpoint_name=provider.name,
+            prompt_chars=sum(len(str(message.get("content") or "")) for message in messages),
+            completion_chars=len(content),
+        )
+        # 아래 메타데이터는 현재 응답에는 노출하지 않지만, 컨텍스트가 실제로
+        # 준비됐는지 계산되는 경로를 유지한다(향후 실행 이력에 연결할 앵커).
+        del injected_lore, injected_outline, injected_foreshadows
+        return {
+            "project_id": pid,
+            "chapter_id": saved.id,
+            "chapter_title": saved.title,
+            "revision": saved.revision,
+            "content_md": saved.content_md,
+            "word_count_cache": saved.word_count_cache,
+        }
+    except openai.APIError as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=_friendly_api_error(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:  # noqa: BLE001 — 원클릭 경로의 사용자 안내
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"다음 빈 회차 생성 실패: {type(exc).__name__}",
+        ) from exc
+    finally:
+        await _close_llm_client(client)
+
+
 # ---------- 병렬 장면 집필 스트리밍 ----------
 @router.post("/ai/generate-parallel")
 async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depends(get_db)):
@@ -559,11 +719,9 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
     _, base_messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(
         base_payload, db, bundle=bundle)
     model = _resolve_model(provider, payload.params.model)
-    generation_client = llm.make_client(provider.base_url, None)
 
     reviewer_model = _resolve_model(provider, payload.review.model)
     reviewer_effort = payload.review.reasoning_effort or provider.reasoning_effort
-    reviewer_client = generation_client
 
     planner_system = (
         "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
@@ -606,11 +764,21 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 {"role": "system", "content": _append_generation_style(planner_system, base_messages[0]["content"])},
                 {"role": "user", "content": planner_instruction},
             ]
-            planner_raw = await llm.complete_chat(
-                generation_client, model, planner_messages,
-                max_tokens=payload.params.max_tokens,
-                reasoning_effort=payload.generation_reasoning_effort,
-            )
+            for attempt in range(2):
+                generation_client = llm.make_client(provider.base_url, None)
+                try:
+                    planner_raw = await llm.complete_chat(
+                        generation_client, model, planner_messages,
+                        max_tokens=payload.params.max_tokens,
+                        reasoning_effort=payload.generation_reasoning_effort,
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001 — 일시적 bridge 끊김만 재시도
+                    if attempt == 0 and _is_retryable_bridge_error(exc):
+                        continue
+                    raise
+                finally:
+                    await _close_llm_client(generation_client)
             plan = parallel_writer.parse_parallel_plan(planner_raw, episode_purpose=bundle.episode_purpose)
             yield {
                 "event": "planner_done",
@@ -642,11 +810,24 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     {"role": "system", "content": base_messages[0]["content"]},
                     {"role": "user", "content": worker_prompt},
                 ]
-                text = await llm.complete_chat(
-                    generation_client, model, worker_messages,
-                    max_tokens=payload.params.max_tokens,
-                    reasoning_effort=payload.generation_reasoning_effort,
-                )
+                # 동시 worker가 하나의 AsyncOpenAI 연결을 공유하면 bridge의
+                # HTTP/2 stream 상태가 서로 영향을 주어 RemoteProtocolError가
+                # 발생할 수 있다. worker마다 짧은 수명의 독립 client를 쓴다.
+                for attempt in range(2):
+                    worker_client = llm.make_client(provider.base_url, None)
+                    try:
+                        text = await llm.complete_chat(
+                            worker_client, model, worker_messages,
+                            max_tokens=payload.params.max_tokens,
+                            reasoning_effort=payload.generation_reasoning_effort,
+                        )
+                        break
+                    except Exception as exc:  # noqa: BLE001 — 일시적 bridge 끊김만 재시도
+                        if attempt == 0 and _is_retryable_bridge_error(exc):
+                            continue
+                        raise
+                    finally:
+                        await _close_llm_client(worker_client)
                 return parallel_writer.SceneResult(
                     order=scene.order, title=scene.title, text=text,
                 )
@@ -714,13 +895,29 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         ]
         review_chars = 0
         try:
-            async for delta in llm.stream_chat(
-                    reviewer_client, reviewer_model, review_messages,
-                    max_tokens=payload.review.max_tokens or payload.params.max_tokens,
-                    reasoning_effort=reviewer_effort):
-                review_chars += len(delta)
-                yield {"event": "review",
-                       "data": json.dumps({"delta": delta}, ensure_ascii=False)}
+            review_max_tokens = payload.review.max_tokens or payload.params.max_tokens
+            # 감수는 원고 조립·message 이벤트 뒤의 부가 단계다. 첫 토큰 전에
+            # bridge가 끊기면 새 client로 한 번 재시도하고, 재시도까지 실패해도
+            # 이미 조립된 원고를 실패로 되돌리지 않는다.
+            for attempt in range(2):
+                reviewer_client = llm.make_client(provider.base_url, None)
+                attempt_chars = 0
+                try:
+                    async for delta in llm.stream_chat(
+                            reviewer_client, reviewer_model, review_messages,
+                            max_tokens=review_max_tokens,
+                            reasoning_effort=reviewer_effort):
+                        attempt_chars += len(delta)
+                        review_chars += len(delta)
+                        yield {"event": "review",
+                               "data": json.dumps({"delta": delta}, ensure_ascii=False)}
+                    break
+                except Exception as exc:  # noqa: BLE001 — 재시도 가능 transport 판별
+                    if attempt == 0 and attempt_chars == 0 and _is_retryable_bridge_error(exc):
+                        continue
+                    raise
+                finally:
+                    await _close_llm_client(reviewer_client)
             if review_chars:
                 usage_service.record(
                     kind="parallel_review", model=reviewer_model,

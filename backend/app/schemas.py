@@ -896,6 +896,23 @@ class GenerateRequest(BaseModel):
     review: GenerateReviewOptions | None = None
 
 
+class AssistantGenerateNextRequest(BaseModel):
+    """작품 준비 완료 후 다음 빈 회차를 자동 집필하는 요청."""
+
+    max_tokens: int | None = Field(default=None, ge=1)
+
+
+class AssistantGenerateNextResponse(BaseModel):
+    """자동 집필·저장 결과 — 편집기가 즉시 표시할 수 있는 정본."""
+
+    project_id: int
+    chapter_id: int
+    chapter_title: str
+    revision: int
+    content_md: str
+    word_count_cache: int
+
+
 # ---- Refine (M5, Sprint 3) — 부록05 §⑤-5 span 규격 / 사양 §5 윤문 API ----
 RefineRoute = Literal["light", "standard", "heavy"]
 TaxonomyCategory = Literal["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
@@ -1159,6 +1176,7 @@ class BootstrapResponse(BaseModel):
     volume_count: int
     relationship_count: int
     volume_note_count: int = 0
+    first_chapter_id: int | None = None
     title_candidates: list[str]
     theme: str | None
     used_ai: bool

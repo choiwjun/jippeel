@@ -6,24 +6,53 @@ PROJ="/mnt/c/Users/wj941/Documents/jippeel"
 BUILD="$PROJ/frontend"
 LOG_DIR="$HOME/.jippeel-logs"
 mkdir -p "$LOG_DIR"
+BACKEND_PORT="${JIPPEEL_BACKEND_PORT:-8000}"
+FRONTEND_PORT="${JIPPEEL_FRONTEND_PORT:-5173}"
+BACKEND_HOST="${JIPPEEL_BACKEND_HOST:-0.0.0.0}"
+WSL_GATEWAY="$(ip route 2>/dev/null | awk '/^default/ {print $3; exit}')"
+WSL_GATEWAY="${WSL_GATEWAY:-127.0.0.1}"
+BACKEND_PROXY_URL="${JIPPEEL_BACKEND_URL:-http://$WSL_GATEWAY:$BACKEND_PORT}"
 
-# 백엔드는 Windows venv의 python.exe로 뜬다 — WSL의 ss는 Windows 포트를 보지 못하고
-# localhost는 ::1로 해석돼 IPv4-only 리스너에 실패하므로 127.0.0.1 health probe로 판정.
-backend_up() { curl -sf --max-time 2 http://127.0.0.1:8000/health >/dev/null 2>&1; }
-port_up() { ss -tln 2>/dev/null | grep -q ":$1 "; }
+# 백엔드는 Windows venv의 python.exe로 뜬다. WSL과 Windows의 localhost가
+# 다를 수 있으므로 health probe는 curl.exe도 시도하고, 프록시는 WSL gateway를 사용한다.
+backend_up() {
+   curl -sf --max-time 2 "http://127.0.0.1:$BACKEND_PORT/health" >/dev/null 2>&1 || {
+      command -v curl.exe >/dev/null 2>&1 && \
+         curl.exe -sf --max-time 2 "http://127.0.0.1:$BACKEND_PORT/health" >/dev/null 2>&1
+   }
+}
+windows_listeners() {
+   if command -v netstat.exe >/dev/null 2>&1; then
+      netstat.exe -ano 2>/dev/null | tr -d '\r' | awk -v needle=":$1" \
+         '$1 == "TCP" && index($2, needle) == length($2) - length(needle) + 1 { print $2 }'
+   fi
+}
+port_up() {
+   ss -tln 2>/dev/null | grep -q ":$1 " || [ -n "$(windows_listeners "$1")" ]
+}
+has_lan_listener() {
+   printf '%s\n' "$1" | grep -Eq "(^|[[:space:]])(0\\.0\\.0\\.0|\\*|\\[::\\]):$BACKEND_PORT($|[[:space:]])"
+}
 
 # 1) 백엔드
 if backend_up; then
-   echo "[backend] 이미 실행 중 (:8000)"
-elif port_up 8000; then
-   echo "[경고] :8000을 다른 프로세스가 점유 중이고 /health 응답이 없습니다."
+   WINDOWS_BACKEND_LISTENERS="$(windows_listeners "$BACKEND_PORT")"
+   if [ "$BACKEND_HOST" = "0.0.0.0" ] && [ -n "$WINDOWS_BACKEND_LISTENERS" ] && \
+      ! has_lan_listener "$WINDOWS_BACKEND_LISTENERS"; then
+      echo "[경고] :$BACKEND_PORT에 기존 localhost 전용 서버가 실행 중입니다."
+      echo "       기존 Jippeel을 종료한 뒤 scripts/dev.sh를 다시 실행하세요."
+      exit 1
+   fi
+   echo "[backend] 이미 실행 중 (:$BACKEND_PORT)"
+elif port_up "$BACKEND_PORT"; then
+   echo "[경고] :$BACKEND_PORT를 다른 프로세스가 점유 중이고 /health 응답이 없습니다."
    echo "       movestudio 등 다른 프로젝트의 서버일 수 있으니 확인 후 정리하세요."
 else
    echo "[backend] uvicorn 기동..."
    (cd "$PROJ/backend" && setsid nohup env \
       IM_NOT_AI_DIAGNOSE_CMD='cp {input} {diagnosis}' \
       IM_NOT_AI_REFINE_CMD='cp {input} {output}' \
-      .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000 \
+      .venv/Scripts/python.exe -m uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" \
       >"$LOG_DIR/backend.log" 2>&1 </dev/null &)
    for i in $(seq 1 30); do
       backend_up && break
@@ -36,17 +65,18 @@ else
 fi
 
 # 2) 프론트 (빠른 ext4 빌드 디렉터리 사용)
-if port_up 5173; then
-   echo "[frontend] 이미 실행 중 (:5173)"
+if port_up "$FRONTEND_PORT"; then
+   echo "[frontend] 이미 실행 중 (:$FRONTEND_PORT)"
 else
    echo "[frontend] vite 기동..."
-   (cd "$BUILD" && setsid nohup npx vite --host --port 5173 --strictPort \
+   (cd "$BUILD" && setsid nohup env JIPPEEL_BACKEND_URL="$BACKEND_PROXY_URL" \
+      npx vite --host --port "$FRONTEND_PORT" --strictPort \
       >"$LOG_DIR/frontend.log" 2>&1 </dev/null &)
    for i in $(seq 1 40); do
-      port_up 5173 && break
+      port_up "$FRONTEND_PORT" && break
       sleep 1
    done
-   port_up 5173 && echo "[frontend] OK" || {
+   port_up "$FRONTEND_PORT" && echo "[frontend] OK" || {
       echo "[frontend] 실패 — $LOG_DIR/frontend.log 확인"
       exit 1
    }
@@ -62,5 +92,5 @@ else
    echo "       기동:     npx openai-oauth --detach"
 fi
 
-echo "[done] http://localhost:5173"
-command -v cmd.exe >/dev/null && cmd.exe /c start "" "http://localhost:5173" 2>/dev/null
+echo "[done] http://localhost:$FRONTEND_PORT"
+command -v cmd.exe >/dev/null && cmd.exe /c start "" "http://localhost:$FRONTEND_PORT" 2>/dev/null

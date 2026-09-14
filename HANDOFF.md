@@ -2,9 +2,17 @@
 
 ## 현재 작업 기준 — 2026-09-13
 
+**2026-09-14 다른 PC 접근 최소 범위:** A PC의 운영 서버가 LAN에 바인딩되도록
+`scripts/prod.sh`에 `JIPPEEL_HOST`/`JIPPEEL_PORT` 설정과 Windows 사설 IPv4 주소
+출력을 추가하고, `scripts/dev.sh`·`frontend/vite.config.ts`에는 WSL/Windows 개발
+서버 연결 설정을 반영했다. `Jippeel실행.bat` 실행 후 표시된 `http://<A-PC-IP>:8000`을 B PC에서
+열면 같은 SQLite DB를 함께 본다. 로그인 없는 현재 앱은 인터넷에 공개하지 않으며,
+같은 LAN 사용법과 방화벽·한계는 [다른 PC에서 작품 확인하기](docs/runbooks/cross-pc-access.md)에
+기록했다. 자동 클라우드 동기화·공동편집·인터넷 공개는 이번 범위에 포함하지 않는다.
+
 **새 순차 진행 승인:** M01~M05 기억 화면 → B03 품질 지표 → 회차 목표/완결·재개/summary worker → 추가 검증 → 실제 자원 수용 순서로 진행한다. M01~M05와 B03은 수용 완료했고 [승인·실행 계약](docs/superpowers/plans/2026-09-12-remaining-sequence.md)을 따른다. 완료된 P1/C13은 재개하지 않고 실제 자원은 필수 환경·예산·접근 승인 확보 전 사용하지 않는다.
 
-**진행 중(2026-09-14):** `choiwjun/d01-contract-analysis` worktree에서 D01·D03 전 단위·D04-1·V01~V04·G-045 수용 완료. 사용자 전체 위임으로 **G01 실 DB migration(완료)·G03·G04 자동화 가능 영역(네이티브 스위트+실기동 프로브+실제 브라우저 10/10)·U01~U04·O01~O03·O05·O06·V03·D04 provider 어댑터** 실행. 전체 backend **726P/1skip/70subtests/violations 0/warnings 0**, Windows 네이티브 통과. 09-14 추가: **V04 실물 대조 완료**, **SPA fallback 실제 결함 수정**(딥링크 404→index.html, API 404는 JSON 유지), **실행 스크립트 경로 정정**, Documents checkout `git pull`+dist 리빌드 완료. **09-14 최종 게이트:** **G02 실제 provider 파일럿 완료** — 실제 `openai-oauth` 브릿지(gpt-5.6-luna) 경유 6-case 실 호출 전부 완결, SSE 2,803건·usage·latency 기록, DB 해시 동일, marginal $0. **G03 OAuth 로그아웃·복구 시연 완료** — stop→credential 제거→기동 거부→복원→실 호출 성공 전 주기. **G04 NVDA 실증** — 실제 NVDA가 실제 운영 앱을 음성 발화(랜드마크·제목·버튼 롤 1:1, Tab 순환 발화). 수용 증거: `docs/audits/g02-pilot-2026-09-14/`·`g03-oauth-logout-2026-09-14/`·`g04-real-browser-2026-09-14/`. 잔여는 지정 평가자 2인의 blind 루브릭 평가 세션과 지정 장치 최종 사인오프뿐 — 모두 사용자 행동 필요.
+**진행 중(2026-09-14):** `choiwjun/d01-contract-analysis` worktree에서 D01·D03 전 단위·D04-1·V01~V04·G-045 수용 완료. 사용자 전체 위임으로 **G01 실 DB migration(완료)·G03·G04 자동화 가능 영역(네이티브 스위트+실기동 프로브+실제 브라우저 10/10)·U01~U04·O01~O03·O05·O06·V03·D04 provider 어댑터** 실행. 전체 backend **726P/1skip/70subtests/violations 0/warnings 0**, Windows 네이티브 통과. 09-14 추가: **V04 실물 대조 완료**, **SPA fallback 실제 결함 수정**(딥링크 404→index.html, API 404는 JSON 유지), **실행 스크립트 경로 정정**, Documents checkout `git pull`+dist 리빌드 완료. **09-14 최종 게이트:** **G02 실제 provider 파일럿 완료** — 실제 `openai-oauth` 브릿지(gpt-5.6-luna) 경유 6-case 실 호출 전부 완결, SSE 2,803건·usage·latency 기록, DB 해시 동일, marginal $0. **G03 OAuth 로그아웃·복구 시연 완료** — stop→credential 제거→기동 거부→복원→실 호출 성공 전 주기. **G04 NVDA 최종 사인오프 완료** — 실제 NVDA가 실제 운영 앱을 음성 발화(랜드마크·제목·버튼·콤보박스 롤/값/상태, Tab 순환 발화). **G02 독립 AI blind 평가 A/B 2회도 완료** — hard-block 없음·축별 lower median 3 이상·최대 점수 차이 1점. 수용 증거: `docs/audits/g02-pilot-2026-09-14/`·`g03-oauth-logout-2026-09-14/`·`g04-real-browser-2026-09-14/`. 작가 accept/reject와, 프로젝트 정책상 인간 평가자를 반드시 요구하는 경우의 별도 인간 세션만 남긴다. AI 평가는 인간을 사칭하지 않고 대행 평가로 기록했다.
 
 **완료·미완료·다음 작업·승인 대기는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md) 한 곳에서 관리한다.**
 기존 9월 8일 인계를 9월 13일 결과까지 대조했고, 완료·잔여·검증·운영 승인·선택 확장을 분리했다.

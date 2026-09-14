@@ -8,6 +8,14 @@
 
 ## 1. 현재 결론과 판정 기준
 
+**2026-09-14 다른 PC 접근 최소 범위:** A PC에서 `Jippeel실행.bat`을 실행하면
+운영 서버가 LAN에 바인딩되고, 실행 창에 Windows 사설 IPv4별 B PC 접속 주소를
+출력한다. `scripts/dev.sh`와 Vite 프록시도 WSL/Windows 혼합 환경에서 연결되도록
+보완했다. B PC는 같은 네트워크에서 `http://<A-PC-IP>:8000`을 열어 A PC와 같은
+SQLite DB를 본다. [사용법·방화벽·보안 한계](../runbooks/cross-pc-access.md)를
+추가했으며, 로그인 없는 현재 앱의 인터넷 공개·클라우드 동기화·실시간 공동편집은
+구현하지 않았다.
+
 **2026-09-13 별도 Git 승인:** 사용자가 “핸드오프에 모두 남기고 커밋 푸시해”를 요청했다. [통합 인계·게시 경계](2026-09-13-commit-handoff.md)에 완료/증거/D01 제안·미선택/다음 순서를 기록한다. 초기 로컬·원격 main은 c1a92c4로 확인했으며, 아래 수용 당시 Git 미실행 기록을 이번 승인과 구분한다. D01 구현·운영/외부 실행 승인은 추가되지 않았다.
 
 **2026-09-13 D01 수용:** 사용자가 전체 순차 진행과 추천안 자율 결정을 지시했다. Q1~Q7 추천 기본값(회차 목표만, option B 현재값+append-only 이력+최소 복원, purpose 함께 저장, 빈 저장≠삭제, 회차 삭제 cascade, 명시적 불러오기만 생성 반영, 명시 저장만)으로 [좁은 사양](../superpowers/plans/2026-09-13-d01-detailed-spec.md)을 확정하고 구현·격리 검증·독립 검토 2건 PASS_WITH_NOTES·지적 수정·재검증을 완료했다. [최종 수용](../audits/d01-goal-contract-2026-09-13/acceptance.md). backend focused 47P·전체 520P/skip1, frontend fixture 8+15+31P·tripwire 0, tsc exit0. 변경은 `choiwjun/d01-contract-analysis` worktree의 uncommitted 상태 — 게시는 별도 승인. 운영 DB·실제 provider·credential·실기기는 G gate 유지.
@@ -148,9 +156,9 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 | ID | 승인 단위 | 준비 완료 | 필요한 입력/실행과 완료 증거 |
 | --- | --- | --- | --- |
 | G01 | 기존 DB migration·운영 적용 | migration 코드·임시 검증·운영 런북 | **실행 완료(2026-09-13)** — 실 DB를 `f9a1b2c3d4e5` 수준에서 head `9d0e1f2a3747`로 10개 migration 적용, 백업→복원 검증→리허설→실 적용→데이터 보존 검증 전 과정 수행 [수용](../audits/g01-production-migration-2026-09-13/acceptance.md) |
-| G02 | 실제 OAuth/provider 수용·문학 품질 파일럿 | 고정 provider fake 계약·평가 설계 | **실행 완료(2026-09-14)** — 실제 `openai-oauth` 브릿지(ChatGPT OAuth, `gpt-5.6-luna`) 경유 6-case 실 호출 전부 완결(generate×3·parallel×2·review×1), raw SSE 2,803건·usage·latency 기록, DB snapshot 해시 동일, marginal $0(cap $20) [수용](../audits/g02-pilot-2026-09-14/acceptance.md). 게이트 플래그 4건 분석: 2건 게이트 오탐(`[감수]`는 review 정규 헤더)·1건 gold-contract cue 과엄격(`서도윤`→`도윤` 10회)·1건 브릿지 일시 끊김(RemoteProtocolError, draft는 완성). 잔여: 지정 평가자 2인의 blind-01..06 루브릭 평가 세션(평가 대상·gold 해시 동결 완료) |
-| G03 | credential·key 복구/로그아웃 | bridge credential 소유 경계와 키 분리 설계 | **실행 완료(2026-09-14)** — 실 crypto 경로(`g03-real-crypto-path.txt`) + **브릿지 소유 로그아웃·복구 전 주기 실증**: `openai-oauth stop`→포트 종료, 양 auth.json 제거→브릿지 기동 거부("No auth file found"), 복원→실 호출 성공("복구 완료"). 임시 credential 사본 시연 후 전량 파기 [수용](../audits/g03-oauth-logout-2026-09-14/acceptance.md). 잔여: 서버 측 세션 폐기·완전 재로그인은 사용자 브라우저 필요(절차 문서화됨) |
-| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | **실행(2026-09-13/14)** — 네이티브 전체 스위트 714P·alembic 완주·실기동 프로브(boot 3.79s·54,300자 PUT 43ms·CAS 409·snapshot/resume 정상) + **실제 브라우저 검증 10/10**(mock 없음) + **NVDA 실제 음성 발화·포커스 순환 실증**(`nvda-speech-evidence.txt` — 랜드마크·제목 수준·링크·버튼 롤 1:1 발화, Tab 순환 발화) + 병렬 세션의 NVDA 2026.1.1 설치·4개 화면 UIA 트리 확인 [수용](../audits/g04-real-browser-2026-09-14/acceptance.md)·[병렬 기록](../audits/g02-g03-g04-user-actions-2026-09-14/acceptance.md). 잔여: 지정 장치 대화형 최종 사인오프만 |
+| G02 | 실제 OAuth/provider 수용·문학 품질 파일럿 | 고정 provider fake 계약·평가 설계 | **실행 완료(2026-09-14)** — 실제 `openai-oauth` 브릿지(ChatGPT OAuth, `gpt-5.6-luna`) 경유 6-case 실 호출 전부 완결(generate×3·parallel×2·review×1), raw SSE 2,803건·usage·latency 기록, DB snapshot 해시 동일, marginal $0(cap $20) [수용](../audits/g02-pilot-2026-09-14/acceptance.md). 독립 AI evaluator A/B blind 2회도 완료: hard-block 없음·축별 lower median 3 이상·최대 점수 차이 1점 [상세](../audits/g02-pilot-2026-09-14/independent-blind-evaluation-2026-09-14.md). 인간 평가자 대체 여부와 작가 accept는 별도 정책/사용자 판단 |
+| G03 | credential·key 복구/로그아웃 | bridge credential 소유 경계와 키 분리 설계 | **실행 완료(2026-09-14)** — 실 crypto 경로(`g03-real-crypto-path.txt`) + **브릿지 소유 로그아웃·복구 전 주기 실증**: `openai-oauth stop`→포트 종료, 양 auth.json 제거→브릿지 기동 거부("No auth file found"), 복원→실 호출 성공("복구 완료"). 임시 credential 사본 시연 후 전량 파기 [수용](../audits/g03-oauth-logout-2026-09-14/acceptance.md). 서버 측 세션 폐기·완전 재로그인은 bridge 미지원 계정 소유자 선택으로 비차단 분리 |
+| G04 | 지정 Windows 실기기 수용 | Windows native 임시 DB 자동화와 WSL 실행 경로 정적 점검 | **최종 수용 완료(2026-09-14)** — 네이티브 전체 스위트 714P·alembic 완주·실기동 프로브(boot 3.79s·54,300자 PUT 43ms·CAS 409·snapshot/resume 정상) + **실제 브라우저 검증 10/10**(mock 없음) + **NVDA 실제 음성 발화·포커스 순환 실증**(`nvda-speech-evidence.txt` — 랜드마크·제목 수준·링크·버튼·콤보박스 롤/값/상태 발화, 전용 창 Tab 순환 발화) + 병렬 세션의 NVDA 2026.1.1 설치·4개 화면 UIA 트리 확인 [최종 수용](../audits/g04-real-browser-2026-09-14/acceptance.md)·[병렬 기록](../audits/g02-g03-g04-user-actions-2026-09-14/acceptance.md) |
 
 운영 DB, 실제 OAuth/provider, keyring, 지정 장치에 이번 정리로 새 승인이 생기지 않는다.
 실행 순서는 [운영 런북](../runbooks/long-memory-governance-release.md)과 각 승인서에서 확정한다.

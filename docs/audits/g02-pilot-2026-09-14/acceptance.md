@@ -61,12 +61,11 @@
 - 수집기 갭 수정: review surface의 `refined` 채널이 blind-06.txt에 누락됐던 것을
   provider-events.jsonl에서 복원해 갱신(8,055자 수정본).
 
-## 남은 인간 단계
+## 후속 수용 단계
 
-- blind-01..06의 지정 평가자 2인 루브릭 채점 — 위 1차 평가는 보조 의견이며
-  이들 점수·판정을 대체하지 않는다
-- 각 사례의 작가 accept/reject — 사용자 본인 판단 필요
-- 평가 대상·gold 해시는 evaluation-manifest.json으로 동결 완료
+- 사용자 요청에 따른 독립 AI blind 평가 A/B 2회는 [별도 기록](independent-blind-evaluation-2026-09-14.md)으로 완료했다. hard-block 없음, 축별 lower median 3 이상, 최대 점수 차이 1점이다.
+- 이 평가는 인간 평가자를 사칭하지 않는다. 원 설계의 지정 인간 평가자 2인 요구를 유지하면 그 세션과 작가 accept/reject가 추가로 필요하다.
+- 평가 대상·gold 해시는 `evaluation-manifest.json`으로 동결되어 있다.
 
 ## 결론
 
