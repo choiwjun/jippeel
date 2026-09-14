@@ -612,3 +612,221 @@ def test_arc_plan_ignores_other_projects(db_session):
 
     created, _ = _arc_plan(db_session, other.id)
     assert created == []
+
+
+# --- 권 기억 (D02 계층 기억 2차 슬라이스) ------------------------------------
+
+from app.services.summary_worker import plan_volume_summary_jobs
+
+
+def _approved_arcs(db, project, chapters, per=3):
+    """회차 per개씩 묶어 승인된 arc_summary entry를 직접 만든다."""
+    arcs = []
+    for start in range(0, len(chapters), per):
+        group = chapters[start:start + per]
+        arcs.append(
+            create_memory_entry(
+                db,
+                project_id=project.id,
+                chapter_id=None,
+                source_revision=None,
+                source_text=f"arc-{start}",
+                kind="arc_summary",
+                body=f"{group[0].sort_order}~{group[-1].sort_order}화 아크 요약",
+                visibility="approved",
+                effective_from_sort_order=group[-1].sort_order,
+                provenance={
+                    "arc_source_entry_ids": [1000 + start],
+                    "arc_size": len(group),
+                },
+            )
+        )
+    db.commit()
+    return arcs
+
+
+def _volume_plan(db, project_id, **overrides):
+    params = dict(
+        project_id=project_id,
+        volume_size=2,
+        min_volume_sources=2,
+        prompt_version="volume-v1",
+        provider_identity="fake-provider",
+        model_snapshot="fake-model-1",
+        request_options={"temperature": 0.2},
+    )
+    params.update(overrides)
+    return plan_volume_summary_jobs(db, **params)
+
+
+def test_volume_plan_groups_approved_arcs(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 10)],
+    )
+    arcs = _approved_arcs(db_session, project, chapters)  # 3 arcs
+
+    created, duplicates = _volume_plan(db_session, project.id)
+    assert len(created) == 1  # [arc1, arc2] + tail [arc3]은 min 미만 생략
+    assert duplicates == []
+    job = created[0]
+    assert job.kind == "volume"
+    assert job.chapter_id is None
+    assert job.source_ids_json == [arcs[0].id, arcs[1].id]
+    assert job.source_sort_order == 6
+
+
+def test_volume_plan_skips_draft_arcs(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 10)],
+    )
+    arcs = _approved_arcs(db_session, project, chapters)
+    arcs[1].visibility = "draft"
+    db_session.commit()
+
+    created, _ = _volume_plan(db_session, project.id)
+    # approved arc 2개뿐 — [arc1, arc3]이 연속 구간이 아니어도 묶인다
+    assert len(created) == 1
+    assert created[0].source_ids_json == [arcs[0].id, arcs[2].id]
+
+
+def test_volume_plan_idempotent_on_same_source_set(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 7)],
+    )
+    _approved_arcs(db_session, project, chapters)
+
+    created1, _ = _volume_plan(db_session, project.id)
+    created2, duplicates2 = _volume_plan(db_session, project.id)
+    assert len(created1) == 1
+    assert created2 == []
+    assert [j.id for j in duplicates2] == [created1[0].id]
+
+
+def test_volume_run_saves_draft_entry(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 7)],
+    )
+    arcs = _approved_arcs(db_session, project, chapters)
+    created, _ = _volume_plan(db_session, project.id)
+
+    processed = run_pending_summary_jobs(db_session, _fake_provider)
+    job = processed[0]
+    assert job.id == created[0].id
+    assert job.status == "draft_saved"
+    entry = db_session.get(MemoryEntry, job.memory_entry_id)
+    assert entry.kind == "volume_memory"
+    assert entry.visibility == "draft"
+    assert entry.chapter_id is None
+    assert entry.effective_from_sort_order == 6
+    prov = entry.provenance_json
+    assert prov["volume_size"] == 2
+    assert prov["volume_source_entry_ids"] == [arcs[0].id, arcs[1].id]
+
+
+def test_volume_run_stale_when_source_retired(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 7)],
+    )
+    arcs = _approved_arcs(db_session, project, chapters)
+    _volume_plan(db_session, project.id)
+    arcs[0].visibility = "retired"
+    db_session.commit()
+
+    processed = run_pending_summary_jobs(db_session, _fake_provider)
+    assert processed[0].status == "stale_source"
+    assert processed[0].memory_entry_id is None
+
+
+def test_volume_run_provider_error_retryable(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 7)],
+    )
+    _approved_arcs(db_session, project, chapters)
+    _volume_plan(db_session, project.id)
+
+    def failing(job):
+        raise RuntimeError("bridge down")
+
+    processed = run_pending_summary_jobs(db_session, failing)
+    assert processed[0].status == "provider_error"
+
+    retried = retry_summary_job(db_session, processed[0].id)
+    assert retried.status == "planned"
+    processed2 = run_pending_summary_jobs(db_session, _fake_provider)
+    assert processed2[0].status == "draft_saved"
+
+
+def test_coverage_selection_rollup_suppresses_sources(db_session):
+    """승인된 아크/권 기억이 덮는 하위 요약은 컨텍스트에서 빠진다."""
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 8)],
+    )
+    entries = _approved_summaries(db_session, project, chapters[:6])
+    arc = create_memory_entry(
+        db_session,
+        project_id=project.id,
+        chapter_id=None,
+        source_revision=None,
+        source_text="arc-src",
+        kind="arc_summary",
+        body="1~3화 아크",
+        visibility="approved",
+        effective_from_sort_order=3,
+        provenance={"arc_source_entry_ids": [e.id for e in entries[:3]]},
+    )
+    volume = create_memory_entry(
+        db_session,
+        project_id=project.id,
+        chapter_id=None,
+        source_revision=None,
+        source_text="vol-src",
+        kind="volume_memory",
+        body="1~6화 권 기억",
+        visibility="approved",
+        effective_from_sort_order=6,
+        provenance={"volume_source_entry_ids": [arc.id]},
+    )
+    db_session.commit()
+
+    # 권 기억 승인 상태 — 아크 1~3화 요약 + 아크가 전부 커버돼 빠진다.
+    selected = select_context_memory(db_session, project.id, chapters[6].id)
+    selected_ids = {e.id for e in selected}
+    assert volume.id in selected_ids
+    assert arc.id not in selected_ids
+    assert all(e.id not in selected_ids for e in entries[:3])
+    # 아크가 안 덮는 4~6화 요약은 남는다.
+    assert all(e.id in selected_ids for e in entries[3:])
+
+
+def test_coverage_draft_rollup_does_not_suppress(db_session):
+    """draft 아크는 아직 하위 요약을 대표하지 않는다."""
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 5)],
+    )
+    entries = _approved_summaries(db_session, project, chapters[:3])
+    arc = create_memory_entry(
+        db_session,
+        project_id=project.id,
+        chapter_id=None,
+        source_revision=None,
+        source_text="arc-src",
+        kind="arc_summary",
+        body="draft 아크",
+        visibility="draft",
+        effective_from_sort_order=3,
+        provenance={"arc_source_entry_ids": [e.id for e in entries]},
+    )
+    db_session.commit()
+
+    selected = select_context_memory(db_session, project.id, chapters[3].id)
+    selected_ids = {e.id for e in selected}
+    assert all(e.id in selected_ids for e in entries)
+    assert arc.id not in selected_ids  # draft는 include_draft=False에서 제외

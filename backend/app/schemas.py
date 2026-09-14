@@ -460,7 +460,7 @@ class EndingImpactOut(BaseModel):
 # ---- MemoryEntry (장편 기억 거버넌스) ----
 MemoryKind = Literal[
     "summary", "beat", "decision", "fact", "timeline", "relationship_note",
-    "arc_summary",
+    "arc_summary", "volume_memory",
 ]
 MemoryVisibility = Literal["draft", "approved", "retired"]
 

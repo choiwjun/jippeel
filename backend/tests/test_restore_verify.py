@@ -24,7 +24,7 @@ def source_db(tmp_path: Path) -> Path:
     conn = sqlite3.connect(db)
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
-    conn.execute("INSERT INTO alembic_version VALUES ('d1e2f3a4b5c6')")
+    conn.execute("INSERT INTO alembic_version VALUES ('e2f3a4b5c6d7')")
     conn.execute(
         "CREATE TABLE projects (id INTEGER PRIMARY KEY, title TEXT NOT NULL)"
     )
@@ -52,12 +52,12 @@ def test_backup_and_verify_happy_path(source_db, tmp_path):
     manifest_path = create_backup(source_db, dest)
 
     manifest = json.loads(manifest_path.read_text())
-    assert manifest["alembic_head"] == "d1e2f3a4b5c6"
+    assert manifest["alembic_head"] == "e2f3a4b5c6d7"
     assert manifest["format_version"] == 1
     names = {f["name"] for f in manifest["files"]}
     assert "database.sqlite3" in names
 
-    report = verify_backup_dir(dest, expected_alembic_head="d1e2f3a4b5c6")
+    report = verify_backup_dir(dest, expected_alembic_head="e2f3a4b5c6d7")
     assert report.ok, report.failures
     assert report.failures == []
 
@@ -195,7 +195,7 @@ def test_verify_schema_head_mismatch(source_db, tmp_path):
             f["size_bytes"] = db_file.stat().st_size
     (dest / "manifest.json").write_text(json.dumps(manifest))
 
-    report = verify_backup_dir(dest, expected_alembic_head="d1e2f3a4b5c6")
+    report = verify_backup_dir(dest, expected_alembic_head="e2f3a4b5c6d7")
     assert RestoreErrorCode.SCHEMA_HEAD_MISMATCH in _failures(report)
 
     # manifest head가 복원본과도 불일치하는 경우
@@ -295,7 +295,7 @@ def test_multiple_failures_reported_together(source_db, tmp_path):
     conn.commit()
     conn.close()
     # manifest는 갱신하지 않는다 → checksum 불일치도 같이 보고돼야 한다
-    report = verify_backup_dir(dest, expected_alembic_head="d1e2f3a4b5c6")
+    report = verify_backup_dir(dest, expected_alembic_head="e2f3a4b5c6d7")
     codes = _failures(report)
     assert RestoreErrorCode.CHECKSUM_MISMATCH in codes
     assert RestoreErrorCode.SCHEMA_HEAD_MISMATCH in codes

@@ -150,7 +150,9 @@ export type MemoryKind =
   | "decision"
   | "fact"
   | "timeline"
-  | "relationship_note";
+  | "relationship_note"
+  | "arc_summary"
+  | "volume_memory";
 export type MemoryVisibility = "draft" | "approved" | "retired";
 
 export interface MemoryEntry {

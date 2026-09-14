@@ -24,6 +24,14 @@
 - **검증:** 전체 backend 786P→(보완 후)**792P/1skip/violations 0** + frontend tsc/build 통과.
 - **09-14 사용자 검토 보완(`0c44677`):** ① 일반 AI 패널도 plan-first 기본화 — 주 버튼이 [🗺 계획 만들기](자동 전체 분석)이고 [바로 생성]은 명시적 우회. ② 어시스턴트 컨텍스트에 `auto_characters`+`include_relationships` 자동 주입 추가 — 인물 카드·관계가 수동 선택 없이 들어간다. ③ `apply`의 `expected_revision` 필수화(생략 시 422) — CAS가 계약상 강제. ④ 단일 `/ai/generate`도 `approved_plan` 계약 주입 지원. ⑤ orphan `test_assistant_flow.py`(구 자동저장 계약)를 draft-only 계약으로 이식·추적 파일화. 전체 **792P/1skip/violations 0**.
 
+**09-14 제품 후속 슬라이스 — D02 2차 + D04 잔여:**
+- **D02 권 기억:** `summary_jobs.kind='volume'` + `memory_entries.kind='volume_memory'`(migration `e2f3a4b5c6d7`). `plan_volume_summary_jobs`가 승인된 아크 요약을 `volume_size`(기본 5≈50화)로 묶고, `_process_volume_job`이 동일한 stale/idempotent 패턴으로 `volume_memory` draft를 만든다. provider는 `volume-v1` 프롬프트.
+- **D02 커버리지 선택:** `select_context_memory`가 승인된 arc가 덮는 회차 요약·승인된 volume이 덮는 아크(와 그 아래 회차 요약)를 컨텍스트에서 제외 — 같은 구간은 가장 압축된 승인본 하나만 들어간다. draft 상위 층은 하위를 덮지 않는다.
+- **D02 인지 도메인:** 작가/독자/인물별 인지 상태·사건/관계 영향 추적의 [도메인 설계](docs/specs/2026-09-14-cognitive-state-domain.md) 완료(knowledge_states·event_impacts·P1~P4 단계). 구현은 별도 슬라이스.
+- **D04 잔여:** [평가 manifest](docs/specs/2026-09-14-summary-eval-manifest.md)(공통 M1~M6 + 종류별 S/A/V 항목 + JSONL 기록 형식), MemoryPage 승인 UI 통합(자동 생성 배지·출처 필터·arc/volume 라벨·정제된 provenance 표시), `scripts/summary_backfill.py` 운영 스크립트(alembic head 검증·브릿지 pre-flight·--limit 비용 상한).
+- **운영 실행 검증:** 실제 운영 DB(`backend/jippeel.db`, 백업 `jippeel.db.bak-2026-09-14-pre-volume`)를 `d1e2f3a4b5c6`→`e2f3a4b5c6d7`로 마이그레이션 후 backfill 계획 실행 — 300회차 전부 `skipped_empty`(본문 없음, provider 호출 0건), 재실행 시 전량 duplicate로 멱등 확인. 실제 요약 생성은 본문이 쌓인 뒤 `--run --limit`으로 진행.
+- **검증:** 전체 backend **800P/1skip/violations 0** + frontend tsc/build 통과.
+
 **완료·미완료·다음 작업·승인 대기는 [전체 작업 현황](docs/handoffs/2026-09-08-remaining-work.md) 한 곳에서 관리한다.**
 기존 9월 8일 인계를 9월 13일 결과까지 대조했고, 완료·잔여·검증·운영 승인·선택 확장을 분리했다.
 문서 탐색은 [문서 상태 인덱스](docs/DOCUMENT_STATUS.md)를 사용한다.

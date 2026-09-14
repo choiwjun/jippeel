@@ -9,7 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.models import Chapter, MemoryEntry
 
-MEMORY_KINDS = ("summary", "beat", "decision", "fact", "timeline", "relationship_note", "arc_summary")
+MEMORY_KINDS = (
+    "summary", "beat", "decision", "fact", "timeline", "relationship_note",
+    "arc_summary", "volume_memory",
+)
 MEMORY_VISIBILITIES = ("draft", "approved", "retired")
 _ALLOWED_VISIBILITY_TRANSITIONS = {
     ("draft", "approved"),
@@ -141,6 +144,31 @@ def select_context_memory(
         )
         selected.append(((entry.kind, source_position, entry.id), entry))
     selected.sort(key=lambda item: item[0])
+
+    # 커버리지 선택 — 승인된 상위 층(arc_summary/volume_memory)이 대표하는
+    # 구간의 하위 요약은 제외한다. draft 상위 층은 아직 작가 승인 전이므로
+    # 하위 요약을 덮지 않는다.
+    covered: set[int] = set()
+    by_id = {entry.id: entry for entry in rows}
+    for _key, entry in selected:
+        if entry.visibility != "approved":
+            continue
+        prov = entry.provenance_json or {}
+        if entry.kind == "arc_summary":
+            covered.update(
+                int(i) for i in (prov.get("arc_source_entry_ids") or [])
+            )
+        elif entry.kind == "volume_memory":
+            for arc_id in prov.get("volume_source_entry_ids") or []:
+                arc_id = int(arc_id)
+                covered.add(arc_id)
+                arc_entry = by_id.get(arc_id)
+                arc_prov = (arc_entry.provenance_json or {}) if arc_entry else {}
+                covered.update(
+                    int(i) for i in (arc_prov.get("arc_source_entry_ids") or [])
+                )
+    if covered:
+        selected = [item for item in selected if item[1].id not in covered]
     return [entry for _key, entry in selected]
 
 

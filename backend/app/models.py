@@ -276,7 +276,7 @@ class MemoryEntry(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('summary','beat','decision','fact','timeline',"
-            "'relationship_note','arc_summary')",
+            "'relationship_note','arc_summary','volume_memory')",
             name="ck_memory_entry_kind",
         ),
         CheckConstraint(
@@ -315,7 +315,9 @@ class SummaryJob(TimestampMixin, Base):
 
     __tablename__ = "summary_jobs"
     __table_args__ = (
-        CheckConstraint("kind IN ('summary','arc')", name="ck_summary_job_kind"),
+        CheckConstraint(
+            "kind IN ('summary','arc','volume')", name="ck_summary_job_kind"
+        ),
         CheckConstraint(
             "status IN ('planned','running','draft_saved','skipped_empty',"
             "'stale_source','provider_error','rejected','duplicate_skipped')",

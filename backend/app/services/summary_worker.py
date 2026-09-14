@@ -27,6 +27,9 @@ SummaryProvider = Callable[[SummaryJob], str]
 # 아크 요약은 승인된 회차 요약을 이 크기로 묶는다 (10~20화 구간).
 DEFAULT_ARC_SIZE = 10
 MIN_ARC_SOURCES = 3
+# 권 기억은 승인된 아크 요약을 이 크기로 묶는다 (아크 5개 ≈ 50화).
+DEFAULT_VOLUME_SIZE = 5
+MIN_VOLUME_SOURCES = 2
 
 
 def _utcnow() -> datetime:
@@ -205,14 +208,122 @@ def plan_arc_summary_jobs(
     return created, duplicates
 
 
+def _volume_source_text(entries: Sequence[MemoryEntry]) -> str:
+    parts: list[str] = []
+    for index, entry in enumerate(entries):
+        end = entry.effective_from_sort_order
+        label = (
+            f"{index + 1}번째 아크 요약 (sort ≤ {end:g})"
+            if isinstance(end, (int, float))
+            else f"{index + 1}번째 아크 요약"
+        )
+        parts.append(f"[{label}] {entry.body}")
+    return "\n\n".join(parts)
+
+
+def plan_volume_summary_jobs(
+    db: Session,
+    *,
+    project_id: int,
+    volume_size: int = DEFAULT_VOLUME_SIZE,
+    min_volume_sources: int = MIN_VOLUME_SOURCES,
+    prompt_version: str,
+    provider_identity: str,
+    model_snapshot: str,
+    request_options: Mapping[str, Any],
+) -> tuple[list[SummaryJob], list[SummaryJob]]:
+    """승인된 아크 요약을 volume_size 단위로 묶어 kind='volume' job을 만든다.
+
+    원천은 visibility='approved'인 kind='arc_summary' MemoryEntry뿐 — draft는
+    묶지 않는다. 마지막 부분 묶음은 min_volume_sources 미만이면 생략한다.
+    동일 원천 집합의 job은 idempotency_key로 재사용된다.
+    """
+    if volume_size < 2:
+        raise ValueError("volume_size must be >= 2")
+    if not prompt_version.strip():
+        raise ValueError("prompt_version must not be empty")
+    if not provider_identity.strip():
+        raise ValueError("provider_identity must not be empty")
+    if not model_snapshot.strip():
+        raise ValueError("model_snapshot must not be empty")
+
+    arcs = list(
+        db.scalars(
+            select(MemoryEntry)
+            .where(
+                MemoryEntry.project_id == project_id,
+                MemoryEntry.kind == "arc_summary",
+                MemoryEntry.visibility == "approved",
+            )
+            .order_by(MemoryEntry.effective_from_sort_order, MemoryEntry.id)
+        ).all()
+    )
+
+    options_hash = canonical_request_options_hash(request_options)
+    options_json = dict(request_options)
+    created: list[SummaryJob] = []
+    duplicates: list[SummaryJob] = []
+    for start in range(0, len(arcs), volume_size):
+        group = arcs[start:start + volume_size]
+        if len(group) < min_volume_sources:
+            continue
+        source_ids = [entry.id for entry in group]
+        source_text = _volume_source_text(group)
+        source_hash = content_sha256(source_text)
+        volume_end_sort = max(
+            float(entry.effective_from_sort_order or 0) for entry in group
+        )
+        key_data = {
+            "kind": "volume",
+            "model_snapshot": model_snapshot,
+            "project_id": project_id,
+            "prompt_version": prompt_version,
+            "provider_identity": provider_identity,
+            "request_options_hash": options_hash,
+            "source_entry_ids": source_ids,
+            "source_sha256": source_hash,
+        }
+        key = _idempotency_key(key_data)
+        existing = db.scalar(
+            select(SummaryJob).where(SummaryJob.idempotency_key == key)
+        )
+        if existing is not None:
+            duplicates.append(existing)
+            continue
+        job = SummaryJob(
+            project_id=project_id,
+            chapter_id=None,
+            source_revision=0,
+            source_sha256=source_hash,
+            source_sort_order=volume_end_sort,
+            source_content_length=len(source_text),
+            kind="volume",
+            source_ids_json=source_ids,
+            prompt_version=prompt_version,
+            provider_identity=provider_identity,
+            model_snapshot=model_snapshot,
+            request_options_hash=options_hash,
+            request_options_json=options_json,
+            idempotency_key=key,
+            status="planned",
+        )
+        db.add(job)
+        created.append(job)
+    db.commit()
+    return created, duplicates
+
+
+_ROLLUP_RESULT_KIND = {"arc": "arc_summary", "volume": "volume_memory"}
+
+
 def _find_duplicate_draft(db: Session, job: SummaryJob) -> MemoryEntry | None:
     """동일 idempotency_key provenance를 가진 기존 summary draft/approved를 찾는다."""
-    kind = "arc_summary" if job.kind == "arc" else "summary"
+    kind = _ROLLUP_RESULT_KIND.get(job.kind, "summary")
     query = select(MemoryEntry).where(
         MemoryEntry.project_id == job.project_id,
         MemoryEntry.kind == kind,
     )
-    if job.kind != "arc":
+    if kind == "summary":
         if job.chapter_id is None:
             return None
         query = query.where(MemoryEntry.chapter_id == job.chapter_id)
@@ -301,9 +412,78 @@ def _process_arc_job(db: Session, job: SummaryJob, provider: SummaryProvider) ->
     _finish(job, "draft_saved")
 
 
+def _process_volume_job(db: Session, job: SummaryJob, provider: SummaryProvider) -> None:
+    """kind='volume' — 승인된 아크 요약 묶음을 권 기억 draft로 만든다."""
+    source_ids = job.source_ids_json or []
+    entries = _join_arc_sources(db, source_ids)
+    if entries is None:
+        _finish(job, "stale_source", error="volume source entry deleted")
+        return
+    for entry in entries:
+        if (entry.project_id != job.project_id or entry.kind != "arc_summary"
+                or entry.visibility != "approved"):
+            _finish(job, "stale_source", error="volume source no longer approved arc")
+            return
+    source_text = _volume_source_text(entries)
+    if content_sha256(source_text) != job.source_sha256:
+        _finish(job, "stale_source", error="volume sources changed since planning")
+        return
+
+    try:
+        text = provider(job)
+    except Exception as exc:
+        _finish(job, "provider_error", error=str(exc)[:2000])
+        return
+
+    # 생성 후 재검증 — 호출 중 원천 승인 상태가 바뀌면 저장하지 않는다.
+    recheck = _join_arc_sources(db, source_ids)
+    if recheck is None or any(e.visibility != "approved" for e in recheck):
+        _finish(job, "stale_source", error="volume sources changed during generation")
+        return
+
+    existing = _find_duplicate_draft(db, job)
+    if existing is not None:
+        job.memory_entry_id = existing.id
+        _finish(job, "duplicate_skipped")
+        return
+
+    try:
+        entry = create_memory_entry(
+            db,
+            project_id=job.project_id,
+            chapter_id=None,
+            source_revision=None,
+            source_text=source_text,
+            kind="volume_memory",
+            body=text or "",
+            visibility="draft",
+            effective_from_sort_order=job.source_sort_order,
+            provenance={
+                "generated_by": "summary-worker",
+                "job_id": job.id,
+                "idempotency_key": job.idempotency_key,
+                "prompt_version": job.prompt_version,
+                "provider_identity": job.provider_identity,
+                "model_snapshot": job.model_snapshot,
+                "request_options_hash": job.request_options_hash,
+                "volume_source_entry_ids": list(source_ids),
+                "volume_size": len(source_ids),
+            },
+        )
+    except ValueError as exc:
+        db.rollback()
+        _finish(job, "provider_error", error=f"result rejected: {exc}"[:2000])
+        return
+    job.memory_entry_id = entry.id
+    _finish(job, "draft_saved")
+
+
 def _process_job(db: Session, job: SummaryJob, provider: SummaryProvider) -> None:
     if job.kind == "arc":
         _process_arc_job(db, job, provider)
+        return
+    if job.kind == "volume":
+        _process_volume_job(db, job, provider)
         return
     # populate_existing — 같은 세션에 캐시된 오래된 chapter 상태를 읽지 않는다.
     chapter = (

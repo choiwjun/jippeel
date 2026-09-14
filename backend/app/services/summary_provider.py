@@ -28,10 +28,12 @@ from app.services.summary_worker import (
     SummaryProvider,
     _arc_source_text,
     _join_arc_sources,
+    _volume_source_text,
 )
 
 SUMMARY_PROMPT_VERSION = "summary-v1"
 ARC_PROMPT_VERSION = "arc-v1"
+VOLUME_PROMPT_VERSION = "volume-v1"
 
 # 단일 호출 상한 — 장문 원고 전체를 그대로 보내지 않는다.
 MAX_SOURCE_CHARS = 60_000
@@ -50,6 +52,15 @@ _ARC_SYSTEM_PROMPT = (
     "인물 관계 변화·복선 진행·결말 지점을 한국어로 간결하게 요약하세요. "
     "회차별 나열이 아니라 구간 전체의 흐름으로 쓰고, 요약에 없는 사실을 "
     "창작하지 마세요."
+)
+
+
+_VOLUME_SYSTEM_PROMPT = (
+    "당신은 한국 웹소설의 권 단위 장기 기억을 작성하는 보조 도구입니다. "
+    "아래는 연속된 아크들의 승인된 요약입니다. 이 권 전체에서 유지되는 "
+    "핵심 사건의 골격·인물 관계의 큰 변화·주요 복선의 상태·권이 끝나는 "
+    "지점의 상황을 한국어로 간결하게 정리하세요. 아크별 나열이 아니라 "
+    "권 전체의 맥락으로 쓰고, 요약에 없는 사실을 창작하지 마세요."
 )
 
 
@@ -81,6 +92,20 @@ def _build_arc_messages(job: SummaryJob, source_text: str) -> list[dict]:
     ]
 
 
+def _build_volume_messages(job: SummaryJob, source_text: str) -> list[dict]:
+    return [
+        {"role": "system", "content": _VOLUME_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"권 원천 아크 요약 {len(job.source_ids_json or [])}건 "
+                f"(권 끝 sort_order: {job.source_sort_order}):\n\n"
+                f"{source_text[:MAX_SOURCE_CHARS]}"
+            ),
+        },
+    ]
+
+
 def make_gpt_summary_provider(
     *,
     session_factory: sessionmaker | None = None,
@@ -106,6 +131,18 @@ def make_gpt_summary_provider(
                     raise ValueError("arc source entry missing")
                 source = _arc_source_text(db, entries)
                 messages = _build_arc_messages(job, source)
+        elif job.kind == "volume":
+            if job.prompt_version != VOLUME_PROMPT_VERSION:
+                raise ValueError(
+                    f"unsupported prompt_version {job.prompt_version!r} "
+                    f"(adapter expects {VOLUME_PROMPT_VERSION!r} for volume jobs)"
+                )
+            with factory() as db:
+                entries = _join_arc_sources(db, job.source_ids_json or [])
+                if entries is None:
+                    raise ValueError("volume source entry missing")
+                source = _volume_source_text(entries)
+                messages = _build_volume_messages(job, source)
         else:
             if job.prompt_version != SUMMARY_PROMPT_VERSION:
                 raise ValueError(

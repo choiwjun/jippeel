@@ -25,7 +25,27 @@ PYTHONPATH=. ./.venv/bin/python scripts/summary_smoke.py
 `entry_body`를 눈으로 읽어 사실성을 확인한다(원문 밖 고유명사가
 있으면 프롬프트 버그로 보고 중단).
 
-### 2. 대상 회차 job 계획 (운영)
+### 2. 대상 회차 job 계획 (운영) — `scripts/summary_backfill.py`
+
+```bash
+cd backend
+# 계획만 — provider 호출 없음, 멱등
+PYTHONPATH=. ./.venv/bin/python scripts/summary_backfill.py \
+    --db /path/to/jippeel.db --project-id 1
+
+# 계획 + worker 실행 — 1 job = 1 실제 호출, --limit으로 비용 통제
+PYTHONPATH=. ./.venv/bin/python scripts/summary_backfill.py \
+    --db /path/to/jippeel.db --project-id 1 --run --limit 5
+```
+
+- alembic head 불일치·DB 부재 시 fail-fast(종료 코드 2).
+- `--chapters all`(기본)은 프로젝트 회차 전체를 대상으로 한다 — 본문이
+  비어 있으면 `skipped_empty` job으로 기록되고 provider 호출은 없다.
+- arc·volume 단계도 같은 스크립트가 계획한다 — 원천(승인된 하위 층)이
+  없으면 자동으로 0건. `--no-arc`/`--no-volume`으로 단계를 끌 수 있다.
+- worker 실행 전 브릿지 `/models`를 확인 — 응답 없으면 중단한다.
+
+수동 호출도 여전히 가능하다:
 
 ```python
 from app.database import SessionLocal
@@ -58,6 +78,7 @@ with SessionLocal() as db:
 
 - `limit`으로 비용을 통제한다 — 1 job = 1 provider 호출.
 - 비용 cap 권장: 1회 실행당 5~10 jobs. 대량 backfill은 여러 번 나눠 실행.
+- arc/volume job도 같은 큐에서 처리된다 — 원천 승인이 바뀌면 stale_source.
 
 ### 4. 결과 확인
 

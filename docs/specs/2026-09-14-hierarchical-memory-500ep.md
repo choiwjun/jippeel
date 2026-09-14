@@ -1,6 +1,7 @@
 # 500화+ 계층 기억 — 설계 (D02 연계)
 
-2026-09-14 · 상태: 1차 슬라이스 구현 완료 (회차 요약 → 아크 요약), 권 기억·압축은 후속.
+2026-09-14 · 상태: 1차(아크 요약)·2차(권 기억 + 커버리지 선택) 슬라이스 구현 완료.
+인지·상태 도메인은 [별도 설계](2026-09-14-cognitive-state-domain.md).
 
 ## 목표
 
@@ -14,7 +15,7 @@
 |----|------|------|------|
 | 회차 요약 | `summary` | `chapter.content_md` | `summary_jobs(kind='summary')` |
 | 아크 요약 | `arc_summary` | 승인된 `summary` 10~20화 묶음 | `summary_jobs(kind='arc')` |
-| 권 기억 | (후속) `volume_memory` | 승인된 `arc_summary` 묶음 | 후속 슬라이스 |
+| 권 기억 | `volume_memory` | 승인된 `arc_summary` 묶음 | `summary_jobs(kind='volume')` |
 | 작가 규칙 | `improvement_rules` | E3 분석·작가 작성 | E4/E5 (구현됨) |
 
 공통 원칙:
@@ -37,20 +38,37 @@
 - provider 어댑터는 `ARC_PROMPT_VERSION='arc-v1'` 템플릿 — 회차 나열이 아닌
   구간 흐름 요약. 동일 `MAX_SOURCE_CHARS` 상한.
 
-## 컨텍스트 예산 전략 (후속)
+## 커버리지 선택 (구현됨 — 2차 슬라이스)
 
-현재 `select_context_memory`는 승인본 전체를 나열한다. 500화에서는:
-- 아크 요약이 회차 요약을 대표 — 같은 구간의 회차 요약이 승인된 아크 요약으로
-  덮인 경우 개별 회차 요약은 컨텍스트에서 제외하는 **커버리지 선택**이 필요.
-- 우선순위 제안: 이전 회차 원문 > 승인 규칙 > 현재 아크의 회차 요약 >
-  과거 아크 요약 > 권 기억 > 로어/복선.
+`select_context_memory`는 승인본을 나열한 뒤 **커버리지 규칙**을 적용한다:
 
-## 권 기억·압축 (후속)
+- 승인된 `arc_summary`는 `provenance.arc_source_entry_ids`에 든 회차 요약을
+  대표 — 해당 summary는 컨텍스트에서 제외.
+- 승인된 `volume_memory`는 `volume_source_entry_ids`의 아크를 대표하고,
+  그 아크가 덮는 회차 요약까지 추이적으로 제외.
+- **draft 상위 층은 하위를 덮지 않는다** — 작가 승인 전에는 승인된 하위
+  요약이 그대로 컨텍스트에 남는다.
 
-- `kind='volume'` job: 승인된 `arc_summary` 묶음 → `volume_memory` entry.
-- 오래된 기억 자동 retired: 상위 층이 승인되면 하위 층의 retired는 작가
-  액션으로만 — 자동 전이는 하지 않는다(append-only 원칙).
+결과: 같은 구간에 대해 가장 압축된 승인본 하나만 컨텍스트에 든다.
+
+## 권 기억 슬라이스 (구현됨)
+
+- `plan_volume_summary_jobs` — 승인된 `arc_summary`를 `volume_size`(기본 5,
+  ≈50화)로 묶어 `kind='volume'` job 생성. 마지막 부분 묶음은
+  `min_volume_sources`(기본 2) 미만이면 생략. idempotency·stale 패턴은
+  아크와 동일.
+- `_process_volume_job` — 원천 전부 `arc_summary`+approved 재검증,
+  생성 후 재검증, 결과는 `volume_memory` draft
+  (`effective_from_sort_order` = 마지막 아크 끝 sort).
+- provider는 `VOLUME_PROMPT_VERSION='volume-v1'` — 권 전체 골격·관계 변화·
+  복선 상태·종료 지점을 정리하는 템플릿.
+
+## 후속으로 남은 것
+
+- 오래된 기억 자동 retired: 하지 않는다 — 상위 층 승인 후 하위 retired는
+  작가 액션으로만(append-only 원칙).
 - 장기 이슈: 10화/50화 주기의 `long_arc` 카테고리 규칙(E5 제안 job과 연계).
+- 인지·상태 도메인 — [설계](2026-09-14-cognitive-state-domain.md).
 
 ## 비용·운영
 
