@@ -588,3 +588,88 @@ class ProjectFinalEdition(Base):
     manifest_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     content_md: Mapped[str] = mapped_column(Text, nullable=False, default="")
     checklist_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class GenerationRun(TimestampMixin, Base):
+    """생성 요청 봉투 — 작가 피드백 자가개선 E1.
+
+    /ai/generate·/ai/generate-parallel·/ai/review 호출 1건의 입력 컨텍스트·
+    전송 결과를 보존한다. 프롬프트 원문은 저장하지 않고 sha256·주입 내역만
+    남긴다. 산출물과 작가 처분은 GenerationOutput이 담당한다.
+    chapter 삭제 시 chapter_id는 SET NULL로 보존(감사), project 삭제 시 CASCADE.
+    """
+
+    __tablename__ = "generation_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "surface IN ('generate','generate_parallel','review')",
+            name="ck_generation_run_surface",
+        ),
+        CheckConstraint(
+            "status IN ('completed','provider_error','aborted')",
+            name="ck_generation_run_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    chapter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chapters.id", ondelete="SET NULL"), index=True
+    )
+    surface: Mapped[str] = mapped_column(String(32), nullable=False)
+    preset_id: Mapped[int | None] = mapped_column(Integer)
+    model: Mapped[str | None] = mapped_column(String(255))
+    reasoning_effort: Mapped[str | None] = mapped_column(String(20))
+    input_sha256: Mapped[str | None] = mapped_column(String(64))
+    input_manifest_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+    prompt_chars: Mapped[int] = mapped_column(Integer, default=0)
+    applied_rules_json: Mapped[list | None] = mapped_column(JSON)  # E6이 채울 승인 규칙 id
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
+    wall_ms: Mapped[int] = mapped_column(Integer, default=0)
+    ai_usage_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ai_usage.id", ondelete="SET NULL")
+    )
+
+    outputs: Mapped[list["GenerationOutput"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan", order_by="GenerationOutput.id"
+    )
+
+
+class GenerationOutput(Base):
+    """생성 산출물 — run이 만든 개별 텍스트 + 작가 처분.
+
+    작가가 끼워넣기/교체/복사/폐기하는 대상은 호출이 아니라 이 산출물이다.
+    outcome은 최신 처분 상태, outcome_events_json은 전이 이력(append-only).
+    """
+
+    __tablename__ = "generation_outputs"
+    __table_args__ = (
+        CheckConstraint(
+            "channel IN ('draft','review','refined','plan','worker')",
+            name="ck_generation_output_channel",
+        ),
+        CheckConstraint(
+            "outcome IN ('pending','inserted','replaced','copied','discarded')",
+            name="ck_generation_output_outcome",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("generation_runs.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)
+    scene_order: Mapped[int | None] = mapped_column(Integer)
+    output_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    output_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    output_chars: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    outcome_events_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    landed_text: Mapped[str | None] = mapped_column(Text)
+    chapter_revision_at_action: Mapped[int | None] = mapped_column(Integer)
+    outcome_at: Mapped[datetime | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now())
+
+    run: Mapped["GenerationRun"] = relationship(back_populates="outputs")

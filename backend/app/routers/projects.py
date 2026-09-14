@@ -108,7 +108,7 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
                 payload.genre, payload.premise, payload.title_style,
                 payload.volume_count, payload.chapters_per_volume,
                 client, provider.default_model,
-                reasoning_effort=provider.reasoning_effort)
+                reasoning_effort=provider.reasoning_effort, db=db)
             body = bootstrap_service.persist_structure(
                 db, payload.genre, payload.premise, structure,
                 generated_by="ai",

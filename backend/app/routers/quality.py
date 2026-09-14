@@ -64,7 +64,8 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
     db.refresh(run)
     usage_service.record(kind="canon", model=used_model, endpoint_name=provider.name,
                          prompt_chars=prompt_chars,
-                         completion_chars=sum(len(i["quote"]) + len(i["reason"]) for i in issues))
+                         completion_chars=sum(len(i["quote"]) + len(i["reason"]) for i in issues),
+                         db=db)
 
     response_issues = [CanonIssueOut.model_validate(issue) for issue in issues]
     return CanonCheckResponse(

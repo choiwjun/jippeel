@@ -10,7 +10,7 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from app.database import DATABASE_URL, SessionLocal, init_db
-from app.routers import (ai_panel, characters, foreshadows, lorebook,
+from app.routers import (ai_panel, characters, foreshadows, generation_runs, lorebook,
                          projects, quality, refine, scenes, system, volumes)
 from app.routers.memories import router as memories_router  # pyright: ignore[reportMissingImports]
 from app.services.auto_backup import AutoBackupConfig, start_scheduler
@@ -63,6 +63,7 @@ app.include_router(characters.router, prefix="/api/v1")
 app.include_router(lorebook.router, prefix="/api/v1")
 app.include_router(memories_router, prefix="/api/v1")
 app.include_router(ai_panel.router, prefix="/api/v1")
+app.include_router(generation_runs.router, prefix="/api/v1")
 app.include_router(refine.router, prefix="/api/v1")
 app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(foreshadows.router, prefix="/api/v1")
@@ -89,7 +90,9 @@ class _SPAStaticFiles(StaticFiles):
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:
-            if exc.status_code == 404 and not path.startswith(("api/", "health")):
+            # Windows StaticFiles는 path를 os.sep(\)로 정규화해 전달한다 — 비교 전 /로 환원
+            norm = path.replace("\\", "/")
+            if exc.status_code == 404 and not norm.startswith(("api/", "health")):
                 return await super().get_response("index.html", scope)
             raise
 

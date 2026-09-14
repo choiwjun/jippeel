@@ -10,6 +10,7 @@ OAuth credential은 jippeel이 읽거나 저장하지 않는다. ``openai-oauth`
 import asyncio
 import inspect
 import json
+import time
 
 import httpx
 import openai  # pyright: ignore[reportMissingImports]
@@ -36,7 +37,8 @@ from app.schemas import (
     PromptPresetUpdate,
     ReviewRequest,
 )
-from app.services import (ai_context, gpt_oauth, injection, llm, manuscripts,
+from app.services import (ai_context, generation_runs as generation_runs_svc,
+                          gpt_oauth, injection, llm, manuscripts,
                           parallel_writer, usage as usage_service)
 
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
@@ -423,11 +425,11 @@ def delete_preset(pid: int, db: Session = Depends(get_db)):
 
 # ---------- AI 사용량 (고도화 G-060) ----------
 @router.get("/ai/usage")
-def ai_usage(days: int = 30):
+def ai_usage(days: int = 30, db: Session = Depends(get_db)):
     """문자량 기반 AI 사용 통계 — kind+model 그룹 집계."""
     from app.schemas import AiUsageSummaryOut
     return [AiUsageSummaryOut(**row).model_dump()
-            for row in usage_service.summary(limit_days=max(min(days, 365), 1))]
+            for row in usage_service.summary(limit_days=max(min(days, 365), 1), db=db)]
 
 
 def _split_review_stream():
@@ -499,6 +501,17 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
             if payload.review.max_tokens is not None else payload.params.max_tokens,
         }
 
+    manifest = {
+        "context_metadata": context_metadata,
+        "injected_lore": injected_lore,
+        "injected_outline": injected_outline,
+        "injected_foreshadows": injected_foreshadows,
+        "episode_purpose": payload.context.episode_purpose,
+        "scene_id": payload.context.scene_id,
+        "has_prompt_override": payload.prompt_override is not None,
+        "brief": payload.context.brief.model_dump() if payload.context.brief else None,
+    }
+
     async def event_stream():
         # 시작 이벤트 — 프론트가 스트림 개시를 확정하고, 자동 주입된 로어 목록을
         # 투명하게 표시할 수 있다(주입 내역 공개)
@@ -509,72 +522,129 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                                    "review_enabled": review_cfg is not None,
                                    "context_metadata": context_metadata},
                                   ensure_ascii=False)}
+        t0 = time.monotonic()
+        outputs: list[generation_runs_svc.OutputSpec] = []
+        usage_ids: list[int] = []
+        saved: dict = {"result": None}
+        run_status = "completed"
+
+        def _finalize():
+            # E1 생성 이력 — 실패해도 스트림을 막지 않는다(best-effort)
+            if saved["result"] is None:
+                try:
+                    saved["result"] = generation_runs_svc.save_run(
+                    surface="generate",
+                    project_id=payload.context.project_id,
+                    chapter_id=payload.context.chapter_id,
+                    preset_id=payload.preset_id,
+                    model=model,
+                    reasoning_effort=provider.reasoning_effort,
+                    messages=messages,
+                    manifest={**manifest, "ai_usage_ids": usage_ids},
+                    status=run_status,
+                    wall_ms=int((time.monotonic() - t0) * 1000),
+                    outputs=outputs,
+                    ai_usage_id=usage_ids[0] if usage_ids else None,
+                    db=db)
+                except Exception:  # noqa: BLE001
+                    saved["result"] = (None, {})
+            return saved["result"]
+
         completion_chars = 0
         draft_parts: list[str] = []
+        draft_error: str | None = None
         try:
-            async for delta in llm.stream_chat(client, model, messages,
-                                               max_tokens=payload.params.max_tokens,
-                                               reasoning_effort=provider.reasoning_effort):
-                completion_chars += len(delta)
-                draft_parts.append(delta)
-                yield {"event": "message", "data": json.dumps({"delta": delta}, ensure_ascii=False)}
-        except openai.APIError as exc:
-            yield {"event": "error",
-                   "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}
-            return
-        except Exception as exc:  # noqa: BLE001 — 스트림 내 예외도 SSE 에러 이벤트로 전달
-            yield {"event": "error",
-                   "data": json.dumps({"detail": f"스트리밍 실패: {type(exc).__name__}"},
-                                      ensure_ascii=False)}
-            return
-        # G-060 사용량 기록 (best-effort)
-        usage_service.record(
-            kind="generate", model=model, endpoint_name=provider.name,
-            prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
-            completion_chars=completion_chars)
-
-        # 기존 인라인 감수 — 초안 스트림이 정상 종료된 뒤 같은 SSE로 이어간다.
-        if review_cfg is not None:
-            yield {"event": "review_start",
-                   "data": json.dumps({"model": review_cfg["model"],
-                                       "provider": review_cfg["provider_name"],
-                                       "reasoning_effort": review_cfg["reasoning_effort"]},
-                                      ensure_ascii=False)}
-            review_messages = [
-                {"role": "system", "content": _append_generation_style(REVIEW_SYSTEM_PROMPT, messages[0]["content"])},
-                {"role": "user",
-                 "content": f"{messages[-1]['content']}\n\n---\n\n[초안 원고]\n{''.join(draft_parts)}"},
-            ]
-            review_chars = 0
             try:
-                feed, flush_review = _split_review_stream()
-                async for delta in llm.stream_chat(
-                        review_cfg["client"], review_cfg["model"], review_messages,
-                        max_tokens=review_cfg["max_tokens"],
-                        reasoning_effort=review_cfg["reasoning_effort"]):
-                    review_chars += len(delta)
-                    async for event_name, chunk in feed(delta):
-                        yield {"event": event_name,
-                               "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
-                # 종료 flush — [수정본] 마커 없이 끝나도 carry의 마지막 구간을 review로 방출
-                async for event_name, chunk in flush_review():
-                    yield {"event": event_name,
-                           "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+                async for delta in llm.stream_chat(client, model, messages,
+                                                   max_tokens=payload.params.max_tokens,
+                                                   reasoning_effort=provider.reasoning_effort):
+                    completion_chars += len(delta)
+                    draft_parts.append(delta)
+                    yield {"event": "message", "data": json.dumps({"delta": delta}, ensure_ascii=False)}
             except openai.APIError as exc:
-                yield {"event": "review_error",
-                       "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}
-            except Exception as exc:  # noqa: BLE001
-                yield {"event": "review_error",
-                       "data": json.dumps({"detail": f"감수 실패: {type(exc).__name__}"},
-                                          ensure_ascii=False)}
+                draft_error = _friendly_api_error(exc)
+            except Exception as exc:  # noqa: BLE001 — 스트림 내 예외도 SSE 에러 이벤트로 전달
+                draft_error = f"스트리밍 실패: {type(exc).__name__}"
+            # E1 — 에러여도 부분 초안을 보존한다(실측이 곧 데이터)
+            if draft_parts:
+                outputs.append(generation_runs_svc.OutputSpec(
+                    channel="draft", text="".join(draft_parts)))
+            if draft_error is not None:
+                run_status = "provider_error"
+                yield {"event": "error",
+                       "data": json.dumps({"detail": draft_error}, ensure_ascii=False)}
             else:
-                if review_chars:
-                    usage_service.record(
-                        kind="review", model=review_cfg["model"],
-                        endpoint_name=review_cfg["provider_name"],
-                        prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
-                        completion_chars=review_chars)
-        yield {"event": "done", "data": "[DONE]"}
+                # G-060 사용량 기록 (best-effort)
+                uid = usage_service.record(
+                    kind="generate", model=model, endpoint_name=provider.name,
+                    prompt_chars=sum(len(str(m.get("content") or "")) for m in messages),
+                    completion_chars=completion_chars, db=db)
+                if uid is not None:
+                    usage_ids.append(uid)
+
+                # 기존 인라인 감수 — 초안 스트림이 정상 종료된 뒤 같은 SSE로 이어간다.
+                if review_cfg is not None:
+                    yield {"event": "review_start",
+                           "data": json.dumps({"model": review_cfg["model"],
+                                               "provider": review_cfg["provider_name"],
+                                               "reasoning_effort": review_cfg["reasoning_effort"]},
+                                              ensure_ascii=False)}
+                    review_messages = [
+                        {"role": "system", "content": _append_generation_style(REVIEW_SYSTEM_PROMPT, messages[0]["content"])},
+                        {"role": "user",
+                         "content": f"{messages[-1]['content']}\n\n---\n\n[초안 원고]\n{''.join(draft_parts)}"},
+                    ]
+                    review_chars = 0
+                    channel_parts: dict[str, list[str]] = {"review": [], "refined": []}
+                    try:
+                        feed, flush_review = _split_review_stream()
+                        async for delta in llm.stream_chat(
+                                review_cfg["client"], review_cfg["model"], review_messages,
+                                max_tokens=review_cfg["max_tokens"],
+                                reasoning_effort=review_cfg["reasoning_effort"]):
+                            review_chars += len(delta)
+                            async for event_name, chunk in feed(delta):
+                                channel_parts.setdefault(event_name, []).append(chunk)
+                                yield {"event": event_name,
+                                       "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+                        # 종료 flush — [수정본] 마커 없이 끝나도 carry의 마지막 구간을 review로 방출
+                        async for event_name, chunk in flush_review():
+                            channel_parts.setdefault(event_name, []).append(chunk)
+                            yield {"event": event_name,
+                                   "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+                    except openai.APIError as exc:
+                        yield {"event": "review_error",
+                               "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}
+                    except Exception as exc:  # noqa: BLE001
+                        yield {"event": "review_error",
+                               "data": json.dumps({"detail": f"감수 실패: {type(exc).__name__}"},
+                                                  ensure_ascii=False)}
+                    else:
+                        if review_chars:
+                            uid = usage_service.record(
+                                kind="review", model=review_cfg["model"],
+                                endpoint_name=review_cfg["provider_name"],
+                                prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
+                                completion_chars=review_chars, db=db)
+                            if uid is not None:
+                                usage_ids.append(uid)
+                    finally:
+                        for ch in ("review", "refined"):
+                            if channel_parts.get(ch):
+                                outputs.append(generation_runs_svc.OutputSpec(
+                                    channel=ch, text="".join(channel_parts[ch])))
+        except (GeneratorExit, asyncio.CancelledError):
+            run_status = "aborted"
+            raise
+        finally:
+            run_id, output_ids = _finalize()
+        # 종료 계약 — generation_saved(additive). draft 에러 시 기존 계약대로
+        # done 없이 종료(실패를 성공으로 오인하지 않도록)
+        yield {"event": "generation_saved",
+               "data": json.dumps({"run_id": run_id, "outputs": output_ids},
+                                  ensure_ascii=False)}
+        if draft_error is None:
+            yield {"event": "done", "data": "[DONE]"}
 
     return EventSourceResponse(event_stream())
 
@@ -759,65 +829,60 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 "context_metadata": context_metadata,
             }, ensure_ascii=False),
         }
-        try:
-            planner_messages = [
-                {"role": "system", "content": _append_generation_style(planner_system, base_messages[0]["content"])},
-                {"role": "user", "content": planner_instruction},
-            ]
-            for attempt in range(2):
-                generation_client = llm.make_client(provider.base_url, None)
-                try:
-                    planner_raw = await llm.complete_chat(
-                        generation_client, model, planner_messages,
-                        max_tokens=payload.params.max_tokens,
-                        reasoning_effort=payload.generation_reasoning_effort,
-                    )
-                    break
-                except Exception as exc:  # noqa: BLE001 — 일시적 bridge 끊김만 재시도
-                    if attempt == 0 and _is_retryable_bridge_error(exc):
-                        continue
-                    raise
-                finally:
-                    await _close_llm_client(generation_client)
-            plan = parallel_writer.parse_parallel_plan(planner_raw, episode_purpose=bundle.episode_purpose)
-            yield {
-                "event": "planner_done",
-                "data": json.dumps({
-                    "scene_count": len(plan.scenes),
-                    "scenes": [{"order": s.order, "title": s.title} for s in plan.scenes],
-                }, ensure_ascii=False),
-            }
-            for scene in plan.scenes:
-                yield {
-                    "event": "worker_start",
-                    "data": json.dumps({"order": scene.order, "title": scene.title},
-                                       ensure_ascii=False),
-                }
+        t0 = time.monotonic()
+        outputs: list[generation_runs_svc.OutputSpec] = []
+        usage_ids: list[int] = []
+        saved: dict = {"result": None}
+        run_status = "completed"
 
-            async def run_scene(scene):
-                contract = json.dumps(scene.model_dump(), ensure_ascii=False)
-                worker_prompt = (
-                    f"{base_messages[-1]['content']}\n\n"
-                    "[병렬 Worker — 자기 장면만 집필]\n"
-                    f"[장면 계약]\n{contract}\n"
-                    "opening_state에서 시작하고 objective를 향해 진행하라. "
-                    "choice를 인물의 행동과 판단으로 보여주고 cost를 실제 위험·손실로 드러내라. "
-                    "마무리는 episode_purpose와 장면 계약의 closing_hook 또는 ending_intent를 따른다. "
-                    "다른 장면을 대신 쓰지 말고 정본 컨텍스트 밖의 사실을 만들지 마라. "
-                    "장면 계약·JSON·[감수]·[수정본] 같은 메타 문구 없이 원고 본문만 출력하라."
-                )
-                worker_messages = [
-                    {"role": "system", "content": base_messages[0]["content"]},
-                    {"role": "user", "content": worker_prompt},
+        def _finalize():
+            # E1 생성 이력 — 실패해도 스트림을 막지 않는다(best-effort)
+            if saved["result"] is None:
+                try:
+                    saved["result"] = generation_runs_svc.save_run(
+                    surface="generate_parallel",
+                    project_id=payload.context.project_id,
+                    chapter_id=payload.context.chapter_id,
+                    preset_id=payload.preset_id,
+                    model=model,
+                    reasoning_effort=payload.generation_reasoning_effort,
+                    messages=base_messages,
+                    manifest={
+                        "context_metadata": context_metadata,
+                        "injected_lore": injected_lore,
+                        "injected_outline": injected_outline,
+                        "injected_foreshadows": injected_foreshadows,
+                        "episode_purpose": payload.context.episode_purpose,
+                        "scene_id": payload.context.scene_id,
+                        "worker_limit": payload.worker_limit,
+                        "has_prompt_override": payload.prompt_override is not None,
+                        "brief": (payload.context.brief.model_dump()
+                                  if payload.context.brief else None),
+                        "ai_usage_ids": usage_ids,
+                    },
+                    status=run_status,
+                    wall_ms=int((time.monotonic() - t0) * 1000),
+                    outputs=outputs,
+                    ai_usage_id=usage_ids[0] if usage_ids else None,
+                    db=db)
+                except Exception:  # noqa: BLE001
+                    saved["result"] = (None, {})
+            return saved["result"]
+
+        gen_failed = False
+        try:
+            try:
+                planner_messages = [
+                    {"role": "system", "content": _append_generation_style(planner_system, base_messages[0]["content"])},
+                    {"role": "user", "content": planner_instruction},
                 ]
-                # 동시 worker가 하나의 AsyncOpenAI 연결을 공유하면 bridge의
-                # HTTP/2 stream 상태가 서로 영향을 주어 RemoteProtocolError가
-                # 발생할 수 있다. worker마다 짧은 수명의 독립 client를 쓴다.
+                # bridge의 일시적 transport 끊김(RemoteProtocolError 등)은
+                # 새 client로 한 번 재시도한다 — G02 실측 장애 대응.
                 for attempt in range(2):
-                    worker_client = llm.make_client(provider.base_url, None)
+                    generation_client = llm.make_client(provider.base_url, None)
                     try:
-                        text = await llm.complete_chat(
-                            worker_client, model, worker_messages,
+                        planner_raw = await llm.complete_chat(
+                            generation_client, model, planner_messages,
                             max_tokens=payload.params.max_tokens,
                             reasoning_effort=payload.generation_reasoning_effort,
                         )
@@ -827,113 +892,194 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                             continue
                         raise
                     finally:
-                        await _close_llm_client(worker_client)
-                return parallel_writer.SceneResult(
-                    order=scene.order, title=scene.title, text=text,
-                )
-
-            results = await parallel_writer.run_parallel_workers(
-                plan.scenes, run_scene, payload.worker_limit,
-            )
-            quality_issues = parallel_writer.validate_results(results, plan.scenes)
-            if quality_issues:
-                raise ValueError("parallel draft quality validation failed: " + "; ".join(quality_issues))
-            review_source = parallel_writer.build_review_source(results, plan.scenes)
-            for result in results:
+                        await _close_llm_client(generation_client)
+                plan = parallel_writer.parse_parallel_plan(planner_raw, episode_purpose=bundle.episode_purpose)
+                outputs.append(generation_runs_svc.OutputSpec(channel="plan", text=planner_raw))
                 yield {
-                    "event": "worker_done",
+                    "event": "planner_done",
                     "data": json.dumps({
-                        "order": result.order,
-                        "title": result.title,
-                        "chars": len(result.text),
+                        "scene_count": len(plan.scenes),
+                        "scenes": [{"order": s.order, "title": s.title} for s in plan.scenes],
                     }, ensure_ascii=False),
                 }
-            assembled = parallel_writer.assemble_scene_results(results)
-            usage_service.record(
-                kind="parallel_plan", model=model, endpoint_name=provider.name,
-                prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
-                completion_chars=len(planner_raw),
-            )
-            usage_service.record(
-                kind="parallel_generate", model=model, endpoint_name=provider.name,
-                prompt_chars=sum(len(str(m.get("content") or "")) for m in base_messages),
-                completion_chars=len(assembled),
-            )
-            yield {"event": "message", "data": json.dumps({"delta": assembled}, ensure_ascii=False)}
-        except openai.APIError as exc:
+                for scene in plan.scenes:
+                    yield {
+                        "event": "worker_start",
+                        "data": json.dumps({"order": scene.order, "title": scene.title},
+                                           ensure_ascii=False),
+                    }
+
+                async def run_scene(scene):
+                    contract = json.dumps(scene.model_dump(), ensure_ascii=False)
+                    worker_prompt = (
+                        f"{base_messages[-1]['content']}\n\n"
+                        "[병렬 Worker — 자기 장면만 집필]\n"
+                        f"[장면 계약]\n{contract}\n"
+                        "opening_state에서 시작하고 objective를 향해 진행하라. "
+                        "choice를 인물의 행동과 판단으로 보여주고 cost를 실제 위험·손실로 드러내라. "
+                        "마무리는 episode_purpose와 장면 계약의 closing_hook 또는 ending_intent를 따른다. "
+                        "다른 장면을 대신 쓰지 말고 정본 컨텍스트 밖의 사실을 만들지 마라. "
+                        "장면 계약·JSON·[감수]·[수정본] 같은 메타 문구 없이 원고 본문만 출력하라."
+                    )
+                    worker_messages = [
+                        {"role": "system", "content": base_messages[0]["content"]},
+                        {"role": "user", "content": worker_prompt},
+                    ]
+                    # 동시 worker가 하나의 AsyncOpenAI 연결을 공유하면 bridge의
+                    # HTTP/2 stream 상태가 서로 영향을 주어 RemoteProtocolError가
+                    # 발생할 수 있다. worker마다 짧은 수명의 독립 client를 쓴다.
+                    for attempt in range(2):
+                        worker_client = llm.make_client(provider.base_url, None)
+                        try:
+                            text = await llm.complete_chat(
+                                worker_client, model, worker_messages,
+                                max_tokens=payload.params.max_tokens,
+                                reasoning_effort=payload.generation_reasoning_effort,
+                            )
+                            break
+                        except Exception as exc:  # noqa: BLE001 — 일시적 bridge 끊김만 재시도
+                            if attempt == 0 and _is_retryable_bridge_error(exc):
+                                continue
+                            raise
+                        finally:
+                            await _close_llm_client(worker_client)
+                    return parallel_writer.SceneResult(
+                        order=scene.order, title=scene.title, text=text,
+                    )
+
+                results = await parallel_writer.run_parallel_workers(
+                    plan.scenes, run_scene, payload.worker_limit,
+                )
+                quality_issues = parallel_writer.validate_results(results, plan.scenes)
+                if quality_issues:
+                    raise ValueError("parallel draft quality validation failed: " + "; ".join(quality_issues))
+                review_source = parallel_writer.build_review_source(results, plan.scenes)
+                for result in results:
+                    # E1 — 장면별 worker 산출물도 보존(스티칭 결함 분석의 재료)
+                    outputs.append(generation_runs_svc.OutputSpec(
+                        channel="worker", text=result.text, scene_order=result.order))
+                    yield {
+                        "event": "worker_done",
+                        "data": json.dumps({
+                            "order": result.order,
+                            "title": result.title,
+                            "chars": len(result.text),
+                        }, ensure_ascii=False),
+                    }
+                assembled = parallel_writer.assemble_scene_results(results)
+                outputs.append(generation_runs_svc.OutputSpec(channel="draft", text=assembled))
+                uid = usage_service.record(
+                    kind="parallel_plan", model=model, endpoint_name=provider.name,
+                    prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
+                    completion_chars=len(planner_raw), db=db,
+                )
+                if uid is not None:
+                    usage_ids.append(uid)
+                uid = usage_service.record(
+                    kind="parallel_generate", model=model, endpoint_name=provider.name,
+                    prompt_chars=sum(len(str(m.get("content") or "")) for m in base_messages),
+                    completion_chars=len(assembled), db=db,
+                )
+                if uid is not None:
+                    usage_ids.append(uid)
+                yield {"event": "message", "data": json.dumps({"delta": assembled}, ensure_ascii=False)}
+            except openai.APIError as exc:
+                gen_failed = True
+                run_status = "provider_error"
+                yield {
+                    "event": "parallel_error",
+                    "data": json.dumps({"stage": "generation", "detail": _friendly_api_error(exc)},
+                                       ensure_ascii=False),
+                }
+            except Exception as exc:  # noqa: BLE001 — 병렬 단계 전체를 사용자 이벤트로 변환
+                gen_failed = True
+                run_status = "provider_error"
+                yield {
+                    "event": "parallel_error",
+                    "data": json.dumps({
+                        "stage": "generation", "detail": f"병렬 집필 실패: {type(exc).__name__}",
+                    }, ensure_ascii=False),
+                }
+
+            if gen_failed:
+                return
+
             yield {
-                "event": "parallel_error",
-                "data": json.dumps({"stage": "generation", "detail": _friendly_api_error(exc)},
-                                   ensure_ascii=False),
-            }
-            return
-        except Exception as exc:  # noqa: BLE001 — 병렬 단계 전체를 사용자 이벤트로 변환
-            yield {
-                "event": "parallel_error",
+                "event": "review_start",
                 "data": json.dumps({
-                    "stage": "generation", "detail": f"병렬 집필 실패: {type(exc).__name__}",
+                    "model": reviewer_model,
+                    "provider": provider.name,
+                    "reasoning_effort": reviewer_effort,
                 }, ensure_ascii=False),
             }
-            return
+            review_messages = [
+                {"role": "system", "content": _append_generation_style(PARALLEL_REVIEW_SYSTEM_PROMPT, base_messages[0]["content"])},
+                {"role": "user", "content": (
+                    f"{base_messages[-1]['content']}\n\n[장면별 조립 원고 — 감수 전용 메타데이터]\n{review_source}\n\n"
+                    "다음 항목을 반드시 확인하라: episode_purpose에 맞는 마무리, 장면별 purpose·required_beats·closing_hook·ending_intent 달성, "
+                    "장면 전환의 인과, 주인공의 objective·choice·cost가 행동과 판단으로 드러나는지, "
+                    "캐릭터·세계관·시간축·위치·미회수 복선과 충돌하는지. "
+                    "원고를 다시 쓰지 말고 [감수] 의견만 출력하라.")},
+            ]
+            review_chars = 0
+            review_parts: list[str] = []
+            try:
+                review_max_tokens = payload.review.max_tokens or payload.params.max_tokens
+                # 감수는 원고 조립·message 이벤트 뒤의 부가 단계다. 첫 토큰 전에
+                # bridge가 끊기면 새 client로 한 번 재시도하고, 재시도까지 실패해도
+                # 이미 조립된 원고를 실패로 되돌리지 않는다.
+                for attempt in range(2):
+                    reviewer_client = llm.make_client(provider.base_url, None)
+                    attempt_chars = 0
+                    try:
+                        async for delta in llm.stream_chat(
+                                reviewer_client, reviewer_model, review_messages,
+                                max_tokens=review_max_tokens,
+                                reasoning_effort=reviewer_effort):
+                            attempt_chars += len(delta)
+                            review_chars += len(delta)
+                            review_parts.append(delta)
+                            yield {"event": "review",
+                                   "data": json.dumps({"delta": delta}, ensure_ascii=False)}
+                        break
+                    except Exception as exc:  # noqa: BLE001 — 재시도 가능 transport 판별
+                        if attempt == 0 and attempt_chars == 0 and _is_retryable_bridge_error(exc):
+                            continue
+                        raise
+                    finally:
+                        await _close_llm_client(reviewer_client)
+                if review_chars:
+                    uid = usage_service.record(
+                        kind="parallel_review", model=reviewer_model,
+                        endpoint_name=provider.name,
+                        prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
+                        completion_chars=review_chars, db=db,
+                    )
+                    if uid is not None:
+                        usage_ids.append(uid)
+            except openai.APIError as exc:
+                yield {"event": "parallel_error",
+                       "data": json.dumps({"stage": "review", "detail": _friendly_api_error(exc)},
+                                          ensure_ascii=False)}
+            except Exception as exc:  # noqa: BLE001
+                yield {"event": "parallel_error",
+                       "data": json.dumps({
+                           "stage": "review", "detail": f"감수 실패: {type(exc).__name__}",
+                       }, ensure_ascii=False)}
+            finally:
+                if review_parts:
+                    outputs.append(generation_runs_svc.OutputSpec(
+                        channel="review", text="".join(review_parts)))
+        except (GeneratorExit, asyncio.CancelledError):
+            run_status = "aborted"
+            raise
+        finally:
+            run_id, output_ids = _finalize()
+        # 종료 계약 — generation_saved(additive) 뒤 기존 done 이벤트
+        yield {"event": "generation_saved",
+               "data": json.dumps({"run_id": run_id, "outputs": output_ids},
+                                  ensure_ascii=False)}
 
-        yield {
-            "event": "review_start",
-            "data": json.dumps({
-                "model": reviewer_model,
-                "provider": provider.name,
-                "reasoning_effort": reviewer_effort,
-            }, ensure_ascii=False),
-        }
-        review_messages = [
-            {"role": "system", "content": _append_generation_style(PARALLEL_REVIEW_SYSTEM_PROMPT, base_messages[0]["content"])},
-            {"role": "user", "content": (
-                f"{base_messages[-1]['content']}\n\n[장면별 조립 원고 — 감수 전용 메타데이터]\n{review_source}\n\n"
-                "다음 항목을 반드시 확인하라: episode_purpose에 맞는 마무리, 장면별 purpose·required_beats·closing_hook·ending_intent 달성, "
-                "장면 전환의 인과, 주인공의 objective·choice·cost가 행동과 판단으로 드러나는지, "
-                "캐릭터·세계관·시간축·위치·미회수 복선과 충돌하는지. "
-                "원고를 다시 쓰지 말고 [감수] 의견만 출력하라.")},
-        ]
-        review_chars = 0
-        try:
-            review_max_tokens = payload.review.max_tokens or payload.params.max_tokens
-            # 감수는 원고 조립·message 이벤트 뒤의 부가 단계다. 첫 토큰 전에
-            # bridge가 끊기면 새 client로 한 번 재시도하고, 재시도까지 실패해도
-            # 이미 조립된 원고를 실패로 되돌리지 않는다.
-            for attempt in range(2):
-                reviewer_client = llm.make_client(provider.base_url, None)
-                attempt_chars = 0
-                try:
-                    async for delta in llm.stream_chat(
-                            reviewer_client, reviewer_model, review_messages,
-                            max_tokens=review_max_tokens,
-                            reasoning_effort=reviewer_effort):
-                        attempt_chars += len(delta)
-                        review_chars += len(delta)
-                        yield {"event": "review",
-                               "data": json.dumps({"delta": delta}, ensure_ascii=False)}
-                    break
-                except Exception as exc:  # noqa: BLE001 — 재시도 가능 transport 판별
-                    if attempt == 0 and attempt_chars == 0 and _is_retryable_bridge_error(exc):
-                        continue
-                    raise
-                finally:
-                    await _close_llm_client(reviewer_client)
-            if review_chars:
-                usage_service.record(
-                    kind="parallel_review", model=reviewer_model,
-                    endpoint_name=provider.name,
-                    prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
-                    completion_chars=review_chars,
-                )
-        except openai.APIError as exc:
-            yield {"event": "parallel_error",
-                   "data": json.dumps({"stage": "review", "detail": _friendly_api_error(exc)},
-                                      ensure_ascii=False)}
-        except Exception as exc:  # noqa: BLE001
-            yield {"event": "parallel_error",
-                   "data": json.dumps({
-                       "stage": "review", "detail": f"감수 실패: {type(exc).__name__}",
-                   }, ensure_ascii=False)}
         yield {"event": "done", "data": "[DONE]"}
 
     return EventSourceResponse(event_stream())
@@ -962,32 +1108,81 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
                "data": json.dumps({"model": model, "provider": provider.name,
                                    "reasoning_effort": reasoning_effort},
                                   ensure_ascii=False)}
+        t0 = time.monotonic()
+        outputs: list[generation_runs_svc.OutputSpec] = []
+        usage_ids: list[int] = []
+        saved: dict = {"result": None}
+        run_status = "completed"
+
+        def _finalize():
+            # E1 생성 이력 — 실패해도 스트림을 막지 않는다(best-effort)
+            if saved["result"] is None:
+                try:
+                    saved["result"] = generation_runs_svc.save_run(
+                    surface="review",
+                    project_id=payload.project_id,
+                    chapter_id=payload.chapter_id,
+                    preset_id=None,
+                    model=model,
+                    reasoning_effort=reasoning_effort,
+                    messages=review_messages,
+                    manifest={"ai_usage_ids": usage_ids},
+                    status=run_status,
+                    wall_ms=int((time.monotonic() - t0) * 1000),
+                    outputs=outputs,
+                    ai_usage_id=usage_ids[0] if usage_ids else None,
+                    db=db)
+                except Exception:  # noqa: BLE001
+                    saved["result"] = (None, {})
+            return saved["result"]
+
         review_chars = 0
+        channel_parts: dict[str, list[str]] = {"review": [], "refined": []}
         try:
-            feed, flush_review = _split_review_stream()
-            async for delta in llm.stream_chat(client, model, review_messages,
-                                               max_tokens=payload.max_tokens,
-                                               reasoning_effort=reasoning_effort):
-                review_chars += len(delta)
-                async for event_name, chunk in feed(delta):
+            try:
+                feed, flush_review = _split_review_stream()
+                async for delta in llm.stream_chat(client, model, review_messages,
+                                                   max_tokens=payload.max_tokens,
+                                                   reasoning_effort=reasoning_effort):
+                    review_chars += len(delta)
+                    async for event_name, chunk in feed(delta):
+                        channel_parts.setdefault(event_name, []).append(chunk)
+                        yield {"event": event_name,
+                               "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
+                async for event_name, chunk in flush_review():
+                    channel_parts.setdefault(event_name, []).append(chunk)
                     yield {"event": event_name,
                            "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
-            async for event_name, chunk in flush_review():
-                yield {"event": event_name,
-                       "data": json.dumps({"delta": chunk}, ensure_ascii=False)}
-        except openai.APIError as exc:
-            yield {"event": "review_error",
-                   "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}
-        except Exception as exc:  # noqa: BLE001
-            yield {"event": "review_error",
-                   "data": json.dumps({"detail": f"감수 실패: {type(exc).__name__}"},
-                                      ensure_ascii=False)}
-        else:
-            if review_chars:
-                usage_service.record(
-                    kind="review", model=model, endpoint_name=provider.name,
-                    prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
-                    completion_chars=review_chars)
+            except openai.APIError as exc:
+                run_status = "provider_error"
+                yield {"event": "review_error",
+                       "data": json.dumps({"detail": _friendly_api_error(exc)}, ensure_ascii=False)}
+            except Exception as exc:  # noqa: BLE001
+                run_status = "provider_error"
+                yield {"event": "review_error",
+                       "data": json.dumps({"detail": f"감수 실패: {type(exc).__name__}"},
+                                          ensure_ascii=False)}
+            else:
+                if review_chars:
+                    uid = usage_service.record(
+                        kind="review", model=model, endpoint_name=provider.name,
+                        prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
+                        completion_chars=review_chars, db=db)
+                    if uid is not None:
+                        usage_ids.append(uid)
+            finally:
+                for ch in ("review", "refined"):
+                    if channel_parts.get(ch):
+                        outputs.append(generation_runs_svc.OutputSpec(
+                            channel=ch, text="".join(channel_parts[ch])))
+        except (GeneratorExit, asyncio.CancelledError):
+            run_status = "aborted"
+            raise
+        finally:
+            run_id, output_ids = _finalize()
+        yield {"event": "generation_saved",
+               "data": json.dumps({"run_id": run_id, "outputs": output_ids},
+                                  ensure_ascii=False)}
         yield {"event": "done", "data": "[DONE]"}
 
     return EventSourceResponse(event_stream())
