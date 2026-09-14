@@ -90,6 +90,9 @@ export function PlanPage() {
         loading={projectQuery.isPending}
       />
 
+      {/* 레퍼런스 스타일 분석 — 작가 제공 텍스트 → 프로파일 초안 */}
+      <StyleAnalyzer pid={pid} />
+
       {/* 결말 후보 + 변경 영향 (D03-7) */}
       <EndingSection pid={pid} project={projectQuery.data} />
 
@@ -217,6 +220,111 @@ function StyleProfileEditor({ pid, initial, loading }: { pid: number; initial: s
         value={text}
         onChange={(e) => onChange(e.target.value)}
       />
+    </section>
+  );
+}
+
+interface StyleAnalysisResult {
+  metrics: Record<string, unknown>;
+  profile_draft: string;
+}
+
+const METRIC_LABELS: Record<string, string> = {
+  chars: '글자 수',
+  paragraphs: '단락 수',
+  sentences: '문장 수',
+  dialogue_ratio: '대화 비율',
+  sent_len_avg: '문장 평균(자)',
+  sent_len_median: '문장 중앙값(자)',
+  sent_len_p90: '문장 상위10%(자)',
+  short_sentence_ratio: '단문 비율',
+  long_sentence_ratio: '장문 비율',
+  connective_ending_ratio: '연결어미 비율',
+  pov_guess: '시점',
+  sentences_per_paragraph: '단락당 문장',
+};
+
+/** 레퍼런스 텍스트 분석 → 문체 프로파일 초안. 작가가 붙여넣은 텍스트만 대상. */
+function StyleAnalyzer({ pid }: { pid: number }) {
+  const queryClient = useQueryClient();
+  const [reference, setReference] = useState('');
+  const [result, setResult] = useState<StyleAnalysisResult | null>(null);
+  const [draft, setDraft] = useState('');
+
+  const analyze = useMutation({
+    mutationFn: (text: string) =>
+      api.post<StyleAnalysisResult>(`/projects/${pid}/style-analysis`, { text }),
+    onSuccess: (res) => {
+      setResult(res);
+      setDraft(res.profile_draft);
+    },
+    onError: (e) => toast(`분석 실패: ${(e as Error).message}`, 'error'),
+  });
+
+  const apply = useMutation({
+    mutationFn: (value: string) =>
+      api.patch<Project>(`/projects/${pid}`, { style_profile: value }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', pid] });
+      toast('문체 프로파일에 적용했습니다.', 'success');
+    },
+    onError: (e) => toast(`적용 실패: ${(e as Error).message}`, 'error'),
+  });
+
+  return (
+    <section className="rounded-md border border-border p-3">
+      <Label>레퍼런스 스타일 분석</Label>
+      <p className="mb-2 mt-1 text-[11px] text-muted-foreground">
+        좋아하는 문체의 텍스트(내 과거작·참고하고 싶은 작품 발췌 등)를 붙여넣으면
+        문장 길이·대화 비율·어미 패턴을 측정하고 프로파일 초안을 만듭니다.
+        검토 후 적용하면 이후 생성에 반영됩니다.
+      </p>
+      <Textarea
+        aria-label="레퍼런스 텍스트"
+        rows={5}
+        placeholder="분석할 원문을 붙여넣으세요 (200자 이상)…"
+        value={reference}
+        onChange={(e) => setReference(e.target.value)}
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <Button
+          size="sm"
+          disabled={analyze.isPending || reference.trim().length < 200}
+          onClick={() => analyze.mutate(reference)}
+        >
+          {analyze.isPending ? '분석 중…' : '스타일 분석'}
+        </Button>
+        <span className="text-[10px] text-muted-foreground">
+          {reference.trim().length.toLocaleString()}자 / 최소 200자
+        </span>
+      </div>
+      {result && (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(result.metrics)
+              .filter(([k]) => k !== 'top_endings')
+              .map(([k, v]) => (
+                <Badge key={k} variant="outline" className="text-[10px]">
+                  {METRIC_LABELS[k] ?? k}: {typeof v === 'number' ? v : String(v)}
+                </Badge>
+              ))}
+          </div>
+          <Label className="text-xs">프로파일 초안 (수정 가능)</Label>
+          <Textarea
+            aria-label="프로파일 초안"
+            rows={6}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <Button
+            size="sm"
+            disabled={apply.isPending || !draft.trim()}
+            onClick={() => apply.mutate(draft)}
+          >
+            문체 프로파일에 적용
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
