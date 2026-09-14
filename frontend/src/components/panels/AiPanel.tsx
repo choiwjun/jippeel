@@ -28,6 +28,7 @@ import {
   type AiResultOrigin,
   type EpisodeBriefState,
   type EpisodePurpose,
+  type PendingPlan,
 } from "@/stores/aiPanelStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { flushManuscriptDraft } from "@/lib/manuscriptDrafts";
@@ -276,6 +277,8 @@ export function AiPanel() {
   const pendingGenerate = useAiPanelStore((s) => s.pendingGenerate);
   const status = useAiPanelStore((s) => s.status);
   const error = useAiPanelStore((s) => s.error);
+  const pendingPlan = useAiPanelStore((s) => s.pendingPlan);
+  const planBusy = useAiPanelStore((s) => s.planBusy);
 
   // 서버 데이터 — provider 선택/모델 목록 API 없이 고정 OAuth 계정을 사용한다.
   const presetsQuery = useQuery({
@@ -293,15 +296,19 @@ export function AiPanel() {
    * 언마운트 클린업 없음: 쿼리 settle 등으로 인한 재마운트가 스트림을 죽이지 않는다.
    * 패널 의도적 닫힘(close/toggle-off) 시에만 store.close()가 abort한다.
    */
-  const generate = useCallback(() => {
-    void (async () => {
+  /**
+   * 공통 전처리 — 프리셋/프롬프트 검사, 편집기 바인딩·revision 앵커,
+   * directives·브리프·컨텍스트 조립. 생성과 계획 요청이 같은 경로를 쓴다.
+   * 실패 시 null을 반환하고 시작 토큰은 여기서 해제한다.
+   */
+  const prepareRequest = useCallback(async () => {
       const store = useAiPanelStore.getState();
       if (!store.presetId && !store.promptOverride.trim()) {
         toast("프리셋을 고르거나 프롬프트를 입력하세요.", "warning");
-        return;
+        return null;
       }
       const startToken = store.reserveAiStart("generate");
-      if (startToken === null) return;
+      if (startToken === null) return null;
 
       const editorBefore = useEditorStore.getState();
       const c = structuredClone(store.contextSelection);
@@ -328,7 +335,7 @@ export function AiPanel() {
             "warning",
           );
           useAiPanelStore.getState().clearAiStart(startToken);
-          return;
+          return null;
         }
         boundProjectId = c.projectId;
         boundChapterId = c.chapterId;
@@ -362,7 +369,7 @@ export function AiPanel() {
         } catch (e) {
           toast((e as Error).message, "error");
           useAiPanelStore.getState().clearAiStart(startToken);
-          return;
+          return null;
         }
         const after = useEditorStore.getState();
         const activeAfter = useAiPanelStore.getState().activeEditorIdentity;
@@ -378,16 +385,15 @@ export function AiPanel() {
             useAiPanelStore.getState().clearAiStart(startToken);
           }
           toast("회차가 바뀌어 AI 요청을 시작하지 않았습니다.", "warning");
-          return;
+          return null;
         }
         expectedRevision = flushed.detail.revision;
         boundProjectId = flushed.detail.project_id;
         boundChapterId = flushed.detail.id;
       }
 
-      if (!useAiPanelStore.getState().isAiStartCurrent(startToken)) return;
-      const parallel = settingsSnapshot.generationMode === "parallel";
-      const body = {
+      if (!useAiPanelStore.getState().isAiStartCurrent(startToken)) return null;
+      const base = {
         preset_id: settingsSnapshot.presetId,
         prompt_override: settingsSnapshot.promptOverride || null,
         context: {
@@ -417,6 +423,36 @@ export function AiPanel() {
           model: GPT_OAUTH_PROVIDER.default_model,
           max_tokens: settingsSnapshot.maxTokens,
         },
+      };
+      return {
+        startToken,
+        base,
+        boundProjectId,
+        boundChapterId,
+        expectedRevision,
+        includeChapterContent: editorIntent ? c.includeChapterContent : false,
+        settingsSnapshot,
+      };
+  }, []);
+
+  /** P2 — [수락하고 집필]: 승인된 계획을 planner 재호출 없이 실행한다 */
+  const generate = useCallback(
+    (approved?: { plan: PendingPlan["plan"]; planOutputId: number | null }) => {
+    void (async () => {
+      const prep = await prepareRequest();
+      if (!prep) return;
+      const {
+        startToken,
+        base,
+        boundProjectId,
+        boundChapterId,
+        expectedRevision,
+        includeChapterContent,
+        settingsSnapshot,
+      } = prep;
+      const parallel = settingsSnapshot.generationMode === "parallel";
+      const body = {
+        ...base,
         ...(parallel
           ? {
               worker_limit: settingsSnapshot.workerLimit,
@@ -426,6 +462,12 @@ export function AiPanel() {
                 reasoning_effort:
                   settingsSnapshot.parallelReviewEffort || "xhigh",
               },
+              ...(approved
+                ? {
+                    approved_plan: approved.plan,
+                    plan_output_id: approved.planOutputId,
+                  }
+                : {}),
             }
           : {
               review: settingsSnapshot.reviewPass
@@ -440,7 +482,7 @@ export function AiPanel() {
         projectId: boundProjectId,
         chapterId: boundChapterId,
         expectedRevision,
-        includeChapterContent: editorIntent ? c.includeChapterContent : false,
+        includeChapterContent,
         startedAt: Date.now(),
       });
       const stream = parallel ? streamParallelGenerate : streamGenerate;
@@ -518,7 +560,49 @@ export function AiPanel() {
       );
       useAiPanelStore.getState().clearAiStart(startToken);
     })();
-  }, []);
+    },
+    [prepareRequest],
+  );
+
+  /**
+   * P1 — [계획 보기]: 컨텍스트를 분석해 장면 계획만 받는다. 원고는 쓰지 않고
+   * pendingPlan에 보관해 작가가 전체를 한 번에 검토하게 한다.
+   */
+  const requestPlan = useCallback(() => {
+    void (async () => {
+      const prep = await prepareRequest();
+      if (!prep) return;
+      const st = useAiPanelStore.getState();
+      st.setPlanBusy(true);
+      st.setPlanError(null);
+      st.setPendingPlan(null);
+      try {
+        const res = await api.post<{
+          run_id: number | null;
+          plan_output_id: number | null;
+          plan: PendingPlan["plan"];
+          chapter_revision: number | null;
+          episode_purpose: string;
+        }>("/ai/plan", {
+          ...prep.base,
+          generation_reasoning_effort: "medium",
+        });
+        st.setPendingPlan({
+          runId: res.run_id,
+          planOutputId: res.plan_output_id,
+          chapterRevision: res.chapter_revision,
+          plan: res.plan,
+        });
+      } catch (e) {
+        const msg = (e as Error).message;
+        st.setPlanError(msg);
+        toast(msg, "error");
+      } finally {
+        st.setPlanBusy(false);
+        useAiPanelStore.getState().clearAiStart(prep.startToken);
+      }
+    })();
+  }, [prepareRequest]);
 
   // provider 로딩을 기다릴 필요가 없으므로 과거 pending 플래그만 정리한다.
   useEffect(() => {
@@ -745,7 +829,7 @@ export function AiPanel() {
           </Button>
         ) : (
           <Button
-            onClick={generate}
+            onClick={() => generate()}
             title={
               pendingGenerate ? "집필 요청을 준비하는 중입니다." : undefined
             }
@@ -755,6 +839,18 @@ export function AiPanel() {
               : generationMode === "parallel"
                 ? "✨ 병렬 집필 시작"
                 : "✨ 생성 시작"}
+          </Button>
+        )}
+        {/* P1 — 계획 먼저 검토: 병렬 모드에서만 제공(계획은 장면 계약이다) */}
+        {status !== "streaming" && generationMode === "parallel" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={requestPlan}
+            disabled={planBusy}
+            title="원고를 쓰지 않고 장면 계획만 먼저 받아 검토합니다."
+          >
+            {planBusy ? "⏳ 계획 생성 중" : "🗺 계획 보기"}
           </Button>
         )}
         {status === "streaming" && (
@@ -777,6 +873,21 @@ export function AiPanel() {
         )}
       </div>
 
+      {/* P1 — 계획 검토 카드: 승인 전까지 원고를 쓰지 않는다 */}
+      {pendingPlan && (
+        <PlanReviewCard
+          plan={pendingPlan}
+          busy={status === "streaming" || planBusy}
+          onAccept={() => {
+            const p = pendingPlan;
+            useAiPanelStore.getState().setPendingPlan(null);
+            generate({ plan: p.plan, planOutputId: p.planOutputId });
+          }}
+          onRegenerate={requestPlan}
+          onDiscard={() => useAiPanelStore.getState().setPendingPlan(null)}
+        />
+      )}
+
       {/* 응답 (FR-405) + P1 액션 3버튼 */}
       <ResultSection />
       {error ? (
@@ -784,7 +895,99 @@ export function AiPanel() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+
+      {/* E7 — 작가 규칙(제안→승인→적용) + 회차 생성 이력 */}
+      {ctx.projectId !== null && <RulesSection projectId={ctx.projectId} />}
+      {ctx.chapterId !== null && (
+        <GenerationHistorySection chapterId={ctx.chapterId} />
+      )}
     </div>
+  );
+}
+
+/** P1 — 집필 계획 검토 카드: 승인된 계획만 generate-parallel로 집필된다 */
+function PlanReviewCard({
+  plan,
+  busy,
+  onAccept,
+  onRegenerate,
+  onDiscard,
+}: {
+  plan: PendingPlan;
+  busy: boolean;
+  onAccept: () => void;
+  onRegenerate: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <section
+      className="rounded-md border border-border p-3"
+      aria-label="집필 계획 검토"
+    >
+      <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
+        집필 계획 — {plan.plan.scenes.length}개 장면
+      </h3>
+      <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+        계획은 아직 원고가 아닙니다. [수락하고 집필]을 눌러야 이 계획대로
+        병렬 집필이 시작되고, [폐기]는 아무것도 반영하지 않습니다.
+      </p>
+      <ol className="flex flex-col gap-2">
+        {plan.plan.scenes.map((scene) => (
+          <li
+            key={scene.order}
+            className="rounded-sm bg-muted px-2 py-2"
+          >
+            <p className="text-xs font-medium">
+              {scene.order}. {scene.title}
+            </p>
+            <dl className="mt-1 grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-0.5 text-[11px] leading-snug">
+              <dt className="text-muted-foreground">목적</dt>
+              <dd>{scene.purpose}</dd>
+              <dt className="text-muted-foreground">목표</dt>
+              <dd>{scene.objective}</dd>
+              <dt className="text-muted-foreground">선택</dt>
+              <dd>{scene.choice}</dd>
+              <dt className="text-muted-foreground">대가</dt>
+              <dd>{scene.cost}</dd>
+              <dt className="text-muted-foreground">비트</dt>
+              <dd>{scene.required_beats.join(" → ")}</dd>
+              <dt className="text-muted-foreground">인물</dt>
+              <dd>{scene.characters.join(", ")}</dd>
+              <dt className="text-muted-foreground">시작 상태</dt>
+              <dd>{scene.opening_state}</dd>
+              {scene.closing_hook ? (
+                <>
+                  <dt className="text-muted-foreground">훅</dt>
+                  <dd>{scene.closing_hook}</dd>
+                </>
+              ) : null}
+              {scene.ending_intent ? (
+                <>
+                  <dt className="text-muted-foreground">결말 의도</dt>
+                  <dd>{scene.ending_intent}</dd>
+                </>
+              ) : null}
+            </dl>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-3 flex items-center gap-2">
+        <Button size="sm" onClick={onAccept} disabled={busy}>
+          ✅ 수락하고 집필
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRegenerate}
+          disabled={busy}
+        >
+          다시 생성
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onDiscard} disabled={busy}>
+          폐기
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -1721,7 +1924,7 @@ function ResultSection() {
 
   /** E2 — 작가 처분 기록. 실패해도 편집을 막지 않는다(best-effort). */
   const recordOutcome = useCallback(
-    (outcome: "inserted" | "replaced" | "copied") => {
+    (outcome: "inserted" | "replaced" | "copied" | "discarded") => {
       const channel =
         resultTab === "refined"
           ? "refined"
@@ -1745,7 +1948,10 @@ function ResultSection() {
         try {
           await api.post(`/generation-outputs/${outputId}/outcome`, {
             outcome,
-            landed_text: outcome === "copied" ? undefined : text,
+            landed_text:
+              outcome === "copied" || outcome === "discarded"
+                ? undefined
+                : text,
             chapter_revision: chapterRevision,
           });
         } catch {
@@ -1819,6 +2025,14 @@ function ResultSection() {
     }
   }, [activeText, recordOutcome]);
 
+  /** E7 — 명시 폐기: 결과를 버리고 discarded 처분을 기록한다(복사≠수용과
+   *  같은 이유로 UI 리셋은 폐기가 아니며, 이 버튼만이 폐기 신호다). */
+  const discardResult = useCallback(() => {
+    recordOutcome("discarded");
+    useAiPanelStore.getState().resetResult();
+    toast("결과를 폐기했습니다 — 본문에 반영되지 않았습니다.", "info");
+  }, [recordOutcome]);
+
   const busy = status === "streaming";
   const hasText = activeText.length > 0;
   // 감수 의견 탭은 본문 반영 대상이 아니다 — 복사만 허용
@@ -1884,7 +2098,7 @@ function ResultSection() {
         )}
       </div>
       <div
-        className="grid grid-cols-3 gap-1.5 border-t border-border p-2"
+        className="grid grid-cols-4 gap-1.5 border-t border-border p-2"
         title="결과 도착 후 활성화됩니다 (P1)"
       >
         <Button
@@ -1911,7 +2125,377 @@ function ResultSection() {
         >
           ⧉ 복사
         </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!hasText || busy}
+          onClick={discardResult}
+          title="결과를 버리고 '폐기' 처분을 기록합니다"
+        >
+          ✕ 폐기
+        </Button>
       </div>
+    </section>
+  );
+}
+
+// ---------- E7 — 작가 규칙 패널 + 회차 생성 이력 ----------
+
+const RULE_CATEGORY_LABELS: Record<string, string> = {
+  style: "문체",
+  deleted_expression: "삭제 표현",
+  character_voice: "인물 말투",
+  pacing: "전개 속도",
+  length: "분량",
+  recurring_error: "반복 오류",
+  canon_gap: "설정 누락",
+  long_arc: "장기 흐름",
+};
+
+const RULE_STATUS_LABELS: Record<string, string> = {
+  proposed: "제안",
+  approved: "승인됨",
+  rejected: "거절됨",
+  retired: "폐기됨",
+};
+
+interface ImprovementRuleItem {
+  id: number;
+  category: string;
+  rule_text: string;
+  status: string;
+  source: string;
+  rationale: string | null;
+  evidence_json: Array<{
+    kind: string;
+    id?: number | null;
+    text?: string | null;
+  }>;
+  created_at: string;
+}
+
+function RuleRow({
+  rule,
+  onDecide,
+  deciding,
+}: {
+  rule: ImprovementRuleItem;
+  onDecide: (id: number, decision: "approve" | "reject" | "retire") => void;
+  deciding: boolean;
+}) {
+  return (
+    <li className="rounded-sm bg-muted px-2 py-2">
+      <div className="flex items-center gap-1.5">
+        <Badge variant="outline">
+          {RULE_CATEGORY_LABELS[rule.category] ?? rule.category}
+        </Badge>
+        <Badge variant={rule.status === "approved" ? "done" : "outline"}>
+          {RULE_STATUS_LABELS[rule.status] ?? rule.status}
+        </Badge>
+        {rule.source === "system_proposal" && (
+          <Badge variant="revising">시스템 제안</Badge>
+        )}
+      </div>
+      <p className="mt-1 text-xs leading-snug">{rule.rule_text}</p>
+      {rule.rationale ? (
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          근거: {rule.rationale}
+        </p>
+      ) : null}
+      {rule.evidence_json.length > 0 && (
+        <p className="mt-0.5 text-[10px] text-muted-foreground">
+          근거 링크{" "}
+          {rule.evidence_json
+            .map((e) =>
+              e.kind === "note"
+                ? `메모 “${e.text}”`
+                : e.kind === "generation_output"
+                  ? `산출물 #${e.id}`
+                  : `회차 #${e.id}`,
+            )
+            .join(" · ")}
+        </p>
+      )}
+      <div className="mt-1.5 flex gap-1.5">
+        {rule.status === "proposed" && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={deciding}
+              onClick={() => onDecide(rule.id, "approve")}
+            >
+              승인
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={deciding}
+              onClick={() => onDecide(rule.id, "reject")}
+            >
+              거절
+            </Button>
+          </>
+        )}
+        {rule.status === "approved" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={deciding}
+            onClick={() => onDecide(rule.id, "retire")}
+          >
+            폐기
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function RulesSection({ projectId }: { projectId: number }) {
+  const queryClient = useQueryClient();
+  const rulesQuery = useQuery({
+    queryKey: ["improvement-rules", projectId],
+    queryFn: () =>
+      api.get<ImprovementRuleItem[]>(
+        `/projects/${projectId}/improvement-rules`,
+      ),
+  });
+  const [category, setCategory] = useState("style");
+  const [text, setText] = useState("");
+  const invalidate = () =>
+    queryClient.invalidateQueries({
+      queryKey: ["improvement-rules", projectId],
+    });
+
+  const decide = useMutation({
+    mutationFn: ({
+      id,
+      decision,
+    }: {
+      id: number;
+      decision: "approve" | "reject" | "retire";
+    }) =>
+      api.post(`/projects/${projectId}/improvement-rules/${id}/decision`, {
+        decision,
+      }),
+    onSuccess: () => void invalidate(),
+    onError: (e) => toast((e as Error).message, "error"),
+  });
+  const create = useMutation({
+    mutationFn: (status_: "proposed" | "approved") =>
+      api.post(`/projects/${projectId}/improvement-rules`, {
+        category,
+        rule_text: text,
+        status: status_,
+      }),
+    onSuccess: () => {
+      setText("");
+      void invalidate();
+    },
+    onError: (e) => toast((e as Error).message, "error"),
+  });
+
+  const rules = rulesQuery.data ?? [];
+  const proposed = rules.filter((r) => r.status === "proposed");
+  const approved = rules.filter((r) => r.status === "approved");
+  const closed = rules.filter(
+    (r) => r.status === "rejected" || r.status === "retired",
+  );
+
+  return (
+    <section className="rounded-md border border-border p-3">
+      <h3 className="mb-1 text-xs font-semibold text-muted-foreground">
+        작가 규칙
+      </h3>
+      <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+        승인된 규칙만 다음 생성의 [작가 승인 규칙] 블록에 주입됩니다. 제안·거절된
+        규칙과 다른 작품의 규칙은 적용되지 않습니다.
+      </p>
+
+      {proposed.length > 0 && (
+        <>
+          <p className="mb-1 text-[11px] font-medium">검토 대기</p>
+          <ul className="mb-2 flex flex-col gap-1.5">
+            {proposed.map((r) => (
+              <RuleRow
+                key={r.id}
+                rule={r}
+                deciding={decide.isPending}
+                onDecide={(id, d) => decide.mutate({ id, decision: d })}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+      {approved.length > 0 && (
+        <>
+          <p className="mb-1 text-[11px] font-medium">적용 중 (승인됨)</p>
+          <ul className="mb-2 flex flex-col gap-1.5">
+            {approved.map((r) => (
+              <RuleRow
+                key={r.id}
+                rule={r}
+                deciding={decide.isPending}
+                onDecide={(id, d) => decide.mutate({ id, decision: d })}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+      {closed.length > 0 && (
+        <details className="mb-2">
+          <summary className="cursor-pointer text-[11px] text-muted-foreground">
+            종결된 규칙 {closed.length}개
+          </summary>
+          <ul className="mt-1 flex flex-col gap-1.5">
+            {closed.map((r) => (
+              <RuleRow
+                key={r.id}
+                rule={r}
+                deciding={decide.isPending}
+                onDecide={(id, d) => decide.mutate({ id, decision: d })}
+              />
+            ))}
+          </ul>
+        </details>
+      )}
+      {rules.length === 0 && !rulesQuery.isPending && (
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          아직 규칙이 없습니다.
+        </p>
+      )}
+
+      <div className="flex flex-col gap-1.5 border-t border-border pt-2">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="rule-category">분류</Label>
+          <Select
+            id="rule-category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {Object.entries(RULE_CATEGORY_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="예: 한 문장은 60자를 넘기지 않는다 / '그러나'로 시작하는 문장을 줄인다"
+          rows={2}
+          aria-label="새 작가 규칙"
+        />
+        <div className="flex gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!text.trim() || create.isPending}
+            onClick={() => create.mutate("proposed")}
+          >
+            제안으로 추가
+          </Button>
+          <Button
+            size="sm"
+            disabled={!text.trim() || create.isPending}
+            onClick={() => create.mutate("approved")}
+            title="직접 쓴 규칙은 즉시 승인 상태로 등록할 수 있습니다"
+          >
+            승인 규칙으로 추가
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const SURFACE_LABELS: Record<string, string> = {
+  generate: "단일 생성",
+  generate_parallel: "병렬 집필",
+  review: "감수",
+  plan: "계획",
+  assistant_generate: "원클릭",
+};
+
+const OUTCOME_LABELS: Record<string, string> = {
+  pending: "대기",
+  inserted: "삽입",
+  replaced: "교체",
+  copied: "복사",
+  discarded: "폐기",
+};
+
+interface GenerationRunSummary {
+  id: number;
+  surface: string;
+  status: string;
+  model: string | null;
+  wall_ms: number;
+  created_at: string;
+  outputs: Array<{
+    id: number;
+    channel: string;
+    outcome: string;
+    output_chars: number;
+  }>;
+}
+
+function GenerationHistorySection({ chapterId }: { chapterId: number }) {
+  const runsQuery = useQuery({
+    queryKey: ["generation-runs", chapterId],
+    queryFn: () =>
+      api.get<GenerationRunSummary[]>(
+        `/chapters/${chapterId}/generation-runs`,
+      ),
+  });
+  const runs = runsQuery.data ?? [];
+  return (
+    <section className="rounded-md border border-border p-3">
+      <h3 className="mb-1 text-xs font-semibold text-muted-foreground">
+        생성 이력
+      </h3>
+      <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+        이 회차의 AI 생성·처분 기록입니다. 원고 정본이 아닌 참조 데이터입니다.
+      </p>
+      {runs.length === 0 && !runsQuery.isPending ? (
+        <p className="text-[11px] text-muted-foreground">이력이 없습니다.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {runs.map((run) => (
+            <li key={run.id} className="rounded-sm bg-muted px-2 py-1.5">
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="font-medium">
+                  {SURFACE_LABELS[run.surface] ?? run.surface}
+                </span>
+                <Badge
+                  variant={run.status === "completed" ? "done" : "revising"}
+                >
+                  {run.status === "completed"
+                    ? "완료"
+                    : run.status === "aborted"
+                      ? "중단"
+                      : "오류"}
+                </Badge>
+                <span className="text-muted-foreground">
+                  {(run.wall_ms / 1000).toFixed(0)}초 ·{" "}
+                  {new Date(run.created_at).toLocaleString("ko-KR")}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {run.outputs.map((o) => (
+                  <Badge key={o.id} variant="outline" className="text-[10px]">
+                    {o.channel}
+                    {o.outcome !== "pending" &&
+                      ` → ${OUTCOME_LABELS[o.outcome] ?? o.outcome}`}
+                  </Badge>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

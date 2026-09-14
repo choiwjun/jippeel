@@ -21,12 +21,17 @@ from typing import Callable
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import SessionLocal
-from app.models import Chapter, SummaryJob
+from app.models import Chapter, MemoryEntry, SummaryJob
 from app.services import llm
 from app.services.gpt_oauth import get_provider
-from app.services.summary_worker import SummaryProvider
+from app.services.summary_worker import (
+    SummaryProvider,
+    _arc_source_text,
+    _join_arc_sources,
+)
 
 SUMMARY_PROMPT_VERSION = "summary-v1"
+ARC_PROMPT_VERSION = "arc-v1"
 
 # 단일 호출 상한 — 장문 원고 전체를 그대로 보내지 않는다.
 MAX_SOURCE_CHARS = 60_000
@@ -39,6 +44,15 @@ _SYSTEM_PROMPT = (
 )
 
 
+_ARC_SYSTEM_PROMPT = (
+    "당신은 한국 웹소설의 아크 요약을 작성하는 보조 도구입니다. "
+    "아래는 연속된 회차들의 승인된 요약입니다. 이 구간 전체의 사건 흐름·"
+    "인물 관계 변화·복선 진행·결말 지점을 한국어로 간결하게 요약하세요. "
+    "회차별 나열이 아니라 구간 전체의 흐름으로 쓰고, 요약에 없는 사실을 "
+    "창작하지 마세요."
+)
+
+
 def _build_messages(job: SummaryJob, source_text: str, chapter_title: str) -> list[dict]:
     return [
         {"role": "system", "content": _SYSTEM_PROMPT},
@@ -48,6 +62,20 @@ def _build_messages(job: SummaryJob, source_text: str, chapter_title: str) -> li
                 f"회차 제목: {chapter_title}\n"
                 f"회차 ID: {job.chapter_id}\n\n"
                 f"본문:\n{source_text[:MAX_SOURCE_CHARS]}"
+            ),
+        },
+    ]
+
+
+def _build_arc_messages(job: SummaryJob, source_text: str) -> list[dict]:
+    return [
+        {"role": "system", "content": _ARC_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"아크 원천 회차 요약 {len(job.source_ids_json or [])}건 "
+                f"(아크 끝 sort_order: {job.source_sort_order}):\n\n"
+                f"{source_text[:MAX_SOURCE_CHARS]}"
             ),
         },
     ]
@@ -66,17 +94,31 @@ def make_gpt_summary_provider(
     factory = session_factory or SessionLocal
 
     def provider(job: SummaryJob) -> str:
-        if job.prompt_version != SUMMARY_PROMPT_VERSION:
-            raise ValueError(
-                f"unsupported prompt_version {job.prompt_version!r} "
-                f"(adapter expects {SUMMARY_PROMPT_VERSION!r})"
-            )
-        with factory() as db:
-            chapter = db.get(Chapter, job.chapter_id)
-            if chapter is None:
-                raise ValueError(f"chapter {job.chapter_id} not found")
-            title = chapter.title or ""
-            source = chapter.content_md or ""
+        if job.kind == "arc":
+            if job.prompt_version != ARC_PROMPT_VERSION:
+                raise ValueError(
+                    f"unsupported prompt_version {job.prompt_version!r} "
+                    f"(adapter expects {ARC_PROMPT_VERSION!r} for arc jobs)"
+                )
+            with factory() as db:
+                entries = _join_arc_sources(db, job.source_ids_json or [])
+                if entries is None:
+                    raise ValueError("arc source entry missing")
+                source = _arc_source_text(db, entries)
+                messages = _build_arc_messages(job, source)
+        else:
+            if job.prompt_version != SUMMARY_PROMPT_VERSION:
+                raise ValueError(
+                    f"unsupported prompt_version {job.prompt_version!r} "
+                    f"(adapter expects {SUMMARY_PROMPT_VERSION!r})"
+                )
+            with factory() as db:
+                chapter = db.get(Chapter, job.chapter_id)
+                if chapter is None:
+                    raise ValueError(f"chapter {job.chapter_id} not found")
+                title = chapter.title or ""
+                source = chapter.content_md or ""
+                messages = _build_messages(job, source, title)
 
         resolved = get_provider()
         client = (
@@ -88,7 +130,7 @@ def make_gpt_summary_provider(
             llm.complete_chat(
                 client,  # type: ignore[arg-type]
                 resolved.default_model,
-                _build_messages(job, source, title),
+                messages,
                 reasoning_effort=resolved.reasoning_effort,
             )
         )

@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Chapter, Character, Foreshadow, LoreEntry, Project, Relationship, Scene, VolumeNote
+from app.models import Chapter, Character, Foreshadow, ImprovementRule, LoreEntry, Project, Relationship, Scene, VolumeNote
 from app.schemas import CanonCheckRequest, EpisodeBrief, GenerateRequest
 from app.services import injection
 from app.services.long_memory import format_context_memory, select_context_memory
@@ -48,6 +48,9 @@ class ContextBundleRequest:
     include_relationships: bool
     include_memory: bool = True
     include_draft_memory: bool = False
+    # E6 — 작가 승인 개선 규칙 주입(기본 on). 규칙이 없으면 블록 자체가 생기지 않아
+    # 기존 컨텍스트와 바이트 단위로 동일하다.
+    include_rules: bool = True
 
 
 @dataclass(frozen=True)
@@ -692,6 +695,28 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         if rel_lines:
             blocks.append("[인물 관계 — 관계가 본문 행동·호칭·거리감과 모순되면 지적]\n" + "\n".join(rel_lines))
 
+    # E6 — 작가 승인 규칙만 주입한다. 제안(proposed)·거절·폐기 규칙과 다른
+    # 작품의 규칙은 절대 컨텍스트에 들어가지 않는다(작품 완전 분리).
+    applied_rule_ids: list[int] = []
+    if (request.include_rules and request.target == "generate"
+            and project_id is not None):
+        approved_rules = db.scalars(
+            select(ImprovementRule).where(
+                ImprovementRule.project_id == project_id,
+                ImprovementRule.status == "approved",
+            ).order_by(ImprovementRule.id.asc())
+        ).all()
+        rule_lines = [r.rule_text.strip() for r in approved_rules
+                      if (r.rule_text or "").strip()]
+        if rule_lines:
+            applied_rule_ids = [r.id for r in approved_rules
+                                if (r.rule_text or "").strip()]
+            blocks.append(
+                "[작가 승인 규칙 — 이 작품에만 적용되는 작가 확정 지침. "
+                "정본 설정·브리프와 충돌하면 정본이 우선]\n"
+                + "\n".join(f"- {line}" for line in rule_lines)
+            )
+
     style_profile_text: str | None = None
     if request.style_profile and project is not None and (project.style_profile or "").strip():
         style_profile_text = project.style_profile.strip()
@@ -722,6 +747,7 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         "included_memory_entry_ids": [entry.id for entry in included_memory_entries],
         "include_memory": request.include_memory,
         "include_draft_memory": request.include_draft_memory,
+        "applied_rule_ids": applied_rule_ids,
         "outline": outline_info,
         "unknown_labels": unknown_labels,
         # Legacy canon count keys. Generation keeps them zero for JSON shape stability.

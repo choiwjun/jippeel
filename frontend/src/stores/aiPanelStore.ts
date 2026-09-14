@@ -72,6 +72,27 @@ export const EMPTY_EPISODE_BRIEF: EpisodeBriefState = {
   target_chars_novelpia: "",
 };
 
+export interface PendingPlanScene {
+  order: number;
+  title: string;
+  purpose: string;
+  objective: string;
+  choice: string;
+  cost: string;
+  required_beats: string[];
+  characters: string[];
+  opening_state: string;
+  closing_hook?: string | null;
+  ending_intent?: string | null;
+}
+
+export interface PendingPlan {
+  runId: number | null;
+  planOutputId: number | null;
+  chapterRevision: number | null;
+  plan: { scenes: PendingPlanScene[] };
+}
+
 export interface AiPanelState {
   isOpen: boolean;
   open: () => void;
@@ -140,6 +161,14 @@ export interface AiPanelState {
     runId: number | null;
     outputs: Record<string, number>;
   }) => void;
+
+  /** P1 — 집필 계획 검토 게이트: /ai/plan 결과를 승인 전까지 보관한다 */
+  pendingPlan: PendingPlan | null;
+  planBusy: boolean;
+  planError: string | null;
+  setPendingPlan: (p: PendingPlan | null) => void;
+  setPlanBusy: (v: boolean) => void;
+  setPlanError: (e: string | null) => void;
   reserveAiStart: (kind: "generate" | "canon") => string | null;
   isAiStartCurrent: (token: string) => boolean;
   clearAiStart: (token?: string) => void;
@@ -417,6 +446,12 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       generationRunId: info.runId,
       generationOutputIds: info.outputs,
     }),
+  pendingPlan: null,
+  planBusy: false,
+  planError: null,
+  setPendingPlan: (p) => set({ pendingPlan: p }),
+  setPlanBusy: (v) => set({ planBusy: v }),
+  setPlanError: (e) => set({ planError: e }),
   _pendingAiStart: null,
   _directiveMap: {},
   reserveAiStart: (kind) => {
@@ -516,6 +551,9 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       resultOrigin: origin ?? null,
       generationRunId: null,
       generationOutputIds: {},
+      pendingPlan: null,
+      planBusy: false,
+      planError: null,
       parallelProgress: {
         phase: "idle",
         sceneCount: 0,
@@ -545,6 +583,9 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       resultOrigin: null,
       generationRunId: null,
       generationOutputIds: {},
+      pendingPlan: null,
+      planBusy: false,
+      planError: null,
       parallelProgress: {
         phase: "idle",
         sceneCount: 0,

@@ -275,7 +275,8 @@ class MemoryEntry(TimestampMixin, Base):
     __tablename__ = "memory_entries"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('summary','beat','decision','fact','timeline','relationship_note')",
+            "kind IN ('summary','beat','decision','fact','timeline',"
+            "'relationship_note','arc_summary')",
             name="ck_memory_entry_kind",
         ),
         CheckConstraint(
@@ -314,7 +315,7 @@ class SummaryJob(TimestampMixin, Base):
 
     __tablename__ = "summary_jobs"
     __table_args__ = (
-        CheckConstraint("kind = 'summary'", name="ck_summary_job_kind"),
+        CheckConstraint("kind IN ('summary','arc')", name="ck_summary_job_kind"),
         CheckConstraint(
             "status IN ('planned','running','draft_saved','skipped_empty',"
             "'stale_source','provider_error','rejected','duplicate_skipped')",
@@ -338,6 +339,7 @@ class SummaryJob(TimestampMixin, Base):
     source_sort_order: Mapped[float] = mapped_column(Float, nullable=False)
     source_content_length: Mapped[int] = mapped_column(Integer, nullable=False)
     kind: Mapped[str] = mapped_column(String(32), default="summary", nullable=False)
+    source_ids_json: Mapped[list | None] = mapped_column(JSON)
     prompt_version: Mapped[str] = mapped_column(String(120), nullable=False)
     provider_identity: Mapped[str] = mapped_column(String(120), nullable=False)
     model_snapshot: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -602,7 +604,7 @@ class GenerationRun(TimestampMixin, Base):
     __tablename__ = "generation_runs"
     __table_args__ = (
         CheckConstraint(
-            "surface IN ('generate','generate_parallel','review')",
+            "surface IN ('generate','generate_parallel','review','plan','assistant_generate')",
             name="ck_generation_run_surface",
         ),
         CheckConstraint(
@@ -673,3 +675,44 @@ class GenerationOutput(Base):
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now())
 
     run: Mapped["GenerationRun"] = relationship(back_populates="outputs")
+
+
+class ImprovementRule(TimestampMixin, Base):
+    """작품별 개선 규칙 — 작가 피드백 자가개선 E4.
+
+    제안(proposed)은 시스템 분석·작가 작성 모두 가능하지만, 다음 생성에
+    적용되는 것은 작가가 명시 승인한 approved 규칙뿐이다. rejected·retired는
+    종결이며 규칙 본문은 승인 후 불변 — 수정은 retire + 새 proposed로 한다.
+    project 삭제 시 CASCADE — 규칙은 작품에 귀속돼 다른 작품과 섞이지 않는다.
+    """
+
+    __tablename__ = "improvement_rules"
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('style','deleted_expression','character_voice',"
+            "'pacing','length','recurring_error','canon_gap','long_arc')",
+            name="ck_improvement_rule_category",
+        ),
+        CheckConstraint(
+            "status IN ('proposed','approved','rejected','retired')",
+            name="ck_improvement_rule_status",
+        ),
+        CheckConstraint(
+            "source IN ('author_written','system_proposal')",
+            name="ck_improvement_rule_source",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    rule_text: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="proposed")
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="author_written")
+    # 제안 근거 — [{"kind":"generation_output","id":..}|{"kind":"chapter","id":..}|{"kind":"note","text":..}]
+    evidence_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    rationale: Mapped[str | None] = mapped_column(Text)
+    status_events_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    decided_at: Mapped[datetime | None] = mapped_column()

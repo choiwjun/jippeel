@@ -27,11 +27,16 @@ from app.schemas import (
     AiEndpointUpdate,
     AssistantGenerateNextRequest,
     AssistantGenerateNextResponse,
+    AssistantPlanNextRequest,
+    AssistantPlanNextResponse,
     EpisodeBrief,
     GenerateContext,
     GenerateParams,
     GenerateRequest,
     ParallelGenerateRequest,
+    ParallelPlan,
+    PlanRequest,
+    PlanResponse,
     PromptPresetCreate,
     PromptPresetOut,
     PromptPresetUpdate,
@@ -40,6 +45,7 @@ from app.schemas import (
 from app.services import (ai_context, generation_runs as generation_runs_svc,
                           gpt_oauth, injection, llm, manuscripts,
                           parallel_writer, usage as usage_service)
+from app.services.wordcount import count_novelpia_chars
 
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
 # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
@@ -544,6 +550,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
                     status=run_status,
                     wall_ms=int((time.monotonic() - t0) * 1000),
                     outputs=outputs,
+                    applied_rules=context_metadata.get("applied_rule_ids"),
                     ai_usage_id=usage_ids[0] if usage_ids else None,
                     db=db)
                 except Exception:  # noqa: BLE001
@@ -649,26 +656,20 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
     return EventSourceResponse(event_stream())
 
 
-# ---------- AI 어시스턴트 원클릭 집필 ----------
-@router.post(
-    "/projects/{pid}/assistant/generate-next",
-    response_model=AssistantGenerateNextResponse,
-)
-async def assistant_generate_next(
-    pid: int,
-    payload: AssistantGenerateNextRequest,
-    db: Session = Depends(get_db),
-):
-    """준비된 작품의 다음 빈 회차를 집필·저장해 정본으로 반환한다.
+# ---------- AI 어시스턴트 계획→승인→초안 집필 ----------
+def _assistant_target_chapter(
+    db: Session, pid: int, chapter_id: int | None,
+) -> Chapter:
+    """assistant 경로의 대상 회차 선택.
 
-    부트스트랩은 기획 데이터만 만들고 본문은 만들지 않는다. 이 엔드포인트가
-    확인 화면의 [생성 시작]에 대응하는 유일한 실행 경로로, 회차를 서버에서
-    선택하고 공유 컨텍스트를 구성한 뒤 원고 교체 서비스로 원자 저장한다.
+    chapter_id가 주어지면 그 회차(내용이 있어도 된다 — 원고를 쓰지 않으므로
+    덮어쓰기 위험이 없다). 미지정이면 정렬 순서상 첫 빈 회차를 고른다.
     """
-    project = db.get(Project, pid)
-    if project is None:
-        raise HTTPException(status_code=404, detail="project not found")
-
+    if chapter_id is not None:
+        chapter = db.get(Chapter, chapter_id)
+        if chapter is None or chapter.project_id != pid:
+            raise HTTPException(status_code=404, detail="chapter not found")
+        return chapter
     chapters = db.scalars(
         select(Chapter)
         .where(Chapter.project_id == pid)
@@ -680,11 +681,15 @@ async def assistant_generate_next(
     )
     if chapter is None:
         raise HTTPException(status_code=409, detail="생성할 빈 회차가 없습니다.")
+    return chapter
 
-    context = GenerateContext(
-        project_id=pid,
+
+def _assistant_context(chapter: Chapter) -> GenerateContext:
+    """assistant 경로 공용 컨텍스트 — 대상 회차에 내용이 있으면 함께 주입한다."""
+    return GenerateContext(
+        project_id=chapter.project_id,
         chapter_id=chapter.id,
-        include_chapter_content=False,
+        include_chapter_content=bool((chapter.content_md or "").strip()),
         expected_revision=chapter.revision,
         previous_chapter=True,
         auto_lore=True,
@@ -694,14 +699,138 @@ async def assistant_generate_next(
         style_profile=True,
         include_memory=True,
     )
+
+
+@router.post(
+    "/projects/{pid}/assistant/plan-next",
+    response_model=AssistantPlanNextResponse,
+)
+async def assistant_plan_next(
+    pid: int,
+    payload: AssistantPlanNextRequest,
+    db: Session = Depends(get_db),
+):
+    """대상 회차의 집필 계획만 생성한다 — 원고는 절대 쓰지 않는다.
+
+    작가는 반환된 계획을 검토한 뒤 generate-next에 approved_plan으로 넘겨
+    집필을 승인한다. 계획 산출물은 생성 이력(channel=plan)에 보존된다.
+    """
+    if db.get(Project, pid) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    chapter = _assistant_target_chapter(db, pid, payload.chapter_id)
+
     request = GenerateRequest(
         prompt_override=(
             "현재 회차의 제목·회차 목표·목차·세계관·인물 설정을 정본으로 삼아 "
-            "다음 빈 회차 본문을 완성된 한국어 웹소설 원고로 집필하라. "
-            "이전 회차의 끝에서 자연스럽게 이어지고, 이번 회차의 핵심 사건과 "
-            "인물 선택·대가를 행동과 대사로 보여줘라. 회차 끝에는 다음 사건의 "
-            "압력을 남겨라. 원고 본문만 출력하고 설명·요약·메타 문구는 쓰지 마라."
+            "다음 회차 본문을 완성된 한국어 웹소설 원고로 집필하라."
         ),
+        context=_assistant_context(chapter),
+        params=GenerateParams(max_tokens=payload.max_tokens),
+    )
+    bundle = ai_context.build_context_bundle(
+        db, ai_context.request_from_generate(request))
+    provider = _get_provider_or_503()
+    _, base_messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(
+        request, db, bundle=bundle)
+    model = _resolve_model(provider)
+    planner_messages = _planner_messages(base_messages)
+
+    t0 = time.monotonic()
+    status_str = "completed"
+    outputs: list[generation_runs_svc.OutputSpec] = []
+    plan: ParallelPlan | None = None
+    error_detail: str | None = None
+    try:
+        planner_raw = await _call_planner(
+            provider, model, planner_messages,
+            payload.max_tokens, provider.reasoning_effort)
+        outputs.append(generation_runs_svc.OutputSpec(channel="plan", text=planner_raw))
+        try:
+            plan = parallel_writer.parse_parallel_plan(
+                planner_raw, episode_purpose=bundle.episode_purpose)
+        except ValueError as exc:
+            status_str = "provider_error"
+            error_detail = f"계획 형식이 올바르지 않습니다: {exc}"
+    except openai.APIError as exc:
+        status_str = "provider_error"
+        error_detail = _friendly_api_error(exc)
+    except Exception as exc:  # noqa: BLE001
+        status_str = "provider_error"
+        error_detail = f"계획 생성 실패: {type(exc).__name__}"
+
+    usage_id = usage_service.record(
+        kind="plan", model=model, endpoint_name=provider.name,
+        prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
+        completion_chars=sum(len(o.text) for o in outputs), db=db)
+    run_id, output_ids = generation_runs_svc.save_run(
+        surface="plan",
+        project_id=pid,
+        chapter_id=chapter.id,
+        preset_id=None,
+        model=model,
+        reasoning_effort=provider.reasoning_effort,
+        messages=planner_messages,
+        manifest={
+            "assistant": True,
+            "context_metadata": context_metadata,
+            "injected_lore": injected_lore,
+            "injected_outline": injected_outline,
+            "injected_foreshadows": injected_foreshadows,
+            "episode_purpose": bundle.episode_purpose,
+            "ai_usage_ids": [usage_id] if usage_id else [],
+        },
+        status=status_str,
+        wall_ms=int((time.monotonic() - t0) * 1000),
+        outputs=outputs,
+        applied_rules=context_metadata.get("applied_rule_ids"),
+        ai_usage_id=usage_id,
+        db=db)
+    if plan is None:
+        raise HTTPException(status_code=502, detail=error_detail or "계획 생성 실패")
+    return AssistantPlanNextResponse(
+        project_id=pid,
+        chapter_id=chapter.id,
+        chapter_title=chapter.title,
+        chapter_revision=int(chapter.revision or 0),
+        episode_purpose=bundle.episode_purpose,
+        plan=plan,
+        run_id=run_id,
+        plan_output_id=output_ids.get("plan"),
+    )
+
+
+_ASSISTANT_PROMPT = (
+    "현재 회차의 제목·회차 목표·목차·세계관·인물 설정을 정본으로 삼아 "
+    "다음 회차 본문을 완성된 한국어 웹소설 원고로 집필하라. "
+    "이전 회차의 끝에서 자연스럽게 이어지고, 이번 회차의 핵심 사건과 "
+    "인물 선택·대가를 행동과 대사로 보여줘라. 회차 끝에는 다음 사건의 "
+    "압력을 남겨라. 원고 본문만 출력하고 설명·요약·메타 문구는 쓰지 마라."
+)
+
+
+@router.post(
+    "/projects/{pid}/assistant/generate-next",
+    response_model=AssistantGenerateNextResponse,
+)
+async def assistant_generate_next(
+    pid: int,
+    payload: AssistantGenerateNextRequest,
+    db: Session = Depends(get_db),
+):
+    """대상 회차의 초안을 생성해 반환한다 — 원고를 자동으로 쓰지 않는다.
+
+    결과는 초안/미리보기(GenerationOutput channel=draft)로만 보존되며,
+    원고 적용은 작가의 명시 액션(POST /generation-outputs/{id}/apply)만이
+    수행한다. 기존 원고가 있는 회차도 대상이 될 수 있지만 덮어쓰지 않는다.
+    approved_plan이 주어지면 planner 재호출 없이 그 계획을 계약으로 집필한다.
+    """
+    if db.get(Project, pid) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    chapter = _assistant_target_chapter(db, pid, payload.chapter_id)
+
+    context = _assistant_context(chapter)
+    request = GenerateRequest(
+        prompt_override=_ASSISTANT_PROMPT,
         context=context,
         params=GenerateParams(max_tokens=payload.max_tokens),
     )
@@ -709,13 +838,31 @@ async def assistant_generate_next(
     provider = _get_provider_or_503()
     model = _resolve_model(provider)
     client = llm.make_client(provider.base_url, None)
+    t0 = time.monotonic()
     try:
         bundle = ai_context.build_context_bundle(
             db, ai_context.request_from_generate(request)
         )
-        _, messages, injected_lore, injected_outline, injected_foreshadows, _ = _build_messages(
+        _, messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(
             request, db, bundle=bundle
         )
+        if payload.approved_plan is not None:
+            # 작가가 승인한 계획을 계약으로 주입 — planner 재호출 없음
+            try:
+                parallel_writer.validate_plan_for_purpose(
+                    payload.approved_plan, bundle.episode_purpose)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            messages[-1] = {
+                "role": "user",
+                "content": (
+                    f"{messages[-1]['content']}\n\n"
+                    "[작가 승인 집필 계획 — 반드시 따를 것]\n"
+                    f"{payload.approved_plan.model_dump_json()}\n"
+                    "계획의 장면 순서·objective·choice·cost·결말 의도를 "
+                    "행동과 대사로 정확히 집필하라."
+                ),
+            }
         raw = await llm.complete_chat(
             client,
             model,
@@ -727,36 +874,56 @@ async def assistant_generate_next(
         if not content:
             raise HTTPException(status_code=502, detail="AI가 빈 원고를 반환했습니다.")
 
-        try:
-            saved = manuscripts.replace_manuscript(
-                db,
-                chapter.id,
-                content,
-                chapter.revision,
-                reason="assistant_generate",
-            )
-            db.commit()
-        except manuscripts.RevisionConflict as exc:
-            db.rollback()
-            raise HTTPException(status_code=409, detail=exc.detail()) from exc
-        db.refresh(saved)
-        usage_service.record(
+        uid = usage_service.record(
             kind="assistant_generate",
             model=model,
             endpoint_name=provider.name,
             prompt_chars=sum(len(str(message.get("content") or "")) for message in messages),
             completion_chars=len(content),
+            db=db,
         )
-        # 아래 메타데이터는 현재 응답에는 노출하지 않지만, 컨텍스트가 실제로
-        # 준비됐는지 계산되는 경로를 유지한다(향후 실행 이력에 연결할 앵커).
-        del injected_lore, injected_outline, injected_foreshadows
+        # E1 — 초안을 산출물로 보존한다(적용은 작가의 apply 액션만이 수행)
+        outputs = [generation_runs_svc.OutputSpec(channel="draft", text=content)]
+        if payload.approved_plan is not None:
+            outputs.insert(0, generation_runs_svc.OutputSpec(
+                channel="plan", text=payload.approved_plan.model_dump_json()))
+        run_id, output_ids = generation_runs_svc.save_run(
+            surface="assistant_generate",
+            project_id=pid,
+            chapter_id=chapter.id,
+            preset_id=None,
+            model=model,
+            reasoning_effort=provider.reasoning_effort,
+            messages=messages,
+            manifest={
+                "injected_lore": injected_lore,
+                "injected_outline": injected_outline,
+                "injected_foreshadows": injected_foreshadows,
+                "context_metadata": context_metadata,
+                "chapter_revision": int(chapter.revision or 0),
+                "plan_source": ("approved" if payload.approved_plan is not None
+                                else "none"),
+                "plan_output_id": payload.plan_output_id,
+                "draft_only": True,
+                "ai_usage_ids": [uid] if uid else [],
+            },
+            status="completed",
+            wall_ms=int((time.monotonic() - t0) * 1000),
+            outputs=outputs,
+            applied_rules=context_metadata.get("applied_rule_ids"),
+            ai_usage_id=uid,
+            db=db,
+        )
         return {
             "project_id": pid,
-            "chapter_id": saved.id,
-            "chapter_title": saved.title,
-            "revision": saved.revision,
-            "content_md": saved.content_md,
-            "word_count_cache": saved.word_count_cache,
+            "chapter_id": chapter.id,
+            "chapter_title": chapter.title,
+            "revision": int(chapter.revision or 0),
+            "content_md": content,
+            "word_count_cache": count_novelpia_chars(content),
+            "applied": False,
+            "run_id": run_id,
+            "draft_output_id": output_ids.get("draft"),
         }
     except openai.APIError as exc:
         db.rollback()
@@ -772,6 +939,139 @@ async def assistant_generate_next(
         ) from exc
     finally:
         await _close_llm_client(client)
+
+
+# ---------- 집필 계획 (작가 검토 게이트) ----------
+PLANNER_SYSTEM_PROMPT = (
+    "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
+    "2~4개 장면으로 나누고, 장면 order는 1부터 연속이어야 한다.\n"
+    "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook, ending_intent를 포함하라.\n"
+    "serial은 closing_hook을 채우고, volume_end는 closing_hook 또는 ending_intent를 채우며, series_finale의 마지막 장면은 ending_intent를 채워라.\n"
+    "objective는 즉시 목표, choice는 핵심 선택, cost는 선택의 대가다.\n"
+    "required_beats에는 objective·choice·cost가 행동과 판단으로 드러나는 비트를 포함하라.\n"
+    "정본 컨텍스트와 브리프 밖의 사건·고유명사를 새로 만들지 마라."
+)
+
+
+def _planner_messages(base_messages: list[dict]) -> list[dict]:
+    """planner 호출 메시지 — /ai/plan과 generate-parallel이 같은 계약을 쓴다."""
+    instruction = (
+        f"{base_messages[-1]['content']}\n\n"
+        "[병렬 Planner — 장면 계약 생성]\n"
+        "현재 회차를 2~4개 장면으로 분해하라. 각 worker는 자기 계약만 집필한다.\n"
+        '{"scenes":[{"order":1,"title":"...","purpose":"...",'
+        '"objective":"...","choice":"...","cost":"...",'
+        '"required_beats":["..."],"characters":["..."],'
+        '"opening_state":"...","closing_hook":"...","ending_intent":"..."}]} 형식만 출력하라. '
+        'serial은 closing_hook, series_finale 마지막 장면은 ending_intent를 반드시 채워라.'
+    )
+    return [
+        {"role": "system", "content": _append_generation_style(
+            PLANNER_SYSTEM_PROMPT, base_messages[0]["content"])},
+        {"role": "user", "content": instruction},
+    ]
+
+
+async def _call_planner(provider, model, planner_messages, max_tokens, effort):
+    """planner 1회 호출 — 일시적 bridge 끊김은 새 client로 한 번 재시도한다."""
+    for attempt in range(2):
+        client = llm.make_client(provider.base_url, None)
+        try:
+            return await llm.complete_chat(
+                client, model, planner_messages,
+                max_tokens=max_tokens, reasoning_effort=effort)
+        except Exception as exc:  # noqa: BLE001 — 일시적 bridge 끊김만 재시도
+            if attempt == 0 and _is_retryable_bridge_error(exc):
+                continue
+            raise
+        finally:
+            await _close_llm_client(client)
+    raise AssertionError("unreachable")
+
+
+@router.post("/ai/plan", response_model=PlanResponse)
+async def create_plan(payload: PlanRequest, db: Session = Depends(get_db)):
+    """컨텍스트를 분석해 장면 계획만 생성한다 — 원고는 절대 쓰지 않는다.
+
+    작가가 전체 계획을 한 번에 검토한 뒤 [수락하고 집필]이
+    /ai/generate-parallel의 approved_plan으로 이어진다. 계획 산출물은
+    생성 이력(channel=plan)에 보존돼 이후 분석의 재료가 된다.
+    """
+    base_payload = GenerateRequest(
+        preset_id=payload.preset_id,
+        prompt_override=payload.prompt_override,
+        context=payload.context,
+        params=payload.params,
+    )
+    bundle = ai_context.build_context_bundle(
+        db, ai_context.request_from_generate(base_payload))
+    provider = _get_provider_or_503()
+    _, base_messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(
+        base_payload, db, bundle=bundle)
+    model = _resolve_model(provider, payload.params.model)
+    planner_messages = _planner_messages(base_messages)
+
+    t0 = time.monotonic()
+    status_str = "completed"
+    outputs: list[generation_runs_svc.OutputSpec] = []
+    error_detail: str | None = None
+    plan: ParallelPlan | None = None
+    try:
+        planner_raw = await _call_planner(
+            provider, model, planner_messages,
+            payload.params.max_tokens, payload.generation_reasoning_effort)
+        outputs.append(generation_runs_svc.OutputSpec(channel="plan", text=planner_raw))
+        try:
+            plan = parallel_writer.parse_parallel_plan(
+                planner_raw, episode_purpose=bundle.episode_purpose)
+        except ValueError as exc:
+            status_str = "provider_error"
+            error_detail = f"계획 형식이 올바르지 않습니다: {exc}"
+    except openai.APIError as exc:
+        status_str = "provider_error"
+        error_detail = _friendly_api_error(exc)
+    except Exception as exc:  # noqa: BLE001 — 계획 단계도 사용자 안내로 변환
+        status_str = "provider_error"
+        error_detail = f"계획 생성 실패: {type(exc).__name__}"
+
+    usage_id = usage_service.record(
+        kind="plan", model=model, endpoint_name=provider.name,
+        prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
+        completion_chars=sum(len(o.text) for o in outputs), db=db)
+    run_id, output_ids = generation_runs_svc.save_run(
+        surface="plan",
+        project_id=payload.context.project_id,
+        chapter_id=payload.context.chapter_id,
+        preset_id=payload.preset_id,
+        model=model,
+        reasoning_effort=payload.generation_reasoning_effort,
+        messages=planner_messages,
+        manifest={
+            "context_metadata": context_metadata,
+            "injected_lore": injected_lore,
+            "injected_outline": injected_outline,
+            "injected_foreshadows": injected_foreshadows,
+            "episode_purpose": payload.context.episode_purpose,
+            "has_prompt_override": payload.prompt_override is not None,
+            "brief": (payload.context.brief.model_dump()
+                      if payload.context.brief else None),
+            "ai_usage_ids": [usage_id] if usage_id else [],
+        },
+        status=status_str,
+        wall_ms=int((time.monotonic() - t0) * 1000),
+        outputs=outputs,
+        applied_rules=context_metadata.get("applied_rule_ids"),
+        ai_usage_id=usage_id,
+        db=db)
+    if plan is None:
+        raise HTTPException(status_code=502, detail=error_detail or "계획 생성 실패")
+    return PlanResponse(
+        run_id=run_id,
+        plan_output_id=output_ids.get("plan"),
+        plan=plan,
+        chapter_revision=bundle.chapter_revision,
+        episode_purpose=bundle.episode_purpose,
+    )
 
 
 # ---------- 병렬 장면 집필 스트리밍 ----------
@@ -793,25 +1093,14 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
     reviewer_model = _resolve_model(provider, payload.review.model)
     reviewer_effort = payload.review.reasoning_effort or provider.reasoning_effort
 
-    planner_system = (
-        "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
-        "2~4개 장면으로 나누고, 장면 order는 1부터 연속이어야 한다.\n"
-        "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook, ending_intent를 포함하라.\n"
-        "serial은 closing_hook을 채우고, volume_end는 closing_hook 또는 ending_intent를 채우며, series_finale의 마지막 장면은 ending_intent를 채워라.\n"
-        "objective는 즉시 목표, choice는 핵심 선택, cost는 선택의 대가다.\n"
-        "required_beats에는 objective·choice·cost가 행동과 판단으로 드러나는 비트를 포함하라.\n"
-        "정본 컨텍스트와 브리프 밖의 사건·고유명사를 새로 만들지 마라."
-    )
-    planner_instruction = (
-        f"{base_messages[-1]['content']}\n\n"
-        "[병렬 Planner — 장면 계약 생성]\n"
-        "현재 회차를 2~4개 장면으로 분해하라. 각 worker는 자기 계약만 집필한다.\n"
-        '{"scenes":[{"order":1,"title":"...","purpose":"...",'
-        '"objective":"...","choice":"...","cost":"...",'
-        '"required_beats":["..."],"characters":["..."],'
-        '"opening_state":"...","closing_hook":"...","ending_intent":"..."}]} 형식만 출력하라. '
-        'serial은 closing_hook, series_finale 마지막 장면은 ending_intent를 반드시 채워라.'
-    )
+    # 작가 승인 계획이면 planner 호출 없이 그 계획을 그대로 실행한다.
+    # 계획이 요청 컨텍스트의 목적과 어긋나면 스트림을 열기 전 422로 거절한다.
+    if payload.approved_plan is not None:
+        try:
+            parallel_writer.validate_plan_for_purpose(
+                payload.approved_plan, bundle.episode_purpose)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     async def event_stream():
         yield {
@@ -855,6 +1144,9 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                         "episode_purpose": payload.context.episode_purpose,
                         "scene_id": payload.context.scene_id,
                         "worker_limit": payload.worker_limit,
+                        "plan_source": ("approved" if payload.approved_plan is not None
+                                        else "planner"),
+                        "plan_output_id": payload.plan_output_id,
                         "has_prompt_override": payload.prompt_override is not None,
                         "brief": (payload.context.brief.model_dump()
                                   if payload.context.brief else None),
@@ -863,6 +1155,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     status=run_status,
                     wall_ms=int((time.monotonic() - t0) * 1000),
                     outputs=outputs,
+                    applied_rules=context_metadata.get("applied_rule_ids"),
                     ai_usage_id=usage_ids[0] if usage_ids else None,
                     db=db)
                 except Exception:  # noqa: BLE001
@@ -872,28 +1165,19 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
         gen_failed = False
         try:
             try:
-                planner_messages = [
-                    {"role": "system", "content": _append_generation_style(planner_system, base_messages[0]["content"])},
-                    {"role": "user", "content": planner_instruction},
-                ]
-                # bridge의 일시적 transport 끊김(RemoteProtocolError 등)은
-                # 새 client로 한 번 재시도한다 — G02 실측 장애 대응.
-                for attempt in range(2):
-                    generation_client = llm.make_client(provider.base_url, None)
-                    try:
-                        planner_raw = await llm.complete_chat(
-                            generation_client, model, planner_messages,
-                            max_tokens=payload.params.max_tokens,
-                            reasoning_effort=payload.generation_reasoning_effort,
-                        )
-                        break
-                    except Exception as exc:  # noqa: BLE001 — 일시적 bridge 끊김만 재시도
-                        if attempt == 0 and _is_retryable_bridge_error(exc):
-                            continue
-                        raise
-                    finally:
-                        await _close_llm_client(generation_client)
-                plan = parallel_writer.parse_parallel_plan(planner_raw, episode_purpose=bundle.episode_purpose)
+                planner_messages = None
+                if payload.approved_plan is None:
+                    planner_messages = _planner_messages(base_messages)
+                    planner_raw = await _call_planner(
+                        provider, model, planner_messages,
+                        payload.params.max_tokens,
+                        payload.generation_reasoning_effort)
+                    plan = parallel_writer.parse_parallel_plan(
+                        planner_raw, episode_purpose=bundle.episode_purpose)
+                else:
+                    # 작가가 승인한 계획을 그대로 실행 — planner 재호출 없음
+                    plan = payload.approved_plan
+                    planner_raw = plan.model_dump_json()
                 outputs.append(generation_runs_svc.OutputSpec(channel="plan", text=planner_raw))
                 yield {
                     "event": "planner_done",
@@ -968,13 +1252,15 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     }
                 assembled = parallel_writer.assemble_scene_results(results)
                 outputs.append(generation_runs_svc.OutputSpec(channel="draft", text=assembled))
-                uid = usage_service.record(
-                    kind="parallel_plan", model=model, endpoint_name=provider.name,
-                    prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
-                    completion_chars=len(planner_raw), db=db,
-                )
-                if uid is not None:
-                    usage_ids.append(uid)
+                if planner_messages is not None:
+                    # 승인 계획 경로는 planner 호출이 없으므로 사용량도 기록하지 않는다
+                    uid = usage_service.record(
+                        kind="parallel_plan", model=model, endpoint_name=provider.name,
+                        prompt_chars=sum(len(str(m.get("content") or "")) for m in planner_messages),
+                        completion_chars=len(planner_raw), db=db,
+                    )
+                    if uid is not None:
+                        usage_ids.append(uid)
                 uid = usage_service.record(
                     kind="parallel_generate", model=model, endpoint_name=provider.name,
                     prompt_chars=sum(len(str(m.get("content") or "")) for m in base_messages),

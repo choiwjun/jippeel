@@ -15,11 +15,15 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.models import Chapter, GenerationOutput, GenerationRun
 from app.schemas import (
+    GenerationAnalysisOut,
     GenerationOutcomeIn,
+    GenerationOutputApplyIn,
+    GenerationOutputApplyResult,
     GenerationOutputOut,
     GenerationRunDetail,
     GenerationRunOut,
 )
+from app.services import generation_analysis, manuscripts
 
 router = APIRouter()
 
@@ -69,6 +73,75 @@ def record_outcome(oid: int, payload: GenerationOutcomeIn,
     return output
 
 
+# 원고에 적용될 수 있는 채널 — plan/review는 원고 텍스트가 아니고
+# worker는 부분 장면이라 제외한다.
+_APPLIABLE_CHANNELS = {"draft", "refined"}
+
+
+@router.post("/generation-outputs/{oid}/apply",
+             response_model=GenerationOutputApplyResult)
+def apply_output(oid: int, payload: GenerationOutputApplyIn,
+                 db: Session = Depends(get_db)):
+    """초안 산출물을 회차 원고에 적용하는 명시적 작가 액션.
+
+    생성 경로는 원고를 쓰지 않는다 — 이 엔드포인트만이 산출물을 정본으로
+    승격한다. CAS(expected_revision)로 드리프트를 막고, 적용 사실은
+    outcome=inserted로 기록한다. 종결 처분이면 재적용은 409.
+    """
+    output = _get_output_or_404(oid, db)
+    if output.channel not in _APPLIABLE_CHANNELS:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"channel {output.channel} cannot be applied to manuscript",
+        )
+    run = db.get(GenerationRun, output.run_id)
+    if run is None or run.chapter_id is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "output is not anchored to a chapter")
+    chapter = db.get(Chapter, run.chapter_id)
+    if chapter is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "target chapter was deleted")
+    if "inserted" not in _OUTCOME_TRANSITIONS.get(output.outcome, set()):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"outcome transition {output.outcome} → inserted not allowed",
+        )
+    expected = (
+        payload.expected_revision
+        if payload.expected_revision is not None
+        else int(chapter.revision or 0)
+    )
+    try:
+        saved = manuscripts.replace_manuscript(
+            db, chapter.id, output.output_text, expected,
+            reason="generation_output_apply",
+        )
+    except manuscripts.RevisionConflict as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=exc.detail()) from exc
+    except manuscripts.ChapterNotFound as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "target chapter was deleted") from exc
+    now = datetime.now(timezone.utc)
+    events = list(output.outcome_events_json or [])
+    events.append({"outcome": "inserted", "at": now.isoformat(), "via": "apply"})
+    output.outcome_events_json = events
+    output.outcome = "inserted"
+    output.outcome_at = now
+    output.landed_text = output.output_text
+    output.chapter_revision_at_action = expected
+    db.commit()
+    return GenerationOutputApplyResult(
+        output_id=output.id,
+        chapter_id=saved.id,
+        chapter_title=saved.title,
+        revision=saved.revision,
+        outcome="inserted",
+    )
+
+
 @router.get("/chapters/{cid}/generation-runs",
             response_model=list[GenerationRunOut])
 def list_chapter_generation_runs(cid: int, db: Session = Depends(get_db)):
@@ -95,3 +168,17 @@ def get_generation_run(rid: int, db: Session = Depends(get_db)):
     if run is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "generation run not found")
     return run
+
+
+@router.get("/projects/{pid}/generation-analysis",
+            response_model=GenerationAnalysisOut)
+def project_generation_analysis(pid: int, db: Session = Depends(get_db)):
+    """E3 결정론 분석 — 편집거리·삭제 표현·분량·surface별 수용률.
+
+    LLM 호출 없이 이력 테이블만 집계한다. E5 제안 job의 입력 신호이며
+    원고·설정을 변경하지 않는다.
+    """
+    from app.models import Project
+    if db.get(Project, pid) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    return generation_analysis.analyze_project_generations(db, pid)

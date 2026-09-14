@@ -4,8 +4,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   api,
   type AssistantGenerateNextResponse,
+  type AssistantPlanNextResponse,
   type BootstrapRequest,
   type BootstrapResponse,
+  type GenerationOutputApplyResult,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,22 +73,68 @@ export function BootstrapDialog({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 
-  const assistantGenerate = useMutation({
+  /** assistant 게이트 — 계획 검토 → 초안 미리보기 → 명시 적용. 원고 자동 덮어쓰기 없음 */
+  const [assistantStage, setAssistantStage] = useState<
+    "idle" | "plan" | "draft"
+  >("idle");
+
+  const planNext = useMutation({
     mutationFn: (projectId: number) =>
-      api.post<AssistantGenerateNextResponse>(
-        `/projects/${projectId}/assistant/generate-next`,
+      api.post<AssistantPlanNextResponse>(
+        `/projects/${projectId}/assistant/plan-next`,
         {},
       ),
-    onSuccess: (chapter) => {
+    onSuccess: () => setAssistantStage("plan"),
+  });
+
+  const generateNext = useMutation({
+    mutationFn: (args: {
+      projectId: number;
+      plan: AssistantPlanNextResponse;
+    }) =>
+      api.post<AssistantGenerateNextResponse>(
+        `/projects/${args.projectId}/assistant/generate-next`,
+        {
+          chapter_id: args.plan.chapter_id,
+          approved_plan: args.plan.plan,
+          plan_output_id: args.plan.plan_output_id,
+        },
+      ),
+    onSuccess: () => setAssistantStage("draft"),
+  });
+
+  const applyDraft = useMutation({
+    mutationFn: (args: { outputId: number; revision: number }) =>
+      api.post<GenerationOutputApplyResult>(
+        `/generation-outputs/${args.outputId}/apply`,
+        { expected_revision: args.revision },
+      ),
+    onSuccess: (applied) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       // 서버가 저장한 정본을 편집기가 다시 읽도록 회차 앵커와 함께 이동한다.
+      const pid = bootstrap.data?.project_id;
       bootstrap.reset();
       onOpenChange(false);
-      navigate(`/projects/${chapter.project_id}/write?chapter=${chapter.chapter_id}`);
+      navigate(
+        pid
+          ? `/projects/${pid}/write?chapter=${applied.chapter_id}`
+          : "/",
+      );
     },
   });
 
-  const isBusy = bootstrap.isPending || assistantGenerate.isPending;
+  const discardDraft = useMutation({
+    mutationFn: (outputId: number) =>
+      api.post(`/generation-outputs/${outputId}/outcome`, {
+        outcome: "discarded",
+      }),
+  });
+
+  const isBusy =
+    bootstrap.isPending ||
+    planNext.isPending ||
+    generateNext.isPending ||
+    applyDraft.isPending;
 
   // 생성 중: 진행 바 애니메이션 + 단계 라벨 순환
   useEffect(() => {
@@ -114,7 +162,11 @@ export function BootstrapDialog({
     setVolumeCount(1);
     setChaptersPerVolume(10);
     bootstrap.reset();
-    assistantGenerate.reset();
+    planNext.reset();
+    generateNext.reset();
+    applyDraft.reset();
+    discardDraft.reset();
+    setAssistantStage("idle");
   };
 
   /** 생성 중에는 닫기/Esc 무시 — 이탈 방지(P3 저장상태 톤) */
@@ -384,43 +436,180 @@ export function BootstrapDialog({
               )}
             </div>
 
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-              <p className="text-sm font-medium">
-                AI가 제목·세계관·캐릭터·목차·회차 목표·문체·컨텍스트를 준비했습니다.
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                이 설정으로 다음 빈 회차의 본문을 생성할까요? 생성된 원고는 자동
-                저장된 뒤 편집기에 표시됩니다.
-              </p>
-            </div>
+            {assistantStage === "idle" && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <p className="text-sm font-medium">
+                  AI가 제목·세계관·캐릭터·목차·회차 목표·문체·컨텍스트를
+                  준비했습니다.
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  이 설정으로 다음 빈 회차의 집필 계획을 만들어 보여드립니다.
+                  계획을 검토한 뒤 집필을 승인하면 초안이 만들어지고, 원고에는
+                  작가가 직접 적용할 때만 반영됩니다.
+                </p>
+              </div>
+            )}
 
-            {assistantGenerate.isError && (
+            {assistantStage === "plan" && planNext.data && (
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                  집필 계획 — {planNext.data.chapter_title}
+                </p>
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  전체 계획을 검토한 뒤 [수락하고 집필]을 누르면 이 계획대로
+                  초안을 씁니다. 원고에는 아직 아무것도 반영되지 않았습니다.
+                </p>
+                <ol className="thin-scroll flex max-h-48 flex-col gap-1.5 overflow-y-auto">
+                  {planNext.data.plan.scenes.map((scene) => (
+                    <li
+                      key={scene.order}
+                      className="rounded-sm bg-muted px-2 py-1.5"
+                    >
+                      <p className="text-xs font-medium">
+                        {scene.order}. {scene.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {scene.purpose} · {scene.objective}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        선택: {scene.choice} / 대가: {scene.cost}
+                      </p>
+                      {(scene.closing_hook || scene.ending_intent) && (
+                        <p className="text-[11px] text-muted-foreground">
+                          {scene.closing_hook
+                            ? `후크: ${scene.closing_hook}`
+                            : `결말: ${scene.ending_intent}`}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {assistantStage === "draft" && generateNext.data && (
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                  초안 미리보기 — {generateNext.data.chapter_title} ·{" "}
+                  {generateNext.data.word_count_cache.toLocaleString()}자
+                </p>
+                <p className="mb-2 text-[11px] text-warning">
+                  아직 원고에 반영되지 않은 초안입니다. [원고에 적용하고 편집]을
+                  눌러야 정본이 됩니다.
+                </p>
+                <pre className="thin-scroll max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-muted p-2 font-serif text-xs leading-relaxed">
+                  {generateNext.data.content_md}
+                </pre>
+              </div>
+            )}
+
+            {(planNext.isError || generateNext.isError || applyDraft.isError) && (
               <Alert variant="error" className="mt-3">
                 <AlertDescription>
-                  {(assistantGenerate.error as Error).message ||
+                  {(planNext.error as Error | null)?.message ||
+                    (generateNext.error as Error | null)?.message ||
+                    (applyDraft.error as Error | null)?.message ||
                     "다음 회차 생성에 실패했습니다."}
                 </AlertDescription>
               </Alert>
             )}
 
             <DialogFooter>
-              <Button variant="ghost" onClick={() => handleClose(false)}>
-                닫기
-              </Button>
-              <Button
-                onClick={() => {
-                  handleClose(false);
-                  navigate(`/projects/${result.project_id}/write`);
-                }}
-              >
-                프로젝트 열기 →
-              </Button>
-              <Button
-                disabled={assistantGenerate.isPending}
-                onClick={() => assistantGenerate.mutate(result.project_id)}
-              >
-                {assistantGenerate.isPending ? "다음 회차 생성 중…" : "생성 시작"}
-              </Button>
+              {assistantStage === "idle" && (
+                <>
+                  <Button variant="ghost" onClick={() => handleClose(false)}>
+                    닫기
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      handleClose(false);
+                      navigate(`/projects/${result.project_id}/write`);
+                    }}
+                  >
+                    프로젝트 열기 →
+                  </Button>
+                  <Button
+                    disabled={isBusy}
+                    onClick={() => planNext.mutate(result.project_id)}
+                  >
+                    {planNext.isPending ? "계획 분석 중…" : "생성 시작"}
+                  </Button>
+                </>
+              )}
+              {assistantStage === "plan" && planNext.data && (
+                <>
+                  <Button
+                    variant="ghost"
+                    disabled={isBusy}
+                    onClick={() => {
+                      const pid = result.project_id;
+                      handleClose(false);
+                      navigate(`/projects/${pid}/write`);
+                    }}
+                  >
+                    나중에
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={isBusy}
+                    onClick={() => planNext.mutate(result.project_id)}
+                  >
+                    {planNext.isPending ? "계획 분석 중…" : "계획 다시 생성"}
+                  </Button>
+                  <Button
+                    disabled={isBusy}
+                    onClick={() =>
+                      generateNext.mutate({
+                        projectId: result.project_id,
+                        plan: planNext.data!,
+                      })
+                    }
+                  >
+                    {generateNext.isPending
+                      ? "초안 집필 중…"
+                      : "수락하고 집필"}
+                  </Button>
+                </>
+              )}
+              {assistantStage === "draft" && generateNext.data && (
+                <>
+                  <Button
+                    variant="ghost"
+                    disabled={isBusy}
+                    onClick={() => {
+                      const draft = generateNext.data;
+                      if (draft?.draft_output_id) {
+                        discardDraft.mutate(draft.draft_output_id);
+                      }
+                      handleClose(false);
+                      navigate(`/projects/${result.project_id}/write`);
+                    }}
+                  >
+                    폐기
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={isBusy}
+                    onClick={() => setAssistantStage("plan")}
+                  >
+                    계획으로
+                  </Button>
+                  <Button
+                    disabled={isBusy || !generateNext.data.draft_output_id}
+                    onClick={() =>
+                      applyDraft.mutate({
+                        outputId: generateNext.data.draft_output_id!,
+                        revision: generateNext.data.revision,
+                      })
+                    }
+                  >
+                    {applyDraft.isPending
+                      ? "적용 중…"
+                      : "원고에 적용하고 편집"}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </>
         )}

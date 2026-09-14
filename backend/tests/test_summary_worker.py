@@ -414,3 +414,201 @@ def test_list_summary_jobs_orders_by_id(db_session):
     jobs = list_summary_jobs(db_session, project_id=project.id)
     assert [j.id for j in jobs] == sorted(j.id for j in jobs)
     assert all(j.project_id == project.id for j in jobs)
+
+
+# --- 아크 요약 (D02 계층 기억) ----------------------------------------------
+
+from app.services.long_memory import create_memory_entry, select_context_memory
+from app.services.summary_worker import plan_arc_summary_jobs
+
+
+def _approved_summaries(db, project, chapters, bodies=None):
+    entries = []
+    for index, chapter in enumerate(chapters):
+        body = (bodies or {}).get(index, f"{chapter.title} 요약 내용")
+        entries.append(
+            create_memory_entry(
+                db,
+                project_id=project.id,
+                chapter_id=chapter.id,
+                source_revision=chapter.revision,
+                source_text=chapter.content_md,
+                kind="summary",
+                body=body,
+                visibility="approved",
+            )
+        )
+    db.commit()
+    return entries
+
+
+def _arc_plan(db, project_id, **overrides):
+    params = dict(
+        project_id=project_id,
+        arc_size=3,
+        min_arc_sources=2,
+        prompt_version="arc-v1",
+        provider_identity="fake-provider",
+        model_snapshot="fake-model-1",
+        request_options={"temperature": 0.2},
+    )
+    params.update(overrides)
+    return plan_arc_summary_jobs(db, **params)
+
+
+def test_arc_plan_groups_approved_summaries(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 6)],
+    )
+    entries = _approved_summaries(db_session, project, chapters)
+
+    created, duplicates = _arc_plan(db_session, project.id)
+    assert len(created) == 2  # [1,2,3] + [4,5] (partial arc allowed)
+    assert duplicates == []
+    first, second = created
+    assert first.kind == "arc"
+    assert first.source_ids_json == [e.id for e in entries[:3]]
+    assert first.chapter_id == chapters[2].id
+    assert first.source_sort_order == 3
+    assert second.source_ids_json == [e.id for e in entries[3:]]
+
+
+def test_arc_plan_skips_draft_and_small_tail(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 4)],
+    )
+    entries = _approved_summaries(db_session, project, chapters)
+    # 마지막 회차 요약을 draft로 — 원천에서 빠져 아크 1개만 형성
+    entries[2].visibility = "draft"
+    db_session.commit()
+
+    created, _ = _arc_plan(db_session, project.id)
+    assert len(created) == 1
+    assert created[0].source_ids_json == [entries[0].id, entries[1].id]
+
+
+def test_arc_plan_idempotent_on_same_source_set(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 4)],
+    )
+    _approved_summaries(db_session, project, chapters)
+
+    created1, _ = _arc_plan(db_session, project.id)
+    created2, duplicates2 = _arc_plan(db_session, project.id)
+    assert len(created1) == 1
+    assert created2 == []
+    assert [j.id for j in duplicates2] == [created1[0].id]
+
+
+def test_arc_run_saves_draft_entry(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 4)],
+    )
+    _approved_summaries(db_session, project, chapters)
+    created, _ = _arc_plan(db_session, project.id)
+
+    processed = run_pending_summary_jobs(db_session, _fake_provider)
+    job = processed[0]
+    assert job.id == created[0].id
+    assert job.status == "draft_saved"
+    entry = db_session.get(MemoryEntry, job.memory_entry_id)
+    assert entry.kind == "arc_summary"
+    assert entry.visibility == "draft"
+    assert entry.chapter_id is None
+    assert entry.effective_from_sort_order == 3
+    prov = entry.provenance_json
+    assert prov["arc_size"] == 3
+    assert len(prov["arc_source_entry_ids"]) == 3
+
+
+def test_arc_run_stale_when_source_retired(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 4)],
+    )
+    entries = _approved_summaries(db_session, project, chapters)
+    _arc_plan(db_session, project.id)
+    entries[1].visibility = "retired"
+    db_session.commit()
+
+    processed = run_pending_summary_jobs(db_session, _fake_provider)
+    assert processed[0].status == "stale_source"
+    assert processed[0].memory_entry_id is None
+
+
+def test_arc_run_stale_when_source_deleted(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 4)],
+    )
+    entries = _approved_summaries(db_session, project, chapters)
+    _arc_plan(db_session, project.id)
+    db_session.delete(entries[0])
+    db_session.commit()
+
+    processed = run_pending_summary_jobs(db_session, _fake_provider)
+    assert processed[0].status == "stale_source"
+
+
+def test_arc_run_provider_error_retryable(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 4)],
+    )
+    _approved_summaries(db_session, project, chapters)
+    _arc_plan(db_session, project.id)
+
+    def failing(job):
+        raise RuntimeError("bridge down")
+
+    processed = run_pending_summary_jobs(db_session, failing)
+    assert processed[0].status == "provider_error"
+
+    retried = retry_summary_job(db_session, processed[0].id)
+    assert retried.status == "planned"
+    processed2 = run_pending_summary_jobs(db_session, _fake_provider)
+    assert processed2[0].status == "draft_saved"
+
+
+def test_arc_summary_enters_context_only_after_arc_end(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 5)],
+    )
+    _approved_summaries(db_session, project, chapters[:3])
+    _arc_plan(db_session, project.id)
+    run_pending_summary_jobs(db_session, _fake_provider)
+
+    arc = db_session.scalar(
+        select(MemoryEntry).where(MemoryEntry.kind == "arc_summary")
+    )
+    arc.visibility = "approved"
+    db_session.commit()
+
+    # 아크 범위 앞쪽 회차(sort 2)는 아크 요약을 보지 않고, 아크 이후 회차는 본다.
+    inside = select_context_memory(
+        db_session, project.id, chapters[1].id
+    )
+    after = select_context_memory(
+        db_session, project.id, chapters[3].id
+    )
+    assert all(e.kind != "arc_summary" for e in inside)
+    assert any(e.kind == "arc_summary" for e in after)
+
+
+def test_arc_plan_ignores_other_projects(db_session):
+    project, chapters = _seed(
+        db_session,
+        chapters=[(i, f"{i}화", f"본문 {i}") for i in range(1, 4)],
+    )
+    _approved_summaries(db_session, project, chapters)
+    other = Project(title="other")
+    db_session.add(other)
+    db_session.commit()
+
+    created, _ = _arc_plan(db_session, other.id)
+    assert created == []

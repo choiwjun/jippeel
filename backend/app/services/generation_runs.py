@@ -34,6 +34,7 @@ def save_run(*, surface: str, project_id: int | None, chapter_id: int | None,
              reasoning_effort: str | None, messages: list[dict] | None,
              manifest: dict | None, status: str, wall_ms: int,
              outputs: list[OutputSpec], ai_usage_id: int | None = None,
+             applied_rules: list[int] | None = None,
              db: Session | None = None) -> tuple[int | None, dict[str, int]]:
     """run + outputs를 한 세션에 기록하고 (run_id, {key: output_id})를 반환.
 
@@ -62,6 +63,7 @@ def save_run(*, surface: str, project_id: int | None, chapter_id: int | None,
                 status=status,
                 wall_ms=max(wall_ms, 0),
                 ai_usage_id=ai_usage_id,
+                applied_rules_json=applied_rules,
             )
             session.add(run)
             session.flush()

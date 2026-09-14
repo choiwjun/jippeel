@@ -458,7 +458,10 @@ class EndingImpactOut(BaseModel):
 
 
 # ---- MemoryEntry (장편 기억 거버넌스) ----
-MemoryKind = Literal["summary", "beat", "decision", "fact", "timeline", "relationship_note"]
+MemoryKind = Literal[
+    "summary", "beat", "decision", "fact", "timeline", "relationship_note",
+    "arc_summary",
+]
 MemoryVisibility = Literal["draft", "approved", "retired"]
 
 
@@ -860,7 +863,11 @@ class ParallelPlan(BaseModel):
 
 
 class ParallelGenerateRequest(BaseModel):
-    """Medium 장면 병렬 집필 + GPT OAuth provider 감수 요청."""
+    """Medium 장면 병렬 집필 + GPT OAuth provider 감수 요청.
+
+    approved_plan이 있으면 planner 호출을 건너뛰고 작가가 승인한 계획을
+    그대로 worker 계약으로 사용한다(계획→승인→집필 흐름의 집필 단계).
+    """
 
     preset_id: int | None = None
     prompt_override: str | None = None
@@ -870,6 +877,28 @@ class ParallelGenerateRequest(BaseModel):
     generation_reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh"] = "medium"
     review: GenerateReviewOptions = Field(
         default_factory=lambda: GenerateReviewOptions(reasoning_effort="xhigh"))
+    approved_plan: ParallelPlan | None = None
+    plan_output_id: int | None = Field(default=None, ge=1)  # 승인한 계획 산출물 provenance
+
+
+class PlanRequest(BaseModel):
+    """집필 계획만 생성하는 요청 — 원고를 쓰지 않고 계획을 작가에게 제시한다."""
+
+    preset_id: int | None = None
+    prompt_override: str | None = None
+    context: GenerateContext = Field(default_factory=GenerateContext)
+    params: GenerateParams = Field(default_factory=GenerateParams)
+    generation_reasoning_effort: Literal["minimal", "low", "medium", "high", "xhigh"] = "medium"
+
+
+class PlanResponse(BaseModel):
+    """계획 생성 결과 — 검토용 계획 + 생성 이력 앵커."""
+
+    run_id: int | None
+    plan_output_id: int | None
+    plan: ParallelPlan
+    chapter_revision: int | None
+    episode_purpose: str
 
 
 class ReviewRequest(BaseModel):
@@ -899,21 +928,68 @@ class GenerateRequest(BaseModel):
     review: GenerateReviewOptions | None = None
 
 
-class AssistantGenerateNextRequest(BaseModel):
-    """작품 준비 완료 후 다음 빈 회차를 자동 집필하는 요청."""
+class AssistantPlanNextRequest(BaseModel):
+    """다음 대상 회차의 집필 계획만 생성하는 요청 — 원고는 쓰지 않는다."""
 
+    chapter_id: int | None = Field(default=None, ge=1)  # 미지정 시 첫 빈 회차
     max_tokens: int | None = Field(default=None, ge=1)
 
 
-class AssistantGenerateNextResponse(BaseModel):
-    """자동 집필·저장 결과 — 편집기가 즉시 표시할 수 있는 정본."""
+class AssistantPlanNextResponse(BaseModel):
+    """assistant 경로의 계획 검토 응답 — 작가 승인 전 원고 변경 없음."""
 
     project_id: int
     chapter_id: int
     chapter_title: str
+    chapter_revision: int
+    episode_purpose: str
+    plan: ParallelPlan
+    run_id: int | None
+    plan_output_id: int | None
+
+
+class AssistantGenerateNextRequest(BaseModel):
+    """다음 회차 집필 요청 — 결과는 초안 산출물로만 보존되며 원고를 쓰지 않는다.
+
+    approved_plan을 넘기면 planner를 다시 부르지 않고 작가가 승인한 계획을
+    프롬프트 계약으로 주입한다(assistant/plan-next의 승인 단계).
+    """
+
+    chapter_id: int | None = Field(default=None, ge=1)  # 미지정 시 첫 빈 회차
+    max_tokens: int | None = Field(default=None, ge=1)
+    approved_plan: ParallelPlan | None = None
+    plan_output_id: int | None = Field(default=None, ge=1)
+
+
+class AssistantGenerateNextResponse(BaseModel):
+    """자동 집필 결과 — 초안/미리보기. 원고 적용은 POST …/apply가 유일 경로."""
+
+    project_id: int
+    chapter_id: int
+    chapter_title: str
+    revision: int  # apply의 expected_revision 앵커 — 현재 회차 revision
+    content_md: str  # 생성된 초안 텍스트(미적용)
+    word_count_cache: int  # 초안의 공백 제외 글자 수
+    applied: bool = False  # 원고에 자동 반영됐는지 — 항상 False여야 한다
+    run_id: int | None = None
+    draft_output_id: int | None = None
+
+
+class GenerationOutputApplyIn(BaseModel):
+    """초안 산출물을 회차 원고에 적용하는 명시적 작가 액션."""
+
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int | None = Field(default=None, ge=0)  # CAS 앵커
+
+
+class GenerationOutputApplyResult(BaseModel):
+    """apply 결과 — 새 revision과 기록된 처분."""
+
+    output_id: int
+    chapter_id: int
+    chapter_title: str
     revision: int
-    content_md: str
-    word_count_cache: int
+    outcome: str
 
 
 # ---- 생성 이력 (작가 피드백 자가개선 E1/E2) ----
@@ -973,6 +1049,53 @@ class GenerationRunDetail(GenerationRunOut):
     applied_rules_json: list | None
     ai_usage_id: int | None
     outputs: list[GenerationOutputDetail] = []
+
+
+# ---- 결정론 생성 분석 (E3) — LLM 없는 이력 집계 ----
+
+class SurfaceAcceptStats(BaseModel):
+    surface: str
+    runs: int
+    outputs: int
+    outcome_counts: dict[str, int]
+    accept_rate: float | None  # (inserted+replaced)/처분 결정된 산출물
+    avg_wall_ms: float
+
+
+class EditDistanceEntry(BaseModel):
+    output_id: int
+    chapter_id: int | None
+    channel: str
+    surface: str
+    ratio: float  # output↔landed 유사도 — 1.0이면 무변경 수용
+    output_chars: int
+    landed_chars: int
+    landed_still_present: bool | None  # 현재 원고에 landed_text 잔존 여부
+
+
+class DeletedExpressionStat(BaseModel):
+    text: str
+    count: int
+    output_ids: list[int]  # 근거 산출물 링크(최대 10)
+
+
+class ChannelLengthStats(BaseModel):
+    channel: str
+    count: int
+    avg_chars: float
+    min_chars: int
+    max_chars: int
+
+
+class GenerationAnalysisOut(BaseModel):
+    project_id: int
+    total_runs: int
+    total_outputs: int
+    surfaces: list[SurfaceAcceptStats]
+    edit_distances: list[EditDistanceEntry]
+    avg_edit_ratio: float | None
+    deleted_expressions: list[DeletedExpressionStat]
+    length_distribution: list[ChannelLengthStats]
 
 
 
@@ -1244,3 +1367,85 @@ class BootstrapResponse(BaseModel):
     theme: str | None
     used_ai: bool
     fallback: bool
+
+
+# ---- 작가 개선 규칙 (작가 피드백 자가개선 E4) ----
+ImprovementRuleCategory = Literal[
+    "style", "deleted_expression", "character_voice", "pacing",
+    "length", "recurring_error", "canon_gap", "long_arc",
+]
+ImprovementRuleStatus = Literal["proposed", "approved", "rejected", "retired"]
+
+
+class ImprovementRuleEvidence(BaseModel):
+    """규칙 제안의 근거 링크 — 산출물/회차 참조 또는 자유 메모."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["generation_output", "chapter", "note"]
+    id: int | None = Field(default=None, ge=1)
+    text: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        if self.kind == "note":
+            if not (self.text or "").strip():
+                raise ValueError("note evidence requires text")
+        elif self.id is None:
+            raise ValueError(f"{self.kind} evidence requires id")
+        return self
+
+
+class ImprovementRuleCreate(BaseModel):
+    """규칙 생성 — HTTP 경로는 항상 author_written. 작가가 직접 쓴 규칙은
+    생성 즉시 approved로 둘 수 있다(생성 자체가 명시 승인)."""
+
+    model_config = ConfigDict(extra="forbid")
+    category: ImprovementRuleCategory
+    rule_text: str = Field(min_length=1, max_length=500)
+    status: Literal["proposed", "approved"] = "proposed"
+    rationale: str | None = Field(default=None, max_length=2000)
+    evidence: list[ImprovementRuleEvidence] = Field(default_factory=list, max_length=20)
+
+
+class ImprovementRuleUpdate(BaseModel):
+    """본문 수정은 proposed 상태에서만 가능 — 승인 후엔 retire+재제안."""
+
+    model_config = ConfigDict(extra="forbid")
+    category: ImprovementRuleCategory | None = None
+    rule_text: str | None = Field(default=None, min_length=1, max_length=500)
+    rationale: str | None = Field(default=None, max_length=2000)
+    evidence: list[ImprovementRuleEvidence] | None = Field(default=None, max_length=20)
+
+
+class ImprovementRuleDecision(BaseModel):
+    """상태 전이 — approve: proposed→approved, reject: proposed→rejected,
+    retire: approved→retired. 그 외 전이는 409."""
+
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["approve", "reject", "retire"]
+
+
+class ImprovementRuleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    category: str
+    rule_text: str
+    status: str
+    source: str
+    evidence_json: list
+    rationale: str | None
+    status_events_json: list
+    decided_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ImprovementProposalResult(BaseModel):
+    """E5 제안 job 결과 — 만들어진 proposed 초안과 평가 통계."""
+
+    created: list[ImprovementRuleOut]
+    created_count: int
+    skipped_existing: int
+    signals_evaluated: int

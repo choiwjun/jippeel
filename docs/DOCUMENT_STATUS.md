@@ -38,7 +38,11 @@
 | G02·G03·G04 병렬 Windows 세션 기록 | [기록](audits/g02-g03-g04-user-actions-2026-09-14/acceptance.md) | Documents checkout 병행 세션(ZCode)의 독립 실행 — 최소 smoke·bridge 재기동·NVDA 2026.1.1 설치·4개 화면 UIA 트리 확인 PASS_WITH_NOTES. 발화·순환 갭은 g04 디렉터리의 speech evidence로 보완 |
 | 다른 PC 접근 최소 범위 | [LAN 접속 runbook](runbooks/cross-pc-access.md) | A PC 운영 서버의 LAN 바인딩·접속 주소 출력. B PC는 같은 네트워크에서 동일 SQLite DB를 사용. 로그인·클라우드·인터넷 공개는 범위 밖 |
 | 작가 피드백 자가개선 설계 | [전체 설계](specs/2026-09-14-author-feedback-improvement.md) / [E1 사양](specs/2026-09-14-e1-generation-runs-spec.md) | 제안→승인→적용 순서, 작품별 완전 분리. E1(생성 이력)~E7(규칙 UI) 단위 분할 |
-| E1·E2 생성 이력+작가 처분 수용 | [수용](audits/e1-generation-runs-2026-09-14/acceptance.md) | generation_runs/outputs append-only·3 surface SSE 기록·generation_saved 이벤트·outcome 상태 기계·프론트 명시 액션 계측. 신규 12P·전체 738P. E3~E7 잔여 |
+| E1·E2 생성 이력+작가 처분 수용 | [수용](audits/e1-generation-runs-2026-09-14/acceptance.md) | generation_runs/outputs append-only·3 surface SSE 기록·generation_saved 이벤트·outcome 상태 기계·프론트 명시 액션 계측. 신규 12P·전체 738P |
+| E3~E7 자가개선 전 단계 구현 | [설계](specs/2026-09-14-author-feedback-improvement.md) | E3 결정론 diff 분석·E4 improvement_rules·E5 제안 job(proposed만)·E6 승인 규칙 주입·E7 규칙/이력/폐기 UI. migration `c04b5d6e7f81` |
+| 계획→승인→집필 흐름 | HANDOFF §09-14 대량 슬라이스 | `POST /ai/plan`·approved_plan 주입·assistant plan-next·generate-next draft-only·`apply` CAS. 기존 원고 자동 덮어쓰기 없음 |
+| D04 실제 provider smoke | [수용](audits/d04-2-summary-smoke-2026-09-14/acceptance.md) / [운영 runbook](runbooks/summary-backfill-operations.md) | 실제 OAuth 브릿지 경유 draft_saved·자동 승인 없음 |
+| D02·500화 계층 기억 1차 | [설계](specs/2026-09-14-hierarchical-memory-500ep.md) | 아크 요약 슬라이스 — `summary_jobs.kind='arc'`·`arc_summary` MemoryEntry·migration `d1e2f3a4b5c6`. 권 기억·커버리지 선택은 후속 |
 
 ## 기록 문서의 해석
 

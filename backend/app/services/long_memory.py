@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Chapter, MemoryEntry
 
-MEMORY_KINDS = ("summary", "beat", "decision", "fact", "timeline", "relationship_note")
+MEMORY_KINDS = ("summary", "beat", "decision", "fact", "timeline", "relationship_note", "arc_summary")
 MEMORY_VISIBILITIES = ("draft", "approved", "retired")
 _ALLOWED_VISIBILITY_TRANSITIONS = {
     ("draft", "approved"),

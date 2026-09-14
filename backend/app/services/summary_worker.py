@@ -16,9 +16,17 @@ from sqlalchemy.orm.exc import ObjectDeletedError
 
 from app.models import Chapter, MemoryEntry, SummaryJob
 from app.services.long_memory import content_sha256, create_memory_entry
-from app.services.summary_jobs import build_summary_manifest
+from app.services.summary_jobs import (
+    _idempotency_key,
+    build_summary_manifest,
+    canonical_request_options_hash,
+)
 
 SummaryProvider = Callable[[SummaryJob], str]
+
+# 아크 요약은 승인된 회차 요약을 이 크기로 묶는다 (10~20화 구간).
+DEFAULT_ARC_SIZE = 10
+MIN_ARC_SOURCES = 3
 
 
 def _utcnow() -> datetime:
@@ -82,18 +90,133 @@ def plan_summary_jobs(
     return created, duplicates
 
 
+def _join_arc_sources(db: Session, source_ids: Sequence[int]) -> list[MemoryEntry] | None:
+    """아크 원천 회차 요약을 id 순으로 적재한다. 하나라도 없으면 None."""
+    entries: list[MemoryEntry] = []
+    for entry_id in source_ids:
+        entry = db.get(MemoryEntry, int(entry_id))
+        if entry is None:
+            return None
+        entries.append(entry)
+    return entries
+
+
+def _arc_source_text(db: Session, entries: Sequence[MemoryEntry]) -> str:
+    parts: list[str] = []
+    for entry in entries:
+        title = ""
+        if entry.chapter_id is not None:
+            chapter = db.get(Chapter, entry.chapter_id)
+            title = (chapter.title or "") if chapter is not None else ""
+        parts.append(f"[{title or entry.chapter_id}] {entry.body}")
+    return "\n\n".join(parts)
+
+
+def plan_arc_summary_jobs(
+    db: Session,
+    *,
+    project_id: int,
+    arc_size: int = DEFAULT_ARC_SIZE,
+    min_arc_sources: int = MIN_ARC_SOURCES,
+    prompt_version: str,
+    provider_identity: str,
+    model_snapshot: str,
+    request_options: Mapping[str, Any],
+) -> tuple[list[SummaryJob], list[SummaryJob]]:
+    """승인된 회차 요약을 arc_size 단위로 묶어 kind='arc' job을 만든다.
+
+    원천은 visibility='approved'인 kind='summary' MemoryEntry뿐 — draft는
+    묶지 않는다. 마지막 부분 아크는 min_arc_sources 미만이면 생략한다.
+    동일 원천 집합의 job은 idempotency_key로 재사용된다.
+    """
+    if arc_size < 2:
+        raise ValueError("arc_size must be >= 2")
+    if not prompt_version.strip():
+        raise ValueError("prompt_version must not be empty")
+    if not provider_identity.strip():
+        raise ValueError("provider_identity must not be empty")
+    if not model_snapshot.strip():
+        raise ValueError("model_snapshot must not be empty")
+
+    rows = db.execute(
+        select(MemoryEntry, Chapter.sort_order)
+        .join(Chapter, MemoryEntry.chapter_id == Chapter.id)
+        .where(
+            MemoryEntry.project_id == project_id,
+            MemoryEntry.kind == "summary",
+            MemoryEntry.visibility == "approved",
+        )
+        .order_by(Chapter.sort_order, MemoryEntry.id)
+    ).all()
+    summaries: list[tuple[MemoryEntry, float]] = [
+        (entry, float(sort)) for entry, sort in rows
+    ]
+
+    options_hash = canonical_request_options_hash(request_options)
+    options_json = dict(request_options)
+    created: list[SummaryJob] = []
+    duplicates: list[SummaryJob] = []
+    for start in range(0, len(summaries), arc_size):
+        group = summaries[start:start + arc_size]
+        if len(group) < min_arc_sources:
+            continue
+        source_ids = [entry.id for entry, _ in group]
+        source_text = _arc_source_text(db, [entry for entry, _ in group])
+        source_hash = content_sha256(source_text)
+        anchor_chapter_id = group[-1][0].chapter_id
+        arc_end_sort = group[-1][1]
+        key_data = {
+            "kind": "arc",
+            "model_snapshot": model_snapshot,
+            "project_id": project_id,
+            "prompt_version": prompt_version,
+            "provider_identity": provider_identity,
+            "request_options_hash": options_hash,
+            "source_entry_ids": source_ids,
+            "source_sha256": source_hash,
+        }
+        key = _idempotency_key(key_data)
+        existing = db.scalar(
+            select(SummaryJob).where(SummaryJob.idempotency_key == key)
+        )
+        if existing is not None:
+            duplicates.append(existing)
+            continue
+        job = SummaryJob(
+            project_id=project_id,
+            chapter_id=anchor_chapter_id,
+            source_revision=0,
+            source_sha256=source_hash,
+            source_sort_order=arc_end_sort,
+            source_content_length=len(source_text),
+            kind="arc",
+            source_ids_json=source_ids,
+            prompt_version=prompt_version,
+            provider_identity=provider_identity,
+            model_snapshot=model_snapshot,
+            request_options_hash=options_hash,
+            request_options_json=options_json,
+            idempotency_key=key,
+            status="planned",
+        )
+        db.add(job)
+        created.append(job)
+    db.commit()
+    return created, duplicates
+
+
 def _find_duplicate_draft(db: Session, job: SummaryJob) -> MemoryEntry | None:
     """동일 idempotency_key provenance를 가진 기존 summary draft/approved를 찾는다."""
-    if job.chapter_id is None:
-        return None
-    entries = db.scalars(
-        select(MemoryEntry).where(
-            MemoryEntry.chapter_id == job.chapter_id,
-            MemoryEntry.kind == "summary",
-            MemoryEntry.project_id == job.project_id,
-        )
-    ).all()
-    for entry in entries:
+    kind = "arc_summary" if job.kind == "arc" else "summary"
+    query = select(MemoryEntry).where(
+        MemoryEntry.project_id == job.project_id,
+        MemoryEntry.kind == kind,
+    )
+    if job.kind != "arc":
+        if job.chapter_id is None:
+            return None
+        query = query.where(MemoryEntry.chapter_id == job.chapter_id)
+    for entry in db.scalars(query).all():
         prov = entry.provenance_json or {}
         if prov.get("idempotency_key") == job.idempotency_key:
             return entry
@@ -112,7 +235,76 @@ def _finish(job: SummaryJob, status: str, *, error: str | None = None) -> None:
     job.finished_at = _utcnow()
 
 
+def _process_arc_job(db: Session, job: SummaryJob, provider: SummaryProvider) -> None:
+    """kind='arc' — 승인된 회차 요약 묶음을 아크 요약 draft로 만든다."""
+    source_ids = job.source_ids_json or []
+    entries = _join_arc_sources(db, source_ids)
+    if entries is None:
+        _finish(job, "stale_source", error="arc source entry deleted")
+        return
+    for entry in entries:
+        if (entry.project_id != job.project_id or entry.kind != "summary"
+                or entry.visibility != "approved"):
+            _finish(job, "stale_source", error="arc source no longer approved")
+            return
+    source_text = _arc_source_text(db, entries)
+    if content_sha256(source_text) != job.source_sha256:
+        _finish(job, "stale_source", error="arc sources changed since planning")
+        return
+
+    try:
+        text = provider(job)
+    except Exception as exc:
+        _finish(job, "provider_error", error=str(exc)[:2000])
+        return
+
+    # 생성 후 재검증 — 호출 중 원천 승인 상태가 바뀌면 저장하지 않는다.
+    recheck = _join_arc_sources(db, source_ids)
+    if recheck is None or any(e.visibility != "approved" for e in recheck):
+        _finish(job, "stale_source", error="arc sources changed during generation")
+        return
+
+    existing = _find_duplicate_draft(db, job)
+    if existing is not None:
+        job.memory_entry_id = existing.id
+        _finish(job, "duplicate_skipped")
+        return
+
+    try:
+        entry = create_memory_entry(
+            db,
+            project_id=job.project_id,
+            chapter_id=None,
+            source_revision=None,
+            source_text=source_text,
+            kind="arc_summary",
+            body=text or "",
+            visibility="draft",
+            effective_from_sort_order=job.source_sort_order,
+            provenance={
+                "generated_by": "summary-worker",
+                "job_id": job.id,
+                "idempotency_key": job.idempotency_key,
+                "prompt_version": job.prompt_version,
+                "provider_identity": job.provider_identity,
+                "model_snapshot": job.model_snapshot,
+                "request_options_hash": job.request_options_hash,
+                "arc_source_entry_ids": list(source_ids),
+                "arc_size": len(source_ids),
+            },
+        )
+    except ValueError as exc:
+        db.rollback()
+        _finish(job, "provider_error", error=f"result rejected: {exc}"[:2000])
+        return
+    job.memory_entry_id = entry.id
+    _finish(job, "draft_saved")
+
+
 def _process_job(db: Session, job: SummaryJob, provider: SummaryProvider) -> None:
+    if job.kind == "arc":
+        _process_arc_job(db, job, provider)
+        return
     # populate_existing — 같은 세션에 캐시된 오래된 chapter 상태를 읽지 않는다.
     chapter = (
         db.get(Chapter, job.chapter_id, populate_existing=True)

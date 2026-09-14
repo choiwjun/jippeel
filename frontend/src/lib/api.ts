@@ -471,14 +471,61 @@ export interface BootstrapResponse {
   fallback: boolean;
 }
 
-/** 작품 준비 확인 후 다음 빈 회차를 자동 집필·저장하는 응답 */
+// ---- 집필 계획 (작가 검토 게이트) — /ai/plan·assistant/plan-next 공용 ----
+
+export interface PlanScene {
+  order: number;
+  title: string;
+  purpose: string;
+  objective: string;
+  choice: string;
+  cost: string;
+  required_beats: string[];
+  characters: string[];
+  opening_state: string;
+  closing_hook?: string | null;
+  ending_intent?: string | null;
+}
+
+export interface WritingPlan {
+  scenes: PlanScene[];
+}
+
+/** assistant/plan-next — 대상 회차의 계획 검토 응답(원고 미변경) */
+export interface AssistantPlanNextResponse {
+  project_id: number;
+  chapter_id: number;
+  chapter_title: string;
+  chapter_revision: number;
+  episode_purpose: string;
+  plan: WritingPlan;
+  run_id: number | null;
+  plan_output_id: number | null;
+}
+
+/** assistant/generate-next — 초안/미리보기(원고 자동 적용 없음) */
 export interface AssistantGenerateNextResponse {
   project_id: number;
   chapter_id: number;
   chapter_title: string;
+  /** apply의 expected_revision 앵커 — 생성 시점의 회차 revision */
   revision: number;
+  /** 생성된 초안 텍스트 — 원고에 아직 반영되지 않음 */
   content_md: string;
   word_count_cache: number;
+  /** 원고 자동 반영 여부 — 항상 false */
+  applied: boolean;
+  run_id: number | null;
+  draft_output_id: number | null;
+}
+
+/** POST /generation-outputs/{id}/apply 결과 */
+export interface GenerationOutputApplyResult {
+  output_id: number;
+  chapter_id: number;
+  chapter_title: string;
+  revision: number;
+  outcome: string;
 }
 
 // ---- Refine (Sprint 3 M5) — taxonomy ID A~J span ----
