@@ -187,6 +187,38 @@ def _characters_messages(genre: str, idea: dict, outline_summary: str) -> list[d
             {"role": "user", "content": user}]
 
 
+def _supporting_cast_messages(genre: str, idea: dict, outline_summary: str,
+                              volume_titles: list[str], core_names: list[str],
+                              ) -> list[dict]:
+    """콜 3b — 권별 조연·단역 확장. 장편은 권마다 새 인물이 들어와야 한다."""
+    titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
+    title = titles[0] if titles else genre
+    vol_lines = "\n".join(f"{i + 1}권: {t}" for i, t in enumerate(volume_titles))
+    core = ", ".join(core_names) or "(없음)"
+    user = f"""작품: {title}
+장르: {genre}
+로그라인: {_as_str(idea.get('logline'))}
+
+권별 흐름:
+{vol_lines}
+
+핵심 인물(중복 금지): {core}
+
+위 작품은 {len(volume_titles)}권 장편이다. 권별로 새로 등장하는 조연·단역 인물을 설계하라.
+- 권당 2~3명, role은 "조연" 또는 "단역"만 사용
+- name은 반드시 고유 인명(유형 라벨 금지), 핵심 인물과 이름이 겹치지 않는다
+- first_volume은 처음 등장하는 권 번호(1~{len(volume_titles)}). 그 권의 사건과 연결돼야 한다
+- 각 인물은 그 권에서 맡는 서사 기능(돕는 자·방해자·정보원·희생자 등)이 배경에 드러나야 한다
+- appearance·personality·speech_style·background는 각 1문장으로 간결하게
+
+다음 JSON 형식으로 출력하라:
+{{"characters": [{{"name": "이름", "alias": "별칭", "role": "조연|단역",
+  "first_volume": 권번호, "appearance": "외형 1문장", "personality": "성격 1문장",
+  "speech_style": "말투 1문장", "background": "서사 기능+배경 1문장"}}]}}"""
+    return [{"role": "system", "content": _SYSTEM_JSON},
+            {"role": "user", "content": user}]
+
+
 def _relations_lore_messages(genre: str, idea: dict, outline_summary: str,
                              character_names: list[str]) -> list[dict]:
     """콜 4 — 관계망(긴장·변화 포함)과 상호 연결된 세계관 설계."""
@@ -246,6 +278,7 @@ class OutlineCharacter:
     personality: str | None = None
     speech_style: str | None = None
     background: str | None = None
+    first_volume: int | None = None  # 첫 등장 권 — 권별 조연 확장 슬라이스
 
 
 @dataclass
@@ -385,6 +418,43 @@ def _coerce_characters(data: dict) -> list[OutlineCharacter]:
             break
         if template["name"] not in seen:
             chars.append(OutlineCharacter(**template))
+    return chars
+
+
+def _coerce_supporting_cast(data: dict, core_names: set[str],
+                            volume_count: int) -> list[OutlineCharacter]:
+    """권별 조연·단역 coercion — 핵심 캐스트와 이름이 겹치지 않고 권당 3명까지."""
+    chars: list[OutlineCharacter] = []
+    seen: set[str] = set(core_names)
+    per_volume: dict[int, int] = {}
+    for c in _as_list(data.get("characters")):
+        if not isinstance(c, dict):
+            continue
+        name = _as_str(c.get("name"))
+        if not name or name in seen:
+            continue
+        fv = c.get("first_volume")
+        try:
+            first_volume = int(fv)
+        except (TypeError, ValueError):
+            first_volume = 1
+        if not 1 <= first_volume <= max(volume_count, 1):
+            first_volume = 1
+        if per_volume.get(first_volume, 0) >= 3:
+            continue
+        per_volume[first_volume] = per_volume.get(first_volume, 0) + 1
+        seen.add(name)
+        role = _as_str(c.get("role"))
+        chars.append(OutlineCharacter(
+            name=name,
+            alias=_as_str(c.get("alias")) or None,
+            role=role if role in ("조연", "단역") else "조연",
+            appearance=_as_str(c.get("appearance")) or None,
+            personality=_as_str(c.get("personality")) or None,
+            speech_style=_as_str(c.get("speech_style")) or None,
+            background=_as_str(c.get("background")) or None,
+            first_volume=first_volume,
+        ))
     return chars
 
 
@@ -531,6 +601,7 @@ def _character_card_json(c: OutlineCharacter) -> dict:
             "scenario": c.background or "",
             "first_mes": "",
             "mes_example": c.speech_style or "",
+            "first_volume": c.first_volume,
         },
     }
 
@@ -580,6 +651,10 @@ def persist_structure(db: Session, genre: str, premise: str | None,
 
     outline = _coerce_outline(structure, volume_count, chapters_per_volume)
     characters = _coerce_characters(structure)
+    # 권별 조연·단역 — 핵심 캐스트와 이름이 겹치지 않게 추가한다
+    characters += _coerce_supporting_cast(
+        {"characters": structure.get("supporting_characters")},
+        {c.name for c in characters}, volume_count)
     relationships = _coerce_relationships(structure, {c.name for c in characters})
     lore = _coerce_lore(structure)
     outline_summary = _summarize_outline(outline, volumes_index)
@@ -761,7 +836,6 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
                 _as_list(characters_data.get("characters"))):
             characters_data = retry
 
-    # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
     names = []
     for character in _as_list(characters_data.get("characters")):
         if not isinstance(character, dict):
@@ -769,6 +843,28 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         name = _as_str(character.get("name"))
         if name:
             names.append(name)
+
+    # 콜 3b — 권별 조연·단역 확장. 3권 이상 장편에서만 추가 호출한다.
+    supporting_data: dict = {}
+    volume_titles = [
+        _as_str(v.get("title")) for v in _as_list(outline_data.get("volumes"))
+        if isinstance(v, dict)
+    ]
+    if volume_count >= 3 and volume_titles:
+        try:
+            supporting_data = await _call_json(
+                client, model,
+                _supporting_cast_messages(
+                    genre, idea, summary, volume_titles, names),
+                reasoning_effort=reasoning_effort, db=db)
+        except BootstrapAIError:
+            logger.warning("bootstrap 권별 조연 생성 실패 — 핵심 캐스트만 유지")
+            supporting_data = {}
+        # 관계망이 권별 조연까지 잇도록 이름 목록을 합친다
+        names += [c.name for c in _coerce_supporting_cast(
+            supporting_data, set(names), volume_count)]
+
+    # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
     rellore_data = await _call_json(
         client, model,
         _relations_lore_messages(genre, idea, summary, names),
@@ -780,6 +876,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         "theme": _as_str(idea.get("theme")),
         "protagonist_name": _as_str(idea.get("protagonist_name")),
         "characters": characters_data.get("characters"),
+        "supporting_characters": supporting_data.get("characters"),
         "relationships": rellore_data.get("relationships"),
         "lore_entries": rellore_data.get("lore_entries"),
         "volumes": outline_data.get("volumes"),

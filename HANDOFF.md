@@ -957,3 +957,13 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - `POST /projects/{pid}/style-analysis` (projects.py): 텍스트(200~20000자) → `{metrics, profile_draft}` 반환만 — 저장 없음. 작가가 검토·수정 후 PATCH style_profile로 적용.
 - 프론트 PlanPage: 문체 프로파일 아래 "레퍼런스 스타일 분석" 섹션 — 텍스트 입력 → 지표 배지 + 초안 편집 → "문체 프로파일에 적용" → 이후 생성 컨텍스트에 주입(기존 style_profile 경로 그대로).
 - 검증: `test_style_analysis.py` 신규 5건(지표·메시지 형태·엔드포인트·미저장·길이 검증), 전체 회귀 **816P/1skip**, 프론트 빌드 PASS.
+
+## 캐릭터 생성 엔진 고도화 — 권별 조연 확장 — 2026-09-14
+
+- 사용자 지적: 10권/300화 장편인데 캐릭터가 4명뿐이고 이름도 유형 라벨("차가운 검객")이었다. `d8c5793`에서 실명 강제+5명 미만 재시도를 넣었으나, 장편에선 핵심 캐스트만으론 부족.
+- 확장(`bootstrap.py`): `volume_count >= 3`이면 캐릭터 호출 뒤 `_supporting_cast_messages`로 권별 조연·단역 생성 호출을 추가(권당 2~3명 요청). 각 조연은 `first_volume`(첫 등장 권)을 들고, 핵심 캐스트와 이름 중복 불가. 호출 실패 시 핵심 캐스트만으로 진행.
+- `_coerce_supporting_cast`: 이름 중복 제거, `first_volume` int 변환·범위 밖은 1권으로 보정, role은 조연/단역으로 제한, 권당 최대 3명.
+- 관계망: 조연 이름을 합쳐 콜 4(관계+세계관) 프롬프트에 전달 — 조연도 관계망에 연결될 수 있음. 관계 저장 검증도 합성 캐스트 기준.
+- `OutlineCharacter.first_volume` 필드 추가, `_character_card_json`의 `data.first_volume`에 보존 — 캐릭터 카드에서 첫 등장 권 확인 가능(UI 노출은 후속 과제).
+- 테스트 신규 3건: 권별 조연 생성+중복 제거+first_volume 보정, 2권 이하는 호출 생략(4회 유지), 조연 호출 실패 시 핵심 캐스트로 완료. `volume_count=4` 기존 테스트는 큐 5개·호출 수 5로 갱신.
+- 전체 회귀 **819P/1skip/violations 0**. 백엔드 재기동 적용.
