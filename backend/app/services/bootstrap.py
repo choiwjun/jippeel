@@ -171,7 +171,9 @@ def _characters_messages(genre: str, idea: dict, outline_summary: str) -> list[d
 
 위 목차를 관통하는 등장인물 6~8명을 심층 설계하라.
 - 구성: 주인공 1명, 핵심 조연 2~3명, 대립자 1~2명, 주변인 1~2명
-{protagonist_rule}- 주인공은 표면 목표와 내면 결핍이 충돌하고, 1권 내내 숨길 비밀이 하나 있어야 한다
+{protagonist_rule}- name은 반드시 고유 인명이어야 한다(예: '강진우', '세리아 폰 아르덴').
+  '차가운 검객', '밝은 동료' 같은 유형·역할 라벨을 name에 쓰면 안 된다 — 그런 표현은 alias로 보낸다
+- 주인공은 표면 목표와 내면 결핍이 충돌하고, 1권 내내 숨길 비밀이 하나 있어야 한다
 - 대립자는 단순 악인이 아니라 '그 나름의 정의'로 움직이는 이유가 있어야 한다
 - background는 배경 2문장 + 목표 + 숨긴 비밀까지 3문장 이상
 - speech_style은 실제 대사로 바로 쓸 수 있을 만큼 구체적으로(어투·호칭 포함)
@@ -741,11 +743,23 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
             outline_data.get("volumes"), "volume", volume_count).items()
     })
 
-    # 콜 3 — 캐릭터 심층 설계
+    # 콜 3 — 캐릭터 심층 설계. 인원이 모자라면(계약 6~8명) 한 번 재시도한다.
     characters_data = await _call_json(
         client, model,
         _characters_messages(genre, idea, summary),
         reasoning_effort=reasoning_effort, db=db)
+    if len(_as_list(characters_data.get("characters"))) < 5:
+        logger.warning("bootstrap 캐릭터 수 부족 — 재시도")
+        retry = await _call_json(
+            client, model,
+            _characters_messages(genre, idea, summary) + [{
+                "role": "user",
+                "content": "인원이 부족했다. 6~8명 전원을 실명 name으로 다시 출력하라.",
+            }],
+            reasoning_effort=reasoning_effort, db=db)
+        if len(_as_list(retry.get("characters"))) >= len(
+                _as_list(characters_data.get("characters"))):
+            characters_data = retry
 
     # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
     names = []
