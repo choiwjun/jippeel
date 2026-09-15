@@ -6,10 +6,12 @@ provider만 사용한다. 실제 provider 호출·운영 DB는 승인 게이트(
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import secrets
+import uuid
 from typing import Any, Callable, Mapping, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import ObjectDeletedError
@@ -34,6 +36,63 @@ MIN_VOLUME_SOURCES = 2
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+DEFAULT_LEASE_SECONDS = 300
+
+
+def _lease_owner() -> str:
+    return f"{uuid.uuid4()}"
+
+
+def _claim_job(db: Session, job_id: int, owner: str,
+               *, lease_seconds: int = DEFAULT_LEASE_SECONDS) -> tuple[str, SummaryJob] | None:
+    """SQLite에서도 한 worker만 planned/만료 running 행을 원자적으로 선점한다."""
+    token = secrets.token_hex(32)
+    now = _utcnow()
+    expiry = now + timedelta(seconds=lease_seconds)
+    result = db.execute(
+        update(SummaryJob)
+        .where(
+            SummaryJob.id == job_id,
+            or_(
+                SummaryJob.status == "planned",
+                and_(SummaryJob.status == "running", or_(
+                    SummaryJob.lease_expires_at.is_(None),
+                    SummaryJob.lease_expires_at <= now,
+                )),
+            ),
+        )
+        .execution_options(synchronize_session=False)
+        .values(
+            status="running", attempt_count=SummaryJob.attempt_count + 1,
+            finished_at=None, error=None, lease_owner=owner,
+            lease_token=token, lease_expires_at=expiry,
+        )
+    )
+    if result.rowcount != 1:
+        db.rollback()
+        return None
+    db.commit()
+    job = db.get(SummaryJob, job_id, populate_existing=True)
+    return (token, job) if job is not None else None
+
+
+def _lease_is_owned(db: Session, job: SummaryJob, token: str) -> bool:
+    now = _utcnow()
+    return db.scalar(select(SummaryJob.id).where(
+        SummaryJob.id == job.id,
+        SummaryJob.status == "running",
+        SummaryJob.lease_owner == job.lease_owner,
+        SummaryJob.lease_token == token,
+        SummaryJob.lease_expires_at > now,
+    )) is not None
+
+
+def _release_lease(job: SummaryJob) -> None:
+    job.lease_owner = None
+    job.lease_token = None
+    job.lease_expires_at = None
 
 
 def plan_summary_jobs(
@@ -560,39 +619,56 @@ def run_pending_summary_jobs(
     *,
     project_id: int | None = None,
     limit: int | None = None,
+    worker_id: str | None = None,
 ) -> list[SummaryJob]:
-    """planned job을 id 순으로 처리한다. running 잔여는 planned로 복구한다.
-
-    각 job은 독립 트랜잭션으로 마무리 — 한 job 실패가 다른 job을 막지 않는다.
-    """
-    running_q = select(SummaryJob).where(SummaryJob.status == "running")
+    """planned 또는 만료 lease job만 원자적으로 선점해 처리한다."""
+    owner = worker_id or _lease_owner()
+    candidates = select(SummaryJob.id).where(
+        or_(
+            SummaryJob.status == "planned",
+            and_(SummaryJob.status == "running", or_(
+                SummaryJob.lease_expires_at.is_(None),
+                SummaryJob.lease_expires_at <= _utcnow(),
+            )),
+        )
+    ).order_by(SummaryJob.id)
     if project_id is not None:
-        running_q = running_q.where(SummaryJob.project_id == project_id)
-    for stale in db.scalars(running_q).all():
-        stale.status = "planned"
-    db.commit()
-
-    planned_q = (
-        select(SummaryJob).where(SummaryJob.status == "planned").order_by(SummaryJob.id)
-    )
-    if project_id is not None:
-        planned_q = planned_q.where(SummaryJob.project_id == project_id)
+        candidates = candidates.where(SummaryJob.project_id == project_id)
     if limit is not None:
-        planned_q = planned_q.limit(limit)
+        candidates = candidates.limit(limit)
 
     processed: list[SummaryJob] = []
-    for job in db.scalars(planned_q).all():
-        job.status = "running"
-        job.attempt_count += 1
-        job.finished_at = None
-        db.commit()
+    for (job_id,) in db.execute(candidates).all():
+        claimed = _claim_job(db, job_id, owner)
+        if claimed is None:
+            continue
+        token, job = claimed
         try:
+            if not _lease_is_owned(db, job, token):
+                continue
             _process_job(db, job, provider)
         except Exception as exc:
-            # 예상 밖 오류(저장 계층 등)도 이 job만 종결시키고 배치를 계속한다.
             db.rollback()
-            _finish(job, "provider_error", error=f"worker error: {exc}"[:2000])
+            fresh = db.get(SummaryJob, job_id, populate_existing=True)
+            if fresh is not None and fresh.lease_token == token:
+                _finish(fresh, "provider_error", error=f"worker error: {exc}"[:2000])
+                job = fresh
+            else:
+                continue
+        # fencing — lease가 탈취됐으면(status·memory_entry 포함) 전부 rollback한다.
+        # autoflush=False라 pending 변경은 아직 DB에 없고, 이 UPDATE의 WHERE가
+        # DB의 실제 lease_token을 검증한다.
+        released = db.execute(
+            update(SummaryJob)
+            .where(SummaryJob.id == job_id, SummaryJob.lease_token == token)
+            .values(lease_owner=None, lease_token=None, lease_expires_at=None)
+            .execution_options(synchronize_session=False)
+        )
+        if released.rowcount != 1:
+            db.rollback()
+            continue
         db.commit()
+        db.refresh(job)
         processed.append(job)
     return processed
 
@@ -602,13 +678,19 @@ def retry_summary_job(db: Session, job_id: int) -> SummaryJob:
     job = db.get(SummaryJob, job_id)
     if job is None:
         raise ValueError("summary job not found")
-    if job.status != "provider_error":
-        raise ValueError(f"only provider_error jobs are retryable: {job.status}")
-    job.status = "planned"
-    job.error = None
-    job.finished_at = None
+    result = db.execute(
+        update(SummaryJob)
+        .where(SummaryJob.id == job_id, SummaryJob.status == "provider_error")
+        .values(status="planned", error=None, finished_at=None,
+                lease_owner=None, lease_token=None, lease_expires_at=None)
+    )
+    if result.rowcount != 1:
+        db.rollback()
+        current = db.get(SummaryJob, job_id)
+        status = current.status if current is not None else "missing"
+        raise ValueError(f"only provider_error jobs are retryable: {status}")
     db.commit()
-    return job
+    return db.get(SummaryJob, job_id)
 
 
 def list_summary_jobs(db: Session, *, project_id: int) -> list[SummaryJob]:

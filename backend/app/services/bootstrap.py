@@ -187,33 +187,34 @@ def _characters_messages(genre: str, idea: dict, outline_summary: str) -> list[d
             {"role": "user", "content": user}]
 
 
-def _supporting_cast_messages(genre: str, idea: dict, outline_summary: str,
-                              volume_titles: list[str], core_names: list[str],
+def _supporting_cast_messages(genre: str, idea: dict, volume: int,
+                              volume_title: str, volume_context: str,
+                              core_names: list[str],
                               ) -> list[dict]:
-    """콜 3b — 권별 조연·단역 확장. 장편은 권마다 새 인물이 들어와야 한다."""
+    """콜 3b — 한 권에 한정된 조연·단역 확장 프롬프트."""
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
     title = titles[0] if titles else genre
-    vol_lines = "\n".join(f"{i + 1}권: {t}" for i, t in enumerate(volume_titles))
     core = ", ".join(core_names) or "(없음)"
     user = f"""작품: {title}
 장르: {genre}
 로그라인: {_as_str(idea.get('logline'))}
 
-권별 흐름:
-{vol_lines}
+대상 권: {volume}권 — {volume_title or '(제목 없음)'}
+대상 권 목차 앵커:
+{volume_context}
 
 핵심 인물(중복 금지): {core}
 
-위 작품은 {len(volume_titles)}권 장편이다. 권별로 새로 등장하는 조연·단역 인물을 설계하라.
-- 권당 2~3명, role은 "조연" 또는 "단역"만 사용
-- name은 반드시 고유 인명(유형 라벨 금지), 핵심 인물과 이름이 겹치지 않는다
-- first_volume은 처음 등장하는 권 번호(1~{len(volume_titles)}). 그 권의 사건과 연결돼야 한다
-- 각 인물은 그 권에서 맡는 서사 기능(돕는 자·방해자·정보원·희생자 등)이 배경에 드러나야 한다
+대상 권에서 새로 등장하는 조연·단역 인물을 2~3명 설계하라. 다른 권의 인물을 만들거나
+핵심 인물과 이름을 겹치지 마라.
+- role은 "조연" 또는 "단역"만 사용
+- first_volume은 반드시 {volume}
+- 각 인물은 대상 권의 사건과 연결돼야 하며 서사 기능(돕는 자·방해자·정보원·희생자 등)이 배경에 드러나야 한다
 - appearance·personality·speech_style·background는 각 1문장으로 간결하게
 
 다음 JSON 형식으로 출력하라:
 {{"characters": [{{"name": "이름", "alias": "별칭", "role": "조연|단역",
-  "first_volume": 권번호, "appearance": "외형 1문장", "personality": "성격 1문장",
+  "first_volume": {volume}, "appearance": "외형 1문장", "personality": "성격 1문장",
   "speech_style": "말투 1문장", "background": "서사 기능+배경 1문장"}}]}}"""
     return [{"role": "system", "content": _SYSTEM_JSON},
             {"role": "user", "content": user}]
@@ -421,30 +422,29 @@ def _coerce_characters(data: dict) -> list[OutlineCharacter]:
     return chars
 
 
-def _coerce_supporting_cast(data: dict, core_names: set[str],
-                            volume_count: int) -> list[OutlineCharacter]:
-    """권별 조연·단역 coercion — 핵심 캐스트와 이름이 겹치지 않고 권당 3명까지."""
+def _coerce_supporting_cast(data: dict, seen_names: set[str],
+                            volume: int | None) -> list[OutlineCharacter]:
+    """조연·단역을 중복 제거한다. 생성 중에는 요청 권을 강제하고,
+    저장 경계에서는 이미 정규화된 first_volume을 검증해 보존한다.
+    """
     chars: list[OutlineCharacter] = []
-    seen: set[str] = set(core_names)
-    per_volume: dict[int, int] = {}
     for c in _as_list(data.get("characters")):
+        if len(chars) >= 3:
+            break
         if not isinstance(c, dict):
             continue
         name = _as_str(c.get("name"))
-        if not name or name in seen:
+        if not name or name in seen_names:
             continue
-        fv = c.get("first_volume")
-        try:
-            first_volume = int(fv)
-        except (TypeError, ValueError):
-            first_volume = 1
-        if not 1 <= first_volume <= max(volume_count, 1):
-            first_volume = 1
-        if per_volume.get(first_volume, 0) >= 3:
-            continue
-        per_volume[first_volume] = per_volume.get(first_volume, 0) + 1
-        seen.add(name)
+        seen_names.add(name)
         role = _as_str(c.get("role"))
+        first_volume = volume
+        if first_volume is None:
+            try:
+                first_volume = int(c.get("first_volume"))
+            except (TypeError, ValueError):
+                first_volume = 1
+            first_volume = max(first_volume, 1)
         chars.append(OutlineCharacter(
             name=name,
             alias=_as_str(c.get("alias")) or None,
@@ -654,7 +654,7 @@ def persist_structure(db: Session, genre: str, premise: str | None,
     # 권별 조연·단역 — 핵심 캐스트와 이름이 겹치지 않게 추가한다
     characters += _coerce_supporting_cast(
         {"characters": structure.get("supporting_characters")},
-        {c.name for c in characters}, volume_count)
+        {c.name for c in characters}, None)
     relationships = _coerce_relationships(structure, {c.name for c in characters})
     lore = _coerce_lore(structure)
     outline_summary = _summarize_outline(outline, volumes_index)
@@ -844,25 +844,32 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         if name:
             names.append(name)
 
-    # 콜 3b — 권별 조연·단역 확장. 3권 이상 장편에서만 추가 호출한다.
-    supporting_data: dict = {}
-    volume_titles = [
-        _as_str(v.get("title")) for v in _as_list(outline_data.get("volumes"))
-        if isinstance(v, dict)
-    ]
-    if volume_count >= 3 and volume_titles:
+    # 콜 3b — 권별 조연·단역 확장. 기존 비용 경계(3권 이상)는 유지하되,
+    # 각 권을 독립 호출해 한 권 실패가 다른 권을 막지 않게 한다.
+    supporting_characters: list[OutlineCharacter] = []
+    outline_slots = _select_outline_slots(outline_data.get("volumes"), "volume", volume_count)
+    supporting_volumes = range(1, volume_count + 1) if volume_count >= 3 else ()
+    for volume in supporting_volumes:
+        volume_data = outline_slots.get(volume, {})
+        volume_title = _as_str(volume_data.get("title"))
+        volume_context = "\n".join(
+            f"- {chapter.get('order', '?')}화: {_as_str(chapter.get('title'))} / "
+            f"{_as_str(chapter.get('key_event')) or _as_str(chapter.get('synopsis'))}"
+            for chapter in _as_list(volume_data.get("chapters"))
+            if isinstance(chapter, dict)
+        ) or f"{volume}권의 목차 정보 없음"
         try:
             supporting_data = await _call_json(
                 client, model,
                 _supporting_cast_messages(
-                    genre, idea, summary, volume_titles, names),
+                    genre, idea, volume, volume_title, volume_context, names),
                 reasoning_effort=reasoning_effort, db=db)
         except BootstrapAIError:
-            logger.warning("bootstrap 권별 조연 생성 실패 — 핵심 캐스트만 유지")
-            supporting_data = {}
-        # 관계망이 권별 조연까지 잇도록 이름 목록을 합친다
-        names += [c.name for c in _coerce_supporting_cast(
-            supporting_data, set(names), volume_count)]
+            logger.warning("bootstrap %s권 조연 생성 실패 — 해당 권은 핵심 캐스트만 유지", volume)
+            continue
+        volume_cast = _coerce_supporting_cast(supporting_data, set(names), volume)
+        supporting_characters.extend(volume_cast)
+        names.extend(c.name for c in volume_cast)
 
     # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
     rellore_data = await _call_json(
@@ -876,7 +883,19 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         "theme": _as_str(idea.get("theme")),
         "protagonist_name": _as_str(idea.get("protagonist_name")),
         "characters": characters_data.get("characters"),
-        "supporting_characters": supporting_data.get("characters"),
+        "supporting_characters": [
+            {
+                "name": c.name,
+                "alias": c.alias,
+                "role": c.role,
+                "appearance": c.appearance,
+                "personality": c.personality,
+                "speech_style": c.speech_style,
+                "background": c.background,
+                "first_volume": c.first_volume,
+            }
+            for c in supporting_characters
+        ],
         "relationships": rellore_data.get("relationships"),
         "lore_entries": rellore_data.get("lore_entries"),
         "volumes": outline_data.get("volumes"),

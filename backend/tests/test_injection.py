@@ -7,7 +7,8 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models import LoreEntry
 from app.routers import ai_panel
-from app.services.injection import score_entries, select_lore_for_text
+from app.services.injection import score_entries, select_lore_for_text, select_lore_for_text_hybrid
+from app.services.semantic import normalized_korean_tokens
 from app.services.presets_seed import BUILTIN_PRESETS, ensure_builtin_presets
 from tests.test_ai_generate_stream import FakeAsyncOpenAI, _parse_sse
 
@@ -98,6 +99,21 @@ def test_select_lore_empty_text(db, project):
     db.add(LoreEntry(project_id=project["id"], title="무언가", content="", keywords=[]))
     db.commit()
     assert select_lore_for_text(db, project["id"], "   ") == []
+
+
+def test_korean_particle_variant_matches_title(db, project):
+    entry = LoreEntry(project_id=project["id"], title="흑염술", content="", keywords=[])
+    db.add(entry)
+    db.commit()
+    assert normalized_korean_tokens("흑염술을") == ["흑염술"]
+    assert select_lore_for_text(db, project["id"], "그는 흑염술을 손끝으로 모았다.") == [entry]
+
+
+def test_hybrid_does_not_use_content_only_overlap_as_direct_match(db, project):
+    entry = LoreEntry(project_id=project["id"], title="은빛 숲", content="빛과 숲에 관한 일반적인 설명", keywords=[])
+    db.add(entry)
+    db.commit()
+    assert select_lore_for_text_hybrid(db, project["id"], "빛과 숲이 보인다.") == []
 
 
 # ---------- 통합: POST /ai/generate ----------

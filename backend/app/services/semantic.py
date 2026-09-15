@@ -11,8 +11,29 @@ sqlite-vec + 한국어 ONNX 임베딩(bge-m3 등)으로 교체할 때는
 """
 from collections import Counter
 import re
+import unicodedata
 
 _STRIP_RE = re.compile(r"[\s\W_]+", re.UNICODE)  # 공백·기호 제거
+_PARTICLE_RE = re.compile(
+    r"(?P<stem>[가-힣]{2,})(?P<particle>은|는|이|가|을|를|에|에서|으로|로|와|과|도|만|의|께|한테|부터|까지)$"
+)
+
+
+def korean_stem_token(token: str) -> str:
+    """간단한 한국어 조사 제거 — 형태소 분석기 없이 명사구 recall을 보강한다."""
+    token = unicodedata.normalize("NFKC", (token or "").casefold()).strip()
+    match = _PARTICLE_RE.fullmatch(token)
+    return match.group("stem") if match else token
+
+
+def normalized_korean_tokens(text: str) -> list[str]:
+    """공백 토큰과 조사 제거 stem을 함께 반환한다(결정적·보수적)."""
+    tokens: list[str] = []
+    for raw in re.findall(r"[가-힣A-Za-z0-9]+", unicodedata.normalize("NFKC", text or "")):
+        token = korean_stem_token(raw)
+        if len(token) >= 2:
+            tokens.append(token)
+    return tokens
 
 
 def char_bigrams(text: str) -> Counter:

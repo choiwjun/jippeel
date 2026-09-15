@@ -6,11 +6,14 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import select
+from datetime import timedelta
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, create_db_engine
 from app.models import Chapter, MemoryEntry, Project, SummaryJob
 from app.services.summary_worker import (
+    _claim_job,
+    _utcnow,
     list_summary_jobs,
     plan_summary_jobs,
     retry_summary_job,
@@ -67,6 +70,31 @@ def _fake_provider(job: SummaryJob) -> str:
 
 
 # --- 계획 -----------------------------------------------------------------
+
+def test_atomic_claim_allows_only_one_worker(db_session):
+    project, chapters = _seed(db_session, chapters=[(1, "회차", "본문")])
+    created, _ = _plan(db_session, project.id, [chapters[0].id])
+    first = _claim_job(db_session, created[0].id, "worker-a")
+    second = _claim_job(db_session, created[0].id, "worker-b")
+    assert first is not None
+    assert second is None
+    job = db_session.get(SummaryJob, created[0].id)
+    assert job.attempt_count == 1
+    assert job.lease_owner == "worker-a"
+
+
+def test_expired_lease_can_be_reclaimed(db_session):
+    project, chapters = _seed(db_session, chapters=[(1, "회차", "본문")])
+    created, _ = _plan(db_session, project.id, [chapters[0].id])
+    first = _claim_job(db_session, created[0].id, "worker-a", lease_seconds=1)
+    assert first is not None
+    job = db_session.get(SummaryJob, created[0].id)
+    job.lease_expires_at = _utcnow() - timedelta(seconds=1)
+    db_session.commit()
+    second = _claim_job(db_session, created[0].id, "worker-b")
+    assert second is not None
+    assert db_session.get(SummaryJob, created[0].id).attempt_count == 2
+
 
 def test_plan_creates_jobs_and_skips_empty(db_session):
     project, chapters = _seed(

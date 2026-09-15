@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import LoreEntry
-from app.services.semantic import hybrid_score
+from app.services.semantic import hybrid_score, normalized_korean_tokens
 
 _TITLE_WEIGHT = 3
 _KEYWORD_WEIGHT = 2
@@ -24,6 +24,15 @@ def _occurrences(text: str, term: str) -> int:
     return text.casefold().count(term.casefold())
 
 
+def _token_overlap(text: str, term: str) -> int:
+    """조사가 붙은 한국어 토큰도 lore 용어와 매칭한다."""
+    normalized_term = normalized_korean_tokens(term)
+    if not normalized_term:
+        return 0
+    text_tokens = normalized_korean_tokens(text)
+    return sum(text_tokens.count(token) for token in normalized_term)
+
+
 def score_entries(entries: list[LoreEntry], text: str) -> list[tuple[LoreEntry, int]]:
     """텍스트와 관련된 항목만 점수와 함께 반환(점수 내림차순, 동점은 id 오름차순)."""
     scored: list[tuple[LoreEntry, int]] = []
@@ -31,13 +40,15 @@ def score_entries(entries: list[LoreEntry], text: str) -> list[tuple[LoreEntry, 
         score = 0
         title = (entry.title or "").strip()
         if len(title) >= _MIN_TERM_LEN:
-            score += _TITLE_WEIGHT * _occurrences(text, title)
+            exact = _occurrences(text, title)
+            score += _TITLE_WEIGHT * (exact if exact else _token_overlap(text, title))
         for kw in entry.keywords or []:
             if not isinstance(kw, str):
                 continue
             kw = kw.strip()
             if len(kw) >= _MIN_TERM_LEN:
-                score += _KEYWORD_WEIGHT * _occurrences(text, kw)
+                exact = _occurrences(text, kw)
+                score += _KEYWORD_WEIGHT * (exact if exact else _token_overlap(text, kw))
         if score > 0:
             scored.append((entry, score))
     scored.sort(key=lambda pair: (-pair[1], pair[0].id))
@@ -77,8 +88,9 @@ def select_lore_for_text_hybrid(db: Session, project_id: int, text: str,
     keyword_norm = max((s for _e, s in scored), default=0)
     hybrid = []
     for entry in entries:
-        doc = " ".join(x for x in [entry.title, entry.content or "",
-                                   " ".join(entry.keywords or [])] if x)
+        # 본문 설명은 일반 단어가 많아 semantic false positive를 키우므로
+        # 고유명사 중심의 제목·키워드만 검색 문서로 사용한다.
+        doc = " ".join(x for x in [entry.title, " ".join(entry.keywords or [])] if x)
         hs = hybrid_score(score_map.get(entry.id, 0), text, doc,
                           keyword_norm, semantic_weight)
         # v1에서 점수가 있었거나 시맨틱 유사도가 의미 있는 항목만

@@ -155,13 +155,14 @@ def test_bootstrap_missing_null_invalid_metadata_and_slots_agree(client, fake_ll
     ]}
     before = deepcopy(data)
     fake_llm["queue"] = [json.dumps(GOOD_IDEA), json.dumps(data),
-                         json.dumps(GOOD_CHARACTERS), json.dumps({"characters": []}),
+                         json.dumps(GOOD_CHARACTERS),
+                         *(json.dumps({"characters": []}) for _ in range(4)),
                          json.dumps(GOOD_RELLORE)]
     response = client.post("/api/v1/projects/bootstrap", json={
         "genre": "판타지", "volume_count": 4, "chapters_per_volume": 2})
     assert response.status_code == 200, response.text
     body = response.json()
-    assert len(fake_llm["calls"]) == 5
+    assert len(fake_llm["calls"]) == 8
     assert body["volume_note_count"] == 3
     with next(iter(client.app.dependency_overrides[get_db]())) as db:
         notes = db.scalars(select(VolumeNote).where(

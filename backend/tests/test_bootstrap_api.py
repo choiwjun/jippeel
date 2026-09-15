@@ -179,45 +179,50 @@ from tests.conftest import _db
 
 
 def test_bootstrap_supporting_cast_per_volume(client, fake_llm, default_endpoint):
-    """3권 이상이면 권별 조연 호출이 추가되고 first_volume이 card_json에 저장된다."""
-    supporting = {"characters": [
-        {"name": "목진백", "role": "조연", "first_volume": 2,
-         "appearance": "흰 수염", "personality": "느긋함", "speech_style": "느린 말투",
-         "background": "회명루 주인, 2권 정보원"},
-        {"name": "강산협", "role": "조연", "first_volume": 3,
-         "appearance": "x", "personality": "x", "speech_style": "x",
-         "background": "핵심 캐스트와 중복 — 버려야 한다"},
-        {"name": "설무영", "role": "단역", "first_volume": 9,
-         "appearance": "백의", "personality": "냉담", "speech_style": "반말",
-         "background": "범위 밖 권 번호 → 1권으로 보정"},
-        {"name": "하오문주", "role": "조연", "first_volume": "3",
-         "appearance": "거구", "personality": "호탕", "speech_style": "호쾌한 반말",
-         "background": "하오문 수장, 3권 조력자"},
-    ]}
-    enqueue_success(fake_llm, outline=_good_outline(3, 3), supporting=supporting)
+    """각 권이 독립 호출되고 응답 인물의 first_volume은 요청 권으로 고정된다."""
+    supporting = [
+        {"characters": [
+            {"name": "목진백", "role": "조연", "first_volume": 99,
+             "appearance": "흰 수염", "personality": "느긋함", "speech_style": "느린 말투",
+             "background": "1권 정보원"},
+        ]},
+        {"characters": [
+            {"name": "설무영", "role": "단역", "first_volume": 1,
+             "appearance": "백의", "personality": "냉담", "speech_style": "반말",
+             "background": "2권 조력자"},
+        ]},
+        {"characters": [
+            {"name": "하오문주", "role": "조연", "first_volume": 1,
+             "appearance": "거구", "personality": "호탕", "speech_style": "호쾌한 반말",
+             "background": "3권 조력자"},
+        ]},
+    ]
+    enqueue_success(fake_llm, outline=_good_outline(3, 3))
+    fake_llm["queue"][3:3] = [json.dumps(item, ensure_ascii=False) for item in supporting]
+    # 권별 호출은 서로 다른 권 앵커와 first_volume을 전달해야 한다.
     resp = client.post("/api/v1/projects/bootstrap", json={
         "genre": "무협", "volume_count": 3, "chapters_per_volume": 3})
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    # 5회 호출 — idea·outline·characters·supporting·rellore
-    assert len(fake_llm["calls"]) == 5
-    # 6명 핵심 + 3명 조연(중복 강산협 제외)
+    assert len(fake_llm["calls"]) == 7
     assert body["character_count"] == 9
     db = _db(client)
     chars = db.scalars(select(Character).where(
         Character.project_id == body["project_id"])).all()
     by_name = {c.name: c for c in chars}
-    assert "목진백" in by_name and "설무영" in by_name and "하오문주" in by_name
-    assert by_name["목진백"].card_json["data"]["first_volume"] == 2
-    assert by_name["설무영"].card_json["data"]["first_volume"] == 1  # 범위 밖 → 1권
-    assert by_name["하오문주"].card_json["data"]["first_volume"] == 3
-    # 핵심 캐스트 강산협은 주연 유지 — 조연으로 덮이지 않는다
+    assert [by_name[name].card_json["data"]["first_volume"]
+            for name in ("목진백", "설무영", "하오문주")] == [1, 2, 3]
+    supporting_prompts = [call["messages"][-1]["content"] for call in fake_llm["calls"][3:6]]
+    assert all(f"first_volume은 반드시 {volume}" in prompt
+               for volume, prompt in enumerate(supporting_prompts, 1))
+    assert all(f"대상 권: {volume}권" in prompt
+               for volume, prompt in enumerate(supporting_prompts, 1))
     assert by_name["강산협"].role == "주연"
 
 
 def test_bootstrap_two_volumes_skips_supporting_call(
         client, fake_llm, default_endpoint):
-    """2권 이하면 권별 조연 호출 없이 기존 4회 호출을 유지한다."""
+    """2권 이하면 기존 비용 경계에 따라 권별 조연 호출을 하지 않는다."""
     enqueue_success(fake_llm)
     resp = client.post("/api/v1/projects/bootstrap", json={
         "genre": "무협", "volume_count": 2, "chapters_per_volume": 3})
@@ -225,24 +230,24 @@ def test_bootstrap_two_volumes_skips_supporting_call(
     assert len(fake_llm["calls"]) == 4
 
 
-def test_bootstrap_supporting_failure_keeps_core_cast(
+def test_bootstrap_supporting_failure_isolated_to_one_volume(
         client, fake_llm, default_endpoint):
-    """권별 조연 호출이 두 번 다 실패해도 핵심 캐스트로 부트스트랩을 완료한다."""
+    """한 권 조연 호출 실패는 다른 권과 핵심 캐스트를 막지 않는다."""
     fake_llm["queue"] = [
         json.dumps(GOOD_IDEA, ensure_ascii=False),
         json.dumps(_good_outline(3, 3), ensure_ascii=False),
         json.dumps(GOOD_CHARACTERS, ensure_ascii=False),
-        "not json at all",  # 조연 호출 1차 실패
-        "still not json",   # 재시도도 실패 → BootstrapAIError → 폴백
+        "not json at all", "still not json",  # 1권 실패 및 repair
+        json.dumps({"characters": [{"name": "이권인", "role": "조연"}]}),
+        json.dumps({"characters": [{"name": "삼권인", "role": "단역"}]}),
         json.dumps(GOOD_RELLORE, ensure_ascii=False),
     ]
     resp = client.post("/api/v1/projects/bootstrap", json={
         "genre": "무협", "volume_count": 3, "chapters_per_volume": 3})
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["character_count"] == 6
-    # 조연 시도 2회 + 나머지 4회 = 총 6회 호출
-    assert len(fake_llm["calls"]) == 6
+    assert body["character_count"] == 8
+    assert len(fake_llm["calls"]) == 8
 
 
 def test_bootstrap_success_creates_full_structure(client, fake_llm, default_endpoint):

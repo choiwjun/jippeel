@@ -12,6 +12,8 @@
 
 **감사 잔여(우선순위 순):** 캐릭터 라이프사이클 first-class 필드(퇴장/사망·권별 역할) → 권별 독립 조연 호출(현 단일 호출) → canon 결정적 사전검사(이름/시간/장소 모순 규칙으로 LLM 호출 절감) → 한국어 임베딩 로어 매칭(현 2-gram fallback) → 다중 프로세스 잡 락 → 인증/인가(LAN 공개 전 필수). 실제 provider·credential·실기기·운영 DB는 기존 G gate 유지.
 
+**2026-09-14 잔여 4종 구현 완료(사용자 승인 후):** ① 권별 독립 조연 호출 — bootstrap이 3권 이상 장편에서 권마다 독립 LLM 호출(기존 단일 호출→권별 분리), 한 권 실패가 다른 권을 막지 않음. `first_volume`은 요청 권으로 강제 고정. ② 한국어 lore 매칭 — `normalized_korean_tokens`로 조사 제거(은/는/이/가/을/를/에/에서/으로/로/와/과/도/만/의/께/한테/부터/까지), `_token_overlap`으로 조사 결합형 토큰 매칭. 2-gram fallback 유지, content-only overlap은 직접 매칭으로 사용하지 않음. ③ 다중 프로세스 job lock — `summary_jobs`에 `lease_owner`/`lease_token`/`lease_expires_at` 추가(migration `h3b4c5d6e7f8`), SQLite atomic claim(UPDATE WHERE status='planned' OR expired running), lease fencing(결과·상태 커밋 전 lease_token 재검증), retry는 조건부 UPDATE로 경쟁 차단. ④ LAN 인증·인가 — `JIPPEEL_LAN_AUTH=1` opt-in, PBKDF2-HMAC-SHA256 비밀번호 해시, HMAC 서명 세션 쿠키(httponly·samesite=lax·12h TTL), Origin/Referer 검증으로 CSRF 방어, `/health`는 인증 없이 유지(실행 스크립트 health probe 계약). 기본값 비활성으로 localhost 개발 보존. **검증: backend 887P/1skip/violations 0, frontend tsc/build 통과, migration head `h3b4c5d6e7f8`.** 잔여: 실제 LAN 환경에서 로그인 플로우 수동 확인, `JIPPEEL_LAN_PASSWORD`·`JIPPEEL_LAN_SESSION_SECRET` 운영 설정.
+
 **2026-09-14 다른 PC 접근 최소 범위:** A PC에서 `Jippeel실행.bat`을 실행하면
 운영 서버가 LAN에 바인딩되고, 실행 창에 Windows 사설 IPv4별 B PC 접속 주소를
 출력한다. `scripts/dev.sh`와 Vite 프록시도 WSL/Windows 혼합 환경에서 연결되도록

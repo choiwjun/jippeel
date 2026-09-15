@@ -358,6 +358,9 @@ class SummaryJob(TimestampMixin, Base):
     error: Mapped[str | None] = mapped_column(Text)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column()
+    lease_owner: Mapped[str | None] = mapped_column(String(128), index=True)
+    lease_token: Mapped[str | None] = mapped_column(String(64), index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column()
 
     memory_entry: Mapped["MemoryEntry | None"] = relationship()
 
