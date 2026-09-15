@@ -1471,3 +1471,44 @@ class StyleAnalysisResponse(BaseModel):
 
     metrics: dict
     profile_draft: str
+
+
+# ---- 자동 요약 잡 (D04 — 멱등 backfill) ----
+
+class SummaryJobOut(BaseModel):
+    id: int
+    project_id: int
+    chapter_id: int | None
+    memory_entry_id: int | None
+    kind: str
+    status: str
+    source_revision: int
+    source_sort_order: float
+    source_content_length: int
+    prompt_version: str
+    provider_identity: str
+    model_snapshot: str
+    attempt_count: int
+    error: str | None
+    finished_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SummaryJobPlanRequest(BaseModel):
+    """회차 요약 잡 계획 — 생략하면 본문 있는 전 회차를 대상으로 한다."""
+
+    chapter_ids: list[int] | None = None
+    include_arc: bool = True
+    include_volume: bool = True
+
+
+class SummaryJobPlanResult(BaseModel):
+    summary: dict
+    arc: dict | None = None
+    volume: dict | None = None
+
+
+class SummaryJobRunResult(BaseModel):
+    processed: list[SummaryJobOut]

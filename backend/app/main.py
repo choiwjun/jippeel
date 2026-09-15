@@ -12,7 +12,7 @@ from starlette.types import Scope
 from app.database import DATABASE_URL, SessionLocal, init_db
 from app.routers import (ai_panel, characters, foreshadows, generation_runs,
                          improvement_rules, lorebook,
-                         projects, quality, refine, scenes, system, volumes)
+                         projects, quality, refine, scenes, summary_jobs, system, volumes)
 from app.routers.memories import router as memories_router  # pyright: ignore[reportMissingImports]
 from app.services.auto_backup import AutoBackupConfig, start_scheduler
 from app.services.fts import ensure_fts_index
@@ -71,6 +71,7 @@ app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(foreshadows.router, prefix="/api/v1")
 app.include_router(volumes.router, prefix="/api/v1")
 app.include_router(quality.router, prefix="/api/v1")
+app.include_router(summary_jobs.router, prefix="/api/v1")
 app.include_router(system.router, prefix="/api/v1")
 
 

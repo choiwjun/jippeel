@@ -121,6 +121,12 @@ export function CharactersPage() {
                 <span className="line-clamp-1 text-xs text-muted-foreground">{ch.aliases!.join(', ')}</span>
               )}
               {ch.role && <Badge variant={ch.role === '주연' ? 'default' : 'secondary'}>{ch.role}</Badge>}
+              {(() => {
+                const fv = (ch.card_json as { data?: { first_volume?: unknown } } | undefined)?.data?.first_volume;
+                return typeof fv === 'number' && fv > 0 ? (
+                  <Badge variant="outline" title="첫 등장 권">{fv}권~</Badge>
+                ) : null;
+              })()}
             </button>
           ))}
         </div>

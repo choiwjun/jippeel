@@ -123,10 +123,16 @@ def select_context_memory(
         .where(MemoryEntry.project_id == project_id, MemoryEntry.visibility.in_(allowed))
         .order_by(MemoryEntry.kind, MemoryEntry.id)
     ).all()
+    # 원천 회차는 한 번에 적재한다 — 항목별 개별 조회(N+1)를 피한다.
+    source_ids = {entry.chapter_id for entry in rows if entry.chapter_id is not None}
+    sources_by_id: dict[int, Chapter] = {
+        ch.id: ch
+        for ch in db.scalars(select(Chapter).where(Chapter.id.in_(source_ids))).all()
+    } if source_ids else {}
     selected: list[tuple[tuple, MemoryEntry]] = []
     target_position = _safe_sort_order(target.sort_order)
     for entry in rows:
-        source = db.get(Chapter, entry.chapter_id) if entry.chapter_id is not None else None
+        source = sources_by_id.get(entry.chapter_id) if entry.chapter_id is not None else None
         if source is not None and _safe_sort_order(source.sort_order) > target_position:
             continue
         if is_stale(entry, source):

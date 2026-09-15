@@ -311,7 +311,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     autoOutline: true,
     autoForeshadow: true,
     sceneId: null,
-    styleProfile: false,
+    styleProfile: true,
   },
   setContext: (c) =>
     set((s) => {

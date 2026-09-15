@@ -8,6 +8,10 @@
 
 ## 1. 현재 결론과 판정 기준
 
+**2026-09-14 전 엔진 감사 + 고도화:** "모든 엔진 조사분석" 지시로 백엔드 전 서비스·라우터를 감사했다. 수정 완료 8건 — ① 단일 생성도 `previous_chapter`·`auto_characters`·`include_memory`·`style_profile` 자동 주입(계획 경로와 대칭) ② `auto_characters` 관련성 선정(`first_volume` 미래 권 제외·이름/별칭 언급 점수) ③ 요약 잡 API(`summary-jobs` plan/run/retry) + MemoryPage 실행 UI — 결과는 draft만·승인 게이트 유지 ④ 규칙 패널 "이력 분석으로 제안 생성" 버튼 ⑤ 병렬 worker 계약 위반 1회 재집필(재위반 시 run 실패 유지) ⑥ canon 컨텍스트 캡(캐릭터 20·로어 30, 주연 우선+언급 순) ⑦ 자동 백업 기본 활성화(prod.sh `INTERVAL_MIN=30`·`KEEP=10`) ⑧ `canon.last_prompt_chars` 전역 제거·`select_context_memory` N+1 배치화·캐릭터 목록 `first_volume` 배지. 검증: backend **829P/1skip/violations 0**, frontend tsc/build 통과, 신규 테스트 8건(관련성 선정·별칭·canon 캡·요약 잡 API 5종·재집필 2종).
+
+**감사 잔여(우선순위 순):** 캐릭터 라이프사이클 first-class 필드(퇴장/사망·권별 역할) → 권별 독립 조연 호출(현 단일 호출) → canon 결정적 사전검사(이름/시간/장소 모순 규칙으로 LLM 호출 절감) → 한국어 임베딩 로어 매칭(현 2-gram fallback) → 다중 프로세스 잡 락 → 인증/인가(LAN 공개 전 필수). 실제 provider·credential·실기기·운영 DB는 기존 G gate 유지.
+
 **2026-09-14 다른 PC 접근 최소 범위:** A PC에서 `Jippeel실행.bat`을 실행하면
 운영 서버가 LAN에 바인딩되고, 실행 창에 Windows 사설 IPv4별 B PC 접속 주소를
 출력한다. `scripts/dev.sh`와 Vite 프록시도 WSL/Windows 혼합 환경에서 연결되도록

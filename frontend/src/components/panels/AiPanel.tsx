@@ -417,6 +417,10 @@ export function AiPanel() {
           auto_foreshadow: c.autoForeshadow,
           scene_id: editorIntent ? c.sceneId : null,
           style_profile: c.styleProfile,
+          // 계획 경로와 같은 자동 분석 — 단일 생성도 직전 회차·인물·장편 기억을 주입한다
+          previous_chapter: true,
+          auto_characters: true,
+          include_memory: true,
           ...(brief ? { brief } : {}),
         },
         params: {
@@ -2328,6 +2332,23 @@ function RulesSection({ projectId }: { projectId: number }) {
     },
     onError: (e) => toast((e as Error).message, "error"),
   });
+  const propose = useMutation({
+    mutationFn: () =>
+      api.post<{ created_count: number; skipped_existing: number; signals_evaluated: number }>(
+        `/projects/${projectId}/improvement-rules/propose`,
+        {},
+      ),
+    onSuccess: (result) => {
+      void invalidate();
+      toast(
+        result.created_count > 0
+          ? `생성 이력 분석으로 규칙 제안 ${result.created_count}건을 만들었습니다.`
+          : "분석 신호가 임계에 못 미쳐 새 제안이 없습니다.",
+        "success",
+      );
+    },
+    onError: (e) => toast((e as Error).message, "error"),
+  });
 
   const rules = rulesQuery.data ?? [];
   const proposed = rules.filter((r) => r.status === "proposed");
@@ -2338,9 +2359,21 @@ function RulesSection({ projectId }: { projectId: number }) {
 
   return (
     <section className="rounded-md border border-border p-3">
-      <h3 className="mb-1 text-xs font-semibold text-muted-foreground">
-        작가 규칙
-      </h3>
+      <div className="mb-1 flex items-center gap-2">
+        <h3 className="text-xs font-semibold text-muted-foreground">
+          작가 규칙
+        </h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-6 px-2 text-[11px]"
+          disabled={propose.isPending}
+          onClick={() => propose.mutate()}
+          title="초안↔반영본 비교·수용률 분석으로 규칙 제안을 생성합니다"
+        >
+          {propose.isPending ? "분석 중…" : "이력 분석으로 제안 생성"}
+        </Button>
+      </div>
       <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
         승인된 규칙만 다음 생성의 [작가 승인 규칙] 블록에 주입됩니다. 제안·거절된
         규칙과 다른 작품의 규칙은 적용되지 않습니다.

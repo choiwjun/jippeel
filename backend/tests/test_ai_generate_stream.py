@@ -618,6 +618,7 @@ def _parallel_plan_json() -> str:
 @pytest.fixture()
 def parallel_llm(monkeypatch):
     holder = {"complete_calls": [], "stream_calls": [], "fail_order": None,
+              "leak_order": None, "repair_fails": False,
               "review_text": "[감수]\n- 장면 연결이 자연스럽다."}
 
     class FakeClient:
@@ -632,9 +633,15 @@ def parallel_llm(monkeypatch):
         })
         if "[병렬 Planner" in user:
             return _parallel_plan_json()
+        if "직전 장면 원고가 계약을 위반했다" in user:
+            if holder["repair_fails"]:
+                return "[장면 계약] 여전히 마커 누출"
+            return "재집필된 깨끗한 원고"
         if '"order": 2' in user and holder["fail_order"] == 2:
             raise RuntimeError("scene worker failed")
         if '"order": 1' in user:
+            if holder["leak_order"] == 1:
+                return "[장면 계약]\n장면 1 원고"
             return "장면 1 원고"
         if '"order": 2' in user:
             return "장면 2 원고"
@@ -757,6 +764,39 @@ def test_parallel_uses_fixed_provider_model_for_reviewer(client, parallel_llm):
     assert response.status_code == 200, response.text
     assert parallel_llm["stream_calls"][-1]["model"] == "gpt-5.6-luna"
     assert parallel_llm["stream_calls"][-1]["reasoning_effort"] == "xhigh"
+
+
+def test_parallel_worker_contract_violation_rewritten_once(client, parallel_llm):
+    """마커 누출 장면은 1회 재집필로 회복돼 run이 성공한다."""
+    parallel_llm["leak_order"] = 1
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    response = client.post("/api/v1/ai/generate-parallel",
+                           json=_parallel_payload(ep["id"]))
+    assert response.status_code == 200, response.text
+    events = _parse_sse(response.text)
+    names = [name for name, _data in events]
+    assert "parallel_error" not in names
+    assembled = "".join(
+        json.loads(data)["delta"] for name, data in events if name == "message")
+    assert "재집필된 깨끗한 원고" in assembled
+    assert "[장면 계약]" not in assembled
+
+
+def test_parallel_worker_repair_still_violating_fails_run(client, parallel_llm):
+    """재집필도 계약을 어기면 run 전체가 실패한다 — 오염 원고는 조립하지 않는다."""
+    parallel_llm["leak_order"] = 1
+    parallel_llm["repair_fails"] = True
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
+        "reasoning_effort": "medium"}).json()
+    response = client.post("/api/v1/ai/generate-parallel",
+                           json=_parallel_payload(ep["id"]))
+    events = _parse_sse(response.text)
+    names = [name for name, _data in events]
+    assert "parallel_error" in names
+    assert "message" not in names
 
 
 def test_parallel_worker_failure_emits_error_and_no_partial_message(client, parallel_llm):

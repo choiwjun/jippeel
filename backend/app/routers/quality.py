@@ -49,7 +49,7 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
             payload=payload,
             bundle=bundle,
             messages_context=messages_context)
-        prompt_chars = canon_service.last_prompt_chars
+        prompt_chars = int(counts.get("prompt_chars") or 0)
     except openai.APIError as exc:
         raise HTTPException(status_code=502,
                             detail=canon_service.friendly_api_error(exc)) from exc

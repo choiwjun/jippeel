@@ -101,14 +101,14 @@ async def run_canon_check(
 ) -> tuple[list[dict], dict, str]:
     """검사 실행 — 1회 실패 시 repair prompt 1회 재시도 후 예외 전파.
 
-    사용량 기록(G-060)용으로 마지막 프롬프트 문자량을 모듈 변수에 남긴다.
+    사용량 기록(G-060)용 프롬프트 문자량은 counts["prompt_chars"]로 반환한다.
     """
-    global last_prompt_chars
     if messages_context is None:
         messages, counts = build_messages(db, chapter, payload=payload, bundle=bundle)
     else:
         messages, counts = messages_context
-    last_prompt_chars = sum(len(m["content"]) for m in messages)
+    counts = dict(counts)
+    counts["prompt_chars"] = sum(len(m["content"]) for m in messages)
     raw = await llm.complete_chat(client, model, messages,
                                   reasoning_effort=reasoning_effort)
     try:
@@ -122,9 +122,6 @@ async def run_canon_check(
         raw = await llm.complete_chat(client, model, repaired,
                                       reasoning_effort=reasoning_effort)
         return parse_issues(raw), counts, model
-
-
-last_prompt_chars = 0
 
 
 def friendly_api_error(exc: openai.APIError) -> str:

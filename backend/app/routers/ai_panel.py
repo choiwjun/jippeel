@@ -1312,6 +1312,27 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                             raise
                         finally:
                             await _close_llm_client(worker_client)
+                    # 콘텐츠 계약 위반(마커 누출·빈 장면·분량 초과)은 1회 재집필로 회복한다
+                    content_issues = parallel_writer.validate_scene_result(scene, text)
+                    if content_issues:
+                        repair_messages = list(worker_messages) + [
+                            {"role": "assistant", "content": text},
+                            {"role": "user", "content": (
+                                "직전 장면 원고가 계약을 위반했다: "
+                                + "; ".join(content_issues)
+                                + ". 장면 계약을 지키며 원고 본문만 다시 출력하라.")},
+                        ]
+                        repair_client = llm.make_client(provider.base_url, None)
+                        try:
+                            repaired = await llm.complete_chat(
+                                repair_client, model, repair_messages,
+                                max_tokens=payload.params.max_tokens,
+                                reasoning_effort=payload.generation_reasoning_effort,
+                            )
+                        finally:
+                            await _close_llm_client(repair_client)
+                        if not parallel_writer.validate_scene_result(scene, repaired):
+                            text = repaired
                     return parallel_writer.SceneResult(
                         order=scene.order, title=scene.title, text=text,
                     )

@@ -1,6 +1,21 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
-## 현재 작업 기준 — 2026-09-13
+## 현재 작업 기준 — 2026-09-14
+
+**전 엔진 감사 + 고도화(2026-09-14):** "모든 엔진 조사분석" 지시로 백엔드 전 서비스·라우터를 감사하고 8개 항목을 수정했다. 검증: backend **829P/1skip/70subtests/violations 0** + frontend tsc/build 통과.
+
+- **단일 생성 컨텍스트 대칭:** `/ai/generate`도 계획 경로와 동일하게 `previous_chapter`·`auto_characters`·`include_memory` 자동 주입 + `style_profile` 기본값 on. 직전 회차·인물·장편 기억이 수동 선택 없이 들어간다.
+- **캐릭터 관련성 선정:** `auto_characters`가 `first_volume > 현재 권`인 미등장 인물을 제외하고, 본문·메모·프롬프트의 이름/별칭(`aliases` 컬럼+card_json) 언급 점수로 상한까지 채운다. 30명+ 장편 캐스트에서 현재 권 관련 인물이 우선된다.
+- **요약 잡 API + UI:** `GET/POST /projects/{pid}/summary-jobs`(+`/plan`·`/run?limit=N`·`/{jid}/retry`) 신규 라우터. MemoryPage에 계획/실행 버튼·잡 상태 표·provider_error 재시도. 실행은 draft 메모리만 쓰고 작가 승인 게이트 유지.
+- **규칙 제안 버튼:** 규칙 패널 "이력 분석으로 제안 생성"이 `POST /improvement-rules/propose`를 호출 — 제안은 proposed 상태로만 생성.
+- **병렬 장면 재집필:** worker 출력의 계약 위반(마커 누출·빈 장면·분량 초과)은 transport 재시도와 별개로 **1회 재집필** 프롬프트로 회복. 재집필도 위반하면 run 실패 유지(오염 원고 미조립).
+- **canon 컨텍스트 캡:** 캐릭터 20명·로어 30건 상한, 주연 우선 + 본문 언급 관련성 순. 장편 후반 프롬프트 폭증 방지.
+- **자동 백업 활성화:** `prod.sh`에 `JIPPEEL_AUTOBACKUP_INTERVAL_MIN=30`·`KEEP=10` 기본값 + WSLENV 전파. `Jippeel실행.bat`은 prod.sh 위임이라 별도 수정 불필요.
+- **경미 수정:** `canon.py`의 모듈 전역 `last_prompt_chars` 제거(동시 요청 경쟁 → `counts["prompt_chars"]` 반환으로 대체), `select_context_memory`의 N+1 `db.get(Chapter)` → 단건 배치 쿼리, 캐릭터 목록에 `first_volume` 배지 노출.
+- **선행 슬라이스(같은 감사에서 완료):** planner ValidationError 1회 재시도 + `planner_debug` 원문 보존(3개 표면), 병렬 감수 `[수정본]` 출력+refined 채널 분리, 레퍼런스 스타일 분석(`style_analysis.py` 결정적 지표+LLM 합성→style_profile 초안), 권별 조연 확장(3권+ 작품에 권당 2~3명, `first_volume` 부여, 관계망 포함, 실패 시 핵심 캐스트 폴백).
+- **남은 후속:** 캐릭터 라이프사이클(퇴장/사망·권별 역할 변화) first-class 필드화, 권별 독립 캐스트 호출(현재 단일 호출), canon 결정적 사전검사(이름/장소/시간 모순 규칙), 한국어 임베딩 기반 로어 매칭(현재 2-gram fallback), 다중 프로세스 잡 락, 인증/인가(로그인 없는 단일 사용자 앱 — LAN 공개 시 필수), 실제 provider/실기기 게이트.
+
+## 이전 작업 기준 — 2026-09-13
 
 **2026-09-14 다른 PC 접근 최소 범위:** A PC의 운영 서버가 LAN에 바인딩되도록
 `scripts/prod.sh`에 `JIPPEEL_HOST`/`JIPPEEL_PORT` 설정과 Windows 사설 IPv4 주소

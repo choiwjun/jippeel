@@ -73,6 +73,8 @@ PREVIOUS_CANON_TAIL_CHARS = 1_000
 VOLUME_FIELD_CHARS = 400
 NEXT_CHAPTER_MEMO_CHARS = 600
 FORESHADOW_CONTENT_CHARS = 400
+CANON_CHARACTER_LIMIT = 20
+CANON_LORE_LIMIT = 30
 
 def _revision_conflict(current_revision: int) -> HTTPException:
     return HTTPException(status_code=409, detail=RevisionConflict(current_revision).detail())
@@ -471,17 +473,53 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
 
     selected_chars, project_id = _ordered_characters(db, request.character_ids, project_id)
     if request.auto_characters and project_id is not None:
-        # 어시스턴트 계획 경로 — 명시 선택을 앞에 두고 프로젝트 인물을 자동으로 채운다
+        # 어시스턴트 계획 경로 — 명시 선택을 앞에 두고 프로젝트 인물을 자동으로 채운다.
+        # first_volume이 현재 권보다 미래인 인물은 아직 등장 전이므로 제외하고,
+        # 나머지는 본문/메모에서의 이름·별칭 언급 점수 순으로 상한까지 채운다.
         explicit_ids = {row.id for row in selected_chars}
-        auto_rows = db.scalars(
+        auto_rows = list(db.scalars(
             select(Character)
             .where(Character.project_id == project_id)
             .order_by(Character.id)
-            .limit(request.auto_character_limit)
-        ).all()
+        ).all())
+        mention_source = "\n".join(part for part in (
+            scene.content_md if scene is not None else None,
+            chapter.content_md if chapter is not None else None,
+            chapter.memo if chapter is not None else None,
+            request.prompt_text or "",
+        ) if part)
+        volume_now = chapter.volume if chapter is not None else None
+
+        def _character_score(row: Character) -> float | None:
+            card = row.card_json or {}
+            card_data = card.get("data") if isinstance(card, dict) else None
+            first_volume = (card_data or {}).get("first_volume")
+            if (isinstance(first_volume, (int, float)) and not isinstance(first_volume, bool)
+                    and volume_now is not None and first_volume > volume_now):
+                return None  # 아직 등장하지 않은 미래 권 인물
+            score = 0.0
+            terms = [row.name, *(row.aliases or [])]
+            if isinstance(card_data, dict):
+                terms.extend(card_data.get("aliases") or [])
+            if mention_source:
+                for term in terms:
+                    if isinstance(term, str) and len(term.strip()) >= 2:
+                        score += 3.0 * mention_source.count(term.strip())
+            if first_volume is None:
+                score += 0.5  # 핵심 캐스트 기본 가점
+            if row.role == "주연":
+                score += 1.0
+            return score
+
+        ranked = sorted(
+            ((row, _character_score(row)) for row in auto_rows
+             if row.id not in explicit_ids),
+            key=lambda pair: (-(pair[1] if pair[1] is not None else -1), pair[0].id),
+        )
+        slots = max(0, request.auto_character_limit - len(selected_chars))
         selected_chars = list(selected_chars) + [
-            row for row in auto_rows if row.id not in explicit_ids
-        ]
+            row for row, score in ranked if score is not None
+        ][:slots]
     selected_lore, project_id = _ordered_lore(db, request.lore_ids, project_id)
     approved_rows, project_id = _ordered_foreshadows(db, request.approved_foreshadow_ids, project_id)
 
@@ -570,6 +608,33 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         canon_lore = db.scalars(
             select(LoreEntry).where(LoreEntry.project_id == project_id).order_by(LoreEntry.id.asc())
         ).all()
+        # 대형 프로젝트에서 프롬프트 폭증 방지 — 본문에 언급된 설정을 우선
+        # 주입하고 나머지는 상한까지 채운다. 주연은 항상 포함한다.
+        canon_text = (chapter.content_md or "") if chapter is not None else ""
+
+        def _canon_relevance(name: str, aliases: list | None = None) -> float:
+            score = 0.0
+            for term in [name, *(aliases or [])]:
+                if isinstance(term, str) and len(term.strip()) >= 2:
+                    score += canon_text.count(term.strip())
+            return score
+
+        canon_chars = sorted(
+            canon_chars,
+            key=lambda ch: (
+                0 if ch.role == "주연" else 1,
+                -_canon_relevance(
+                    ch.name or "",
+                    [*(ch.aliases or []),
+                     *(((ch.card_json or {}).get("data") or {}).get("aliases") or [])],
+                ),
+                ch.id,
+            ),
+        )[:CANON_CHARACTER_LIMIT]
+        canon_lore = sorted(
+            canon_lore,
+            key=lambda entry: (-_canon_relevance(entry.title or "", entry.keywords), entry.id),
+        )[:CANON_LORE_LIMIT]
         if canon_chars:
             parts = []
             for ch in canon_chars:

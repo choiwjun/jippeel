@@ -67,7 +67,9 @@ else
      IM_NOT_AI_REFINE_CMD='cp {input} {output}' \
      JIPPEEL_REVIEW_PROVIDER="${JIPPEEL_REVIEW_PROVIDER:-agy}" \
      JIPPEEL_AGY_MODEL="${JIPPEEL_AGY_MODEL:-gemini-3.8-flash-high}" \
-     WSLENV="JIPPEEL_REVIEW_PROVIDER:JIPPEEL_AGY_MODEL${WSLENV:+:$WSLENV}" \
+     JIPPEEL_AUTOBACKUP_INTERVAL_MIN="${JIPPEEL_AUTOBACKUP_INTERVAL_MIN:-30}" \
+     JIPPEEL_AUTOBACKUP_KEEP="${JIPPEEL_AUTOBACKUP_KEEP:-10}" \
+     WSLENV="JIPPEEL_REVIEW_PROVIDER:JIPPEEL_AGY_MODEL:JIPPEEL_AUTOBACKUP_INTERVAL_MIN:JIPPEEL_AUTOBACKUP_KEEP${WSLENV:+:$WSLENV}" \
      .venv/Scripts/python.exe -m uvicorn app.main:app --host "$APP_HOST" --port "$APP_PORT" \
      > "$LOG_DIR/backend-prod.log" 2>&1 < /dev/null &)
   for i in $(seq 1 30); do backend_up && break; sleep 1; done

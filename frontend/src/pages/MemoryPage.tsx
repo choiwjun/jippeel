@@ -95,6 +95,42 @@ function buildListPath(
   return `/projects/${pid}/memories${query ? `?${query}` : ""}`;
 }
 
+interface SummaryJob {
+  id: number;
+  kind: string;
+  status: string;
+  attempt_count: number;
+  error: string | null;
+  source_sort_order: number;
+}
+
+interface SummaryJobPlanResult {
+  summary: { created: number; duplicates: number };
+  arc?: { created: number; duplicates: number } | null;
+  volume?: { created: number; duplicates: number } | null;
+}
+
+interface SummaryJobRunResult {
+  processed: SummaryJob[];
+}
+
+const JOB_STATUS_LABELS: Record<string, string> = {
+  planned: "대기",
+  running: "실행 중",
+  draft_saved: "초안 저장",
+  skipped_empty: "빈 원문 건너뜀",
+  stale_source: "원문 변경됨",
+  provider_error: "오류",
+  rejected: "거절",
+  duplicate_skipped: "중복 건너뜀",
+};
+
+const JOB_KIND_LABELS: Record<string, string> = {
+  summary: "회차 요약",
+  arc: "아크",
+  volume: "권",
+};
+
 export function MemoryPage() {
   const { pid: rawPid } = useParams();
   return <ProjectMemoryPage key={rawPid} pid={Number(rawPid)} />;
@@ -158,6 +194,71 @@ function ProjectMemoryPage({ pid }: { pid: number }) {
       if (mounted.current) toast(`기억 추가 실패: ${(error as Error).message}`, "error");
     },
   });
+  const summaryJobsQuery = useQuery({
+    queryKey: ["summary-jobs", pid],
+    queryFn: () => api.get<SummaryJob[]>(`/projects/${pid}/summary-jobs`),
+  });
+  const invalidateSummary = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["summary-jobs", pid] });
+    await queryClient.invalidateQueries({ queryKey: ["memories", pid] });
+  };
+  const planJobs = useMutation({
+    mutationFn: () =>
+      api.post<SummaryJobPlanResult>(`/projects/${pid}/summary-jobs/plan`, {}),
+    onSuccess: async (result) => {
+      await invalidateSummary();
+      if (!mounted.current) return;
+      const total =
+        (result.summary?.created ?? 0) +
+        (result.arc?.created ?? 0) +
+        (result.volume?.created ?? 0);
+      toast(
+        total > 0
+          ? `요약 잡 ${total}건을 계획했습니다.`
+          : "새로 계획할 요약 잡이 없습니다.",
+        "success",
+      );
+    },
+    onError: (error) => {
+      if (mounted.current)
+        toast(`요약 잡 계획 실패: ${(error as Error).message}`, "error");
+    },
+  });
+  const runJobs = useMutation({
+    mutationFn: () =>
+      api.post<SummaryJobRunResult>(
+        `/projects/${pid}/summary-jobs/run?limit=10`,
+      ),
+    onSuccess: async (result) => {
+      await invalidateSummary();
+      if (!mounted.current) return;
+      const saved = result.processed.filter(
+        (j) => j.status === "draft_saved" || j.status === "duplicate_skipped",
+      ).length;
+      const failed = result.processed.filter(
+        (j) => j.status === "provider_error" || j.status === "rejected",
+      ).length;
+      toast(
+        `요약 잡 ${result.processed.length}건 처리 — 초안 ${saved}건` +
+          (failed ? `, 실패 ${failed}건` : ""),
+        failed ? "warning" : "success",
+      );
+    },
+    onError: (error) => {
+      if (mounted.current)
+        toast(`요약 잡 실행 실패: ${(error as Error).message}`, "error");
+    },
+  });
+  const retryJob = useMutation({
+    mutationFn: (jobId: number) =>
+      api.post<SummaryJob>(`/summary-jobs/${jobId}/retry`),
+    onSuccess: invalidateSummary,
+    onError: (error) => {
+      if (mounted.current)
+        toast(`재시도 실패: ${(error as Error).message}`, "error");
+    },
+  });
+
   const update = useMutation({
     mutationFn: ({
       originPid,
@@ -262,6 +363,84 @@ function ProjectMemoryPage({ pid }: { pid: number }) {
           {memories.length}건
         </Badge>
       </header>
+
+      <section
+        className="rounded-md border border-border p-3"
+        aria-labelledby="summary-jobs-title"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="summary-jobs-title" className="text-sm font-semibold">
+            자동 요약 잡
+          </h2>
+          <div className="ml-auto flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={planJobs.isPending || runJobs.isPending}
+              onClick={() => planJobs.mutate()}
+            >
+              {planJobs.isPending ? "계획 중…" : "요약 잡 계획"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={planJobs.isPending || runJobs.isPending}
+              onClick={() => runJobs.mutate()}
+            >
+              {runJobs.isPending ? "실행 중…" : "대기 잡 실행 (최대 10건)"}
+            </Button>
+          </div>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          본문이 있는 회차의 요약·아크·권 잡을 계획하고 실행합니다. 결과는
+          항상 초안으로 저장되며, 작가 승인 후에만 집필 컨텍스트에 들어갑니다.
+        </p>
+        {summaryJobsQuery.isError && (
+          <p role="alert" className="mt-2 text-xs text-destructive">
+            잡 목록을 불러오지 못했습니다.
+          </p>
+        )}
+        {(summaryJobsQuery.data?.length ?? 0) > 0 && (
+          <ul className="mt-2 space-y-1">
+            {summaryJobsQuery.data!.map((job) => (
+              <li
+                key={job.id}
+                className="flex items-center gap-2 text-xs text-muted-foreground"
+              >
+                <span className="font-mono">#{job.id}</span>
+                <span>{JOB_KIND_LABELS[job.kind] ?? job.kind}</span>
+                <span
+                  className={
+                    job.status === "provider_error"
+                      ? "text-destructive"
+                      : job.status === "draft_saved"
+                        ? "text-success"
+                        : undefined
+                  }
+                >
+                  {JOB_STATUS_LABELS[job.status] ?? job.status}
+                </span>
+                {job.status === "provider_error" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1 text-xs"
+                    disabled={retryJob.isPending}
+                    onClick={() => retryJob.mutate(job.id)}
+                  >
+                    재시도
+                  </Button>
+                )}
+                {job.error && (
+                  <span className="truncate text-destructive/80" title={job.error}>
+                    {job.error}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {[
         { label: "작품 정보", message: "작품 정보를 불러오지 못했습니다.", query: projectQuery },

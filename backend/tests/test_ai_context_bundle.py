@@ -608,6 +608,82 @@ def test_legacy_unbound_request_without_identifying_ids_stays_valid(client):
 
 
 
+def _make_character(client, pid, name, *, role="조연", first_volume=None, aliases=None):
+    body = {"name": name, "role": role}
+    if aliases:
+        body["aliases"] = aliases
+    if first_volume is not None:
+        body["card_json"] = {"data": {"first_volume": first_volume}}
+    return client.post(f"/api/v1/projects/{pid}/characters", json=body)
+
+
+def test_auto_characters_skips_future_first_volume_and_prefers_mentions(client):
+    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
+    chapter = client.post(
+        f"/api/v1/projects/{pid}/chapters",
+        json={"title": "2-1화", "volume": 2, "sort_order": 1},
+    ).json()
+    client.put(
+        f"/api/v1/chapters/{chapter['id']}/content",
+        json={"content_md": "강산협이 검을 뽑았다. 백소소는 뒤로 물러났다.", "expected_revision": 0},
+    )
+    # 미래 권 등장 예정 — 이번 화면에서 제외되어야 함
+    _make_character(client, pid, "미래악역", first_volume=9)
+    # 본문 미언급 조연 — 언급된 인물보다 뒤
+    _make_character(client, pid, "무명조연")
+    # 본문 언급 조연 + 주연
+    _make_character(client, pid, "강산협", role="주연")
+    _make_character(client, pid, "백소소")
+
+    payload = GenerateRequest(
+        prompt_override="이어 써줘",
+        context=GenerateContext(project_id=pid, chapter_id=chapter["id"], auto_characters=True),
+    )
+    bundle = build_context_bundle(_db(client), request_from_generate(payload))
+    char_blocks = [b for b in bundle.blocks if b.startswith("[캐릭터:")]
+    joined = "\n".join(char_blocks)
+    assert "미래악역" not in joined
+    assert "강산협" in joined
+    assert "백소소" in joined
+
+
+def test_auto_characters_aliases_also_count_as_mentions(client):
+    pid, chapter = _project_with_chapter(client, body="협객이 나타났다.")
+    _make_character(client, pid, "강산협", aliases=["협객"])
+    _make_character(client, pid, "무명조연")
+    # 상한을 1로 좁혀 별칭 언급 점수가 선정을 결정하는지 본다
+    payload = GenerateRequest(
+        prompt_override="이어 써줘",
+        context=GenerateContext(
+            project_id=pid, chapter_id=chapter["id"],
+            auto_characters=True, auto_character_limit=1,
+        ),
+    )
+    bundle = build_context_bundle(_db(client), request_from_generate(payload))
+    char_blocks = [b for b in bundle.blocks if b.startswith("[캐릭터:")]
+    assert len(char_blocks) == 1
+    assert "강산협" in char_blocks[0]
+
+
+def test_canon_context_caps_characters_and_prefers_protagonists(client):
+    pid, chapter = _project_with_chapter(client, body="본문")
+    for i in range(25):
+        _make_character(client, pid, f"조연{i:02d}")
+    _make_character(client, pid, "주인공", role="주연")
+
+    from app.services.ai_context import CANON_CHARACTER_LIMIT
+
+    db = _db(client)
+    current = db.get(__import__("app.models", fromlist=["Chapter"]).Chapter, chapter["id"])
+    payload = CanonCheckRequest(chapter_id=current.id)
+    bundle = build_context_bundle(db, request_from_canon(payload, current))
+    char_block = next(b for b in bundle.blocks if b.startswith("[캐릭터 설정"))
+    # 상한 20명 + 주연은 언급 점수 없이도 포함
+    assert char_block.count("이름: ") == CANON_CHARACTER_LIMIT
+    assert "이름: 주인공" in char_block
+    assert "이름: 조연24" not in char_block  # id 순 하위는 잘림
+
+
 def test_generate_missing_approved_foreshadow_id_does_not_create_provider_client(client, monkeypatch):
     from app.routers import ai_panel
 
