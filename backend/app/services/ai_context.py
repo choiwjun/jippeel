@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Chapter, Character, Foreshadow, ImprovementRule, LoreEntry, Project, Relationship, Scene, VolumeNote
+from app.models import Chapter, Character, Foreshadow, ImprovementRule, KnowledgeState, LoreEntry, Project, Relationship, Scene, VolumeNote
 from app.schemas import CanonCheckRequest, EpisodeBrief, GenerateRequest
 from app.services import injection
 from app.services.long_memory import format_context_memory, select_context_memory
@@ -54,6 +54,9 @@ class ContextBundleRequest:
     # E6 — 작가 승인 개선 규칙 주입(기본 on). 규칙이 없으면 블록 자체가 생기지 않아
     # 기존 컨텍스트와 바이트 단위로 동일하다.
     include_rules: bool = True
+    # D02 P3 — POV 인물 시야. 지정되면 해당 인물이 모르는 사실·복선을
+    # 컨텍스트에서 제외한다. None이면 기존 동작(작가 시야).
+    pov_character_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -145,6 +148,16 @@ def _load_scene(db: Session, scene_id: int | None) -> tuple[Scene | None, Chapte
     return scene, chapter
 
 
+def _validate_pov_character(db: Session, project_id: int | None, character_id: int | None) -> None:
+    if character_id is None:
+        return
+    character = db.get(Character, character_id)
+    if character is None:
+        raise HTTPException(status_code=404, detail="pov character not found")
+    if project_id is not None and character.project_id != project_id:
+        raise HTTPException(status_code=422, detail="pov character belongs to another project")
+
+
 def request_from_generate(payload: GenerateRequest) -> ContextBundleRequest:
     ctx = payload.context
     return ContextBundleRequest(
@@ -173,6 +186,7 @@ def request_from_generate(payload: GenerateRequest) -> ContextBundleRequest:
         include_draft_memory=ctx.include_draft_memory,
         auto_characters=ctx.auto_characters,
         auto_character_limit=ctx.auto_character_limit,
+        pov_character_id=ctx.pov_character_id,
     )
 
 
@@ -199,6 +213,7 @@ def request_from_canon(payload: CanonCheckRequest, chapter: Chapter) -> ContextB
         episode_purpose=payload.episode_purpose,
         approved_foreshadow_ids=list(payload.approved_foreshadow_ids or []),
         include_relationships=payload.include_relationships,
+        pov_character_id=payload.pov_character_id,
     )
 
 
@@ -398,6 +413,93 @@ def _canon_foreshadow_line(db: Session, row: Foreshadow, future_attrs: set[str])
     return line
 
 
+def _pov_latest_states(
+    db: Session,
+    project_id: int,
+    pov_character_id: int,
+    at_sort_order: float | None,
+) -> dict[tuple[str, int], KnowledgeState]:
+    """POV 인물의 시점 기준 최신 승인 상태를 반환한다."""
+    stmt = (
+        select(KnowledgeState)
+        .where(
+            KnowledgeState.project_id == project_id,
+            KnowledgeState.subject_type == "character",
+            KnowledgeState.character_id == pov_character_id,
+            KnowledgeState.visibility.in_(["approved", "retired"]),
+        )
+        .order_by(KnowledgeState.effective_from_sort_order, KnowledgeState.id)
+    )
+    if at_sort_order is not None:
+        stmt = stmt.where(
+            (KnowledgeState.effective_from_sort_order.is_(None))
+            | (KnowledgeState.effective_from_sort_order <= at_sort_order)
+        )
+    latest: dict[tuple[str, int], KnowledgeState] = {}
+    for row in db.scalars(stmt).all():
+        key = (row.target_kind, row.target_id)
+        existing = latest.get(key)
+        if existing is None or (row.effective_from_sort_order or 0, row.id) > (
+            existing.effective_from_sort_order or 0, existing.id,
+        ):
+            latest[key] = row
+    return latest
+
+
+def _pov_unaware_targets(
+    db: Session,
+    project_id: int,
+    pov_character_id: int,
+    at_sort_order: float | None,
+) -> set[tuple[str, int]]:
+    """명시적으로 aware가 아닌 승인 상태의 대상 집합을 반환한다."""
+    return {
+        key for key, row in _pov_latest_states(
+            db, project_id, pov_character_id, at_sort_order,
+        ).items()
+        if row.visibility == "approved" and row.status != "aware"
+    }
+
+
+def _pov_aware_targets(
+    db: Session,
+    project_id: int,
+    pov_character_id: int,
+    at_sort_order: float | None,
+) -> set[tuple[str, int]]:
+    """명시적으로 aware인 승인 상태의 대상 집합을 반환한다."""
+    return {
+        key for key, row in _pov_latest_states(
+            db, project_id, pov_character_id, at_sort_order,
+        ).items()
+        if row.visibility == "approved" and row.status == "aware"
+    }
+
+
+def _filter_memory_by_pov(
+    db: Session,
+    entries: list,
+    project_id: int,
+    pov_character_id: int,
+    at_sort_order: float | None,
+) -> list:
+    """명시적으로 aware인 fact만 넣어 미기록 상태를 fail-closed 처리한다."""
+    aware = _pov_aware_targets(db, project_id, pov_character_id, at_sort_order)
+    return [e for e in entries if ("fact", e.id) in aware]
+
+
+def _filter_foreshadows_by_pov(
+    db: Session,
+    rows: list[Foreshadow],
+    project_id: int,
+    pov_character_id: int,
+    at_sort_order: float | None,
+) -> list[Foreshadow]:
+    """명시적으로 aware인 foreshadow만 넣어 미기록 상태를 fail-closed 처리한다."""
+    aware = _pov_aware_targets(db, project_id, pov_character_id, at_sort_order)
+    return [r for r in rows if ("foreshadow", r.id) in aware]
+
+
 def _relationship_text(rel: Relationship, from_ch: Character, to_ch: Character) -> str:
     label = (rel.label or "관계").strip()
     note = (rel.note or "").strip()
@@ -472,6 +574,7 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         project_id = _resolve_project(project_id, scene_chapter.project_id, "scene")
 
     selected_chars, project_id = _ordered_characters(db, request.character_ids, project_id)
+    _validate_pov_character(db, project_id, request.pov_character_id)
     if request.auto_characters and project_id is not None:
         # 어시스턴트 계획 경로 — 명시 선택을 앞에 두고 프로젝트 인물을 자동으로 채운다.
         # first_volume이 현재 권보다 미래인 인물은 아직 등장 전이므로 제외하고,
@@ -521,7 +624,19 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
             row for row, score in ranked if score is not None
         ][:slots]
     selected_lore, project_id = _ordered_lore(db, request.lore_ids, project_id)
+    if request.pov_character_id is not None:
+        aware = _pov_aware_targets(
+            db, project_id, request.pov_character_id, chapter.sort_order if chapter else None,
+        )
+        selected_lore = [entry for entry in selected_lore if ("lore", entry.id) in aware]
     approved_rows, project_id = _ordered_foreshadows(db, request.approved_foreshadow_ids, project_id)
+    # 명시 승인도 POV 시야를 우회하지 않는다. 작가가 회수 검사를 승인한 것과
+    # 해당 인물이 그 복선을 알아도 된다는 것은 별개의 계약이다.
+    if request.pov_character_id is not None:
+        approved_rows = _filter_foreshadows_by_pov(
+            db, approved_rows, project_id, request.pov_character_id,
+            chapter.sort_order if chapter is not None else None,
+        )
 
     project = _load_project(db, project_id)
 
@@ -608,6 +723,20 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         canon_lore = db.scalars(
             select(LoreEntry).where(LoreEntry.project_id == project_id).order_by(LoreEntry.id.asc())
         ).all()
+        # canon도 generate과 동일한 POV 계약을 적용한다. 설정 카드 전체를
+        # 검사에 넣으면 시점 인물이 모르는 작가 설정이 검수 프롬프트로 새므로,
+        # 명시적으로 aware인 lore만 남긴다. 인물 카드는 본문 모순 검사를 위해
+        # 유지하되, POV 자체가 다른 프로젝트에 속하는지는 앞에서 검증했다.
+        if request.pov_character_id is not None:
+            aware = _pov_aware_targets(
+                db, project_id, request.pov_character_id,
+                chapter.sort_order if chapter is not None else None,
+            )
+            canon_lore = [row for row in canon_lore if ("lore", row.id) in aware]
+            canon_chars = [
+                row for row in canon_chars
+                if row.id == request.pov_character_id or ("character", row.id) in aware
+            ]
         # 대형 프로젝트에서 프롬프트 폭증 방지 — 본문에 언급된 설정을 우선
         # 주입하고 나머지는 상한까지 채운다. 주연은 항상 포함한다.
         canon_text = (chapter.content_md or "") if chapter is not None else ""
@@ -669,6 +798,13 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
             db, project_id=project_id, target_chapter_id=chapter.id,
             include_draft=request.include_draft_memory,
         )
+        # D02 P3 — POV 인물 시야 필터. 승인된 인지 상태에서 해당 인물이
+        # 모르는(unaware) 사실·복선을 컨텍스트에서 제외한다.
+        if request.pov_character_id is not None:
+            included_memory_entries = _filter_memory_by_pov(
+                db, included_memory_entries, project_id,
+                request.pov_character_id, chapter.sort_order,
+            )
         memory_block = format_context_memory(included_memory_entries)
         if memory_block:
             blocks.append(memory_block)
@@ -678,6 +814,11 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
             source_parts.append(request.prompt_text)
         selector = injection.select_lore_for_text_hybrid if request.auto_lore_semantic else injection.select_lore_for_text
         selected = selector(db, project_id, "\n".join(source_parts), limit=request.auto_lore_limit)
+        if request.pov_character_id is not None:
+            aware = _pov_aware_targets(
+                db, project_id, request.pov_character_id, chapter.sort_order if chapter else None,
+            )
+            selected = [entry for entry in selected if ("lore", entry.id) in aware]
         explicit_ids = {entry.id for entry in selected_lore}
         for entry in selected:
             if entry.id in explicit_ids:
@@ -693,6 +834,12 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
                 Foreshadow.status.in_(("설치", "보류")),
             )
         ).all()
+        if request.pov_character_id is not None:
+            included_foreshadow_rows = _filter_foreshadows_by_pov(
+                db, list(included_foreshadow_rows), project_id,
+                request.pov_character_id,
+                chapter.sort_order if chapter is not None else None,
+            )
         included_foreshadow_rows.sort(key=lambda row: _foreshadow_position_key(db, row))
     elif request.auto_foreshadow and project_id is not None:
         rows = db.scalars(
@@ -701,6 +848,13 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
                 Foreshadow.status == "설치",
             )
         ).all()
+        # D02 P3 — POV 인물이 모르는 복선은 주입하지 않는다.
+        if request.pov_character_id is not None:
+            rows = _filter_foreshadows_by_pov(
+                db, list(rows), project_id,
+                request.pov_character_id,
+                chapter.sort_order if chapter is not None else None,
+            )
         rows.sort(key=lambda row: _foreshadow_position_key(db, row))
         included_foreshadow_rows = rows[:request.auto_foreshadow_limit]
 

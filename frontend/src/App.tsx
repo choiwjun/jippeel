@@ -10,6 +10,7 @@ import { PlanPage } from "@/pages/PlanPage";
 import { CompletionPage } from "@/pages/CompletionPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { MemoryPage } from "@/pages/MemoryPage";
+import CognitivePage from "@/pages/CognitivePage";
 import { queryClient } from "@/lib/queryClient";
 
 /**
@@ -40,6 +41,7 @@ export default function App() {
               element={<CompletionPage />}
             />
             <Route path="/projects/:pid/memory" element={<MemoryPage />} />
+            <Route path="/projects/:pid/cognitive" element={<CognitivePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<HomePage />} />
           </Routes>

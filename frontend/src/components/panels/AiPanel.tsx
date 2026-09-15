@@ -417,6 +417,7 @@ export function AiPanel() {
           auto_foreshadow: c.autoForeshadow,
           scene_id: editorIntent ? c.sceneId : null,
           style_profile: c.styleProfile,
+          pov_character_id: c.povCharacterId,
           // 계획 경로와 같은 자동 분석 — 단일 생성도 직전 회차·인물·장편 기억을 주입한다
           previous_chapter: true,
           auto_characters: true,
@@ -1054,6 +1055,11 @@ function ContextSection({
     enabled: chapterId !== null,
   });
   const scenes = scenesQuery.data ?? [];
+  const charactersQuery = useQuery({
+    queryKey: ["ai-pov-characters", ctx.projectId],
+    queryFn: () => api.get<Array<{ id: number; name: string }>>(`/projects/${ctx.projectId}/characters`),
+    enabled: ctx.projectId !== null,
+  });
   const includeChapter = ctx.includeChapterContent && ctx.chapterId !== null;
   const charsCount = ctx.characterIds.length;
   const loreCount = ctx.loreIds.length;
@@ -1133,6 +1139,20 @@ function ContextSection({
             selectedCharacterCount: ctx.characterIds.length,
           }}
         />
+        <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+          <Label htmlFor="ai-pov-character" className="text-xs">POV 인물 시야</Label>
+          <Select
+            id="ai-pov-character"
+            value={ctx.povCharacterId ?? ""}
+            onChange={(e) => setContext({ povCharacterId: e.target.value ? Number(e.target.value) : null })}
+            disabled={(charactersQuery.data ?? []).length === 0}
+          >
+            <option value="">작가 시야 (필터 없음)</option>
+            {(charactersQuery.data ?? []).map((character) => (
+              <option key={character.id} value={character.id}>{character.name}</option>
+            ))}
+          </Select>
+        </div>
         <Checkbox
           label={`선택 캐릭터 (${charsCount})`}
           checked={ctx.includeCharacters && charsCount > 0}

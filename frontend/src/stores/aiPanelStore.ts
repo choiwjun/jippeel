@@ -136,6 +136,8 @@ export interface AiPanelState {
     sceneId: number | null;
     /** 작품 문체 프로파일 적용 (G-040) */
     styleProfile: boolean;
+    /** D02 — 지정 시 인물 시야로 기억·복선을 필터링 */
+    povCharacterId: number | null;
   };
   setContext: (c: Partial<AiPanelState["contextSelection"]>) => void;
   activeEditorIdentity: { projectId: number; chapterId: number } | null;
@@ -312,6 +314,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     autoForeshadow: true,
     sceneId: null,
     styleProfile: true,
+    povCharacterId: null,
   },
   setContext: (c) =>
     set((s) => {

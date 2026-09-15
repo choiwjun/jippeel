@@ -84,6 +84,11 @@ function ProjectNavLinks({ pid, pathname }: { pid: string; pathname: string }) {
       label: "🧠 장편 기억",
       active: pathname.endsWith("/memory"),
     },
+    {
+      to: `${base}/cognitive`,
+      label: "🧭 인지·사건",
+      active: pathname.endsWith("/cognitive"),
+    },
   ];
   return (
     <nav className="mb-1 flex flex-col gap-0.5" aria-label="프로젝트 화면 전환">

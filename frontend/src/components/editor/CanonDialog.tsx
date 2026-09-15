@@ -167,6 +167,7 @@ export function CanonDialog({ chapterId }: { chapterId: number | null }) {
         episode_purpose: directives.episodePurpose,
         approved_foreshadow_ids: directives.approvedForeshadowIds,
         include_relationships: directives.includeRelationships,
+        pov_character_id: store.contextSelection.povCharacterId,
       });
       if (!requestStillActive(request) || response.chapter_id !== origin.chapterId) return;
       setDisplay({ token, origin, response });

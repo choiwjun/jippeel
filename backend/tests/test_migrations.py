@@ -216,7 +216,7 @@ def test_populated_historical_upgrade_from_initial_with_references(alembic_confi
     assert run == {"chapter_id": 1, "base_revision": None}
     assert rel_count == 1
     assert lore_count == 1
-    assert version == "e2f3a4b5c6d7"
+    assert version == "g2a3b4c5d6e7"
 
 
 def test_populated_upgrade_backfills_flow_stage(alembic_config):
@@ -349,7 +349,7 @@ def test_populated_upgrade_backfills_serial_state(alembic_config):
     engine.dispose()
 
     assert row == {"serial_state": "ongoing", "serial_completed_at": None, "title": "existing"}
-    assert version == "e2f3a4b5c6d7"
+    assert version == "g2a3b4c5d6e7"
 
     # 리빌드 후 ck_project_serial_state가 강제된다
     engine = _engine(_current_url())

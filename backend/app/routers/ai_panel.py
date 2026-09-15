@@ -739,7 +739,7 @@ def _assistant_target_chapter(
     return chapter
 
 
-def _assistant_context(chapter: Chapter) -> GenerateContext:
+def _assistant_context(chapter: Chapter, pov_character_id: int | None = None) -> GenerateContext:
     """assistant 경로 공용 컨텍스트 — 대상 회차에 내용이 있으면 함께 주입한다."""
     return GenerateContext(
         project_id=chapter.project_id,
@@ -755,6 +755,7 @@ def _assistant_context(chapter: Chapter) -> GenerateContext:
         include_memory=True,
         auto_characters=True,
         include_relationships=True,
+        pov_character_id=pov_character_id,
     )
 
 
@@ -781,7 +782,7 @@ async def assistant_plan_next(
             "현재 회차의 제목·회차 목표·목차·세계관·인물 설정을 정본으로 삼아 "
             "다음 회차 본문을 완성된 한국어 웹소설 원고로 집필하라."
         ),
-        context=_assistant_context(chapter),
+        context=_assistant_context(chapter, payload.pov_character_id),
         params=GenerateParams(max_tokens=payload.max_tokens),
     )
     bundle = ai_context.build_context_bundle(
@@ -890,7 +891,7 @@ async def assistant_generate_next(
         raise HTTPException(status_code=404, detail="project not found")
     chapter = _assistant_target_chapter(db, pid, payload.chapter_id)
 
-    context = _assistant_context(chapter)
+    context = _assistant_context(chapter, payload.pov_character_id)
     request = GenerateRequest(
         prompt_override=_ASSISTANT_PROMPT,
         context=context,

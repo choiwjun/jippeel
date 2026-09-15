@@ -566,6 +566,7 @@ class PlusStatusOut(BaseModel):
 
 # ---- Character (M2, Sprint 2) ----
 CharacterRole = Literal["주연", "조연", "단역", "기타"]
+CharacterLifecycle = Literal["active", "departed", "deceased", "retired"]
 
 
 class CharacterCreate(BaseModel):
@@ -577,6 +578,10 @@ class CharacterCreate(BaseModel):
     speech_style: str | None = None
     background: str | None = None
     card_json: dict | None = None
+    lifecycle_status: CharacterLifecycle = "active"
+    lifecycle_chapter_id: int | None = None
+    lifecycle_note: str | None = None
+    volume_roles: list[dict] | None = None
 
 
 class CharacterUpdate(BaseModel):
@@ -587,6 +592,10 @@ class CharacterUpdate(BaseModel):
     personality: str | None = None
     speech_style: str | None = None
     background: str | None = None
+    lifecycle_status: CharacterLifecycle | None = None
+    lifecycle_chapter_id: int | None = None
+    lifecycle_note: str | None = None
+    volume_roles: list[dict] | None = None
 
 
 class CardJsonPatch(BaseModel):
@@ -611,6 +620,11 @@ class CharacterOut(BaseModel):
     speech_style: str | None
     background: str | None
     card_json: dict | None
+    lifecycle_status: CharacterLifecycle
+    lifecycle_chapter_id: int | None
+    lifecycle_chapter_title: str | None
+    lifecycle_note: str | None
+    volume_roles: list[dict] | None
     created_at: datetime
     updated_at: datetime
 
@@ -800,6 +814,8 @@ class GenerateContext(BaseModel):
     # character_ids에 명시된 인물은 앞순서를 유지하고 나머지를 자동으로 채운다.
     auto_characters: bool = False
     auto_character_limit: int = Field(default=12, ge=1, le=30)
+    # D02 P3 — POV 인물 시야. 지정된 인물이 모르는 사실·복선을 컨텍스트에서 제외.
+    pov_character_id: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def validate_context_contract(self):
@@ -940,6 +956,7 @@ class AssistantPlanNextRequest(BaseModel):
 
     chapter_id: int | None = Field(default=None, ge=1)  # 미지정 시 첫 빈 회차
     max_tokens: int | None = Field(default=None, ge=1)
+    pov_character_id: int | None = Field(default=None, ge=1)
 
 
 class AssistantPlanNextResponse(BaseModel):
@@ -964,6 +981,7 @@ class AssistantGenerateNextRequest(BaseModel):
 
     chapter_id: int | None = Field(default=None, ge=1)  # 미지정 시 첫 빈 회차
     max_tokens: int | None = Field(default=None, ge=1)
+    pov_character_id: int | None = Field(default=None, ge=1)
     approved_plan: ParallelPlan | None = None
     plan_output_id: int | None = Field(default=None, ge=1)
 
@@ -1264,6 +1282,8 @@ class CanonCheckRequest(BaseModel):
     episode_purpose: EpisodePurpose = "serial"
     approved_foreshadow_ids: list[int] = Field(default_factory=list, max_length=20)
     include_relationships: bool = False
+    # D02 — 지정 시 canon 컨텍스트도 해당 인물의 승인된 인지 시야로 제한한다.
+    pov_character_id: int | None = Field(default=None, ge=1)
 
 
 class CanonCheckResponse(BaseModel):
@@ -1512,3 +1532,159 @@ class SummaryJobPlanResult(BaseModel):
 
 class SummaryJobRunResult(BaseModel):
     processed: list[SummaryJobOut]
+
+
+# ---- 인지 상태·사건 영향 (D02) ----
+
+KnowledgeSubjectType = Literal["author", "reader", "character"]
+KnowledgeTargetKind = Literal["fact", "foreshadow", "lore", "event"]
+KnowledgeStatus = Literal["unaware", "aware", "false_belief", "forgotten"]
+CognitiveVisibility = Literal["draft", "approved", "retired"]
+
+
+class KnowledgeStateCreate(BaseModel):
+    """작가가 직접 기록하는 인지 상태. subject=character일 때만 character_id."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    subject_type: KnowledgeSubjectType
+    character_id: int | None = Field(default=None, ge=1)
+    target_kind: KnowledgeTargetKind
+    target_id: int = Field(ge=1)
+    status: KnowledgeStatus
+    revealed_chapter_id: int | None = Field(default=None, ge=1)
+    effective_from_sort_order: float | None = None
+
+    @model_validator(mode="after")
+    def validate_subject_character(self):
+        if self.subject_type == "character":
+            if self.character_id is None:
+                raise ValueError("character_id required for subject_type=character")
+        elif self.character_id is not None:
+            raise ValueError("character_id only allowed for subject_type=character")
+        if self.effective_from_sort_order is not None and not math.isfinite(
+            self.effective_from_sort_order
+        ):
+            raise ValueError("effective_from_sort_order must be finite")
+        return self
+
+
+class KnowledgeStateUpdate(BaseModel):
+    """인지 상태는 append-only — visibility·상태 전이만 허용."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: KnowledgeStatus | None = None
+    visibility: CognitiveVisibility | None = None
+    revealed_chapter_id: int | None = Field(default=None, ge=1)
+    effective_from_sort_order: float | None = None
+
+    @model_validator(mode="after")
+    def validate_finite(self):
+        if self.effective_from_sort_order is not None and not math.isfinite(
+            self.effective_from_sort_order
+        ):
+            raise ValueError("effective_from_sort_order must be finite")
+        return self
+
+
+class KnowledgeStateOut(BaseModel):
+    id: int
+    project_id: int
+    subject_type: KnowledgeSubjectType
+    character_id: int | None
+    character_name: str | None
+    target_kind: KnowledgeTargetKind
+    target_id: int
+    status: KnowledgeStatus
+    revealed_chapter_id: int | None
+    revealed_chapter_title: str | None
+    effective_from_sort_order: float | None
+    visibility: CognitiveVisibility
+    source_sha256: str | None
+    generated_by: str | None
+    provenance: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class EventImpactCreate(BaseModel):
+    """작가가 직접 기록하는 사건 영향."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    chapter_id: int = Field(ge=1)
+    label: str = Field(min_length=1, max_length=255)
+    character_deltas: list[dict] = Field(default_factory=list)
+    relationship_deltas: list[dict] = Field(default_factory=list)
+    foreshadow_deltas: list[dict] = Field(default_factory=list)
+    state_after: str | None = Field(default=None, max_length=10_000)
+
+    @model_validator(mode="after")
+    def validate_label(self):
+        if not self.label.strip():
+            raise ValueError("label must not be empty")
+        return self
+
+
+class EventImpactUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str | None = Field(default=None, min_length=1, max_length=255)
+    character_deltas: list[dict] | None = None
+    relationship_deltas: list[dict] | None = None
+    foreshadow_deltas: list[dict] | None = None
+    state_after: str | None = Field(default=None, max_length=10_000)
+    visibility: CognitiveVisibility | None = None
+
+
+class EventImpactOut(BaseModel):
+    id: int
+    project_id: int
+    chapter_id: int
+    chapter_title: str | None
+    chapter_sort_order: float | None
+    label: str
+    character_deltas: list[dict]
+    relationship_deltas: list[dict]
+    foreshadow_deltas: list[dict]
+    state_after: str | None
+    visibility: CognitiveVisibility
+    source_sha256: str | None
+    generated_by: str | None
+    provenance: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class KnowledgeVisibleRequest(BaseModel):
+    """특정 시점·주체 기준 인지 조회."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    subject_type: KnowledgeSubjectType
+    character_id: int | None = Field(default=None, ge=1)
+    at_sort_order: float | None = None
+
+    @model_validator(mode="after")
+    def validate_subject_character(self):
+        if self.subject_type == "character" and self.character_id is None:
+            raise ValueError("character_id required for subject_type=character")
+        if self.subject_type != "character" and self.character_id is not None:
+            raise ValueError("character_id only allowed for subject_type=character")
+        if self.at_sort_order is not None and not math.isfinite(self.at_sort_order):
+            raise ValueError("at_sort_order must be finite")
+        return self
+
+
+class KnowledgeVisibleEntry(BaseModel):
+    target_kind: KnowledgeTargetKind
+    target_id: int
+    status: KnowledgeStatus
+
+
+class KnowledgeVisibleOut(BaseModel):
+    subject_type: KnowledgeSubjectType
+    character_id: int | None
+    at_sort_order: float | None
+    entries: list[KnowledgeVisibleEntry]

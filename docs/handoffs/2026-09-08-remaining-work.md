@@ -136,7 +136,7 @@ B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후�
 | ID | 작업 | 이미 있는 것 | 실제 남은 범위·착수 조건 |
 | --- | --- | --- | --- |
 | D01 | 영속 회차 브리프/목표 | EpisodeBrief 입력·요청 전달, Chapter.memo, 회차 목적 지시 | **수용 완료(2026-09-13)** — 회차당 현재 목표 + append-only 이력 + 목록·복원, purpose 영속, CAS 409, 명시 불러오기만 생성 반영. [수용](../audits/d01-goal-contract-2026-09-13/acceptance.md). 게시·운영 적용은 별도 승인 |
-| D02 | 인지·상태를 구분하는 장편 기억 확장 | 근거·적용 시점·승인/stale, 미래 복선 구분, 복선의 audience_knows, **아크 요약 슬라이스(2026-09-14)** — `summary_jobs.kind='arc'`·`arc_summary` MemoryEntry·`arc-v1`(migration `d1e2f3a4b5c6`), **권 기억 + 커버리지 선택(2026-09-14)** — `kind='volume'`·`volume_memory`·`volume-v1`·승인 상위층의 하위 요약 커버리지 제외(migration `e2f3a4b5c6d7`) [설계](../specs/2026-09-14-hierarchical-memory-500ep.md) | 잔여: 인지·상태 도메인 구현 — [설계 완료](../specs/2026-09-14-cognitive-state-domain.md)(knowledge_states·event_impacts, P1~P4 단계), 구현은 별도 슬라이스 |
+| D02 | 인지·상태를 구분하는 장편 기억 확장 | 근거·적용 시점·승인/stale, 미래 복선 구분, 복선의 audience_knows, **아크 요약 슬라이스(2026-09-14)** — `summary_jobs.kind='arc'`·`arc_summary` MemoryEntry·`arc-v1`(migration `d1e2f3a4b5c6`), **권 기억 + 커버리지 선택(2026-09-14)** — `kind='volume'`·`volume_memory`·`volume-v1`·승인 상위층의 하위 요약 커버리지 제외(migration `e2f3a4b5c6d7`) [설계](../specs/2026-09-14-hierarchical-memory-500ep.md) | **인지·상태 구현 슬라이스 완료(2026-09-14)** — `knowledge_states`·`event_impacts` migration `f1a2b3c4d5e6`, 캐릭터 lifecycle migration `g2a3b4c5d6e7`; 수동 CRUD와 append-only 전이, draft-only cognitive derive, 승인 aware 기준 fail-closed POV, generate/canon 공통 `pov_character_id`, Cognitive UI를 구현했다. 설계 P1~P4의 이 슬라이스 범위는 완료이며 운영 적용·실제 provider는 별도 gate |
 | D03 | 기획→집필→퇴고→완결·재개 흐름 | 권 개요·인물 설정·장면·감수·원고 이력, 최종화 목적 | **D03-1 수용(2026-09-13)** — flow_stage 상태 기계·전이 이벤트 앵커 [수용](../audits/d03-1-flow-stage-2026-09-13/acceptance.md). **D03-2 수용(2026-09-13)** — 재개 계약(드리프트·미해결 감수·다음 장면) [수용](../audits/d03-2-resume-2026-09-13/acceptance.md). **D03-3 수용(2026-09-13)** — projects.serial_state 연재 수명주기 분리 [수용](../audits/d03-3-serial-state-2026-09-13/acceptance.md). **D03-4 수용(2026-09-13)** — 목표 항목↔원문 발췌 근거 링크·파생 파손/드리프트 안내 [수용](../audits/d03-4-evidence-links-2026-09-13/acceptance.md). **D03-5 수용(2026-09-13)** — 복선 disposition(해결/의도적 미해결/외전 이관) 구분 표시 [수용](../audits/d03-5-foreshadow-disposition-2026-09-13/acceptance.md). **D03-6 수용(2026-09-13)** — 완결 점검표 + 완결본 불변 스냅샷 [수용](../audits/d03-6-final-edition-2026-09-13/acceptance.md). **D03-7 수용(2026-09-13)** — 작품 결말 후보·잠금·파생 영향 표시 [수용](../audits/d03-7-ending-impact-2026-09-13/acceptance.md). **D03 전 단위 수용 완료** |
 | D04 | 실제 자동 요약·backfill | C10의 provider-free manifest planner | **D04-1 수용(2026-09-13)** — summary_jobs 영속 + fake worker 생명주기(계획 중복 차단·복구·재시도·draft append) [수용](../audits/d04-1-summary-worker-2026-09-13/acceptance.md). **실제 provider 어댑터 `summary_provider.py` 구현·7P**. **실제 브릿지 smoke 완료(2026-09-14)** — `scripts/summary_smoke.py`가 합성 TEMP DB + 실제 OAuth 브릿지로 draft_saved까지 검증, 자동 승인 없음 [수용](../audits/d04-2-summary-smoke-2026-09-14/acceptance.md) · [운영 runbook](../runbooks/summary-backfill-operations.md). **평가 manifest·승인 UI 통합·운영 도구 완료(2026-09-14)** — [평가 manifest](../specs/2026-09-14-summary-eval-manifest.md)(전 종류 체크리스트+JSONL 기록 형식), MemoryPage에 자동 생성 배지·출처 필터·arc/volume kind 라벨, `scripts/summary_backfill.py` 운영 스크립트. 운영 DB 계획 실행 완료 — 300회차 전부 `skipped_empty`(본문 없음, provider 호출 0건), 재실행 시 전량 duplicate로 멱등 확인. 잔여: 본문 작성 후 실제 backfill 실행 + draft 검토·승인(작가) |
 | E | 작가 피드백 자가개선 | style_profile·장편 기억·회차 목표·품질 진단·RefineRun accepted·MemoryEntry draft/approved | [전체 설계](../specs/2026-09-14-author-feedback-improvement.md)·[E1 사양](../specs/2026-09-14-e1-generation-runs-spec.md). **E1~E7 전부 구현(2026-09-14)** — E1+E2 수용 [수용](../audits/e1-generation-runs-2026-09-14/acceptance.md); E3 결정론 diff 분석(`generation_analysis` — 편집거리·삭제 표현·분량·surface accept율), E4 `improvement_rules`(migration `c04b5d6e7f81`, 8 카테고리·승인 후 불변), E5 제안 job(proposed만·idempotent), E6 approved 규칙만 컨텍스트 주입+`applied_rules_json`, E7 규칙 패널·생성 이력·명시 폐기 UI. HANDOFF §09-14 대량 슬라이스 참조 |
@@ -196,6 +196,16 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 
 ## 8. 후속 순서 — 사용자 순차 진행 승인 반영
 
+### 2026-09-14 D02 인지·상태 슬라이스 구현 기록
+
+- `KnowledgeState`와 `EventImpact`를 모델·schema·migration·router에 추가했다. 수동 입력은 승인 상태로 저장하고 derive 결과는 `draft`로만 저장한다.
+- 상태 수정·폐기는 원본 행을 바꾸거나 지우지 않고 successor/retired transition을 append한다. 최신 상태는 시점 경계를 적용한 뒤 `(effective_from_sort_order, id)` 기준으로 선택한다.
+- `build_context_bundle`는 POV 캐릭터의 프로젝트 소속을 검증하고, 승인된 `aware` 대상만 허용하는 fail-closed 정책으로 fact/lore/foreshadow/event 컨텍스트를 제한한다. 명시적으로 승인한 foreshadow도 POV 인지 게이트를 우회하지 않는다. generate와 canon 모두 `pov_character_id`를 전달한다.
+- `derive-cognitive`는 고정 GPT OAuth bridge adapter를 사용하며 설정 오류는 503, provider/연결 오류는 502로 반환한다. adapter는 동기 worker 계약을 유지하면서 sync/async client close를 보장한다.
+- `CognitivePage`와 AI 패널·CanonDialog POV 선택 UI는 명시적 label/id 및 ARIA 상태를 사용한다. 작가 시야(null)가 기본값이다.
+- 회귀 근거: cognitive suite 34 passed. 전체 backend와 frontend 최종 수치는 아래 검증 게이트에서 재실행한다.
+
+
 실행 순서는 [9월 12일 순차 승인 기록](../superpowers/plans/2026-09-12-remaining-sequence.md)을 따른다. 아래는 기존 의존성 참고이며, 실제 자원에 대한 대상/비용/접근 승인은 별도로 충족해야 한다.
 
 1. **안정화 종결:** B01/B02/B04는 C13, M01~M05와 B03도 수용 완료다. 완료된 범위를 다시 열지 않는다.
@@ -208,7 +218,7 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 
 | 증거 층 | 가장 최근 확인한 결과 | 해석 한계 |
 | --- | --- | --- |
-| 전체 backend — 최신(2026-09-14 E~P·D02 슬라이스 후) | **792 passed / 1 skipped / violations 0** | native isolated runner. E3~E7·plan-first·assistant draft-only·apply CAS·arc summary 포함. frontend tsc 0오류·vite build 통과 |
+| 전체 backend — 최신(2026-09-15 D02 source-hash 회귀 보강 후) | **872 passed / 1 skipped / violations 0** | 지정 isolated runner; `subprocess_attempts=0`, `internal_ipc_count=507`, `fake_keyring_calls=8`. 실제 provider/운영 DB 아님 |
 | 전체 backend — Windows 네이티브 | **714 passed / 1 skipped / violations 0 / warnings 0** | Windows 11 네이티브 Python 3.14.4 + 격리 러너 그대로. 수동 실기기 수용(G04 잔여)과 구분 |
 | V03 다중 프로세스 부하 | 8×50·16×100 동시 쓰기 **rows 무손실·integrity ok·journal wal** | `scripts/sqlite_multiprocess_check.py` — 실제 HTTP 다중 프로세스 배포 구성 아님 |
 | 전체 backend — B03 최종 | **482 passed / 1 skipped / 70 subtests / 19 warnings** | native isolated runner, exit0·guard 위반0·실제 subprocess 시도0. 기존 외부 metrics skip(V04) 유지 |
@@ -224,9 +234,11 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 | P1 당시 전체 backend | **317 passed** | 역사적 P1 수용 로그. 최신 전체 결과는 위의 482개 |
 | P1 관련 backend + coverage | **64 passed** | 전체 317과 합산하지 않음 |
 | P1 당시 Memory Playwright/axe | **6 passed**, assertion 보강 후 부모 재통과 | 다른 모든 UI의 현재 재실행 결과는 아님 |
-| TypeScript/Vite build | **PASS** | 지정 Windows 기기 수용과 다름 |
+| TypeScript/Vite build | **최신 PASS** — `npx tsc --noEmit`, `npm run build` (Vite 5.4.21) | 지정 Windows 기기 수용과 다름 |
 | 핵심 3모듈 branch 포함 coverage | memories **93%**, projects **85%**, long_memory **93%**, 합산 **90%** | 전체 저장소/프론트 coverage 아님; 예전 4모듈 93.59%와 분모가 다름 |
 | 독립 검토 | 무결성/security **PASS**, UI **PASS with notes** → assertion 보강 | 정적 검토. reviewer가 테스트를 독립 실행했다고 주장하지 않음 |
+
+최신 D02 게이트: backend **872 passed / 1 skipped**, isolation violations 0; frontend tsc/build PASS; Alembic current `f1a2b3c4d5e6`, head `g2a3b4c5d6e7`. 독립 검토 후 nested delta project validation, historical transition 차단, malformed derive 응답 502, canon client close, assistant POV 전달을 보강했고, 원문 변경 시 source hash가 달라져 기존 파생 행을 stale 이력으로 보존하는 회귀를 확인했다.
 
 저장소 내 최신 근거: [B03 최종 수용](../audits/quality-b03-2026-09-12/acceptance.md), [B03 최종 사본 manifest](../audits/quality-b03-2026-09-12/accepted-evidence/post-write-manifest.json).
 M01~M05 수용 당시: [최종 수용](../audits/memory-m01-m05-2026-09-12/acceptance.md), [사본 manifest](../audits/memory-m01-m05-2026-09-12/accepted-evidence/post-write-manifest.json).

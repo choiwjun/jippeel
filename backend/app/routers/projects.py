@@ -20,6 +20,7 @@ from app.models import (
     Character,
     Foreshadow,
     MemoryEntry,
+    EventImpact,
     Project,
     ProjectFinalEdition,
     RefineRun,
@@ -933,6 +934,14 @@ def delete_chapter(cid: int, db: Session = Depends(get_db)):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="장편 기억이 연결된 회차는 근거 이력 보존을 위해 삭제할 수 없습니다. 폐기된 기억도 연결이 유지됩니다.",
+            )
+        has_event_impact = db.scalar(
+            select(EventImpact.id).where(EventImpact.chapter_id == cid).limit(1)
+        )
+        if has_event_impact is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="사건 영향이 연결된 회차는 사건 영향 이력을 먼저 정리해야 합니다",
             )
         db.delete(chapter)
         db.commit()

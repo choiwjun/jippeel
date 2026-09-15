@@ -10,6 +10,7 @@ import {
   api,
   type Character,
   type CharacterCreate,
+  type CharacterLifecycle,
   type CharacterRole,
   type CharacterUpdate,
   type Relationship,
@@ -25,6 +26,12 @@ import { Sheet, SheetBody, SheetHeader, SheetTitle } from '@/components/ui/sheet
 import { Textarea } from '@/components/ui/textarea';
 
 const ROLES: (CharacterRole | null)[] = ['주연', '조연', '단역', '기타'];
+const LIFECYCLES: Array<{ value: CharacterLifecycle; label: string }> = [
+  { value: 'active', label: '활동 중' },
+  { value: 'departed', label: '퇴장' },
+  { value: 'deceased', label: '사망' },
+  { value: 'retired', label: '휴면' },
+];
 
 export function CharactersPage() {
   const params = useParams();
@@ -165,7 +172,7 @@ function CharacterDrawer({
 
   const initial: CharacterFormValues =
     isNew || !detailQuery.data
-      ? { name: '', aliases: '', role: '', appearance: '', personality: '', speech_style: '', background: '' }
+      ? { name: '', aliases: '', role: '', appearance: '', personality: '', speech_style: '', background: '', lifecycle_status: 'active' as CharacterLifecycle, lifecycle_chapter_id: '', lifecycle_note: '', volume_roles: '' }
       : formFromCharacter(detailQuery.data);
 
   const [values, setValues] = useState<CharacterFormValues>(initial);
@@ -234,6 +241,45 @@ function CharacterDrawer({
               <option key={r} value={r!}>{r}</option>
             ))}
           </Select>
+        </div>
+        <div>
+          <Label htmlFor="ch-lifecycle">라이프사이클</Label>
+          <Select
+            id="ch-lifecycle"
+            value={values.lifecycle_status}
+            onChange={(e) => setValues((v) => ({ ...v, lifecycle_status: e.target.value as CharacterLifecycle }))}
+          >
+            {LIFECYCLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="ch-lifecycle-chapter">퇴장·사망 회차 ID</Label>
+          <Input
+            id="ch-lifecycle-chapter"
+            inputMode="numeric"
+            value={values.lifecycle_chapter_id}
+            onChange={(e) => setValues((v) => ({ ...v, lifecycle_chapter_id: e.target.value }))}
+            placeholder="예: 12"
+          />
+        </div>
+        <div>
+          <Label htmlFor="ch-lifecycle-note">라이프사이클 메모</Label>
+          <Textarea
+            id="ch-lifecycle-note"
+            rows={2}
+            value={values.lifecycle_note}
+            onChange={(e) => setValues((v) => ({ ...v, lifecycle_note: e.target.value }))}
+            placeholder="퇴장·사망 사유"
+          />
+        </div>
+        <div>
+          <Label htmlFor="ch-volume-roles">권별 역할 (JSON 배열)</Label>
+          <Input
+            id="ch-volume-roles"
+            value={values.volume_roles}
+            onChange={(e) => setValues((v) => ({ ...v, volume_roles: e.target.value }))}
+            placeholder={'[{"volume":1,"role":"주연"}]'}
+          />
         </div>
         {(
           [
@@ -543,6 +589,10 @@ interface CharacterFormValues {
   personality: string;
   speech_style: string;
   background: string;
+  lifecycle_status: CharacterLifecycle;
+  lifecycle_chapter_id: string;
+  lifecycle_note: string;
+  volume_roles: string;
 }
 
 function formFromCharacter(c: Character): CharacterFormValues {
@@ -554,6 +604,10 @@ function formFromCharacter(c: Character): CharacterFormValues {
     personality: c.personality ?? '',
     speech_style: c.speech_style ?? '',
     background: c.background ?? '',
+    lifecycle_status: c.lifecycle_status ?? 'active',
+    lifecycle_chapter_id: c.lifecycle_chapter_id?.toString() ?? '',
+    lifecycle_note: c.lifecycle_note ?? '',
+    volume_roles: c.volume_roles ? JSON.stringify(c.volume_roles) : '',
   };
 }
 
@@ -567,5 +621,9 @@ function bodyFromForm(v: CharacterFormValues): CharacterUpdate & CharacterCreate
     personality: v.personality.trim() || null,
     speech_style: v.speech_style.trim() || null,
     background: v.background.trim() || null,
+    lifecycle_status: v.lifecycle_status,
+    lifecycle_chapter_id: v.lifecycle_chapter_id.trim() ? Number(v.lifecycle_chapter_id) : null,
+    lifecycle_note: v.lifecycle_note.trim() || null,
+    volume_roles: v.volume_roles.trim() ? JSON.parse(v.volume_roles) : [],
   };
 }

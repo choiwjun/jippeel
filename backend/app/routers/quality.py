@@ -1,5 +1,6 @@
 """canon 충돌 검사 + 회차 품질 진단 라우터 — 고도화 G-023·G-031·이력(G-041)."""
 import hashlib
+import inspect
 
 import openai  # pyright: ignore[reportMissingImports]
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -53,9 +54,17 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
     except openai.APIError as exc:
         raise HTTPException(status_code=502,
                             detail=canon_service.friendly_api_error(exc)) from exc
+    except (ConnectionError, TimeoutError) as exc:
+        raise HTTPException(status_code=502, detail="canon 검사 provider 연결에 실패했습니다.") from exc
     except ValueError as exc:  # JSON 재시도 후 파싱 실패
         raise HTTPException(status_code=502,
                             detail=f"canon 검사 실패: {type(exc).__name__}") from exc
+    finally:
+        closer = getattr(client, "aclose", None)
+        if closer is not None:
+            result = closer()
+            if inspect.isawaitable(result):
+                await result
 
     run = CanonRun(chapter_id=chapter.id, model=used_model,
                    issues_json=issues, context_json=counts)

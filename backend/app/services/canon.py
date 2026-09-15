@@ -99,7 +99,7 @@ async def run_canon_check(
     bundle: ai_context.ContextBundle | None = None,
     messages_context: tuple[list[dict], dict] | None = None,
 ) -> tuple[list[dict], dict, str]:
-    """검사 실행 — 1회 실패 시 repair prompt 1회 재시도 후 예외 전파.
+    """검사 실행 — 결정적 사전검사 + LLM 1콜 + repair 1회.
 
     사용량 기록(G-060)용 프롬프트 문자량은 counts["prompt_chars"]로 반환한다.
     """
@@ -109,10 +109,24 @@ async def run_canon_check(
         messages, counts = messages_context
     counts = dict(counts)
     counts["prompt_chars"] = sum(len(m["content"]) for m in messages)
+
+    # 결정적 사전검사 — LLM 호출 전 명백한 위반을 먼저 수집
+    # 계약/단위 테스트처럼 실제 ORM 엔티티가 아닌 호출에서는 사전검사를
+    # 실행하지 않는다. 특히 Mock Session의 scalars()는 iterable 결과를
+    # 보장하지 않으므로, LLM 호출에서 발생한 원래 예외를 가리지 않아야 한다.
+    precheck_issues = (
+        deterministic_precheck(
+            db, chapter,
+            approved_foreshadow_ids=payload.approved_foreshadow_ids if payload else None,
+        )
+        if type(chapter) is Chapter
+        else []
+    )
+
     raw = await llm.complete_chat(client, model, messages,
                                   reasoning_effort=reasoning_effort)
     try:
-        return parse_issues(raw), counts, model
+        llm_issues = parse_issues(raw)
     except (ValueError, json.JSONDecodeError):
         repaired = list(messages) + [
             {"role": "assistant", "content": raw},
@@ -121,7 +135,112 @@ async def run_canon_check(
         ]
         raw = await llm.complete_chat(client, model, repaired,
                                       reasoning_effort=reasoning_effort)
-        return parse_issues(raw), counts, model
+        llm_issues = parse_issues(raw)
+
+    # 사전검사 + LLM 결과 병합 (중복 제거: 같은 quote+reason)
+    seen = {(i["quote"], i["reason"]) for i in llm_issues}
+    merged = llm_issues + [i for i in precheck_issues if (i["quote"], i["reason"]) not in seen]
+    return merged, counts, model
+
+
+def deterministic_precheck(
+    db: Session,
+    chapter: Chapter,
+    approved_foreshadow_ids: list[int] | None = None,
+) -> list[dict]:
+    """LLM 호출 전 결정적 규칙 검사 — 승인된 canon 대비 명백한 위반을 탐지한다.
+
+    LLM이 놓칠 수 있는 기계적 검사를 먼저 수행한다. 발견된 issue는
+    LLM 결과와 병합되어 작가에게 전달된다.
+    """
+    issues: list[dict] = []
+    body = chapter.content_md or ""
+    if not body.strip():
+        return issues
+
+    pid = chapter.project_id
+    approved_ids = set(approved_foreshadow_ids or [])
+
+    # 1. 퇴장·사망 인물이 본문에 등장하는지
+    departed = db.scalars(
+        select(Character).where(
+            Character.project_id == pid,
+            Character.lifecycle_status.in_(["departed", "deceased"]),
+        )
+    ).all()
+    for ch in departed:
+        # lifecycle가 지정된 회차 이후에만 현재 시점의 등장 위반으로 판정한다.
+        lifecycle_chapter = (
+            db.get(Chapter, ch.lifecycle_chapter_id)
+            if ch.lifecycle_chapter_id is not None else None
+        )
+        # lifecycle 회차 본문에는 퇴장 장면 자체가 포함될 수 있으므로,
+        # 그 회차까지는 등장 위반으로 보지 않고 다음 회차부터 검사한다.
+        if lifecycle_chapter is not None and chapter.sort_order <= lifecycle_chapter.sort_order:
+            continue
+        names = [ch.name] + (ch.aliases or [])
+        for name in names:
+            if name and name in body:
+                status_label = "사망" if ch.lifecycle_status == "deceased" else "퇴장"
+                issues.append({
+                    "quote": name,
+                    "reason": f"{status_label} 인물 '{ch.name}'이(가) 본문에 등장합니다",
+                    "severity": "error",
+                })
+                break
+
+    # 2. 미회수 복선의 결론적 표현 감지
+    open_foreshadows = db.scalars(
+        select(Foreshadow).where(
+            Foreshadow.project_id == pid,
+            Foreshadow.status == "설치",
+        )
+    ).all()
+    for fs in open_foreshadows:
+        if fs.id in approved_ids:
+            continue  # 작가가 공개 허용한 복선은 제외
+        title = (fs.title or "").strip()
+        if not title:
+            continue
+        # 복선 제목이 본문에 직접 언급되고, 해결·진상 표현이 근처에 있으면 경고
+        if title in body:
+            resolve_markers = ["밝혀", "진실", "정체", "실은", "사실은", "알게 되", "깨달"]
+            for marker in resolve_markers:
+                if marker in body:
+                    issues.append({
+                        "quote": title,
+                        "reason": f"미회수 복선 '{title}'이(가) 본문에서 해결 방향으로 언급됩니다",
+                        "severity": "warn",
+                    })
+                    break
+
+    # 3. 독자 미인지 사실 노출 감지
+    from app.models import KnowledgeState
+    reader_unaware = db.scalars(
+        select(KnowledgeState).where(
+            KnowledgeState.project_id == pid,
+            KnowledgeState.subject_type == "reader",
+            KnowledgeState.status == "unaware",
+            KnowledgeState.visibility == "approved",
+        )
+    ).all()
+    for ks in reader_unaware:
+        if ks.target_kind == "fact":
+            from app.models import MemoryEntry
+            fact = db.get(MemoryEntry, ks.target_id)
+            if fact and fact.body:
+                # 사실의 핵심 키워드가 본문에 있으면 경고
+                keywords = [w for w in fact.body.split() if len(w) >= 2][:5]
+                for kw in keywords:
+                    if kw in body:
+                        issues.append({
+                            "quote": kw,
+                            "reason": f"독자가 아직 모르는 사실(#{ks.target_id})의 키워드가 본문에 노출됩니다",
+                            "severity": "warn",
+                        })
+                        break
+
+    return issues
 
 
 def friendly_api_error(exc: openai.APIError) -> str:

@@ -60,6 +60,12 @@ class Project(TimestampMixin, Base):
     final_editions: Mapped[list["ProjectFinalEdition"]] = relationship(
         cascade="all, delete-orphan"
     )
+    knowledge_states: Mapped[list["KnowledgeState"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+    event_impacts: Mapped[list["EventImpact"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint(
@@ -487,8 +493,19 @@ class Character(TimestampMixin, Base):
     speech_style: Mapped[str | None] = mapped_column(Text)
     background: Mapped[str | None] = mapped_column(Text)
     card_json: Mapped[dict | None] = mapped_column(JSON)  # ST 호환 확장 여지
+    # 라이프사이클 — 퇴장·사망·권별 역할을 first-class 필드로 관리
+    lifecycle_status: Mapped[str] = mapped_column(
+        String(20), default="active", nullable=False
+    )  # active|departed|deceased|retired
+    lifecycle_chapter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chapters.id"), nullable=True
+    )  # 퇴장·사망이 발생한 회차
+    lifecycle_note: Mapped[str | None] = mapped_column(Text)  # 퇴장·사망 사유 메모
+    volume_roles: Mapped[list | None] = mapped_column(JSON, default=list)
+    # [{"volume":1,"role":"주연"},{"volume":2,"role":"조연"}]
 
     project: Mapped["Project"] = relationship(back_populates="characters")
+    lifecycle_chapter: Mapped["Chapter"] = relationship()
 
 
 class Relationship(Base):
@@ -718,3 +735,101 @@ class ImprovementRule(TimestampMixin, Base):
     rationale: Mapped[str | None] = mapped_column(Text)
     status_events_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     decided_at: Mapped[datetime | None] = mapped_column()
+
+
+class KnowledgeState(TimestampMixin, Base):
+    """주체별 인지 상태 — D02 P1 (작가/독자/인물 시야).
+
+    같은 (subject, target) 쌍의 상태는 append-only로 누적한다. 현재 상태는
+    (effective_from_sort_order, id) 기준 가장 최신 행이며 과거 시점 조회는
+    경계 이전 행을 고른다. 승인 전 draft는 컨텍스트 주입에서 제외한다.
+    """
+
+    __tablename__ = "knowledge_states"
+    __table_args__ = (
+        CheckConstraint(
+            "subject_type IN ('author','reader','character')",
+            name="ck_knowledge_state_subject",
+        ),
+        CheckConstraint(
+            "target_kind IN ('fact','foreshadow','lore','event')",
+            name="ck_knowledge_state_target",
+        ),
+        CheckConstraint(
+            "status IN ('unaware','aware','false_belief','forgotten')",
+            name="ck_knowledge_state_status",
+        ),
+        CheckConstraint(
+            "visibility IN ('draft','approved','retired')",
+            name="ck_knowledge_state_visibility",
+        ),
+        CheckConstraint(
+            "subject_type != 'character' OR character_id IS NOT NULL",
+            name="ck_knowledge_state_character_required",
+        ),
+        CheckConstraint(
+            "subject_type = 'character' OR character_id IS NULL",
+            name="ck_knowledge_state_character_forbidden",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    subject_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    character_id: Mapped[int | None] = mapped_column(
+        ForeignKey("characters.id", ondelete="CASCADE"), index=True
+    )
+    target_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    revealed_chapter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chapters.id", ondelete="SET NULL")
+    )
+    effective_from_sort_order: Mapped[float | None] = mapped_column(Float)
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    source_sha256: Mapped[str | None] = mapped_column(String(64))
+    generated_by: Mapped[str | None] = mapped_column(String(64))
+    provenance_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+    project: Mapped["Project"] = relationship(back_populates="knowledge_states")
+    character: Mapped["Character | None"] = relationship()
+    revealed_chapter: Mapped["Chapter | None"] = relationship()
+
+
+class EventImpact(TimestampMixin, Base):
+    """사건 영향 — D02 P1 (회차 안 사건이 남긴 관계·복선·인물 델타).
+
+    사건은 장면 비트와 별개로, 서사 상태에 변화를 남기는 단위다. 델타는
+    JSON 배열로 영속하고, 파생 행은 draft로만 생성돼 작가 승인 후에만
+    컨텍스트·뷰에 올라간다.
+    """
+
+    __tablename__ = "event_impacts"
+    __table_args__ = (
+        CheckConstraint(
+            "visibility IN ('draft','approved','retired')",
+            name="ck_event_impact_visibility",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("chapters.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    character_deltas_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    relationship_deltas_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    foreshadow_deltas_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    state_after: Mapped[str | None] = mapped_column(Text)
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    source_sha256: Mapped[str | None] = mapped_column(String(64))
+    generated_by: Mapped[str | None] = mapped_column(String(64))
+    provenance_json: Mapped[dict | None] = mapped_column(JSON, default=dict)
+
+    project: Mapped["Project"] = relationship(back_populates="event_impacts")
+    chapter: Mapped["Chapter"] = relationship()

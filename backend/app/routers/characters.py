@@ -31,6 +31,33 @@ def _get_character_or_404(chid: int, db: Session) -> Character:
     return character
 
 
+def _character_out(db: Session, ch: Character) -> CharacterOut:
+    """CharacterOut 조립 — lifecycle_chapter_title을 채운다."""
+    chapter_title = None
+    if ch.lifecycle_chapter_id is not None:
+        chapter = db.get(Chapter, ch.lifecycle_chapter_id)
+        chapter_title = chapter.title if chapter else None
+    return CharacterOut(
+        id=ch.id,
+        project_id=ch.project_id,
+        name=ch.name,
+        aliases=ch.aliases,
+        role=ch.role,
+        appearance=ch.appearance,
+        personality=ch.personality,
+        speech_style=ch.speech_style,
+        background=ch.background,
+        card_json=ch.card_json,
+        lifecycle_status=ch.lifecycle_status,
+        lifecycle_chapter_id=ch.lifecycle_chapter_id,
+        lifecycle_chapter_title=chapter_title,
+        lifecycle_note=ch.lifecycle_note,
+        volume_roles=ch.volume_roles,
+        created_at=ch.created_at,
+        updated_at=ch.updated_at,
+    )
+
+
 def _merge_patch(base: dict | None, patch: dict) -> dict:
     """JSON Merge Patch(RFC 7386): None은 제거, dict는 재귀 병합."""
     result = dict(base or {})
@@ -48,9 +75,10 @@ def _merge_patch(base: dict | None, patch: dict) -> dict:
 @router.get("/projects/{pid}/characters", response_model=list[CharacterOut])
 def list_characters(pid: int, db: Session = Depends(get_db)):
     _get_project_or_404(pid, db)
-    return db.scalars(
+    rows = db.scalars(
         select(Character).where(Character.project_id == pid).order_by(Character.id)
     ).all()
+    return [_character_out(db, ch) for ch in rows]
 
 
 @router.post(
@@ -60,26 +88,34 @@ def list_characters(pid: int, db: Session = Depends(get_db)):
 )
 def create_character(pid: int, payload: CharacterCreate, db: Session = Depends(get_db)):
     _get_project_or_404(pid, db)
+    if payload.lifecycle_chapter_id is not None:
+        chapter = db.get(Chapter, payload.lifecycle_chapter_id)
+        if chapter is None or chapter.project_id != pid:
+            raise HTTPException(status_code=422, detail="lifecycle chapter belongs to another project")
     character = Character(project_id=pid, **payload.model_dump())
     db.add(character)
     db.commit()
     db.refresh(character)
-    return character
+    return _character_out(db, character)
 
 
 @router.get("/characters/{chid}", response_model=CharacterOut)
 def get_character(chid: int, db: Session = Depends(get_db)):
-    return _get_character_or_404(chid, db)
+    return _character_out(db, _get_character_or_404(chid, db))
 
 
 @router.patch("/characters/{chid}", response_model=CharacterOut)
 def update_character(chid: int, payload: CharacterUpdate, db: Session = Depends(get_db)):
     character = _get_character_or_404(chid, db)
+    if payload.lifecycle_chapter_id is not None:
+        chapter = db.get(Chapter, payload.lifecycle_chapter_id)
+        if chapter is None or chapter.project_id != character.project_id:
+            raise HTTPException(status_code=422, detail="lifecycle chapter belongs to another project")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(character, field, value)
     db.commit()
     db.refresh(character)
-    return character
+    return _character_out(db, character)
 
 
 @router.patch("/characters/{chid}/card_json", response_model=CharacterOut)
@@ -89,7 +125,7 @@ def patch_card_json(chid: int, payload: CardJsonPatch, db: Session = Depends(get
     character.card_json = _merge_patch(character.card_json, payload.patch)
     db.commit()
     db.refresh(character)
-    return character
+    return _character_out(db, character)
 
 
 @router.delete("/characters/{chid}", status_code=status.HTTP_204_NO_CONTENT)
@@ -189,7 +225,7 @@ async def import_card_png(
     db.add(character)
     db.commit()
     db.refresh(character)
-    return character
+    return _character_out(db, character)
 
 
 @router.post("/projects/{pid}/import/novelwriter", status_code=status.HTTP_201_CREATED)

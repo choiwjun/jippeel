@@ -353,6 +353,7 @@ export interface EvidenceLinkList {
 
 // ---- Character / Relationship (Sprint 2 M2) ----
 export type CharacterRole = "주연" | "조연" | "단역" | "기타";
+export type CharacterLifecycle = "active" | "departed" | "deceased" | "retired";
 
 export interface Character {
   id: number;
@@ -365,6 +366,11 @@ export interface Character {
   speech_style: string | null;
   background: string | null;
   card_json: Record<string, unknown> | null;
+  lifecycle_status: CharacterLifecycle;
+  lifecycle_chapter_id: number | null;
+  lifecycle_chapter_title: string | null;
+  lifecycle_note: string | null;
+  volume_roles: Array<{ volume: number; role: string }> | null;
   created_at: string;
   updated_at: string;
 }
@@ -377,6 +383,10 @@ export interface CharacterCreate {
   personality?: string | null;
   speech_style?: string | null;
   background?: string | null;
+  lifecycle_status?: CharacterLifecycle;
+  lifecycle_chapter_id?: number | null;
+  lifecycle_note?: string | null;
+  volume_roles?: Array<{ volume: number; role: string }> | null;
 }
 
 export interface CharacterUpdate
@@ -627,4 +637,98 @@ export interface EndingImpact {
     title: string;
     has_ending_intent: boolean;
   }>;
+}
+
+// ---- 인지 상태·사건 영향 (D02) ----
+
+export type KnowledgeSubjectType = "author" | "reader" | "character";
+export type KnowledgeTargetKind = "fact" | "foreshadow" | "lore" | "event";
+export type KnowledgeStatus = "unaware" | "aware" | "false_belief" | "forgotten";
+export type CognitiveVisibility = "draft" | "approved" | "retired";
+
+export interface KnowledgeState {
+  id: number;
+  project_id: number;
+  subject_type: KnowledgeSubjectType;
+  character_id: number | null;
+  character_name: string | null;
+  target_kind: KnowledgeTargetKind;
+  target_id: number;
+  status: KnowledgeStatus;
+  revealed_chapter_id: number | null;
+  revealed_chapter_title: string | null;
+  effective_from_sort_order: number | null;
+  visibility: CognitiveVisibility;
+  source_sha256: string | null;
+  generated_by: string | null;
+  provenance: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeStateCreate {
+  subject_type: KnowledgeSubjectType;
+  character_id?: number | null;
+  target_kind: KnowledgeTargetKind;
+  target_id: number;
+  status: KnowledgeStatus;
+  revealed_chapter_id?: number | null;
+  effective_from_sort_order?: number | null;
+}
+
+export interface KnowledgeStateUpdate {
+  status?: KnowledgeStatus;
+  visibility?: CognitiveVisibility;
+  revealed_chapter_id?: number | null;
+  effective_from_sort_order?: number | null;
+}
+
+export interface EventImpact {
+  id: number;
+  project_id: number;
+  chapter_id: number;
+  chapter_title: string | null;
+  chapter_sort_order: number | null;
+  label: string;
+  character_deltas: Array<Record<string, unknown>>;
+  relationship_deltas: Array<Record<string, unknown>>;
+  foreshadow_deltas: Array<Record<string, unknown>>;
+  state_after: string | null;
+  visibility: CognitiveVisibility;
+  source_sha256: string | null;
+  generated_by: string | null;
+  provenance: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventImpactCreate {
+  chapter_id: number;
+  label: string;
+  character_deltas?: Array<Record<string, unknown>>;
+  relationship_deltas?: Array<Record<string, unknown>>;
+  foreshadow_deltas?: Array<Record<string, unknown>>;
+  state_after?: string | null;
+}
+
+export interface EventImpactUpdate {
+  label?: string;
+  character_deltas?: Array<Record<string, unknown>>;
+  relationship_deltas?: Array<Record<string, unknown>>;
+  foreshadow_deltas?: Array<Record<string, unknown>>;
+  state_after?: string | null;
+  visibility?: CognitiveVisibility;
+}
+
+export interface KnowledgeVisibleEntry {
+  target_kind: KnowledgeTargetKind;
+  target_id: number;
+  status: KnowledgeStatus;
+}
+
+export interface KnowledgeVisibleOut {
+  subject_type: KnowledgeSubjectType;
+  character_id: number | null;
+  at_sort_order: number | null;
+  entries: KnowledgeVisibleEntry[];
 }
