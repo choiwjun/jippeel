@@ -57,6 +57,7 @@ export function EditorPage() {
   const requestedChapterId = Number(searchParams.get('chapter'));
   const hasRequestedChapter = Number.isFinite(requestedChapterId) && requestedChapterId > 0;
 
+  const editorProjectId = useEditorStore((s) => s.projectId);
   const chapterId = useEditorStore((s) => s.chapterId);
   const setContext = useEditorStore((s) => s.setContext);
   const mode = useEditorStore((s) => s.mode);
@@ -99,9 +100,16 @@ export function EditorPage() {
 
   return (
     <div className="mx-auto flex h-full max-w-[820px] flex-col px-6">
-      <EditorHeader pid={pid} chapterId={chapterId} />
+      <EditorHeader
+        pid={pid}
+        chapterId={editorProjectId === pid ? chapterId : null}
+      />
       <div className="min-h-0 flex-1 pb-2">
-        {chapterId !== null ? (
+        {editorProjectId !== pid ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-sm text-muted-foreground">작품 회차를 불러오는 중…</p>
+          </div>
+        ) : chapterId !== null ? (
           <Tabs
             value={mode}
             onValueChange={(v) => setMode(v as 'edit' | 'preview')}
@@ -159,7 +167,7 @@ export function EditorPage() {
 function PreviewBody({ pid, chapterId }: { pid: number; chapterId: number }) {
   const queryClient = useQueryClient();
   const detail = useQuery({
-    queryKey: ['chapter', chapterId],
+    queryKey: ['chapter', pid, chapterId],
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
   });
   const draft = useManuscriptDraft({
@@ -177,7 +185,7 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
   const queryClient = useQueryClient();
 
   const detail = useQuery({
-    queryKey: ['chapter', chapterId],
+    queryKey: ['chapter', pid, chapterId],
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
     enabled: chapterId !== null,
   });
@@ -341,13 +349,14 @@ function ExportMenu({ pid, chapter }: { pid: number; chapter: ChapterDetail }) {
  */
 function ChapterFlowControl({ chapterId }: { chapterId: number }) {
   const queryClient = useQueryClient();
+  const projectId = useEditorStore((s) => s.projectId);
   const flowQuery = useQuery({
-    queryKey: ['chapter-flow', chapterId],
+    queryKey: ['chapter-flow', projectId, chapterId],
     queryFn: () => api.get<ChapterFlowOut>(`/chapters/${chapterId}/flow`),
   });
   // D03-2 재개 요약 — 드리프트 배지·미해결 감수·다음 장면
   const resumeQuery = useQuery({
-    queryKey: ['chapter-resume', chapterId],
+    queryKey: ['chapter-resume', projectId, chapterId],
     queryFn: () => api.get<ChapterResumeOut>(`/chapters/${chapterId}/resume`),
   });
 
@@ -358,8 +367,8 @@ function ChapterFlowControl({ chapterId }: { chapterId: number }) {
         expected_flow_stage: flowQuery.data?.flow_stage,
       }),
     onSuccess: (data) => {
-      queryClient.setQueryData(['chapter-flow', chapterId], data);
-      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+      queryClient.setQueryData(['chapter-flow', projectId, chapterId], data);
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', projectId, chapterId] });
     },
     onError: (e) => {
       if (e instanceof ApiError && e.status === 409) {
@@ -367,8 +376,8 @@ function ChapterFlowControl({ chapterId }: { chapterId: number }) {
           '집필 흐름 단계가 다른 곳에서 먼저 변경되었습니다. 최신 상태를 확인한 뒤 다시 시도하세요.',
           'warning',
         );
-        void queryClient.invalidateQueries({ queryKey: ['chapter-flow', chapterId] });
-        void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+        void queryClient.invalidateQueries({ queryKey: ['chapter-flow', projectId, chapterId] });
+        void queryClient.invalidateQueries({ queryKey: ['chapter-resume', projectId, chapterId] });
         return;
       }
       toast(e instanceof Error ? e.message : '흐름 전이에 실패했습니다.', 'error');
@@ -442,7 +451,7 @@ function ResumeSummary({ resume }: { resume: ChapterResumeOut | undefined }) {
 }
 
 function updateChapterCaches(queryClient: ReturnType<typeof useQueryClient>, pid: number, detail: ChapterDetail) {
-  queryClient.setQueryData<ChapterDetail>(['chapter', detail.id], detail);
+  queryClient.setQueryData<ChapterDetail>(['chapter', pid, detail.id], detail);
   queryClient.setQueryData<Chapter[]>(['chapters', pid], (old) =>
     old?.map((c) =>
       c.id === detail.id
@@ -468,12 +477,12 @@ function SnapshotDialog({ pid, chapter }: { pid: number; chapter: ChapterDetail 
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const snapshots = useQuery({
-    queryKey: ['chapter-snapshots', chapter.id],
+    queryKey: ['chapter-snapshots', pid, chapter.id],
     queryFn: () => api.get<ChapterSnapshotMeta[]>(`/chapters/${chapter.id}/snapshots`),
     enabled: open,
   });
   const selected = useQuery({
-    queryKey: ['chapter-snapshot', chapter.id, selectedId],
+    queryKey: ['chapter-snapshot', pid, chapter.id, selectedId],
     queryFn: () => api.get<ChapterSnapshotDetail>(`/chapters/${chapter.id}/snapshots/${selectedId}`),
     enabled: open && selectedId !== null,
   });
@@ -491,7 +500,7 @@ function SnapshotDialog({ pid, chapter }: { pid: number; chapter: ChapterDetail 
     onSuccess: ({ detail, token }) => {
       const result = completeManuscriptReplacement(pid, chapter.id, detail, token);
       updateChapterCaches(queryClient, pid, detail);
-      queryClient.invalidateQueries({ queryKey: ['chapter-snapshots', chapter.id] });
+      queryClient.invalidateQueries({ queryKey: ['chapter-snapshots', pid, chapter.id] });
       if (result === 'late_edit') {
         toast('복구 결과는 서버에 반영됐지만 새 입력이 있어 로컬 원고를 보존했습니다.', 'warning');
       } else {
@@ -666,7 +675,7 @@ function EditorBody({ pid, chapterId }: { pid: number; chapterId: number }) {
   const queryClient = useQueryClient();
 
   const detail = useQuery({
-    queryKey: ['chapter', chapterId],
+    queryKey: ['chapter', pid, chapterId],
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
   });
 

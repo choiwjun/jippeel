@@ -54,7 +54,7 @@ export function RefineReport() {
     onSuccess: (result) => {
       setRun({ result, routeOverride });
       // D03-2: 새 윤문 실행은 미해결 감수 수를 바꾼다.
-      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', projectId, chapterId] });
       toast(`윤문 실행 완료 — 변경률 ${(result.changed_ratio * 100).toFixed(1)}%`, 'info');
     },
     onError: (e) => toast((e as Error).message, 'error'),
@@ -71,7 +71,7 @@ export function RefineReport() {
     onSuccess: ({ detail, token }, runId) => {
       if (chapterId !== null && projectId !== null) {
         const result = completeManuscriptReplacement(projectId, chapterId, detail, token);
-        queryClient.setQueryData(['chapter', chapterId], detail);
+        queryClient.setQueryData(['chapter', projectId, chapterId], detail);
         queryClient.invalidateQueries({ queryKey: ['chapters', projectId] });
         if (result === 'late_edit') {
           toast('윤문 수락 결과는 서버에 반영됐지만 새 입력이 있어 로컬 원고를 보존했습니다.', 'warning');
@@ -80,7 +80,7 @@ export function RefineReport() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ['refine-run', runId] });
-      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', projectId, chapterId] });
       setRun(null);
       close();
     },
@@ -90,7 +90,7 @@ export function RefineReport() {
   const reject = useMutation({
     mutationFn: (runId: number) => api.post(`/refine/runs/${runId}/reject`),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', projectId, chapterId] });
       toast('윤문을 폐기했습니다. 기록만 남습니다.', 'info');
       setRun(null);
     },

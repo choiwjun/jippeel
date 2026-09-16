@@ -42,16 +42,16 @@ export function SceneManager({
   const [draftContent, setDraftContent] = useState('');
 
   const scenesQuery = useQuery({
-    queryKey: ['scenes', chapterId],
+    queryKey: ['scenes', projectId, chapterId],
     queryFn: () => api.get<Scene[]>(`/chapters/${chapterId}/scenes`),
     enabled: chapterId !== null,
   });
   const scenes = scenesQuery.data ?? [];
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['scenes', chapterId] });
+    void queryClient.invalidateQueries({ queryKey: ['scenes', projectId, chapterId] });
     // D03-2: 장면 변경은 재개 정보의 다음 빈 장면·scene_count를 바꾼다.
-    void queryClient.invalidateQueries({ queryKey: ['chapter-resume', chapterId] });
+    void queryClient.invalidateQueries({ queryKey: ['chapter-resume', projectId, chapterId] });
   };
 
   const createScene = useMutation({
@@ -106,7 +106,7 @@ export function SceneManager({
     },
     onSuccess: ({ detail, token, projectId: actionProjectId, chapterId: actionChapterId }) => {
       const result = completeManuscriptReplacement(actionProjectId, actionChapterId, detail, token);
-      queryClient.setQueryData(['chapter', actionChapterId], detail);
+      queryClient.setQueryData(['chapter', actionProjectId, actionChapterId], detail);
       queryClient.invalidateQueries({ queryKey: ['chapters', actionProjectId] });
       if (result === 'late_edit') {
         toast('장면 조립 결과는 서버에 반영됐지만 새 입력이 있어 로컬 원고를 보존했습니다.', 'warning');

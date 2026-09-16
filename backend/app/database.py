@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from sqlalchemy import create_engine, event, inspect
+from sqlalchemy.engine import make_url
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -54,15 +55,37 @@ def get_db():
         db.close()
 
 
-ALEMBIC_HEAD = "h3b4c5d6e7f8"
+ALEMBIC_HEAD = "i4c5d6e7f8a9"
 TEMP_CREATE_ALL_ENV = "JIPPEEL_ALLOW_TEMP_CREATE_ALL"
 
 
 def _sqlite_file_from_url(url: str) -> Path | None:
+    """sqlite URL에서 실제 파일 경로를 복원한다.
+
+    SQLAlchemy는 `sqlite:///./jippeel.db`를 cwd 기준 상대 경로로 해석하지만,
+    urlparse는 `/./jippeel.db`로 반환해 naive Path 해석 시 루트(`/jippeel.db`,
+    `C:\\jippeel.db`)로 잘못 잡힌다. 엔진과 동일하게 `url.database`를 우선
+    사용하고, 비-sqlite·:memory:는 None을 반환한다.
+    """
+    try:
+        sa_url = make_url(url)
+    except Exception:
+        sa_url = None
+    if sa_url is not None and sa_url.get_backend_name() == "sqlite":
+        database = sa_url.database
+        if not database or database == ":memory:":
+            return None
+        return Path(database).resolve()
+
+    # fallback: urlparse 기반 (make_url 미지원 입력)
     parsed = urlparse(url)
     if parsed.scheme != "sqlite" or not parsed.path or parsed.path == ":memory:":
         return None
-    return Path(unquote(parsed.path[1:] if len(parsed.path) > 3 and parsed.path[0] == "/" and parsed.path[2] == ":" else parsed.path)).resolve()
+    raw = unquote(parsed.path)
+    # Windows 절대경로 `/C:/...`만 선행 `/`를 제거한다.
+    if len(raw) > 3 and raw[0] == "/" and raw[2] == ":" and raw[3] in "/\\":
+        raw = raw[1:]
+    return Path(raw).resolve()
 
 
 def _allow_temp_create_all(url: str | None = None) -> bool:

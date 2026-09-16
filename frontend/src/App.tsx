@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/AppShell";
+import { LoginGate } from "@/components/auth/LoginGate";
 import { HomePage } from "@/pages/HomePage";
 import { EditorPage } from "@/pages/EditorPage";
 import { CharactersPage } from "@/pages/CharactersPage";
@@ -22,6 +23,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <LoginGate>
         <AppShell>
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -46,6 +48,7 @@ export default function App() {
             <Route path="*" element={<HomePage />} />
           </Routes>
         </AppShell>
+        </LoginGate>
       </BrowserRouter>
     </QueryClientProvider>
   );

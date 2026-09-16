@@ -1,17 +1,21 @@
 """작품 부트스트랩 서비스 — 입력 하나로 작품 전체 구조를 AI 생성해 일괄 저장.
 
 흐름 (POST /api/v1/projects/bootstrap):
-  1. LLM 4회 호출 (app.services.llm 재용)
+  1. LLM 4회+α 호출 (app.services.llm 재용)
      ① 제목 후보 5개 + 로그라인 + 주제의식
      ② 권·회차 목차 (각 회차 제목 + 2문단 시놉시스 + 핵심 사건)
-     ③ 캐릭터 4~6명 + 관계 쌍 + 로어북 8~12개(keywords[] 포함)
+     ③ 캐릭터 6~8명 심층 설계 (인원 부족 시 부족분만 보충 호출 1회)
+        + 3권 이상이면 권별 조연·단역 호출
+     ④ 관계 쌍 + 로어북(keywords[] 포함)
   2. JSON 파싱 실패 시 repair prompt로 1회 재시도, 그래도 실패하면
      규칙 기반 폴백(템플릿 생성) — 라우터가 502로 응답
   3. Project + Chapter + Character + Relationship + LoreEntry를
      단일 트랜잭션으로 bulk insert
 """
+import asyncio
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 
 import openai  # pyright: ignore[reportMissingImports]
@@ -30,6 +34,31 @@ DEFAULT_TITLE_STYLE = "웹소설식 긴 제목"
 OUTLINE_ANCHOR_MAX_CHARS = 12_000
 _OUTLINE_ANCHOR_TITLE_MAX_CHARS = 200
 _OUTLINE_ANCHOR_FIELD_MAX_CHARS = 600
+
+# OAuth bridge가 한 요청을 끝내지 못해 전체 bootstrap을 붙잡지 않도록 한다.
+# JSON 형식 오류는 기존처럼 1회 repair하지만, transport timeout은 즉시
+# BootstrapAIError로 변환해 라우터의 fallback/502 계약을 사용한다.
+# xhigh 추론 모델에서 3권×10화 목차 생성이 ~360초 걸리는 것을 실측으로
+# 확인해 여유를 둔다. 대용량 outline은 더 크게 잡는다.
+BOOTSTRAP_CALL_TIMEOUT_SECONDS = 300.0
+BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS = 800.0
+
+# stage별 timeout override — 대용량 JSON 생성 단계는 더 길게 잡는다.
+# 10권×10화=100회차 목차를 xhigh로 요청하면 ~380초가 걸리므로 600초로 둔다.
+_STAGE_TIMEOUTS: dict[str, float] = {
+    "outline": BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS,
+    "relations-lore": BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS,
+}
+
+# outline·relations-lore stage는 대용량 JSON 생성이라 timeout을 더 길게 잡는다.
+# xhigh 유지 시 100회차 outline ~380초, 12,900자 relations-lore ~300초+.
+# 800초로 충분히 여유를 둔다.
+OUTLINE_REASONING_EFFORT = None  # provider 기본값(xhigh) 사용
+RELATIONS_LORE_REASONING_EFFORT = None  # provider 기본값(xhigh) 사용
+
+
+def _stage_timeout(stage: str) -> float:
+    return _STAGE_TIMEOUTS.get(stage, BOOTSTRAP_CALL_TIMEOUT_SECONDS)
 
 LORE_CATEGORIES = ("용어", "장소", "세력", "기타")
 
@@ -70,13 +99,36 @@ def _extract_json(text: str) -> dict:
 
 async def _call_json(client, model: str, messages: list[dict],
                      db: Session | None = None,
-                     reasoning_effort: str | None = None) -> dict:
-    """1회 호출 + 파싱. 실패 시 repair prompt로 1회 재시도."""
+                     reasoning_effort: str | None = None,
+                     stage: str = "unknown") -> dict:
+    """1회 호출 + 파싱. 실패 시 repair prompt로 1회 재시도.
+
+    JSON 형식 오류만 repair 대상이다. 브릿지 transport가 응답하지 않으면
+    재시도용 prompt를 보내지 않고 즉시 명시적인 bootstrap 오류로 변환한다.
+    """
     raw = ""
+    timeout = _stage_timeout(stage)
+    started = time.monotonic()
     try:
-        raw = await llm.complete_chat(client, model, messages,
-                                      reasoning_effort=reasoning_effort)
+        logger.info("bootstrap LLM call start: stage=%s timeout=%ss", stage,
+                    timeout)
+        raw = await asyncio.wait_for(
+            llm.complete_chat(client, model, messages,
+                              reasoning_effort=reasoning_effort),
+            timeout=timeout,
+        )
+        logger.info("bootstrap LLM call complete: stage=%s elapsed=%.1fs",
+                    stage, time.monotonic() - started)
         return _extract_json(raw)
+    except asyncio.TimeoutError as exc:
+        logger.error("bootstrap LLM call timed out: stage=%s timeout=%ss", stage,
+                     timeout)
+        raise BootstrapAIError(
+            f"AI 호출 시간 초과({stage}, {timeout:g}초)") from exc
+    except openai.APITimeoutError as exc:
+        logger.error("bootstrap provider timed out: stage=%s", stage)
+        raise BootstrapAIError(
+            f"AI provider 시간 초과({stage})") from exc
     except (openai.APIError, ValueError, json.JSONDecodeError) as first_err:
         logger.warning("bootstrap JSON 1차 시도 실패: %s", first_err)
         repaired_messages = list(messages) + [
@@ -85,10 +137,28 @@ async def _call_json(client, model: str, messages: list[dict],
              "content": "직전 응답은 유효한 JSON이 아니었다. 다른 설명·코드펜스 없이 "
                         "요청된 형식 그대로의 유효한 JSON만 다시 출력하라."},
         ]
+        repair_started = time.monotonic()
         try:
-            raw = await llm.complete_chat(
-                client, model, repaired_messages, reasoning_effort=reasoning_effort)
+            logger.info("bootstrap LLM repair start: stage=%s timeout=%ss", stage,
+                        timeout)
+            raw = await asyncio.wait_for(
+                llm.complete_chat(
+                    client, model, repaired_messages,
+                    reasoning_effort=reasoning_effort),
+                timeout=timeout,
+            )
+            logger.info("bootstrap LLM repair complete: stage=%s elapsed=%.1fs",
+                        stage, time.monotonic() - repair_started)
             return _extract_json(raw)
+        except asyncio.TimeoutError as exc:
+            logger.error("bootstrap LLM repair timed out: stage=%s timeout=%ss", stage,
+                         timeout)
+            raise BootstrapAIError(
+                f"AI 재시도 시간 초과({stage}, {timeout:g}초)") from exc
+        except openai.APITimeoutError as exc:
+            logger.error("bootstrap provider timed out during repair: stage=%s", stage)
+            raise BootstrapAIError(
+                f"AI provider 시간 초과({stage})") from exc
         except (openai.APIError, ValueError, json.JSONDecodeError) as second_err:
             raise BootstrapAIError(f"JSON 재시도 실패: {second_err}") from second_err
     finally:
@@ -105,7 +175,11 @@ async def _call_json(client, model: str, messages: list[dict],
 
 _SYSTEM_JSON = (
     "너는 한국 웹소설 연재 기획 전문가다. 반드시 단일 유효한 JSON 객체만 출력한다. "
-    "코드펜스·주석·JSON 외 설명 문자열은 절대 출력하지 않는다."
+    "코드펜스·주석·JSON 외 설명 문자열은 절대 출력하지 않는다.\n"
+    "작품의 핵심 독자 약속을 먼저 정하고, 주인공의 결핍과 전문성·특별한 능력 또는 페널티가 사건 속에서 드러나게 한다.\n"
+    "장기 연재를 고려하되 고정된 화수·문자 수·연재주기·첫 300자 규칙을 법칙처럼 강제하지 않는다. 반복 가능한 에피소드 엔진을 설계하되 같은 보상을 기계적으로 반복하지 않는다.\n"
+    "장면과 회차는 가능하면 목표·장애물·선택·결과가 인과로 이어지고, 인물·관계·정보·권력·생존 중 하나 이상의 상태 변화가 남게 한다.\n"
+    "선택한 장르 관습이나 클리셰는 키워드 목록으로 나열하지 말고 갈등·선택·대가·보상으로 작동시킨다. 작품에 필요하지 않은 유행 요소를 임의로 추가하지 않는다."
 )
 
 
@@ -141,6 +215,7 @@ def _outline_messages(genre: str, idea: dict, volume_count: int,
 {protagonist_line}
 권 {volume_count}권, 각 권당 회차 {chapters_per_volume}화 목차를 짜라.
 각 회차는 제목 + 2문단 시놉시스 + 핵심 사건 1개를 포함한다.
+각 회차에는 이번 화의 독자 약속, 즉시 목표, 장애물, 선택과 대가, 실제 상태 변화, 다음 화 압력 중 필요한 요소가 드러나야 한다.
 각 권에는 서사 레이어(개요·감정 곡선·고봉)도 함께 설계한다:
 - overview: 권 전체 흐름 2~3문장(주인공이 어디서 시작해 어디로 가는가)
 - emotion_curve: 고조↔완충 배치(예: "3화 고조, 4화 완충, 7화 반전 고조")
@@ -173,8 +248,10 @@ def _characters_messages(genre: str, idea: dict, outline_summary: str) -> list[d
 - 구성: 주인공 1명, 핵심 조연 2~3명, 대립자 1~2명, 주변인 1~2명
 {protagonist_rule}- name은 반드시 고유 인명이어야 한다(예: '강진우', '세리아 폰 아르덴').
   '차가운 검객', '밝은 동료' 같은 유형·역할 라벨을 name에 쓰면 안 된다 — 그런 표현은 alias로 보낸다
-- 주인공은 표면 목표와 내면 결핍이 충돌하고, 1권 내내 숨길 비밀이 하나 있어야 한다
+- 주인공은 표면 목표와 내면 결핍이 충돌하고, 자신의 전문성·특별한 능력 또는 페널티가 사건을 해결하는 동시에 새로운 대가를 만든다
+- 주인공의 결핍을 비추는 라이벌 또는 스승을 검토하고, 불필요한 인물은 추가하지 않는다
 - 대립자는 단순 악인이 아니라 '그 나름의 정의'로 움직이는 이유가 있어야 한다
+- 주인공의 선택이 관계와 조직의 상태를 어떻게 바꾸는지 드러낸다
 - background는 배경 2문장 + 목표 + 숨긴 비밀까지 3문장 이상
 - speech_style은 실제 대사로 바로 쓸 수 있을 만큼 구체적으로(어투·호칭 포함)
 - personality는 성격과 함께 1권에서 변해갈 방향을 포함
@@ -210,6 +287,7 @@ def _supporting_cast_messages(genre: str, idea: dict, volume: int,
 - role은 "조연" 또는 "단역"만 사용
 - first_volume은 반드시 {volume}
 - 각 인물은 대상 권의 사건과 연결돼야 하며 서사 기능(돕는 자·방해자·정보원·희생자 등)이 배경에 드러나야 한다
+- 인물의 등장과 퇴장은 사건의 인과·관계 변화·보상 또는 대가에 기여해야 한다
 - appearance·personality·speech_style·background는 각 1문장으로 간결하게
 
 다음 JSON 형식으로 출력하라:
@@ -236,6 +314,7 @@ def _relations_lore_messages(genre: str, idea: dict, outline_summary: str,
 이 인물들을 기준으로 관계망과 세계관을 설계하라.
 
 [관계] 정확히 8쌍 이상
+- 관계망은 주인공 개인의 상승만이 아니라 관계와 조직의 규합·갈등·재편을 보여줘야 한다
 - label은 2~6자(예: 주군-가신, 계약자-감시자)
 - note는 "현재 관계 + 1권에서 어떻게 변하는지" 2문장
 - 동맹만 쓰지 말 것 — 대립·오해·서로 모르는 숨은 과거를 포함
@@ -798,19 +877,31 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
                              volume_count: int, chapters_per_volume: int,
                              client, model: str,
                              reasoning_effort: str | None = None,
-                             db: Session | None = None) -> dict:
-    """LLM 4회 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
+                             db: Session | None = None,
+                             on_stage=None) -> dict:
+    """LLM 4회+α 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
 
-    고정 reasoning provider 계약에 맞춰 temperature는 지원·전송하지 않는다.
+    캐릭터 인원이 모자라면 부족분 보충 호출이, 3권 이상이면 권별 조연
+    호출이 각각 추가된다. 고정 reasoning provider 계약에 맞춰
+    temperature는 지원·전송하지 않는다.
     """
+    if on_stage:
+        await on_stage("idea", "started", "제목·로그라인 발상")
     idea = await _call_json(
         client, model,
         _idea_messages(genre, premise, title_style),
-        reasoning_effort=reasoning_effort, db=db)
+        reasoning_effort=reasoning_effort, db=db, stage="idea")
+    if on_stage:
+        await on_stage("idea", "done", "제목·로그라인 발상")
 
+    if on_stage:
+        await on_stage("outline", "started", f"{volume_count}권×{chapters_per_volume}화 목차 설계")
     outline_msgs = _outline_messages(genre, idea, volume_count, chapters_per_volume)
-    outline_data = await _call_json(client, model, outline_msgs,
-                                    reasoning_effort=reasoning_effort, db=db)
+    outline_data = await _call_json(
+        client, model, outline_msgs,
+        reasoning_effort=reasoning_effort, db=db, stage="outline")
+    if on_stage:
+        await on_stage("outline", "done", f"{volume_count}권×{chapters_per_volume}화 목차 설계")
     preview = _coerce_outline(outline_data, volume_count, chapters_per_volume)
     summary = _outline_anchor_summary(preview, {
         v: _as_str(vol.get("title"))
@@ -818,23 +909,72 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
             outline_data.get("volumes"), "volume", volume_count).items()
     })
 
-    # 콜 3 — 캐릭터 심층 설계. 인원이 모자라면(계약 6~8명) 한 번 재시도한다.
+    # 콜 3 — 캐릭터 심층 설계. 인원이 모자라면(계약 6~8명) 전체 재생성이 아니라
+    # 부족 인원만 요청하는 보충 호출을 한 번 하고 기존 인물과 병합한다.
+    if on_stage:
+        await on_stage("characters", "started", "캐릭터 심층 설계")
     characters_data = await _call_json(
         client, model,
         _characters_messages(genre, idea, summary),
-        reasoning_effort=reasoning_effort, db=db)
-    if len(_as_list(characters_data.get("characters"))) < 5:
-        logger.warning("bootstrap 캐릭터 수 부족 — 재시도")
-        retry = await _call_json(
-            client, model,
-            _characters_messages(genre, idea, summary) + [{
-                "role": "user",
-                "content": "인원이 부족했다. 6~8명 전원을 실명 name으로 다시 출력하라.",
-            }],
-            reasoning_effort=reasoning_effort, db=db)
-        if len(_as_list(retry.get("characters"))) >= len(
-                _as_list(characters_data.get("characters"))):
-            characters_data = retry
+        reasoning_effort=reasoning_effort, db=db, stage="characters")
+    if on_stage:
+        await on_stage("characters", "done", "캐릭터 심층 설계")
+
+    # 인원 판정은 고유 name 기준 — 모델이 같은 이름을 반복 출력해도
+    # 실제 인원으로 센다(첫 항목 우선, _coerce_characters와 동일 규칙).
+    core_characters: list[dict] = []
+    seen_names: set[str] = set()
+    for c in _as_list(characters_data.get("characters")):
+        if not isinstance(c, dict):
+            continue
+        name = _as_str(c.get("name"))
+        if name and name not in seen_names:
+            seen_names.add(name)
+            core_characters.append(c)
+    characters_data = {**characters_data, "characters": core_characters}
+    if len(core_characters) < 5:
+        needed = 6 - len(core_characters)
+        logger.warning("bootstrap 캐릭터 수 부족 — %d명, 부족분 %d명 보충 호출",
+                       len(core_characters), needed)
+        if on_stage:
+            await on_stage("characters-retry", "started",
+                           f"캐릭터 {needed}명 보충 설계")
+        try:
+            retry = await _call_json(
+                client, model,
+                _characters_messages(genre, idea, summary) + [
+                    {"role": "assistant",
+                     "content": json.dumps({"characters": core_characters},
+                                           ensure_ascii=False)},
+                    {"role": "user",
+                     "content": f"인원이 {len(core_characters)}명뿐이다. 위 인물은 "
+                                f"유지하고 이름이 겹치지 않는 새 인물 {needed}명만 "
+                                "같은 JSON 형식으로 출력하라."},
+                ],
+                reasoning_effort=reasoning_effort, db=db, stage="characters-retry")
+        except BootstrapAIError:
+            # 보충 실패는 전체 폴백이 아니라 기존 캐스트 유지로 끝낸다.
+            logger.warning("bootstrap 캐릭터 보충 실패 — 기존 %d명 유지",
+                           len(core_characters))
+            if on_stage:
+                await on_stage("characters-retry", "failed",
+                               f"캐릭터 {needed}명 보충 설계")
+        else:
+            added = 0
+            for c in _as_list(retry.get("characters")):
+                if not isinstance(c, dict):
+                    continue
+                name = _as_str(c.get("name"))
+                if not name or name in seen_names:
+                    continue
+                seen_names.add(name)
+                core_characters.append(c)
+                added += 1
+            logger.info("bootstrap 캐릭터 보충 완료 — %d명 추가(총 %d명)",
+                        added, len(core_characters))
+            if on_stage:
+                await on_stage("characters-retry", "done",
+                               f"캐릭터 {needed}명 보충 설계")
 
     names = []
     for character in _as_list(characters_data.get("characters")):
@@ -858,24 +998,41 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
             for chapter in _as_list(volume_data.get("chapters"))
             if isinstance(chapter, dict)
         ) or f"{volume}권의 목차 정보 없음"
+        if on_stage:
+            await on_stage(
+                f"supporting-cast-volume-{volume}", "started",
+                f"{volume}권 조연·단역 설계")
         try:
             supporting_data = await _call_json(
                 client, model,
                 _supporting_cast_messages(
                     genre, idea, volume, volume_title, volume_context, names),
-                reasoning_effort=reasoning_effort, db=db)
+                reasoning_effort=reasoning_effort, db=db,
+                stage=f"supporting-cast-volume-{volume}")
         except BootstrapAIError:
             logger.warning("bootstrap %s권 조연 생성 실패 — 해당 권은 핵심 캐스트만 유지", volume)
+            if on_stage:
+                await on_stage(
+                    f"supporting-cast-volume-{volume}", "failed",
+                    f"{volume}권 조연·단역 설계")
             continue
         volume_cast = _coerce_supporting_cast(supporting_data, set(names), volume)
         supporting_characters.extend(volume_cast)
         names.extend(c.name for c in volume_cast)
+        if on_stage:
+            await on_stage(
+                f"supporting-cast-volume-{volume}", "done",
+                f"{volume}권 조연·단역 설계")
 
     # 콜 4 — 관계망 + 세계관 (캐릭터 이름과 연결)
+    if on_stage:
+        await on_stage("relations-lore", "started", "관계망·세계관 설계")
     rellore_data = await _call_json(
         client, model,
         _relations_lore_messages(genre, idea, summary, names),
-        reasoning_effort=reasoning_effort, db=db)
+        reasoning_effort=reasoning_effort, db=db, stage="relations-lore")
+    if on_stage:
+        await on_stage("relations-lore", "done", "관계망·세계관 설계")
 
     return {
         "titles": [_as_str(t) for t in _as_list(idea.get("titles"))][:5],

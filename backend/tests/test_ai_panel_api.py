@@ -126,3 +126,36 @@ def test_generate_requires_prompt_source_without_endpoint_selection(client):
     # preset도 override도 없음 → 400
     r = client.post("/api/v1/ai/generate", json={})
     assert r.status_code == 400
+
+
+# ---------- _friendly_api_error 민감정보 반사 방지 (감사 A1) ----------
+
+def test_friendly_api_error_does_not_reflect_message():
+    """분류되지 않은 provider 오류의 원문 메시지는 UI로 반사하지 않는다.
+
+    브릿지가 오류 본문에 민감정보를 담아 반환해도 사용자에게는 안정적인
+    일반 메시지+타입명만 전달돼야 한다.
+    """
+    import httpx
+
+    req = httpx.Request("POST", "http://bridge.local/v1/chat")
+    sentinel = "secret-bearer-token-xyz"
+    exc = openai.APIError(f"upstream failed: {sentinel}", req, body=None)
+
+    msg = ai_panel._friendly_api_error(exc)
+    assert sentinel not in msg
+    assert "GPT OAuth 브릿지 오류" in msg
+
+
+def test_friendly_api_error_status_code_only():
+    """APIStatusError는 상태 코드만 노출하고 응답 본문은 숨긴다."""
+    import httpx
+
+    req = httpx.Request("POST", "http://bridge.local/v1/chat")
+    resp = httpx.Response(500, request=req)
+    sentinel = "internal-secret-detail"
+    exc = openai.APIStatusError(f"err {sentinel}", response=resp, body=None)
+
+    msg = ai_panel._friendly_api_error(exc)
+    assert sentinel not in msg
+    assert "500" in msg

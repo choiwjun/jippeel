@@ -58,6 +58,8 @@ def parallel_llm(monkeypatch):
     class FakeClient:
         pass
 
+    state = {"fail_order": None}
+
     async def complete_chat(client, model, messages, temperature=None,
                             max_tokens=None, reasoning_effort=None):
         user = messages[-1]["content"]
@@ -66,6 +68,8 @@ def parallel_llm(monkeypatch):
         if '"order": 1' in user:
             return "장면 1 원고"
         if '"order": 2' in user:
+            if state["fail_order"] == 2:
+                raise RuntimeError("synthetic worker failure")
             return "장면 2 원고"
         raise AssertionError(f"unexpected prompt: {user[:100]}")
 
@@ -76,6 +80,7 @@ def parallel_llm(monkeypatch):
     monkeypatch.setattr(ai_panel.llm, "make_client", lambda *a, **k: FakeClient())
     monkeypatch.setattr(ai_panel.llm, "complete_chat", complete_chat)
     monkeypatch.setattr(ai_panel.llm, "stream_chat", stream_chat)
+    return state
 
 
 def _saved_event(events):
@@ -165,6 +170,26 @@ def test_generate_provider_error_preserves_partial_draft(
     detail = client.get(f"/api/v1/generation-runs/{saved['run_id']}").json()
     assert detail["status"] == "provider_error"
     assert detail["outputs"][0]["output_text"] == "절반만 온 초안"
+
+
+def test_parallel_provider_failure_still_emits_generation_saved_without_done(
+        client, parallel_llm, endpoint, proj_chapter):
+    parallel_llm["fail_order"] = 2
+    resp = client.post("/api/v1/ai/generate-parallel", json={
+        "endpoint_id": endpoint["id"],
+        "prompt_override": "병렬 집필 실패",
+        "worker_limit": 2,
+        "context": {"chapter_id": proj_chapter["chapter_id"]},
+    })
+    assert resp.status_code == 200, resp.text
+    events = _parse_sse(resp.text)
+    names = [name for name, _data in events]
+    assert "parallel_error" in names
+    assert "generation_saved" in names
+    assert "done" not in names
+    saved = _saved_event(events)
+    detail = client.get(f"/api/v1/generation-runs/{saved['run_id']}").json()
+    assert detail["status"] == "provider_error"
 
 
 def test_parallel_records_plan_workers_draft_review(

@@ -45,6 +45,38 @@ class ProjectUpdate(BaseModel):
         return data
 
 
+class TrendSignal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(min_length=1, max_length=120)
+    note: str = Field(min_length=1, max_length=500)
+
+
+class TrendPackWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # PUT is an upsert: create requires as_of/signals, update may omit fields.
+    status: Literal["draft", "approved", "retired"] | None = None
+    source: Literal["author", "research", "imported"] | None = None
+    as_of: datetime | None = None
+    signals: list[TrendSignal] | None = Field(default=None, min_length=1, max_length=12)
+
+
+class TrendPackOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    schema_version: str
+    status: Literal["draft", "approved", "retired"]
+    source: Literal["author", "research", "imported"]
+    as_of: datetime
+    version: int
+    signals: list[TrendSignal]
+    created_at: datetime
+    updated_at: datetime
+
+
 class ProjectOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -816,6 +848,8 @@ class GenerateContext(BaseModel):
     auto_character_limit: int = Field(default=12, ge=1, le=30)
     # D02 P3 — POV 인물 시야. 지정된 인물이 모르는 사실·복선을 컨텍스트에서 제외.
     pov_character_id: int | None = Field(default=None, ge=1)
+    # 작품별 시장 참고자료 — 승인 pack도 명시적으로 opt-in한 생성에서만 주입
+    include_trend_pack: bool = False
 
     @model_validator(mode="after")
     def validate_context_contract(self):
@@ -957,6 +991,7 @@ class AssistantPlanNextRequest(BaseModel):
     chapter_id: int | None = Field(default=None, ge=1)  # 미지정 시 첫 빈 회차
     max_tokens: int | None = Field(default=None, ge=1)
     pov_character_id: int | None = Field(default=None, ge=1)
+    include_trend_pack: bool = False
 
 
 class AssistantPlanNextResponse(BaseModel):
@@ -982,6 +1017,7 @@ class AssistantGenerateNextRequest(BaseModel):
     chapter_id: int | None = Field(default=None, ge=1)  # 미지정 시 첫 빈 회차
     max_tokens: int | None = Field(default=None, ge=1)
     pov_character_id: int | None = Field(default=None, ge=1)
+    include_trend_pack: bool = False
     approved_plan: ParallelPlan | None = None
     plan_output_id: int | None = Field(default=None, ge=1)
 

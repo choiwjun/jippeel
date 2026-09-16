@@ -138,6 +138,8 @@ export interface AiPanelState {
     styleProfile: boolean;
     /** D02 — 지정 시 인물 시야로 기억·복선을 필터링 */
     povCharacterId: number | null;
+    /** 승인된 작품별 trend_pack을 생성 참고자료로 명시적 opt-in */
+    includeTrendPack: boolean;
   };
   setContext: (c: Partial<AiPanelState["contextSelection"]>) => void;
   activeEditorIdentity: { projectId: number; chapterId: number } | null;
@@ -170,6 +172,7 @@ export interface AiPanelState {
   planError: string | null;
   setPendingPlan: (p: PendingPlan | null) => void;
   setPlanBusy: (v: boolean) => void;
+  reservePlanStart: () => boolean;
   setPlanError: (e: string | null) => void;
   reserveAiStart: (kind: "generate" | "canon") => string | null;
   isAiStartCurrent: (token: string) => boolean;
@@ -315,6 +318,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
     sceneId: null,
     styleProfile: true,
     povCharacterId: null,
+    includeTrendPack: false,
   },
   setContext: (c) =>
     set((s) => {
@@ -381,6 +385,16 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
         ...s.contextSelection,
         projectId,
         chapterId,
+        ...(changed
+          ? {
+              characterIds: [],
+              loreIds: [],
+              includeCharacters: false,
+              includeLore: false,
+              povCharacterId: null,
+              includeTrendPack: false,
+            }
+          : {}),
         requestSource:
           chapterId !== null ? ("editor" as const) : ("standalone" as const),
         includeChapter:
@@ -415,7 +429,11 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       }
       return {
         activeEditorIdentity,
-        contextSelection: next,
+        contextSelection: {
+          ...next,
+          sceneId: changed ? null : next.sceneId,
+        },
+        pendingPlan: changed ? null : s.pendingPlan,
         _pendingAiStart: changed ? null : s._pendingAiStart,
         ...briefState,
       };
@@ -454,6 +472,11 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   planError: null,
   setPendingPlan: (p) => set({ pendingPlan: p }),
   setPlanBusy: (v) => set({ planBusy: v }),
+  reservePlanStart: () => {
+    if (get().planBusy) return false;
+    set({ planBusy: true });
+    return true;
+  },
   setPlanError: (e) => set({ planError: e }),
   _pendingAiStart: null,
   _directiveMap: {},

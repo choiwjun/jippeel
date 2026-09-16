@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import select
 
 from app.database import get_db
-from app.models import LoreEntry
+from app.models import LoreEntry, PromptPreset
 from app.routers import ai_panel
 from app.services.injection import score_entries, select_lore_for_text, select_lore_for_text_hybrid
 from app.services.semantic import normalized_korean_tokens
@@ -210,6 +210,23 @@ def test_builtin_presets_seeded_on_startup(client):
     names = {p["name"] for p in listed}
     assert {spec["name"] for spec in BUILTIN_PRESETS} <= names
     assert len(listed) >= len(BUILTIN_PRESETS)
+
+
+def test_builtin_seed_backfills_missing_presets_in_existing_db(db):
+    """기존 구버전 DB에도 새 빌트인 프리셋을 보충한다."""
+    db.query(PromptPreset).delete()
+    db.add(PromptPreset(
+        name="이어쓰기",
+        template_text="기존 프리셋",
+        context_flags=["chapter"],
+    ))
+    db.commit()
+
+    ensure_builtin_presets(db)
+    db.commit()
+
+    names = {row.name for row in db.query(PromptPreset).all()}
+    assert "장 끝 후크" in names
 
 
 def test_builtin_seed_is_idempotent(client, db):

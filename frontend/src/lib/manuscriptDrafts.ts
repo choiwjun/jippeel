@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { api, ApiError, type ChapterDetail, type RevisionConflictDetail } from '@/lib/api';
+import { notifyUnauthorized } from '@/lib/auth';
 
 import { refreshMemoriesAfterRevision } from '@/lib/queryClient';
 
@@ -438,6 +439,8 @@ class ManuscriptDraftCoordinator {
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content_md: this.text, expected_revision: this.serverRevision }),
+      }).then((response) => {
+        if (response.status === 401) notifyUnauthorized();
       }).catch(() => {});
     } catch { /* best effort */ }
   }

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
+from sse_starlette.sse import EventSourceResponse  # pyright: ignore[reportMissingImports]
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -90,6 +91,91 @@ def _get_chapter_or_404(cid: int, db: Session) -> Chapter:
 
 
 # ---------- project bootstrap ----------
+@router.post("/projects/bootstrap/stream")
+async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depends(get_db)):
+    """SSE 스트리밍 bootstrap — 단계별 진행 상태를 실시간으로 전송한다.
+
+    이벤트: stage_started / stage_done / stage_failed / done / error
+    마지막 done 이벤트의 data에 BootstrapResponse JSON이 들어 있다.
+    """
+    import asyncio
+    import json
+
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def on_stage(stage: str, status_: str, label: str):
+        await queue.put({"event": f"stage_{status_}", "data": json.dumps(
+            {"stage": stage, "label": label}, ensure_ascii=False)})
+
+    async def run_bootstrap():
+        try:
+            if payload.use_ai:
+                try:
+                    provider = bootstrap_service.resolve_provider()
+                except bootstrap_service.NoEndpointError as exc:
+                    await queue.put({"event": "error", "data": json.dumps(
+                        {"status": 503, "detail": str(exc)}, ensure_ascii=False)})
+                    return
+                from app.services import llm
+                client = llm.make_client(provider.base_url, None)
+                try:
+                    structure = await bootstrap_service.generate_structure(
+                        payload.genre, payload.premise, payload.title_style,
+                        payload.volume_count, payload.chapters_per_volume,
+                        client, provider.default_model,
+                        reasoning_effort=provider.reasoning_effort, db=db,
+                        on_stage=on_stage)
+                    body = bootstrap_service.persist_structure(
+                        db, payload.genre, payload.premise, structure,
+                        generated_by="ai",
+                        volume_count=payload.volume_count,
+                        chapters_per_volume=payload.chapters_per_volume)
+                except bootstrap_service.BootstrapAIError as exc:
+                    structure = bootstrap_service.fallback_structure(
+                        payload.genre, payload.premise,
+                        payload.volume_count, payload.chapters_per_volume)
+                    body = bootstrap_service.persist_structure(
+                        db, payload.genre, payload.premise, structure,
+                        generated_by="fallback",
+                        volume_count=payload.volume_count,
+                        chapters_per_volume=payload.chapters_per_volume)
+                    body["detail"] = "AI 생성에 실패해 규칙 기반 폴백으로 저장했습니다."
+            else:
+                structure = bootstrap_service.fallback_structure(
+                    payload.genre, payload.premise,
+                    payload.volume_count, payload.chapters_per_volume)
+                body = bootstrap_service.persist_structure(
+                    db, payload.genre, payload.premise, structure,
+                    generated_by="fallback",
+                    volume_count=payload.volume_count,
+                    chapters_per_volume=payload.chapters_per_volume)
+            await queue.put({"event": "done", "data": json.dumps(body, ensure_ascii=False)})
+        except Exception as exc:
+            logger.exception("bootstrap stream failed")
+            await queue.put({"event": "error", "data": json.dumps(
+                {"status": 500, "detail": "작품 생성 중 서버 오류가 발생했습니다."}, ensure_ascii=False)})
+        finally:
+            await queue.put(None)  # 종료 sentinel
+
+    async def event_stream():
+        task = asyncio.create_task(run_bootstrap())
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield item
+        finally:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+    return EventSourceResponse(event_stream())
+
+
 @router.post("/projects/bootstrap", response_model=BootstrapResponse)
 async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get_db)):
     """입력 하나(장르 등)로 작품 전체 구조를 AI 생성해 일괄 저장한다.
@@ -106,6 +192,10 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
                                 detail=str(exc)) from exc
         from app.services import llm
         client = llm.make_client(provider.base_url, None)
+        logger.info(
+            "bootstrap provider resolved: provider=%s base_url=%s model=%s reasoning=%s",
+            provider.name, provider.base_url, provider.default_model,
+            provider.reasoning_effort)
         try:
             structure = await bootstrap_service.generate_structure(
                 payload.genre, payload.premise, payload.title_style,

@@ -3,6 +3,8 @@
  * 인증 없음(로컬 단일 사용자). dev는 vite 프록시(/api → localhost:8000) 경유.
  */
 
+import { notifyUnauthorized } from "./auth";
+
 const BASE = "/api/v1";
 
 export class ApiError extends Error {
@@ -40,6 +42,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
   if (!res.ok) {
+    if (res.status === 401) notifyUnauthorized(); // LAN auth 세션 만료/미인증
     let msg = `HTTP ${res.status}`;
     let detail: unknown;
     try {
@@ -101,6 +104,31 @@ export interface ProjectCreate {
   genre?: string | null;
   synopsis?: string | null;
   platform_note?: string | null;
+}
+
+export type TrendPackStatus = "draft" | "approved" | "retired";
+export type TrendPackSource = "author" | "research" | "imported";
+export interface TrendSignal {
+  label: string;
+  note: string;
+}
+export interface TrendPack {
+  id: number;
+  project_id: number;
+  schema_version: string;
+  status: TrendPackStatus;
+  source: TrendPackSource;
+  as_of: string;
+  version: number;
+  signals: TrendSignal[];
+  created_at: string;
+  updated_at: string;
+}
+export interface TrendPackWrite {
+  status?: TrendPackStatus;
+  source?: TrendPackSource;
+  as_of?: string;
+  signals?: TrendSignal[];
 }
 
 export interface ProjectUpdate {
@@ -481,6 +509,8 @@ export interface BootstrapResponse {
   theme: string | null;
   used_ai: boolean;
   fallback: boolean;
+  /** fallback 시 사용자에게 보여줄 사유 (502 응답 본문) */
+  detail?: string;
 }
 
 // ---- 집필 계획 (작가 검토 게이트) — /ai/plan·assistant/plan-next 공용 ----

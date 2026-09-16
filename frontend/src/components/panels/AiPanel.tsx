@@ -16,6 +16,7 @@ import {
   type ChapterGoalPayload,
   type ChapterGoalRevision,
   type EvidenceLinkField,
+  type TrendPack,
   type EvidenceLinkList,
   type PromptPreset,
   volumeLabel,
@@ -418,6 +419,7 @@ export function AiPanel() {
           scene_id: editorIntent ? c.sceneId : null,
           style_profile: c.styleProfile,
           pov_character_id: c.povCharacterId,
+          include_trend_pack: c.includeTrendPack,
           // 계획 경로와 같은 자동 분석 — 단일 생성도 직전 회차·인물·장편 기억을 주입한다
           previous_chapter: true,
           auto_characters: true,
@@ -597,13 +599,17 @@ export function AiPanel() {
    * pendingPlan에 보관해 작가가 전체를 한 번에 검토하게 한다.
    */
   const requestPlan = useCallback(() => {
+    const st = useAiPanelStore.getState();
+    if (!st.reservePlanStart()) return;
     void (async () => {
       const prep = await prepareRequest();
-      if (!prep) return;
-      const st = useAiPanelStore.getState();
-      st.setPlanBusy(true);
-      st.setPlanError(null);
-      st.setPendingPlan(null);
+      if (!prep) {
+        useAiPanelStore.getState().setPlanBusy(false);
+        return;
+      }
+      const current = useAiPanelStore.getState();
+      current.setPlanError(null);
+      current.setPendingPlan(null);
       try {
         // 어시스턴트 계획은 설정·인물·로어·복선·이전 회차·문체·회차 목표를
         // 자동 분석한다 — 세부 선택을 일일이 고르지 않아도 된다.
@@ -1044,15 +1050,16 @@ function ContextSection({
   setContext: AiPanelStoreApi["setContext"];
 }) {
   const chapterId = ctx.chapterId;
+  const projectId = ctx.projectId;
   const chapter = useQuery({
-    queryKey: ["chapter", chapterId],
+    queryKey: ["chapter", projectId, chapterId],
     queryFn: () => api.get<ChapterDetail>(`/chapters/${chapterId}`),
     enabled: chapterId !== null,
   });
   const scenesQuery = useQuery({
-    queryKey: ["scenes", chapterId],
+    queryKey: ["scenes", projectId, chapterId],
     queryFn: () => api.get<Scene[]>(`/chapters/${chapterId}/scenes`),
-    enabled: chapterId !== null,
+    enabled: chapterId !== null && projectId !== null,
   });
   const scenes = scenesQuery.data ?? [];
   const charactersQuery = useQuery({
@@ -1066,7 +1073,7 @@ function ContextSection({
 
   // G-047 — 현재 회차 본문에 언급된 복선(키워드·제목 매칭, 서버 계산)
   const mentionedForeshadows = useQuery({
-    queryKey: ["foreshadow-match", chapterId],
+    queryKey: ["foreshadow-match", projectId, chapterId],
     queryFn: () =>
       api.get<
         Array<{
@@ -1079,7 +1086,7 @@ function ContextSection({
       >(
         `/projects/${chapter.data?.project_id ?? 0}/foreshadows/match?chapter_id=${chapterId}`,
       ),
-    enabled: chapterId !== null,
+    enabled: chapterId !== null && projectId !== null,
     staleTime: 30_000,
   });
 
@@ -1212,6 +1219,13 @@ function ContextSection({
           checked={ctx.styleProfile}
           onChange={(e) => setContext({ styleProfile: e.target.checked })}
         />
+        {ctx.projectId !== null && (
+          <TrendPackContextControl
+            projectId={ctx.projectId}
+            checked={ctx.includeTrendPack}
+            onChange={(checked) => setContext({ includeTrendPack: checked })}
+          />
+        )}
       </div>
       <InjectedBadges ctx={ctx} />
     </section>
@@ -1219,6 +1233,39 @@ function ContextSection({
 }
 
 /** 이번 화 브리프 — 선택적 생성 계약 입력 + D01 회차 목표 영속화. */
+function TrendPackContextControl({
+  projectId,
+  checked,
+  onChange,
+}: {
+  projectId: number;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const trendPack = useQuery({
+    queryKey: ["trend-pack", projectId],
+    queryFn: () => api.get<TrendPack>(`/projects/${projectId}/trend-pack`),
+  });
+  const approved = trendPack.data?.status === "approved";
+  return (
+    <div className="rounded-sm border border-dashed border-border px-2 py-2">
+      <Checkbox
+        label="승인된 작품 트렌드 참고자료 사용"
+        checked={checked && approved}
+        disabled={!approved || trendPack.isPending}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+        {trendPack.isPending
+          ? "승인 상태 확인 중…"
+          : approved
+            ? `v${trendPack.data?.version} · ${trendPack.data?.signals.length ?? 0}개 신호 — 정본·브리프보다 우선하지 않는 참고자료입니다.`
+            : "승인된 trend_pack이 없어 생성에 보내지 않습니다."}
+      </p>
+    </div>
+  );
+}
+
 function EpisodeBriefSection() {
   const [open, setOpen] = useState(false);
   const brief = useAiPanelStore((s) => s.episodeBrief);
@@ -1396,8 +1443,9 @@ function EpisodeBriefSection() {
 /** D01 — 현재 회차 목표 조회. query key는 회차별로 분리한다(['chapter', id]와 별개). */
 function useChapterGoal() {
   const chapterId = useAiPanelStore((s) => s.contextSelection.chapterId);
+  const projectId = useAiPanelStore((s) => s.contextSelection.projectId);
   return useQuery({
-    queryKey: ["chapter-goal", chapterId],
+    queryKey: ["chapter-goal", projectId, chapterId],
     queryFn: () => api.get<ChapterGoalOut>(`/chapters/${chapterId}/goal`),
     enabled: chapterId !== null,
   });
@@ -1461,11 +1509,11 @@ function ChapterGoalControls({
         expected_goal_version: input.expected,
       }),
     onSuccess: (data, vars) => {
-      queryClient.setQueryData(["chapter-goal", chapterId], data);
+      queryClient.setQueryData(["chapter-goal", projectId, chapterId], data);
       // D03-2: 목표 버전이 바뀌면 재개 드리프트(목표 변경됨)도 갱신 대상이다.
-      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", projectId, chapterId] });
       // D03-4: 목표 항목이 바뀌면 근거 링크의 drifted 판정도 갱신 대상이다.
-      void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["evidence-links", projectId, chapterId] });
       const st = useAiPanelStore.getState();
       const isCurrentChapter =
         st.contextSelection.chapterId === chapterId &&
@@ -1487,10 +1535,10 @@ function ChapterGoalControls({
         );
         // 입력은 유지 — dirty라면 refetch hydrate가 폼을 덮지 않는다
         void queryClient.invalidateQueries({
-          queryKey: ["chapter-goal", chapterId],
+          queryKey: ["chapter-goal", projectId, chapterId],
         });
         // 다른 곳의 목표 저장은 근거 링크 drifted 판정도 바꾼다
-        void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+        void queryClient.invalidateQueries({ queryKey: ["evidence-links", projectId, chapterId] });
         return;
       }
       toast(
@@ -1505,10 +1553,10 @@ function ChapterGoalControls({
     onSuccess: () => {
       setConfirmDelete(false);
       void queryClient.invalidateQueries({
-        queryKey: ["chapter-goal", chapterId],
+        queryKey: ["chapter-goal", projectId, chapterId],
       });
-      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", chapterId] });
-      void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", projectId, chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["evidence-links", projectId, chapterId] });
       // 저장본 삭제 후에도 폼 입력은 유지 — dirty로 표시해 회차 전환 시 보존한다.
       const st = useAiPanelStore.getState();
       if (
@@ -1533,12 +1581,12 @@ function ChapterGoalControls({
         expected_goal_version: saved?.goal_version ?? null,
       }),
     onSuccess: (data) => {
-      queryClient.setQueryData(["chapter-goal", chapterId], data);
+      queryClient.setQueryData(["chapter-goal", projectId, chapterId], data);
       void queryClient.invalidateQueries({
-        queryKey: ["chapter-goal-history", chapterId],
+        queryKey: ["chapter-goal-history", projectId, chapterId],
       });
-      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", chapterId] });
-      void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["chapter-resume", projectId, chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ["evidence-links", projectId, chapterId] });
       const st = useAiPanelStore.getState();
       if (
         data.goal &&
@@ -1562,9 +1610,9 @@ function ChapterGoalControls({
           "warning",
         );
         void queryClient.invalidateQueries({
-          queryKey: ["chapter-goal", chapterId],
+          queryKey: ["chapter-goal", projectId, chapterId],
         });
-        void queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+        void queryClient.invalidateQueries({ queryKey: ["evidence-links", projectId, chapterId] });
         return;
       }
       toast(
@@ -1659,6 +1707,7 @@ function ChapterGoalControls({
       <GoalHistoryDialog
         open={historyOpen}
         onOpenChange={setHistoryOpen}
+        projectId={projectId ?? 0}
         chapterId={chapterId}
         currentVersion={saved?.goal_version ?? null}
         restoring={restoreGoal.isPending}
@@ -1684,7 +1733,7 @@ function EvidenceLinksSection() {
   const [pick, setPick] = useState("");
 
   const linksQuery = useQuery({
-    queryKey: ["evidence-links", chapterId],
+    queryKey: ["evidence-links", projectId, chapterId],
     queryFn: () =>
       api.get<EvidenceLinkList>(`/chapters/${chapterId}/evidence-links`),
     enabled: chapterId !== null,
@@ -1711,7 +1760,7 @@ function EvidenceLinksSection() {
   }, [goal]);
 
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+    queryClient.invalidateQueries({ queryKey: ["evidence-links", projectId, chapterId] });
 
   const createLink = useMutation({
     mutationFn: (body: {
@@ -1852,6 +1901,7 @@ function EvidenceLinksSection() {
 function GoalHistoryDialog({
   open,
   onOpenChange,
+  projectId,
   chapterId,
   currentVersion,
   restoring,
@@ -1859,13 +1909,14 @@ function GoalHistoryDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId: number;
   chapterId: number;
   currentVersion: number | null;
   restoring: boolean;
   onRestore: (goalVersion: number) => void;
 }) {
   const historyQuery = useQuery({
-    queryKey: ["chapter-goal-history", chapterId],
+    queryKey: ["chapter-goal-history", projectId, chapterId],
     queryFn: () =>
       api.get<ChapterGoalRevision[]>(`/chapters/${chapterId}/goal/history`),
     enabled: open,
@@ -2529,8 +2580,9 @@ interface GenerationRunSummary {
 }
 
 function GenerationHistorySection({ chapterId }: { chapterId: number }) {
+  const projectId = useAiPanelStore((s) => s.contextSelection.projectId);
   const runsQuery = useQuery({
-    queryKey: ["generation-runs", chapterId],
+    queryKey: ["generation-runs", projectId, chapterId],
     queryFn: () =>
       api.get<GenerationRunSummary[]>(
         `/chapters/${chapterId}/generation-runs`,

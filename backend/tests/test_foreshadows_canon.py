@@ -25,6 +25,38 @@ def _fs(client, pid, title, **kw):
                        json={"title": title, **kw}).json()
 
 
+def test_foreshadow_suggest_prompt_checks_causal_value_and_recovery(client, monkeypatch, chapter):
+    from app.routers import foreshadows as router
+
+    calls = []
+
+    class _Completions:
+        async def create(self, **kwargs):
+            calls.append(kwargs)
+            return _Response('{"candidates": []}')
+
+    class _FakeClient:
+        def __init__(self):
+            self.chat = type("NS", (), {"completions": _Completions()})()
+
+    monkeypatch.setattr(router.gpt_oauth, "get_provider", lambda: type(
+        "Provider", (), {"default_model": "m", "base_url": "http://x/v1", "name": "x",
+                          "reasoning_effort": "medium"})())
+    monkeypatch.setattr(router.llm, "make_client", lambda *_args: _FakeClient())
+
+    pid = chapter["project_id"]
+    client.put(f"/api/v1/chapters/{chapter['id']}/content",
+               json={"content_md": "낡은 문양이 손등에서 빛났다.", "expected_revision": 0})
+    response = client.post(f"/api/v1/projects/{pid}/foreshadows/suggest",
+                           json={"chapter_id": chapter["id"]})
+
+    assert response.status_code == 200, response.text
+    system_text = calls[0]["messages"][0]["content"]
+    user_text = calls[0]["messages"][1]["content"]
+    for keyword in ("표면 신호", "회수 조건", "인과", "변화"):
+        assert keyword in system_text or keyword in user_text
+
+
 def test_foreshadow_rejects_chapter_from_another_project(client):
     project_a = client.post("/api/v1/projects", json={"title": "A"}).json()["id"]
     project_b = client.post("/api/v1/projects", json={"title": "B"}).json()["id"]
@@ -129,6 +161,30 @@ def test_unresolved_foreshadows_auto_injected(client, monkeypatch, chapter):
         "context": {"chapter_id": chapter["id"], "auto_foreshadow": False}})
     user_text = holder["client"].last_kwargs["messages"][-1]["content"]
     assert "[미회수 복선:" not in user_text
+
+
+def test_canon_prompt_checks_story_engine_without_enforcing_fixed_numbers(client, monkeypatch, chapter):
+    from app.routers import quality as quality_router
+    holder = {"calls": []}
+
+    class _Completions:
+        async def create(self, **kwargs):
+            holder["calls"].append(kwargs)
+            return _Response('{"issues": []}')
+
+    class _FakeClient:
+        def __init__(self):
+            self.chat = type("NS", (), {"completions": _Completions()})()
+
+    monkeypatch.setattr(quality_router.llm, "make_client", lambda *_args: _FakeClient())
+    ep = client.post("/api/v1/ai/endpoints", json={
+        "name": "e", "base_url": "http://x/v1", "default_model": "m", "is_default": True}).json()
+    response = client.post("/api/v1/canon-check", json={"chapter_id": chapter["id"]})
+    assert response.status_code == 200, response.text
+    system_text = holder["calls"][0]["messages"][0]["content"]
+    assert "상태 변화" in system_text
+    assert "독자 약속" in system_text
+    assert "고정된 화수·문자 수·연재주기" in system_text
 
 
 def test_canon_check_success(client, monkeypatch, chapter):

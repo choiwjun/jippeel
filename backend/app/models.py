@@ -28,6 +28,9 @@ class Project(TimestampMixin, Base):
     platform_note: Mapped[str | None] = mapped_column(Text)  # 플랫폼 메모
     memo: Mapped[str | None] = mapped_column(Text)  # 부트스트랩 메타(후보 제목·주제의식 등)
     style_profile: Mapped[str | None] = mapped_column(Text)  # 작품 문체 프로파일(G-040)
+    trend_pack: Mapped["ProjectTrendPack | None"] = relationship(
+        back_populates="project", uselist=False, cascade="all, delete-orphan"
+    )
     # D03-3 연재 상태 — 회차 flow_stage/confirmed(원고 수준)와 다른 수명주기. ongoing|hiatus|completed
     serial_state: Mapped[str] = mapped_column(
         String(20), default="ongoing", server_default="ongoing"
@@ -73,6 +76,42 @@ class Project(TimestampMixin, Base):
             name="ck_project_serial_state",
         ),
     )
+
+
+class ProjectTrendPack(TimestampMixin, Base):
+    """작품별 시장 참고자료 — 정본·사실이 아닌 명시적 opt-in 자료."""
+
+    __tablename__ = "project_trend_packs"
+    __table_args__ = (
+        UniqueConstraint("project_id", name="uq_project_trend_pack_project"),
+        CheckConstraint(
+            "status IN ('draft','approved','retired')",
+            name="ck_project_trend_pack_status",
+        ),
+        CheckConstraint(
+            "source IN ('author','research','imported')",
+            name="ck_project_trend_pack_source",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    schema_version: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="trend-pack-v1", server_default="trend-pack-v1"
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="draft", server_default="draft"
+    )
+    source: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="author", server_default="author"
+    )
+    as_of: Mapped[datetime] = mapped_column(nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    project: Mapped["Project"] = relationship(back_populates="trend_pack")
 
 
 class Chapter(TimestampMixin, Base):

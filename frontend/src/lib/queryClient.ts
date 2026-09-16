@@ -16,9 +16,9 @@ export async function refreshMemoriesAfterRevision(projectId: number, chapterId:
   try {
     await queryClient.invalidateQueries({ queryKey: ["memories", projectId] });
     // D03-2: revision이 바뀌면 재개 드리프트(원고 변경됨)도 갱신 대상이다.
-    await queryClient.invalidateQueries({ queryKey: ["chapter-resume", chapterId] });
+    await queryClient.invalidateQueries({ queryKey: ["chapter-resume", projectId, chapterId] });
     // D03-4: 원문이 바뀌면 근거 링크의 excerpt 포함 여부도 갱신 대상이다.
-    await queryClient.invalidateQueries({ queryKey: ["evidence-links", chapterId] });
+    await queryClient.invalidateQueries({ queryKey: ["evidence-links", projectId, chapterId] });
   } catch {
     console.error("Memory cache refresh failed after an acknowledged manuscript revision.");
   }

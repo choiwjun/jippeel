@@ -17,6 +17,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -35,6 +36,28 @@ SESSION_COOKIE = "jippeel_lan_session"
 _PBKDF2_ITERATIONS = 120_000
 _DEFAULT_TTL_SECONDS = 12 * 60 * 60
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
+_generated_session_secret: bytes | None = None
+_password_hash_cache: tuple[bytes, str] | None = None
+
+
+def _default_session_secret() -> bytes:
+    global _generated_session_secret
+    if _generated_session_secret is None:
+        _generated_session_secret = secrets.token_hex(32).encode("utf-8")
+    return _generated_session_secret
+
+
+def _stable_password_hash(password: str) -> str:
+    """Keep one salted hash per configured password without retaining plaintext."""
+    global _password_hash_cache
+    fingerprint = hashlib.sha256(password.encode("utf-8")).digest()
+    if _password_hash_cache is not None:
+        cached_fingerprint, cached_hash = _password_hash_cache
+        if hmac.compare_digest(cached_fingerprint, fingerprint):
+            return cached_hash
+    hashed = _hash_password(password)
+    _password_hash_cache = (fingerprint, hashed)
+    return hashed
 
 
 @dataclass(frozen=True)
@@ -83,11 +106,11 @@ def load_config() -> LanAuthConfig:
         _read_secret_file(os.environ.get(_ENV_PASSWORD_FILE))
         or os.environ.get(_ENV_PASSWORD)
     )
-    secret = (
+    configured_secret = (
         _read_secret_file(os.environ.get(_ENV_SECRET_FILE))
         or os.environ.get(_ENV_SECRET)
-        or secrets.token_hex(32)  # 미지정 시 재시작마다 세션 무효화(안전 기본값)
     )
+    secret = configured_secret.encode("utf-8") if configured_secret else _default_session_secret()
     allowed = tuple(
         item.strip() for item in os.environ.get(_ENV_ALLOWED_ORIGINS, "").split(",")
         if item.strip()
@@ -98,8 +121,8 @@ def load_config() -> LanAuthConfig:
         ttl = _DEFAULT_TTL_SECONDS
     return LanAuthConfig(
         enabled=enabled,
-        password_hash=_hash_password(password) if password else None,
-        secret=secret.encode("utf-8"),
+        password_hash=_stable_password_hash(password) if password else None,
+        secret=secret,
         session_ttl_seconds=max(ttl, 60),
         secure_cookie=os.environ.get(_ENV_SECURE_COOKIE, "").strip() in {"1", "true", "yes"},
         allowed_origins=allowed,
@@ -145,7 +168,15 @@ def _origin_allowed(request: Request, config: LanAuthConfig) -> bool:
     host = request.headers.get("host", "")
     allowed = {f"{request.url.scheme}://{host}", f"http://{host}", f"https://{host}"}
     allowed.update(config.allowed_origins)
-    return origin.rstrip("/") in {item.rstrip("/") for item in allowed}
+    normalized_origin = origin.rstrip("/")
+    if normalized_origin in {item.rstrip("/") for item in allowed}:
+        return True
+    if request.headers.get("origin") is None:
+        parsed = urlparse(origin)
+        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/") in {
+            item.rstrip("/") for item in allowed
+        }
+    return False
 
 
 class LanAuthMiddleware(BaseHTTPMiddleware):
@@ -165,7 +196,18 @@ class LanAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
-        if path == "/health" or path.startswith("/api/v1/auth/"):
+        # The SPA shell and static assets must load before authentication so
+        # LoginGate can render the password form. API routes remain protected.
+        if request.method.upper() == "OPTIONS":
+            return await call_next(request)
+        if (
+            path == "/health"
+            or path.startswith("/api/v1/auth/")
+            or (
+                not path.startswith("/api/v1/")
+                and request.method.upper() in {"GET", "HEAD"}
+            )
+        ):
             return await call_next(request)
 
         if not config.password_hash or not config.secret:

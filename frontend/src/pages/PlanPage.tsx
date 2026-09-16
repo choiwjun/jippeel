@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type EndingImpact, type Project } from '@/lib/api';
+import { api, type EndingImpact, type Project, type TrendPack, type TrendPackSource, type TrendPackStatus } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,6 +92,9 @@ export function PlanPage() {
 
       {/* 레퍼런스 스타일 분석 — 작가 제공 텍스트 → 프로파일 초안 */}
       <StyleAnalyzer pid={pid} />
+
+      {/* 작품별 trend_pack — 승인 전에는 AI 집필 컨텍스트에 주입되지 않음 */}
+      <TrendPackEditor pid={pid} />
 
       {/* 결말 후보 + 변경 영향 (D03-7) */}
       <EndingSection pid={pid} project={projectQuery.data} />
@@ -220,6 +223,90 @@ function StyleProfileEditor({ pid, initial, loading }: { pid: number; initial: s
         value={text}
         onChange={(e) => onChange(e.target.value)}
       />
+    </section>
+  );
+}
+
+function TrendPackEditor({ pid }: { pid: number }) {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ['trend-pack', pid],
+    queryFn: () => api.get<TrendPack>(`/projects/${pid}/trend-pack`),
+    retry: false,
+  });
+  const [status, setStatus] = useState<TrendPackStatus>('draft');
+  const [source, setSource] = useState<TrendPackSource>('research');
+  const [asOf, setAsOf] = useState('');
+  const [signals, setSignals] = useState<Array<{ label: string; note: string }>>([
+    { label: '', note: '' },
+  ]);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    const pack = query.data;
+    if (!pack || dirty) return;
+    setStatus(pack.status);
+    setSource(pack.source);
+    setAsOf(pack.as_of.slice(0, 10));
+    setSignals(pack.signals);
+  }, [query.data, dirty]);
+
+  const save = useMutation({
+    mutationFn: () => api.put<TrendPack>(`/projects/${pid}/trend-pack`, {
+      status,
+      source,
+      as_of: asOf ? new Date(`${asOf}T00:00:00Z`).toISOString() : undefined,
+      signals: signals.filter((signal) => signal.label.trim() && signal.note.trim()),
+    }),
+    onSuccess: () => {
+      setDirty(false);
+      queryClient.invalidateQueries({ queryKey: ['trend-pack', pid] });
+      toast('트렌드 참고자료를 저장했습니다.', 'success');
+    },
+    onError: (e) => toast(`trend_pack 저장 실패: ${(e as Error).message}`, 'error'),
+  });
+  const remove = useMutation({
+    mutationFn: () => api.del(`/projects/${pid}/trend-pack`),
+    onSuccess: () => {
+      setDirty(false);
+      setSignals([{ label: '', note: '' }]);
+      queryClient.removeQueries({ queryKey: ['trend-pack', pid] });
+      toast('트렌드 참고자료를 삭제했습니다.', 'success');
+    },
+    onError: (e) => toast(`삭제 실패: ${(e as Error).message}`, 'error'),
+  });
+
+  const updateSignal = (index: number, key: 'label' | 'note', value: string) => {
+    setDirty(true);
+    setSignals((current) => current.map((signal, i) => i === index ? { ...signal, [key]: value } : signal));
+  };
+  const pack = query.data;
+  return (
+    <section className="rounded-md border border-border p-3" aria-labelledby="trend-pack-heading">
+      <div className="mb-2 flex items-center gap-2">
+        <h2 id="trend-pack-heading" className="text-sm font-semibold">작품별 트렌드 참고자료</h2>
+        {pack && <Badge variant={pack.status === 'approved' ? 'done' : 'revising'}>{pack.status}</Badge>}
+      </div>
+      <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+        조사·작가 자료를 선택적으로 집필에 참고합니다. 정본·회차 브리프·인과성보다 우선하지 않으며, 승인하고 AI 패널에서 사용을 켜기 전에는 전송되지 않습니다.
+      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div><Label htmlFor="trend-status">상태</Label><select id="trend-status" className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm" value={status} onChange={(e) => { setDirty(true); setStatus(e.target.value as TrendPackStatus); }}><option value="draft">초안</option><option value="approved">승인</option><option value="retired">보관</option></select></div>
+        <div><Label htmlFor="trend-source">출처</Label><select id="trend-source" className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm" value={source} onChange={(e) => { setDirty(true); setSource(e.target.value as TrendPackSource); }}><option value="research">리서치</option><option value="author">작가 작성</option><option value="imported">가져옴</option></select></div>
+        <div><Label htmlFor="trend-as-of">기준일</Label><Input id="trend-as-of" type="date" value={asOf} onChange={(e) => { setDirty(true); setAsOf(e.target.value); }} /></div>
+      </div>
+      <div className="mt-3 flex flex-col gap-2">
+        {signals.map((signal, index) => <div key={index} className="grid grid-cols-1 gap-2 rounded-sm bg-muted p-2 sm:grid-cols-[0.8fr_1.2fr_auto]">
+          <Input aria-label={`트렌드 신호 ${index + 1} 이름`} maxLength={120} placeholder="신호 이름" value={signal.label} onChange={(e) => updateSignal(index, 'label', e.target.value)} />
+          <Textarea aria-label={`트렌드 신호 ${index + 1} 메모`} maxLength={500} rows={2} placeholder="작품에서 어떻게 기능할지" value={signal.note} onChange={(e) => updateSignal(index, 'note', e.target.value)} />
+          <Button type="button" size="sm" variant="ghost" onClick={() => { setDirty(true); setSignals((current) => current.filter((_, i) => i !== index)); }} disabled={signals.length <= 1}>삭제</Button>
+        </div>)}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={() => { setDirty(true); setSignals((current) => current.length < 12 ? [...current, { label: '', note: '' }] : current); }} disabled={signals.length >= 12}>+ 신호 추가</Button>
+        <Button type="button" size="sm" onClick={() => save.mutate()} disabled={save.isPending || !asOf || signals.some((signal) => !signal.label.trim() || !signal.note.trim())}>{save.isPending ? '저장 중…' : '저장'}</Button>
+        {pack && <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate()} disabled={remove.isPending}>삭제</Button>}
+      </div>
     </section>
   );
 }

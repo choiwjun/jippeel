@@ -89,6 +89,76 @@ def test_assistant_generates_draft_and_apply_is_explicit(client, monkeypatch):
     assert snapshot.reason == "generation_output_apply"
 
 
+def test_assistant_generation_can_opt_into_approved_trend_pack(client, monkeypatch):
+    class FakeClient:
+        pass
+
+    captured = []
+
+    async def complete_chat(client_obj, model, messages, temperature=None,
+                            max_tokens=None, reasoning_effort=None):
+        captured.append(messages)
+        return "트렌드 참고를 반영한 초안"
+
+    monkeypatch.setattr(ai_panel.llm, "make_client", lambda *args, **kwargs: FakeClient())
+    monkeypatch.setattr(ai_panel.llm, "complete_chat", complete_chat)
+    project = client.post("/api/v1/projects", json={
+        "title": "어시스턴트 트렌드", "genre": "판타지",
+    }).json()
+    client.put(
+        f"/api/v1/projects/{project['id']}/trend-pack",
+        json={
+            "status": "approved",
+            "source": "research",
+            "as_of": "2026-09-16T00:00:00Z",
+            "signals": [{"label": "관계 규합형 성장", "note": "관계의 상태 변화를 사건 보상으로 연결한다."}],
+        },
+    )
+    chapter = client.post(
+        f"/api/v1/projects/{project['id']}/chapters", json={"title": "1화"}
+    ).json()
+
+    response = client.post(
+        f"/api/v1/projects/{project['id']}/assistant/generate-next",
+        json={"chapter_id": chapter["id"], "include_trend_pack": True},
+    )
+
+    assert response.status_code == 200, response.text
+    assert "관계 규합형 성장" in "\n".join(
+        str(message["content"]) for message in captured[0]
+    )
+
+
+def test_assistant_plan_can_opt_into_approved_trend_pack(client, monkeypatch):
+    class FakeClient:
+        pass
+
+    captured = []
+
+    async def complete_chat(client_obj, model, messages, temperature=None,
+                            max_tokens=None, reasoning_effort=None):
+        captured.append(messages)
+        return json.dumps({"scenes": [
+            {"order": 1, "title": "시작", "purpose": "도입", "objective": "등장", "choice": "나선다", "cost": "위험", "required_beats": ["도입"], "characters": ["주인공"], "opening_state": "시작", "closing_hook": "다음"},
+            {"order": 2, "title": "전개", "purpose": "확대", "objective": "추격", "choice": "도망", "cost": "대가", "required_beats": ["추격"], "characters": ["주인공"], "opening_state": "직후", "closing_hook": "끝"},
+        ]}, ensure_ascii=False)
+
+    monkeypatch.setattr(ai_panel.llm, "make_client", lambda *args, **kwargs: FakeClient())
+    monkeypatch.setattr(ai_panel.llm, "complete_chat", complete_chat)
+    project = client.post("/api/v1/projects", json={"title": "어시스턴트 계획 트렌드"}).json()
+    client.put(
+        f"/api/v1/projects/{project['id']}/trend-pack",
+        json={"status": "approved", "source": "research", "as_of": "2026-09-16T00:00:00Z", "signals": [{"label": "관계 규합형 성장", "note": "관계 변화를 보상으로 연결한다."}]},
+    )
+    chapter = client.post(f"/api/v1/projects/{project['id']}/chapters", json={"title": "1화"}).json()
+    response = client.post(
+        f"/api/v1/projects/{project['id']}/assistant/plan-next",
+        json={"chapter_id": chapter["id"], "include_trend_pack": True},
+    )
+    assert response.status_code == 200, response.text
+    assert "관계 규합형 성장" in "\n".join(str(m["content"]) for m in captured[0])
+
+
 def test_assistant_rejects_project_without_blank_chapter(client, monkeypatch):
     class FakeClient:
         pass

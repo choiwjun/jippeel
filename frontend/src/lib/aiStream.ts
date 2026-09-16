@@ -4,6 +4,8 @@
  * 백엔드(sse-starlette) 이벤트: start {model, injected_lore} / message {delta} / error {detail} / done [DONE]
  */
 
+import { notifyUnauthorized } from "./auth";
+
 export interface InjectedLore {
   id: number;
   title: string;
@@ -109,6 +111,7 @@ function streamRequest(
       return;
     }
     if (!res.ok || !res.body) {
+      if (res.status === 401) notifyUnauthorized(); // LAN auth 세션 만료
       let msg = `HTTP ${res.status}`;
       try {
         const j = await res.json();
@@ -290,7 +293,11 @@ function streamRequest(
     try {
       for (;;) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done) {
+          // Flush any UTF-8 bytes buffered by TextDecoder before parsing EOF.
+          buf += decoder.decode();
+          break;
+        }
         buf += decoder.decode(value, { stream: true });
         // SSE 프레임 구분: 빈 줄(\n\n). CRLF 대응.
         const frames = buf.split(/\n\n|\r\n\r\n/);
@@ -318,7 +325,11 @@ function streamRequest(
         }
         handleEvent(eventName, dataLines.join("\n"));
       }
-      if (!finished) handlers.onDone(); // 서버가 done 없이 종료한 경우
+      if (!finished) {
+        // 생성 중 backend가 재시작되거나 연결이 끊기면 정상 완료로 표시하지 않는다.
+        // done 이벤트는 스트림 성공의 명시적 계약이므로, 없는 EOF는 실패다.
+        handlers.onError("스트리밍이 예기치 않게 종료되었습니다. 백엔드 상태를 확인하세요.");
+      }
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
         handlers.onError(`스트리밍 실패: ${(e as Error).message}`);

@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { notifyUnauthorized } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,
@@ -27,8 +28,8 @@ import {
 } from "@/components/ui/dialog";
 
 /**
- * ✨ AI 부트스트랩 마법사 — POST /api/v1/projects/bootstrap.
- * 1단계: 장르·프리미스·권/회차 폼 → 2단계: 생성 진행(단계별 라벨) → 완료: 요약 카드.
+ * ✨ AI 부트스트랩 마법사 — POST /api/v1/projects/bootstrap/stream (SSE).
+ * 1단계: 장르·프리미스·권/회차 폼 → 2단계: 실시간 단계 표시 → 완료: 요약 카드.
  * P3 저장상태 톤 — 진행 중 이탈 방지 문구, 실패 시 재시도 버튼.
  */
 
@@ -40,10 +41,11 @@ const GENRE_PRESETS = [
   "미스터리",
 ] as const;
 
-/** 단계별 라벨 — 백엔드 LLM 3회 호출(제목→목차→캐릭터·세계관) 순서에 대응 */
-const STAGES = ["제목 발상", "목차 설계", "캐릭터·세계관 구축"] as const;
-/** 단계당 표시 시간 — 실제 응답이 늦으면 마지막 단계에서 대기 표시 */
-const STAGE_MS = 8_000;
+interface StageEvent {
+  stage: string;
+  label: string;
+  status: "started" | "done" | "failed";
+}
 
 export function BootstrapDialog({
   open,
@@ -61,17 +63,14 @@ export function BootstrapDialog({
   const [volumeCount, setVolumeCount] = useState(1);
   const [chaptersPerVolume, setChaptersPerVolume] = useState(10);
 
-  /** 생성 중 "멈춤 아님" 피드백 — 0.3s마다 진행 바를 조금씩 올림(상한 95%) */
-  const [elapsedPct, setElapsedPct] = useState(0);
-  const [stageIdx, setStageIdx] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const stageTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const bootstrap = useMutation({
-    mutationFn: (body: BootstrapRequest) =>
-      api.post<BootstrapResponse>("/projects/bootstrap", body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
-  });
+  /** SSE 실시간 진행 상태 */
+  const [stages, setStages] = useState<StageEvent[]>([]);
+  const [streamResult, setStreamResult] = useState<BootstrapResponse | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [streamDone, setStreamDone] = useState(false);
+  const [streamActive, setStreamActive] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  const eventSourceRef = useRef<AbortController | null>(null);
 
   /** assistant 게이트 — 계획 검토 → 초안 미리보기 → 명시 적용. 원고 자동 덮어쓰기 없음 */
   const [assistantStage, setAssistantStage] = useState<
@@ -84,7 +83,9 @@ export function BootstrapDialog({
         `/projects/${projectId}/assistant/plan-next`,
         {},
       ),
+    onMutate: () => setAssistantBusy(true),
     onSuccess: () => setAssistantStage("plan"),
+    onSettled: () => setAssistantBusy(false),
   });
 
   const generateNext = useMutation({
@@ -100,7 +101,9 @@ export function BootstrapDialog({
           plan_output_id: args.plan.plan_output_id,
         },
       ),
+    onMutate: () => setAssistantBusy(true),
     onSuccess: () => setAssistantStage("draft"),
+    onSettled: () => setAssistantBusy(false),
   });
 
   const applyDraft = useMutation({
@@ -109,11 +112,11 @@ export function BootstrapDialog({
         `/generation-outputs/${args.outputId}/apply`,
         { expected_revision: args.revision },
       ),
+    onMutate: () => setAssistantBusy(true),
     onSuccess: (applied) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      // 서버가 저장한 정본을 편집기가 다시 읽도록 회차 앵커와 함께 이동한다.
-      const pid = bootstrap.data?.project_id;
-      bootstrap.reset();
+      const pid = streamResult?.project_id;
+      setStreamResult(null);
       onOpenChange(false);
       navigate(
         pid
@@ -121,6 +124,7 @@ export function BootstrapDialog({
           : "/",
       );
     },
+    onSettled: () => setAssistantBusy(false),
   });
 
   const discardDraft = useMutation({
@@ -128,32 +132,126 @@ export function BootstrapDialog({
       api.post(`/generation-outputs/${outputId}/outcome`, {
         outcome: "discarded",
       }),
+    onMutate: () => setAssistantBusy(true),
+    onSettled: () => setAssistantBusy(false),
   });
 
   const isBusy =
-    bootstrap.isPending ||
+    ((!streamDone && !streamError) &&
+      (streamActive || stages.length > 0)) ||
     planNext.isPending ||
     generateNext.isPending ||
-    applyDraft.isPending;
+    applyDraft.isPending ||
+    discardDraft.isPending ||
+    assistantBusy;
 
-  // 생성 중: 진행 바 애니메이션 + 단계 라벨 순환
-  useEffect(() => {
-    if (!isBusy) return;
-    setElapsedPct(4);
-    setStageIdx(0);
-    timerRef.current = setInterval(() => {
-      setElapsedPct((p) => Math.min(p + 1, 95));
-    }, 300);
-    stageTimerRef.current = setInterval(() => {
-      setStageIdx((i) => Math.min(i + 1, STAGES.length - 1));
-    }, STAGE_MS);
-    return () => {
-      for (const ref of [timerRef, stageTimerRef]) {
-        if (ref.current) clearInterval(ref.current);
-        ref.current = null;
+  /** SSE 스트림 시작 */
+  const startStream = (body: BootstrapRequest) => {
+    if (isBusy) return;
+    setStages([]);
+    setStreamResult(null);
+    setStreamError(null);
+    setStreamDone(false);
+    setStreamActive(true);
+
+    // EventSource는 GET만 지원하므로 POST 대신 fetch+ReadableStream 사용
+    const controller = new AbortController();
+    eventSourceRef.current?.abort();
+    eventSourceRef.current = controller;
+    fetch("/api/v1/projects/bootstrap/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    }).then(async (res) => {
+      if (res.status === 401) notifyUnauthorized();
+      if (!res.ok || !res.body) {
+        setStreamError(`HTTP ${res.status}`);
+        return;
       }
-    };
-  }, [isBusy]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let event = "";
+      let terminalEventReceived = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Flush any UTF-8 bytes buffered by TextDecoder before parsing EOF.
+          buffer += decoder.decode();
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        // SSE 프레임 파싱
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            event = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            const data = line.slice(5).trim();
+            if (!event) continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (event === "done") {
+                terminalEventReceived = true;
+                setStreamResult(parsed as BootstrapResponse);
+                queryClient.invalidateQueries({ queryKey: ["projects"] });
+                setStreamDone(true);
+              } else if (event === "error") {
+                terminalEventReceived = true;
+                setStreamError(parsed.detail ?? `HTTP ${parsed.status ?? 500}`);
+              } else if (event.startsWith("stage_")) {
+                const status = event.replace("stage_", "") as StageEvent["status"];
+                setStages((prev) => {
+                  const idx = prev.findIndex((s) => s.stage === parsed.stage);
+                  if (idx >= 0) {
+                    const next = [...prev];
+                    next[idx] = { ...parsed, status };
+                    return next;
+                  }
+                  return [...prev, { ...parsed, status }];
+                });
+              }
+            } catch { /* JSON 파싱 실패 무시 */ }
+            event = "";
+          }
+        }
+      }
+      if (!terminalEventReceived && buffer.trim()) {
+        const lines = buffer.split("\n");
+        let data = "";
+        for (const line of lines) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data = line.slice(5).trim();
+        }
+        if (event && data) {
+          try {
+            const parsed = JSON.parse(data);
+            if (event === "done") {
+              terminalEventReceived = true;
+              setStreamResult(parsed as BootstrapResponse);
+              queryClient.invalidateQueries({ queryKey: ["projects"] });
+            } else if (event === "error") {
+              terminalEventReceived = true;
+              setStreamError(parsed.detail ?? `HTTP ${parsed.status ?? 500}`);
+            }
+          } catch { /* incomplete terminal frame remains an abrupt EOF */ }
+        }
+      }
+      if (!terminalEventReceived) {
+        setStreamError("스트리밍이 예기치 않게 종료되었습니다. 백엔드 상태를 확인하세요.");
+      }
+      setStreamDone(true);
+    }).catch((e) => {
+      if ((e as Error).name !== "AbortError") {
+        setStreamError(e instanceof Error ? e.message : "연결 실패");
+      }
+    }).finally(() => {
+      if (eventSourceRef.current === controller) eventSourceRef.current = null;
+      setStreamActive(false);
+    });
+  };
 
   const reset = () => {
     setGenreChoice(GENRE_PRESETS[0]);
@@ -161,12 +259,19 @@ export function BootstrapDialog({
     setPremise("");
     setVolumeCount(1);
     setChaptersPerVolume(10);
-    bootstrap.reset();
+    setStages([]);
+    setStreamResult(null);
+    setStreamError(null);
+    setStreamDone(false);
+    setStreamActive(false);
+    setAssistantBusy(false);
     planNext.reset();
     generateNext.reset();
     applyDraft.reset();
     discardDraft.reset();
     setAssistantStage("idle");
+    eventSourceRef.current?.abort();
+    eventSourceRef.current = null;
   };
 
   /** 생성 중에는 닫기/Esc 무시 — 이탈 방지(P3 저장상태 톤) */
@@ -180,7 +285,7 @@ export function BootstrapDialog({
     genreChoice === "__custom__" ? customGenre.trim() : genreChoice;
 
   const start = () => {
-    bootstrap.mutate({
+    startStream({
       genre: effectiveGenre,
       premise: premise.trim() || null,
       volume_count: volumeCount,
@@ -188,9 +293,9 @@ export function BootstrapDialog({
     });
   };
 
-  const result = bootstrap.data;
+  const result = streamResult;
   const step: "form" | "running" | "done" =
-    result != null ? "done" : isBusy ? "running" : "form";
+    result != null ? "done" : streamError ? "form" : (isBusy || stages.length > 0) ? "running" : "form";
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -306,26 +411,20 @@ export function BootstrapDialog({
               </div>
             </div>
 
-            {bootstrap.isError && (
+            {streamError && (
               <Alert variant="error" className="mt-3">
-                <AlertDescription className="flex items-center gap-3">
-                  <span className="min-w-0 flex-1">
-                    {(bootstrap.error as Error).message ||
-                      "생성에 실패했습니다."}
-                  </span>
-                  <Button size="sm" onClick={start} disabled={!effectiveGenre}>
-                    재시도
-                  </Button>
+                <AlertDescription>
+                  {streamError}
                 </AlertDescription>
               </Alert>
             )}
 
             <DialogFooter>
-              <Button variant="ghost" onClick={() => handleClose(false)}>
-                취소
-              </Button>
-              <Button disabled={!effectiveGenre} onClick={start}>
-                생성 시작
+              <Button
+                onClick={start}
+                disabled={!effectiveGenre || isBusy}
+              >
+                {isBusy ? "생성 중…" : "생성하기"}
               </Button>
             </DialogFooter>
           </>
@@ -334,48 +433,48 @@ export function BootstrapDialog({
         {step === "running" && (
           <>
             <DialogHeader>
-              <DialogTitle>작품 생성 중…</DialogTitle>
+              <DialogTitle>작품 생성 중</DialogTitle>
               <DialogDescription>
-                창을 닫거나 페이지를 벗어나면 생성이 중단될 수 있어요. 잠시만
+                AI가 작품 구조를 만들고 있습니다. 창을 닫지 말고
                 기다려 주세요.
               </DialogDescription>
             </DialogHeader>
 
-            <Progress value={elapsedPct} className="my-2" />
-
             <ol className="flex flex-col gap-2">
-              {STAGES.map((label, i) => {
-                const state =
-                  i < stageIdx ? "done" : i === stageIdx ? "active" : "wait";
-                return (
-                  <li key={label} className="flex items-center gap-2 text-sm">
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "grid size-5 shrink-0 place-items-center rounded-full border text-[10px]",
-                        state === "done" &&
-                          "border-primary bg-primary text-primary-foreground",
-                        state === "active" &&
-                          "animate-pulse border-primary text-primary",
-                        state === "wait" &&
-                          "border-border text-muted-foreground",
-                      )}
-                    >
-                      {state === "done" ? "✓" : i + 1}
-                    </span>
-                    <span
-                      className={cn(
-                        state === "active" && "text-foreground font-medium",
-                        state === "wait" && "text-muted-foreground",
-                        state === "done" && "text-muted-foreground",
-                      )}
-                    >
-                      {label}
-                      {state === "active" ? "…" : ""}
-                    </span>
-                  </li>
-                );
-              })}
+              {stages.map((s) => (
+                <li key={s.stage} className="flex items-center gap-2 text-sm">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "grid size-5 shrink-0 place-items-center rounded-full border text-[10px]",
+                      s.status === "done" &&
+                        "border-primary bg-primary text-primary-foreground",
+                      s.status === "started" &&
+                        "animate-pulse border-primary text-primary",
+                      s.status === "failed" &&
+                        "border-destructive text-destructive",
+                    )}
+                  >
+                    {s.status === "done" ? "✓" : s.status === "failed" ? "✗" : "…"}
+                  </span>
+                  <span
+                    className={cn(
+                      s.status === "started" && "text-foreground font-medium",
+                      s.status === "done" && "text-muted-foreground",
+                      s.status === "failed" && "text-destructive",
+                    )}
+                  >
+                    {s.label}
+                    {s.status === "started" ? "…" : ""}
+                  </span>
+                </li>
+              ))}
+              {stages.length === 0 && (
+                <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full border border-border text-[10px] animate-pulse">…</span>
+                  연결 중…
+                </li>
+              )}
             </ol>
 
             <p className="mt-3 text-xs text-muted-foreground">
@@ -566,9 +665,7 @@ export function BootstrapDialog({
                       })
                     }
                   >
-                    {generateNext.isPending
-                      ? "초안 집필 중…"
-                      : "수락하고 집필"}
+                    {generateNext.isPending ? "초안 집필 중…" : "수락하고 집필"}
                   </Button>
                 </>
               )}
@@ -580,10 +677,16 @@ export function BootstrapDialog({
                     onClick={() => {
                       const draft = generateNext.data;
                       if (draft?.draft_output_id) {
-                        discardDraft.mutate(draft.draft_output_id);
+                        discardDraft.mutate(draft.draft_output_id, {
+                          onSettled: () => {
+                            handleClose(false);
+                            navigate(`/projects/${result.project_id}/write`);
+                          },
+                        });
+                      } else {
+                        handleClose(false);
+                        navigate(`/projects/${result.project_id}/write`);
                       }
-                      handleClose(false);
-                      navigate(`/projects/${result.project_id}/write`);
                     }}
                   >
                     폐기
@@ -604,9 +707,7 @@ export function BootstrapDialog({
                       })
                     }
                   >
-                    {applyDraft.isPending
-                      ? "적용 중…"
-                      : "원고에 적용하고 편집"}
+                    {applyDraft.isPending ? "적용 중…" : "원고에 적용하고 편집"}
                   </Button>
                 </>
               )}

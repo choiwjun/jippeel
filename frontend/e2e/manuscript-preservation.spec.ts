@@ -121,6 +121,9 @@ async function setupFixture(page: Page) {
     const noContent = () => route.fulfill({ status: 204, body: "" });
     const requestBody = () => JSON.parse(route.request().postData() ?? "{}");
 
+    if (method === "GET" && path === "/auth/status") {
+      return json(200, { enabled: false, configured: false });
+    }
     if (method === "GET" && path === "/projects") {
       return json(200, [
         {
@@ -432,6 +435,22 @@ async function setupFixture(page: Page) {
         current_chapter_revision: current.revision,
       });
     }
+    // AI 패널의 선택 목록은 원고 fixture에서 비어 있는 목록으로 제공한다.
+    const charactersMatch = path.match(/^\/projects\/(\d+)\/characters$/);
+    if (method === "GET" && charactersMatch) return json(200, []);
+    // 작품별 trend_pack은 AI 패널에서 승인된 참고자료 여부를 확인한다.
+    const trendPackMatch = path.match(/^\/projects\/(\d+)\/trend-pack$/);
+    if (method === "GET" && trendPackMatch) {
+      return json(404, { detail: "not found" });
+    }
+    // MemoryPage의 요약 잡 조회는 원고 fixture에서 비어 있는 목록으로 제공한다.
+    const summaryJobsMatch = path.match(/^\/projects\/(\d+)\/summary-jobs$/);
+    if (method === "GET" && summaryJobsMatch) return json(200, []);
+    // AI 패널의 작가 규칙은 원고 fixture에서 비어 있는 목록으로 제공한다.
+    const rulesMatch = path.match(/^\/projects\/(\d+)\/improvement-rules$/);
+    if (method === "GET" && rulesMatch) return json(200, []);
+    const generationRunsMatch = path.match(/^\/chapters\/(\d+)\/generation-runs$/);
+    if (method === "GET" && generationRunsMatch) return json(200, []);
     // D03-4: 브리프 섹션이 열리면 근거 링크를 조회한다.
     const linksMatch = path.match(/^\/chapters\/(\d+)\/evidence-links$/);
     if (method === "GET" && linksMatch) {
@@ -1239,6 +1258,10 @@ test.describe
 
 async function memoryRevisionFixture(page: Page, f: Awaited<ReturnType<typeof setupFixture>>) {
   const reads: number[] = [];
+  await page.route("**/api/v1/projects/*/summary-jobs", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/v1/projects/*/improvement-rules", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/v1/projects/*/characters", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/v1/projects/*/trend-pack", (route) => route.fulfill({ status: 404, json: { detail: "not found" } }));
   await page.route("**/api/v1/projects/*", (route) => route.fulfill({ json: { id: 1, title: "원고 보존" } }));
   await page.route("**/api/v1/projects/*/memories*", (route) => {
     const pid = Number(route.request().url().match(/projects\/(\d+)/)?.[1]);
@@ -1348,6 +1371,7 @@ for (const outcome of ["success", "late-edit", "failure"] as const) {
 }
 
 test("fixture lifecycle routes pagehide keepalive through context on reload and page close", async ({ page }) => {
+  test.setTimeout(30_000);
   const f = await setupFixture(page);
   await openEditor(page);
   await fillEditor(page, "reload keepalive manuscript");
@@ -1355,6 +1379,7 @@ test("fixture lifecycle routes pagehide keepalive through context on reload and 
   await expect.poll(() => f.writes.some((write) => write.body.content_md === "reload keepalive manuscript")).toBe(true);
   await expect(page.locator(".cm-content")).toHaveText("reload keepalive manuscript");
   await fillEditor(page, "closing keepalive manuscript");
+  await page.waitForTimeout(1_700);
   // Real document navigation fires pagehide while the BrowserContext fixture is alive.
   await page.goto("about:blank");
   await expect.poll(() => f.writes.some((write) => write.body.content_md === "closing keepalive manuscript")).toBe(true);

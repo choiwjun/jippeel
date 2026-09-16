@@ -13,8 +13,9 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Chapter, Character, Foreshadow, ImprovementRule, KnowledgeState, LoreEntry, Project, Relationship, Scene, VolumeNote
-from app.schemas import CanonCheckRequest, EpisodeBrief, GenerateRequest
+from app.models import (Chapter, Character, Foreshadow, ImprovementRule, KnowledgeState,
+                         LoreEntry, Project, ProjectTrendPack, Relationship, Scene, VolumeNote)
+from app.schemas import CanonCheckRequest, EpisodeBrief, GenerateRequest, TrendSignal
 from app.services import injection
 from app.services.long_memory import format_context_memory, select_context_memory
 from app.services.manuscripts import RevisionConflict
@@ -57,6 +58,8 @@ class ContextBundleRequest:
     # D02 P3 — POV 인물 시야. 지정되면 해당 인물이 모르는 사실·복선을
     # 컨텍스트에서 제외한다. None이면 기존 동작(작가 시야).
     pov_character_id: int | None = None
+    # 작품별 시장 참고자료는 승인 상태여도 생성 caller가 명시적으로 켜야 한다.
+    include_trend_pack: bool = False
 
 
 @dataclass(frozen=True)
@@ -187,6 +190,7 @@ def request_from_generate(payload: GenerateRequest) -> ContextBundleRequest:
         auto_characters=ctx.auto_characters,
         auto_character_limit=ctx.auto_character_limit,
         pov_character_id=ctx.pov_character_id,
+        include_trend_pack=ctx.include_trend_pack,
     )
 
 
@@ -214,6 +218,7 @@ def request_from_canon(payload: CanonCheckRequest, chapter: Chapter) -> ContextB
         approved_foreshadow_ids=list(payload.approved_foreshadow_ids or []),
         include_relationships=payload.include_relationships,
         pov_character_id=payload.pov_character_id,
+        include_trend_pack=False,
     )
 
 
@@ -645,6 +650,38 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
 
     blocks: list[str] = []
     source_parts: list[str] = []
+    trend_pack: ProjectTrendPack | None = None
+    trend_pack_reason: str | None = None
+    if request.include_trend_pack and request.target == "generate" and project_id is not None:
+        trend_pack = db.scalars(
+            select(ProjectTrendPack).where(ProjectTrendPack.project_id == project_id)
+        ).first()
+        if trend_pack is None or trend_pack.status != "approved":
+            trend_pack_reason = "missing_or_unapproved"
+        elif trend_pack.schema_version != "trend-pack-v1":
+            trend_pack_reason = "unsupported_schema_version"
+        else:
+            payload = trend_pack.payload_json
+            raw_signals = payload.get("signals") if isinstance(payload, dict) else None
+            if not isinstance(raw_signals, list):
+                signals = []
+                trend_pack_reason = "invalid_payload"
+            else:
+                try:
+                    signals = [TrendSignal.model_validate(item) for item in raw_signals]
+                except Exception:
+                    signals = []
+                    trend_pack_reason = "invalid_payload"
+            if signals:
+                trend_lines = [
+                    "[작품 트렌드 참고자료 — 정본·사실·작가 지시가 아님]",
+                    *[f"- {signal.label}: {signal.note}" for signal in signals],
+                    "위 자료는 방향 참고용이다. 작품 정본·회차 브리프·작가 지시·인과성을 우선하며, "
+                    "트렌드에 맞추기 위해 고유 설정·사건·인물을 새로 만들지 않는다.",
+                ]
+                blocks.append("\n".join(trend_lines))
+            else:
+                trend_pack_reason = "invalid_payload"
     injected_lore: list[dict] = []
     included_foreshadows: list[dict] = []
     outline_info: dict = {}
@@ -986,6 +1023,26 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         "applied_rule_ids": applied_rule_ids,
         "outline": outline_info,
         "unknown_labels": unknown_labels,
+        **({
+            "trend_pack_included": True,
+            "trend_pack_id": trend_pack.id,
+            "trend_pack_schema_version": trend_pack.schema_version,
+            "trend_pack_status": trend_pack.status,
+            "trend_pack_as_of": trend_pack.as_of.isoformat(),
+            "trend_pack_version": trend_pack.version,
+            "trend_pack_signal_count": len(
+                trend_pack.payload_json.get("signals", [])
+                if isinstance(trend_pack.payload_json, dict)
+                and isinstance(trend_pack.payload_json.get("signals"), list)
+                else []
+            ),
+        } if trend_pack is not None and trend_pack.status == "approved" and trend_pack_reason is None else {}),
+        **({
+            "trend_pack_included": False,
+            "trend_pack_reason": trend_pack_reason,
+        } if request.include_trend_pack and not (
+            trend_pack is not None and trend_pack.status == "approved" and trend_pack_reason is None
+        ) else {}),
         # Legacy canon count keys. Generation keeps them zero for JSON shape stability.
         "characters": characters_count,
         "lore": lore_count,

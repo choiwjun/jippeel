@@ -12,12 +12,12 @@ from starlette.types import Scope
 from app.database import DATABASE_URL, SessionLocal, init_db
 from app.routers import (ai_panel, auth, characters, cognitive, foreshadows, generation_runs,
                          improvement_rules, lorebook,
-                         projects, quality, refine, scenes, summary_jobs, system, volumes)
+                         projects, quality, refine, scenes, summary_jobs, system, trend_pack, volumes)
 from app.services.lan_auth import LanAuthMiddleware, load_config as load_lan_auth_config
 from app.routers.memories import router as memories_router  # pyright: ignore[reportMissingImports]
 from app.services.auto_backup import AutoBackupConfig, start_scheduler
 from app.services.fts import ensure_fts_index
-from app.services.presets import seed_presets
+from app.services.presets_seed import ensure_builtin_presets
 
 
 @asynccontextmanager
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     session = SessionLocal()
     try:
         ensure_fts_index(session)
-        seed_presets(session)  # 기본 프롬프트 프리셋 — 비어 있을 때만
+        ensure_builtin_presets(session)  # 기존 DB에도 누락된 빌트인 프리셋 보충
         session.commit()
     finally:
         session.close()
@@ -78,6 +78,7 @@ app.include_router(volumes.router, prefix="/api/v1")
 app.include_router(quality.router, prefix="/api/v1")
 app.include_router(summary_jobs.router, prefix="/api/v1")
 app.include_router(system.router, prefix="/api/v1")
+app.include_router(trend_pack.router, prefix="/api/v1")
 
 
 @app.get("/health")

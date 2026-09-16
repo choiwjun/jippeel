@@ -1,6 +1,7 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useUiStore } from '@/stores/uiStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useAuthStore } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 
 /** §1.1 TopBar 56px — 로고 / 프로젝트 셀렉터 / 저장 상태(FR-106) / 테마 토글 */
@@ -8,6 +9,8 @@ export function TopBar() {
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const saveState = useEditorStore((s) => s.saveState);
+  const authEnabled = useAuthStore((s) => s.status?.enabled === true);
+  const logout = useAuthStore((s) => s.logout);
   const { pid } = useParams();
   const location = useLocation();
   const onEditorPage = location.pathname.includes('/write') && pid;
@@ -33,6 +36,11 @@ export function TopBar() {
         <Button variant="ghost" size="sm" onClick={toggleTheme} aria-label="테마 전환 (다크/라이트)">
           {theme === 'dark' ? '라이트 모드' : '다크 모드'}
         </Button>
+        {authEnabled && (
+          <Button variant="ghost" size="sm" onClick={() => void logout()} aria-label="로그아웃">
+            로그아웃
+          </Button>
+        )}
       </div>
     </header>
   );

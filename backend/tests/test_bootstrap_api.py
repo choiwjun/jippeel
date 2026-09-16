@@ -5,8 +5,10 @@
 - 폴백 경로: 전부 실패 → 규칙 기반 생성 + 502
 - use_ai=false: LLM 호출 없이 템플릿 생성
 """
+import asyncio
 import json
 
+import openai
 import pytest
 from sqlalchemy import select
 
@@ -178,6 +180,66 @@ def enqueue_success(holder, idea=GOOD_IDEA, outline=None,
 from tests.conftest import _db
 
 
+def test_bootstrap_transport_timeout_does_not_trigger_json_repair(monkeypatch):
+    """SDK transport timeout은 JSON 형식 오류가 아니므로 repair하지 않는다."""
+    calls = 0
+
+    async def raise_timeout(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        raise openai.APITimeoutError(request=None)
+
+    monkeypatch.setattr(bootstrap_service.llm, "complete_chat", raise_timeout)
+
+    with pytest.raises(bootstrap_service.BootstrapAIError, match="AI provider 시간 초과"):
+        asyncio.run(bootstrap_service._call_json(
+            object(), "test-model", [{"role": "user", "content": "{}"}]))
+
+    assert calls == 1
+
+
+def test_bootstrap_repair_transport_timeout_is_not_reported_as_json_failure(monkeypatch):
+    """repair 요청의 SDK timeout도 JSON 오류로 재분류하지 않는다."""
+    calls = 0
+
+    async def malformed_then_timeout(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return "not json"
+        raise openai.APITimeoutError(request=None)
+
+    monkeypatch.setattr(bootstrap_service.llm, "complete_chat", malformed_then_timeout)
+
+    with pytest.raises(bootstrap_service.BootstrapAIError, match="AI provider 시간 초과"):
+        asyncio.run(bootstrap_service._call_json(
+            object(), "test-model", [{"role": "user", "content": "{}"}]))
+
+    assert calls == 2
+
+
+def test_bootstrap_supporting_transport_timeout_skips_only_one_volume(
+        client, fake_llm, default_endpoint):
+    """권별 transport timeout은 repair하지 않고 다음 권·최종 단계로 진행한다."""
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(3, 3), ensure_ascii=False),
+        json.dumps(GOOD_CHARACTERS, ensure_ascii=False),
+        openai.APITimeoutError(request=None),
+        json.dumps({"characters": [{"name": "이권인", "role": "조연"}]}),
+        json.dumps({"characters": [{"name": "삼권인", "role": "단역"}]}),
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협", "volume_count": 3, "chapters_per_volume": 3})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["used_ai"] is True and body["fallback"] is False
+    assert body["character_count"] == 8
+    assert len(fake_llm["calls"]) == 7
+
+
 def test_bootstrap_supporting_cast_per_volume(client, fake_llm, default_endpoint):
     """각 권이 독립 호출되고 응답 인물의 first_volume은 요청 권으로 고정된다."""
     supporting = [
@@ -248,6 +310,226 @@ def test_bootstrap_supporting_failure_isolated_to_one_volume(
     body = resp.json()
     assert body["character_count"] == 8
     assert len(fake_llm["calls"]) == 8
+
+
+def test_bootstrap_short_cast_triggers_supplement_call(
+        client, fake_llm, default_endpoint):
+    """인원 부족 시 전체 재생성이 아니라 부족분만 보충하는 호출을 한다."""
+    short_cast = {"characters": GOOD_CHARACTERS["characters"][:4]}
+    supplement = {"characters": [
+        {"name": "남궁세가주", "role": "조연", "appearance": "중년의 위엄",
+         "personality": "온화하나 계산적", "speech_style": "존댓말",
+         "background": "남궁세가 수장. 멸문 당시 침묵한 대가를 갚으려 한다"},
+        {"name": "혈랑", "role": "단역", "appearance": "흉터투성이",
+         "personality": "광폭", "speech_style": "거친 반말",
+         "background": "백어린을 추적하는 흑천교 추격조"},
+    ]}
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(), ensure_ascii=False),
+        json.dumps(short_cast, ensure_ascii=False),
+        json.dumps(supplement, ensure_ascii=False),
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협", "volume_count": 2, "chapters_per_volume": 3})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["used_ai"] is True and body["fallback"] is False
+    assert len(fake_llm["calls"]) == 5
+    assert body["character_count"] == 6
+
+    # 보충 호출은 기존 인물을 assistant 메시지로 보존하고 부족 인원만 요청한다
+    retry_msgs = fake_llm["calls"][3]["messages"]
+    assistant = next(m for m in retry_msgs if m["role"] == "assistant")
+    for name in ("강산협", "서연화", "무허진인", "흑천교주"):
+        assert name in assistant["content"]
+    assert "4명" in retry_msgs[-1]["content"]
+    assert "2명" in retry_msgs[-1]["content"]
+
+    # 기존 인물 + 보충 인물이 모두 저장된다
+    db = _db(client)
+    chars = db.scalars(select(Character).where(
+        Character.project_id == body["project_id"])).all()
+    assert {c.name for c in chars} == {
+        "강산협", "서연화", "무허진인", "흑천교주", "남궁세가주", "혈랑"}
+
+
+def test_bootstrap_supplement_dedupes_names_returned_again(
+        client, fake_llm, default_endpoint):
+    """보충 응답이 기존 이름을 반복해도 중복 저장하지 않는다."""
+    short_cast = {"characters": GOOD_CHARACTERS["characters"][:4]}
+    supplement = {"characters": [
+        dict(GOOD_CHARACTERS["characters"][0]),  # 기존 이름 반복 — 버려야 함
+        {"name": "혈랑", "role": "단역"},
+    ]}
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(), ensure_ascii=False),
+        json.dumps(short_cast, ensure_ascii=False),
+        json.dumps(supplement, ensure_ascii=False),
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협", "volume_count": 2, "chapters_per_volume": 3})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["character_count"] == 5
+
+
+def test_bootstrap_supplement_failure_keeps_partial_cast(
+        client, fake_llm, default_endpoint):
+    """보충 호출 실패는 전체 폴백이 아니라 기존 캐스트 유지로 끝난다."""
+    short_cast = {"characters": GOOD_CHARACTERS["characters"][:4]}
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(), ensure_ascii=False),
+        json.dumps(short_cast, ensure_ascii=False),
+        "not json", "still not json",  # 보충 호출 + repair 모두 실패
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협", "volume_count": 2, "chapters_per_volume": 3})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["used_ai"] is True and body["fallback"] is False
+    assert body["character_count"] == 4
+    assert len(fake_llm["calls"]) == 6
+
+
+def test_bootstrap_stage_events_cover_retry_and_supporting_cast(fake_llm):
+    """on_stage가 characters-retry·권별 조연 단계를 started/done으로 남긴다."""
+    short_cast = {"characters": GOOD_CHARACTERS["characters"][:4]}
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(3, 3), ensure_ascii=False),
+        json.dumps(short_cast, ensure_ascii=False),
+        json.dumps({"characters": [{"name": "보충인물", "role": "조연"}]},
+                   ensure_ascii=False),
+        json.dumps({"characters": [{"name": "일권인", "role": "조연"}]}),
+        json.dumps({"characters": [{"name": "이권인", "role": "조연"}]}),
+        json.dumps({"characters": [{"name": "삼권인", "role": "단역"}]}),
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+    events = []
+
+    async def on_stage(stage, status, label):
+        events.append((stage, status))
+
+    client_obj = bootstrap_service.llm.make_client("http://localhost", None)
+    structure = asyncio.run(bootstrap_service.generate_structure(
+        "무협", None, "웹소설식 긴 제목", 3, 3, client_obj, "test-model",
+        on_stage=on_stage))
+
+    assert [e for e in events if e[1] == "started"] == [
+        ("idea", "started"), ("outline", "started"), ("characters", "started"),
+        ("characters-retry", "started"),
+        ("supporting-cast-volume-1", "started"),
+        ("supporting-cast-volume-2", "started"),
+        ("supporting-cast-volume-3", "started"),
+        ("relations-lore", "started"),
+    ]
+    for stage in ("characters", "characters-retry", "relations-lore",
+                  "supporting-cast-volume-1", "supporting-cast-volume-2",
+                  "supporting-cast-volume-3"):
+        assert (stage, "done") in events
+    merged_names = {c["name"] for c in structure["characters"]}
+    assert "보충인물" in merged_names and len(merged_names) == 5
+
+
+def test_bootstrap_duplicate_names_count_as_short_cast(
+        client, fake_llm, default_endpoint):
+    """1차 응답의 중복 이름은 인원 수에 넣지 않고 보충 호출을 발동한다."""
+    dup_cast = {"characters": GOOD_CHARACTERS["characters"][:4]
+                + [GOOD_CHARACTERS["characters"][0]]}  # 5항목이나 고유 4명
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(), ensure_ascii=False),
+        json.dumps(dup_cast, ensure_ascii=False),
+        json.dumps({"characters": [{"name": "보충인물", "role": "조연"}]}),
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협", "volume_count": 2, "chapters_per_volume": 3})
+    assert resp.status_code == 200, resp.text
+    assert len(fake_llm["calls"]) == 5  # 보충 호출 발동
+    assert resp.json()["character_count"] == 5
+
+
+def test_bootstrap_supplement_failure_emits_failed_stage(fake_llm):
+    """보충 호출 실패는 characters-retry failed 이벤트로 끝난다."""
+    short_cast = {"characters": GOOD_CHARACTERS["characters"][:4]}
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(), ensure_ascii=False),
+        json.dumps(short_cast, ensure_ascii=False),
+        "not json", "still not json",
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+    events = []
+
+    async def on_stage(stage, status, label):
+        events.append((stage, status))
+
+    client_obj = bootstrap_service.llm.make_client("http://localhost", None)
+    structure = asyncio.run(bootstrap_service.generate_structure(
+        "무협", None, "웹소설식 긴 제목", 2, 3, client_obj, "test-model",
+        on_stage=on_stage))
+
+    assert ("characters-retry", "started") in events
+    assert ("characters-retry", "failed") in events
+    assert ("relations-lore", "done") in events  # 이후 단계는 계속 진행
+    assert len(structure["characters"]) == 4
+    assert len(fake_llm["calls"]) == 6
+
+
+def test_bootstrap_full_cast_skips_supplement_call(fake_llm):
+    """인원이 충분하면 보충 호출·characters-retry 단계가 없다."""
+    fake_llm["queue"] = [
+        json.dumps(GOOD_IDEA, ensure_ascii=False),
+        json.dumps(_good_outline(), ensure_ascii=False),
+        json.dumps(GOOD_CHARACTERS, ensure_ascii=False),
+        json.dumps(GOOD_RELLORE, ensure_ascii=False),
+    ]
+    events = []
+
+    async def on_stage(stage, status, label):
+        events.append((stage, status))
+
+    client_obj = bootstrap_service.llm.make_client("http://localhost", None)
+    asyncio.run(bootstrap_service.generate_structure(
+        "무협", None, "웹소설식 긴 제목", 2, 3, client_obj, "test-model",
+        on_stage=on_stage))
+
+    assert len(fake_llm["calls"]) == 4
+    assert all(stage != "characters-retry" for stage, _ in events)
+
+
+def test_bootstrap_prompts_capture_adaptive_story_and_character_design(fake_llm):
+    idea = bootstrap_service._idea_messages(
+        "무협", "몰락한 세가를 재건하는 회귀자", "웹소설식 긴 제목")
+    outline = bootstrap_service._outline_messages(
+        "무협", {"titles": ["세가의 회귀자"], "logline": "세가를 재건한다", "theme": "대가"}, 2, 3)
+    characters = bootstrap_service._characters_messages(
+        "무협", {"titles": ["세가의 회귀자"], "logline": "세가를 재건한다", "theme": "대가",
+                  "protagonist_name": "강진우"}, "1권 개요")
+    relations_lore = bootstrap_service._relations_lore_messages(
+        "무협", {"titles": ["세가의 회귀자"], "logline": "세가를 재건한다", "theme": "대가"},
+        "1권 개요", ["강진우", "서연"])
+
+    all_text = "\n".join(
+        str(message["content"])
+        for messages in (idea, outline, characters, relations_lore)
+        for message in messages
+    )
+    for keyword in (
+        "독자 약속", "결핍", "전문성", "반복 가능한 에피소드",
+        "목표·장애물·선택·결과", "상태 변화", "키워드 목록",
+    ):
+        assert keyword in all_text
+    character_text = "\n".join(str(message["content"]) for message in characters)
+    assert "라이벌 또는 스승" in character_text
+    assert "대가" in character_text
+    assert "관계와 조직" in character_text
 
 
 def test_bootstrap_success_creates_full_structure(client, fake_llm, default_endpoint):
@@ -371,6 +653,38 @@ def test_bootstrap_total_failure_falls_back_with_502(client, fake_llm, default_e
         LoreEntry.project_id == project.id)).all()) == 12
 
 
+def test_bootstrap_stream_hides_unexpected_exception_details(client, monkeypatch):
+    async def fail(*_args, **_kwargs):
+        raise RuntimeError("provider secret should not reach the client")
+
+    monkeypatch.setattr(bootstrap_service, "generate_structure", fail)
+    response = client.post("/api/v1/projects/bootstrap/stream", json={
+        "genre": "판타zia",
+        "use_ai": True,
+    })
+
+    assert response.status_code == 200
+    assert "provider secret should not reach the client" not in response.text
+    assert "작품 생성 중 서버 오류가 발생했습니다." in response.text
+
+
+def test_bootstrap_new_project_chapters_start_with_empty_manuscripts(
+    client, fake_llm
+):
+    response = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "판타지", "premise": "새 작품", "use_ai": False,
+    })
+    assert response.status_code == 200, response.text
+    project_id = response.json()["project_id"]
+    db = _db(client)
+    chapters = db.scalars(
+        select(Chapter).where(Chapter.project_id == project_id)
+    ).all()
+    assert chapters
+    assert all(chapter.content_md == "" for chapter in chapters)
+    assert all(chapter.revision == 0 for chapter in chapters)
+
+
 def test_bootstrap_use_ai_false_skips_llm(client, fake_llm):
     # 엔드포인트 없음 + make_client가 호출되면 즉시 실패하도록 모킹됨
     resp = client.post("/api/v1/projects/bootstrap", json={
@@ -400,6 +714,27 @@ def test_bootstrap_request_validation(client):
     r = client.post("/api/v1/projects/bootstrap",
                     json={"genre": "x", "volume_count": 0})
     assert r.status_code == 422
+
+
+def test_bootstrap_llm_timeout_becomes_ai_error(monkeypatch):
+    """한 LLM 호출이 무한 대기해도 500 대신 부트스트랩 실패 계약으로 변환한다."""
+    calls = 0
+
+    async def never_returns(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(bootstrap_service, "BOOTSTRAP_CALL_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(bootstrap_service.llm, "complete_chat", never_returns)
+
+    async def exercise():
+        with pytest.raises(bootstrap_service.BootstrapAIError, match="시간 초과"):
+            await bootstrap_service._call_json(
+                object(), "test-model", [{"role": "user", "content": "test"}])
+
+    asyncio.run(exercise())
+    assert calls == 1
 
 # --------------------------------------------------------------------------
 # 회귀: 실제 llm.complete_chat 시그니처를 그대로 통과하는 bootstrap 경로
@@ -546,3 +881,14 @@ def test_bootstrap_outline_anchor_summary_has_a_hard_size_cap():
 
     assert len(summary) <= bootstrap_service.OUTLINE_ANCHOR_MAX_CHARS
     assert "목차 앵커 생략" in summary
+
+
+def test_stage_timeout_outline_is_longer():
+    """outline stage는 대용량 JSON 생성이므로 기본보다 긴 timeout을 받는다."""
+    from app.services.bootstrap import (_stage_timeout,
+                                        BOOTSTRAP_CALL_TIMEOUT_SECONDS,
+                                        BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS)
+    assert _stage_timeout("outline") == BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS
+    assert BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS > BOOTSTRAP_CALL_TIMEOUT_SECONDS
+    assert _stage_timeout("idea") == BOOTSTRAP_CALL_TIMEOUT_SECONDS
+    assert _stage_timeout("characters") == BOOTSTRAP_CALL_TIMEOUT_SECONDS

@@ -32,6 +32,12 @@ type FixtureState = {
   holdCanon: boolean;
   qualityRequests: string[];
   failNextWrite: boolean;
+  abruptGenerateStream?: boolean;
+  abruptBootstrapStream?: boolean;
+  unauthorizedBootstrap?: boolean;
+  bootstrapDone?: boolean;
+  assistantPlanRequests: number;
+  assistantPlanHeld?: Route;
 };
 
 const PROJECT_ID = 1;
@@ -225,6 +231,7 @@ async function setupFixture(page: Page): Promise<FixtureState> {
     holdCanon: false,
     qualityRequests: [],
     failNextWrite: false,
+    assistantPlanRequests: 0,
   };
 
   await page.context().route("**/api/v1/**", async (route) => {
@@ -239,6 +246,74 @@ async function setupFixture(page: Page): Promise<FixtureState> {
       });
     const requestBody = () => JSON.parse(route.request().postData() ?? "{}");
 
+    if (
+      method === "POST" &&
+      path === "/projects/bootstrap/stream" &&
+      state.unauthorizedBootstrap
+    ) {
+      return json(401, { detail: "authentication required" });
+    }
+    if (
+      method === "POST" &&
+      path === "/projects/bootstrap/stream" &&
+      state.abruptBootstrapStream
+    ) {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sse([["stage_started", { stage: "idea", label: "발상" }]]),
+      });
+    }
+    if (method === "POST" && path === "/projects/bootstrap/stream") {
+      return route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sse([["done", {
+          project_id: PROJECT_ID,
+          title: "픽스처 작품",
+          logline: "픽스처 로그라인",
+          outline_summary: "개요",
+          character_count: 2,
+          lore_count: 1,
+          chapter_count: 2,
+          volume_count: 1,
+          relationship_count: 0,
+          volume_note_count: 0,
+          first_chapter_id: FIRST_CHAPTER_ID,
+          title_candidates: ["픽스처 작품"],
+          theme: null,
+          used_ai: false,
+          fallback: true,
+        }]]),
+      });
+    }
+    if (method === "POST" && path.match(/^\/projects\/\d+\/assistant\/plan-next$/)) {
+      state.assistantPlanRequests += 1;
+      state.assistantPlanHeld = route;
+      return;
+    }
+    if (method === "POST" && path.match(/^\/projects\/\d+\/assistant\/generate-next$/)) {
+      return json(200, {
+        chapter_id: FIRST_CHAPTER_ID,
+        chapter_title: "1화",
+        content_md: "assistant draft",
+        word_count_cache: 15,
+        revision: FIRST_REVISION,
+        draft_output_id: 77,
+      });
+    }
+    if (method === "POST" && path === "/generation-outputs/77/apply") {
+      return json(200, {
+        output_id: 77,
+        chapter_id: FIRST_CHAPTER_ID,
+        chapter_title: "1화",
+        revision: FIRST_REVISION + 1,
+        outcome: "inserted",
+      });
+    }
+    if (method === "POST" && path === "/generation-outputs/77/outcome") {
+      return json(200, {});
+    }
     if (method === "GET" && path === "/projects") {
       return json(200, [
         {
@@ -359,6 +434,16 @@ async function setupFixture(page: Page): Promise<FixtureState> {
     }
     if (method === "POST" && path === "/ai/generate") {
       state.generateRequests.push(requestBody());
+      if (state.abruptGenerateStream) {
+        return route.fulfill({
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          body: sse([
+            ["start", { model: "gpt-5.6-luna", injected_lore: [], injected_foreshadows: [], injected_outline: null }],
+            ["message", { delta: "partial before backend restart" }],
+          ]),
+        });
+      }
       return route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -575,6 +660,98 @@ async function openLoreAiOnCurrentPage(page: Page, loreTitle: string) {
 
 test.describe
   .serial("AI-context Task3 fixture UI boundaries", () => {
+    test("a bootstrap 401 opens the LAN login gate", async ({ page }) => {
+      const state = await setupFixture(page);
+      state.unauthorizedBootstrap = true;
+      await page.route("**/api/v1/auth/status", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ enabled: true, configured: true }),
+        }),
+      );
+      await page.goto("/");
+      await page.getByRole("button", { name: "✨ AI로 작품 자동 생성" }).click();
+      await page.getByRole("button", { name: "생성하기" }).click();
+      await expect(page.getByRole("heading", { name: "Jippeel" })).toBeVisible();
+      await expect(page.getByRole("form", { name: "LAN 로그인" })).toBeVisible();
+    });
+
+    test("an abruptly closed bootstrap stream ends in error instead of hanging", async ({
+      page,
+    }) => {
+      const state = await setupFixture(page);
+      state.abruptBootstrapStream = true;
+      await page.goto("/");
+      await page.getByRole("button", { name: "✨ AI로 작품 자동 생성" }).click();
+      await expect(page.getByRole("heading", { name: "✨ AI로 작품 자동 생성" })).toBeVisible();
+      await page.getByRole("button", { name: "생성하기" }).click();
+      await expect(page.getByText("스트리밍이 예기치 않게 종료되었습니다.")).toBeVisible();
+      await expect(page.getByText("작품 생성 중")).not.toBeVisible();
+    });
+
+    test("assistant plan action stays single-flight and manuscript is untouched before apply", async ({
+      page,
+    }) => {
+      const state = await setupFixture(page);
+      state.bootstrapDone = true;
+      await page.goto("/");
+      await page.getByRole("button", { name: "✨ AI로 작품 자동 생성" }).click();
+      await page.getByRole("button", { name: "생성하기" }).click();
+      await expect(page.getByText("작품 생성 완료")).toBeVisible();
+      const startPlanning = page.getByRole("button", { name: "생성 시작" });
+      await startPlanning.click();
+      await expect(page.getByRole("button", { name: /계획 분석 중/ })).toBeDisabled();
+      await expect.poll(() => state.assistantPlanRequests).toBe(1);
+      expect(state.chapters.get(FIRST_CHAPTER_ID)?.content_md).toBe(
+        "첫 회차 서버 원고는 본문 opt-out 때 보내면 안 된다.",
+      );
+      await state.assistantPlanHeld?.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          chapter_id: FIRST_CHAPTER_ID,
+          chapter_title: "1화",
+          chapter_revision: FIRST_REVISION,
+          plan_output_id: 76,
+          plan: {
+            chapter_goal: "goal",
+            scenes: [{
+              order: 1,
+              title: "scene",
+              purpose: "purpose",
+              objective: "objective",
+              choice: "choice",
+              cost: "cost",
+              opening_state: "opening",
+              closing_hook: "hook",
+            }],
+          },
+        }),
+      });
+      await expect(page.getByRole("button", { name: "수락하고 집필" })).toBeVisible();
+    });
+
+    test("an abruptly closed generation stream ends in error instead of done", async ({
+      page,
+    }) => {
+      const state = await setupFixture(page);
+      state.abruptGenerateStream = true;
+      await page.goto(`/projects/${PROJECT_ID}/write`);
+      await expect(page.locator(".cm-content")).toBeVisible();
+      await page.locator(".cm-content").click();
+      await page.locator(".cm-content").fill("synthetic backend restart draft");
+      await page.getByRole("button", { name: "AI 패널" }).click();
+      await expect(page.getByText("호출 컨텍스트")).toBeVisible();
+      await page.getByLabel("프롬프트 직접 입력").fill("backend restart synthetic");
+      await page.getByRole("button", { name: "바로 생성" }).click();
+      await expect.poll(() => state.heldWrites.length).toBe(1);
+      await fulfillNextSave(state, FIRST_REVISION + 1);
+      await installStoreHandle(page);
+      await expect.poll(() => page.evaluate(() => (window as any).__aiPanelStore.getState().status)).toBe("error");
+      await expect.poll(() => page.evaluate(() => (window as any).__aiPanelStore.getState().error)).toContain("예기치 않게 종료");
+    });
+
     test("generation waits for flush and sends one complete pre-await snapshot with saved revision", async ({
       page,
     }) => {
@@ -602,8 +779,8 @@ test.describe
         .getByLabel("엔딩 의도")
         .fill("두 인물이 선택의 대가를 받아들이고 끝낸다");
 
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect.poll(() => state.heldWrites.length).toBe(1);
       expect(state.generateRequests).toHaveLength(0);
 
@@ -644,7 +821,7 @@ test.describe
       await expect(page.getByText("호출 컨텍스트")).toBeVisible();
       await page.getByLabel("프롬프트 직접 입력").fill("실패 시 시작 금지");
       state.failNextWrite = true;
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect.poll(() => state.writes.length).toBe(1);
       await expect.poll(() => state.generateRequests.length).toBe(0);
 
@@ -652,7 +829,7 @@ test.describe
       await page.locator(".cm-content").click();
       await page.locator(".cm-content").fill("닫기 취소 원고");
       await page.getByRole("button", { name: "AI 패널" }).click();
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect.poll(() => state.heldWrites.length).toBe(1);
       await page.getByRole("button", { name: "패널 닫기" }).click();
       await fulfillNextSave(state, 5);
@@ -664,7 +841,7 @@ test.describe
       await page.locator(".cm-content").click();
       await page.locator(".cm-content").fill("이동 취소 원고");
       await page.getByRole("button", { name: "AI 패널" }).click();
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect.poll(() => state.heldWrites.length).toBe(1);
       await page.goto("/");
       await fulfillNextSave(state, 6);
@@ -677,7 +854,7 @@ test.describe
       const state = await setupFixture(page);
       await openEditorAndPanel(page);
       await page.getByLabel("프롬프트 직접 입력").fill("origin guard");
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect(page.locator("pre")).toContainText("AI_CONTEXT_UI_DRAFT");
       expect(state.generateRequests).toHaveLength(1);
 
@@ -710,7 +887,7 @@ test.describe
         .getByLabel("프롬프트 직접 입력")
         .fill("preview editor-bound request");
       await page.getByLabel(/현재 회차 본문 포함/).uncheck();
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect(page.locator("pre")).toContainText("AI_CONTEXT_UI_DRAFT");
 
       expect(state.writes).toHaveLength(0);
@@ -830,7 +1007,7 @@ test.describe
       await page
         .getByLabel("프롬프트 직접 입력")
         .fill("one selected should not enable relationships");
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect(page.locator("pre")).toContainText("AI_CONTEXT_UI_DRAFT");
 
       expect(state.generateRequests).toHaveLength(1);
@@ -904,7 +1081,7 @@ test.describe
           [PROJECT_ID, FIRST_CHAPTER_ID],
         ),
       ).toContain("OLD_UNRESOLVED_RECOVERY_DRAFT");
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect(page.locator("pre")).toContainText("AI_CONTEXT_UI_DRAFT");
 
       expect(state.writes).toHaveLength(0);
@@ -945,7 +1122,7 @@ test.describe
 
       await openLoreAiFromProject(page, PROJECT_ID, "왕도 지하실");
       await expectSameRuntimeAndStaleEditor(page, beforeNav);
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect(page.locator("pre")).toContainText("AI_CONTEXT_UI_DRAFT");
 
       expect(state.writes).toHaveLength(0);
@@ -979,7 +1156,7 @@ test.describe
       await navigateToProjectLoreWithRouter(page, SECOND_PROJECT_ID);
       await expectSameRuntimeAndStaleEditor(page, beforeNav);
       await openLoreAiOnCurrentPage(page, "사막 기록고");
-      await page.getByRole("button", { name: "✨ 생성 시작" }).click();
+      await page.getByRole("button", { name: "바로 생성" }).click();
       await expect(page.locator("pre")).toContainText("AI_CONTEXT_UI_DRAFT");
 
       expect(state.writes).toHaveLength(0);

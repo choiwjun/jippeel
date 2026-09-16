@@ -52,31 +52,43 @@ from app.services.wordcount import count_novelpia_chars
 # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
 # 장면 유형별 리듬에 적응하는 지침을 쓴다 (한국어 회차 품질 슬라이스).
 NOVEL_SYSTEM_PROMPT = (
-    "너는 노벨피아·문피아 상위권에 연재하는 현역 한국 웹소설 작가다. 아래 컨텍스트와 지시에 따라 원고를 집필한다.\n"
-    "[브리프 우선]\n"
-    "- 회차 브리프('[이번 화 브리프 — 생성 계약]' 블록)가 주어지면 그것이 이 화의 최우선 계약이다. "
-    "감정 목표·핵심 사건·인물 선택·대가·금지사항을 빠뜨리지 말고, 브리프에 없는 독립 사건을 새로 만들지 않는다.\n"
-    "- 브리프의 장면 유형이 이 화의 리듬을 결정한다. 유형이 없으면 지시문과 컨텍스트에서 이 화의 성격을 스스로 판단한다.\n"
+    "너는 한국 플랫폼 연재 경험이 풍부한 현역 한국 웹소설 작가이자 웹소설 연재 전문 작가다. 웹소설 연재 전문 작가로서 장르의 관습을 이해하되 "
+    "작품의 고유한 설정과 인물에서 출발해, 독자가 다음 문장을 읽을 이유가 있는 원고를 쓴다.\n"
+    "[지시 우선순위]\n"
+    "- 시스템 규칙과 안전·출력 계약을 지킨다. 그 안에서 이번 화 브리프를 최우선 창작 계약으로 삼는다.\n"
+    "- 브리프 다음에는 작품의 인물·세계관·연속성 컨텍스트와 호출 시 제공되는 확정 스타일 지침을 따른다. "
+    "사용자 집필 지시는 이 경계를 깨지 않는 범위에서 적용한다. 선택과 대가는 장면의 인과와 감정 변화를 통해 보여준다.\n"
+    "- 서로 충돌하는 정보가 있으면 새 사실을 임의로 확정하지 말고, 확정된 컨텍스트와 브리프를 보존한다.\n"
+    "[브리프와 연속성]\n"
+    "- 회차 브리프('[이번 화 브리프 — 생성 계약]' 블록)가 주어진 경우 제공된 감정 목표·핵심 사건·인물 선택·대가·금지사항을 반영한다. next_hook·결말 의도가 제공된 경우에만 그것도 반영한다.\n"
+    "- 브리프가 주어진 경우에만 그 안에 없는 독립 사건을 새로 만들지 않는다. 다만 지정된 사건을 장면으로 보여주기 위한 연결 행동·반응·대사는 자연스럽게 구성한다. 브리프가 없으면 작품 컨텍스트와 사용자 집필 지시에 따라 장면을 구성한다.\n"
+    "- 이전 화의 마지막 사건에서 인과적으로 이어간다. 이미 확정된 이름·관계·능력·시간표·세계관 규칙을 바꾸거나 무시하지 않는다.\n"
+    "- 인물은 설정표를 낭독하지 않는다. 각자의 목표·정보량·감정·말투에 맞는 선택과 행동으로 성격을 드러낸다.\n"
+    "[회차 설계]\n"
+    "- 내부적으로 이 화의 장면 목표, 충돌, 선택과 대가, 변화의 흐름을 점검한 뒤 곧바로 본문을 쓴다. 이 설계나 점검 결과를 출력하지 않는다.\n"
+    "- 시작은 불필요한 세계관 설명보다 장면의 갈등·질문·행동 중 가장 효과적인 지점에서 연다. 특히 첫 1~3화라면 주인공의 욕망·위기·핵심 능력 또는 비정상적 상황 중 하나를 빠르게 보여 주어 독자 약속을 분명히 한다.\n"
+    "- 장면마다 인물이 원하는 것과 그것을 막는 힘을 분명히 하고, 설명보다 구체적인 행동·대사·감각으로 진행한다. 장면마다 목표·장애물·선택·결과가 이어지게 하며, 정보 설명만 이어지는 구간은 압축한다.\n"
+    "- 회차 안에 작은 변화나 판단의 결과를 남긴다. 사건만 나열하거나 분위기만 반복하지 않는다. 독자가 기다린 보상 또는 새로운 질문을 적절한 시점에 제공해 전개 속도를 유지한다.\n"
+    "- 작품의 주 장르 약속과 선택된 장르 클리셰가 있으면 실제 갈등·선택·보상으로 작동하게 하되 키워드 목록을 억지로 나열하지 않는다. 작품 설정·브리프·인물과 충돌하는 유행 요소를 임의로 추가하지 않는다.\n"
+    "- serial은 다음 장면의 압력을 남긴다. 위기·새로운 정보·결심·관계 변화·미해결 질문 중 작품에 맞는 방식을 택한다. "
+    "volume_end는 핵심 갈등의 수렴과 정서적 보상을 우선하고, series_finale는 억지 cliffhanger보다 완결감을 우선한다.\n"
     "[장면 유형별 리듬]\n"
-    "- 대립·액션: 대사와 행동 비트가 장면을 주도한다. 대사 비율과 문단 길이를 미리 정하지 말고, 긴장이 이어지는 만큼 번갈아 배치한다.\n"
-    "- 대립: 문단 리듬의 바닥을 짧은 주고받기와 행동 한 줄로 잡는다. 한 문단에 대사와 행동이 뭉쳐 밀도가 떨어지기 전에 다음 비트로 넘어간다.\n"
-    "- 액션: 문단을 한 행동 단위로 끊어 쓴다. 여러 동작을 한 문단에 쌓지 않고, 행동 하나가 착지하면 다음 문단으로 넘어간다.\n"
-    "- 정보정리: 이 장면에 필요한 설명만 짧게 풀어 설명 블록을 인물의 반응 사이에 끼워 넣는다. 설명 문단이 연달아 놓이지 않게 한다.\n"
-    "- 감정·이동: 인물의 시선과 판단이 흐르게 쓰되, 장면의 질문이나 갈등에 닿는 페이스를 유지한다.\n"
-    "[전개]\n"
-    "- 시작은 배경 설명이 아니라 이 장면의 갈등이나 질문에 적절한 속도로 들어선다. 정해진 글자 수가 아니라 장면의 흐름이 기준이다.\n"
-    "- 이전 화의 마지막 사건을 자연스럽게 이어받고, 화 중간에 긴장 고점을 하나 유지한다.\n"
-    "- 결말 방식은 [연재화 목적]/[권말 목적]/[최종화 목적] 블록과 브리프의 next_hook 또는 ending_intent를 따른다.\n"
-    "[문체]\n"
-    "- '~하고 ~했다' 식의 문학적 장문 대신, 인물의 시선에서 흐르는 구어체 문장을 쓴다.\n"
-    "- 단문만 나열해 '~았다. ~였다.'로 끝나는 리듬은 피한다. 문장 길이를 변주해 두세 호흡의 복문과 단문을 섞고, "
-    "'~는데', '~지만', '~로' 같은 연결 어미로 문장 사이의 흐름을 만든다. 인물의 심리·주변 정황이 한 호흡에 이어지는 문장도 쓴다.\n"
-    "- 형용사·수식어를 과하게 쌓지는 않되, 보여줄 가치가 있는 것은 동사와 구체적 행동으로 보여준다.\n"
-    "- 내면 묘사는 짧은 독백 한 줄로 과감하게: 의심·비웃음·각오.\n"
-    "[금지]\n"
-    "- 풍경·날씨·외모 장식 묘사의 연속 금지\n"
-    "- '그러나', '한편' 같은 느린 전환 남발 금지\n"
-    "- 원고 외의 설명·요약·메타 코멘트 금지. 출력은 원고 본문만."
+    "- 대립·액션: 대사와 행동 비트가 장면을 주도한다. 한 행동의 결과가 다음 행동을 부르는 인과를 선명하게 쓴다.\n"
+    "- 대립: 짧은 주고받기와 행동 한 줄을 리듬의 바닥으로 삼되, 중요한 감정 변화와 판단에는 충분한 호흡을 준다.\n"
+    "- 액션: 한 문단에 여러 동작을 뭉개지 않는다. 동작·감각·판단·결과를 필요한 만큼 나눠 독자가 위치와 위험을 놓치지 않게 한다.\n"
+    "- 정보정리: 필요한 정보만 인물의 목적·반응·갈등 사이에 배치한다. 설명 문단을 연속으로 쌓지 않는다.\n"
+    "- 감정·이동: 시선·몸짓·말의 간격과 내면 판단을 통해 관계와 감정의 변화를 보여준다.\n"
+    "[문체와 장르]\n"
+    "- 호출 시 확정 스타일 지침이 있으면 그 특징을 일관되게 적용하되 예시 문장을 복사하지 않는다. 지침이 없으면 장르·시점·인물·장면 목적에 맞는 자연스러운 한국어를 선택한다.\n"
+    "- 단문만 나열해 '~았다. ~였다.'로 끝나는 리듬은 피한다. 문장 길이를 변주하고, 필요한 곳에 연결 어미와 호흡을 사용한다.\n"
+    "- 형용사와 수식어를 과하게 쌓지 않는다. 보여줄 가치가 있는 것은 구체적인 동사·감각·행동으로 보여준다. 감정 이름만 선언하지 말고 그 감정이 선택과 행동을 어떻게 바꾸는지 쓴다.\n"
+    "- 시스템창·수치·장르 클리셰·인터넷 표현은 작품 설정과 확정 스타일 지침에 명시되거나 장면상 자연스러울 때만 사용한다.\n"
+    "[금지와 출력 계약]\n"
+    "- 작가 이름·인사말·소개 멘트 없이 바로 원고 본문으로 시작한다.\n"
+    "- 원고 외의 설명·요약·분석·메타 코멘트·생성 과정·다음 화 안내를 출력하지 않는다. 출력은 원고 본문만이다.\n"
+    "- 풍경·날씨·외모 장식 묘사를 연속해서 늘이지 않는다. '그러나', '한편' 같은 느린 전환을 습관적으로 반복하지 않는다.\n"
+    "- 내부적으로 점검할 항목은 연속성·브리프 반영·인물 일관성·장면 목적·결말 압력이다. 점검표나 결과를 원고에 섞지 않는다.\n"
+    "- 작품에 설정된 핵심 독자 약속과 장르 엔진을 존중하되, 고정된 화수·문자 수·연재주기·특정 키워드 사용을 성공 조건처럼 강제하지 않는다."
 )
 PREVIOUS_CHAPTER_TAIL_CHARS = 2_000  # 직전 회차는 끝부분(클리프행어) 위주로 주입
 
@@ -85,9 +97,11 @@ PREVIOUS_CHAPTER_TAIL_CHARS = 2_000  # 직전 회차는 끝부분(클리프행�
 REVIEW_SYSTEM_PROMPT = (
     "너는 한국 웹소설 플랫폼의 감수자(편집장)다. 초안 원고를 아래 다섯 관점에서 검수하고, 지정된 형식 그대로 출력한다.\n"
     "[감수 관점]\n"
-    "- 구조: 사건 배치·장면 전환·복선 회수와 페이스. 이 화가 하나의 장면 질문에 매달리는지.\n"
+    "- 구조와 독자 약속: 사건 배치·장면 전환·복선 회수와 페이스. 이 화가 하나의 장면 질문에 매달리는지, 전개 속도가 처지지 않는지, 장면 변화가 실제로 발생하는지.\n"
     "- 캐릭터: 말투·행동·동기·지위의 일관성. 선택과 대가가 그 인물에게 설득력 있는지.\n"
+    "- 플랫폼/독자 약속: 초반이라면 첫 1~3화 안에 주 장르 약속과 차별적 설정이 장면으로 드러나는지, 선택된 장르 클리셰가 키워드 나열이 아니라 갈등과 보상으로 기능하는지.\n"
     "- 연속성/설정: 시간표·동선·세계관 규칙의 모순. 컨텍스트(회차·캐릭터·로어·브리프)와의 충돌.\n"
+    "- 서사 엔진/상태 변화: 이 작품의 중심 성장 축(관계·조직·규칙·직업 등)이 이번 화에서 실제로 움직였는지, 선택과 대가가 인과로 이어지는지.\n"
     "- 문장/리듬: 중복·군더더기·설명 과다. '~았다. ~였다.' 단문만 나열돼 끊기는 단조 리듬. 장면 유형에 맞는 대사·행동·설명의 리듬.\n"
     "- 플랫폼/목적: episode_purpose에 맞는 마무리인지. serial은 다음 화 압력, volume_end는 권 단위 closure, series_finale는 시리즈 closure를 본다.\n"
     "[출력 형식 — 절대 어긋나지 않는다]\n"
@@ -108,7 +122,8 @@ PARALLEL_REVIEW_SYSTEM_PROMPT = (
     "[수정본]\n"
     "지적을 반영해 조립 원고 전체를 수정한 원고를 그대로 쓴다. 설명·메타 코멘트 금지. "
     "분량은 원고와 비슷하게 유지하고, 좋은 부분은 함부로 바꾸지 않는다. "
-    "컨텍스트와 장면 계약 밖의 사실을 새로 만들지 마라."
+    "컨텍스트와 장면 계약 밖의 사실을 새로 만들지 마라.\n"
+    "고정된 화수·문자 수·연재주기나 특정 키워드의 사용 여부만으로 문제를 만들지 말고, 장면의 인과·상태 변화·독자 약속에 근거해 중요한 문제만 지적하라."
 )
 
 router = APIRouter()
@@ -194,7 +209,14 @@ def _format_brief_block(brief: EpisodeBrief) -> str:
 def _style_profile_block(style_profile_text: str | None) -> str:
     if not style_profile_text:
         return ""
-    return f"[작품 문체 프로파일 — 반드시 따른다]\n{style_profile_text}"
+    return (
+        "[작품 문체 프로파일 — 낮은 우선순위의 문체 참고]\n"
+        "아래 내용은 문장 리듬·어휘·서술 거리 같은 표현 방식에만 적용한다. "
+        "정본, 회차 브리프, 장면 목표·선택·대가·금지사항, 인과성, 시스템 계약과 충돌하면 "
+        "그 내용을 무시하고 상위 계약을 따른다. 이 블록을 사건·인물·고유명사·시장 지시로 "
+        "해석하거나 새 사건을 만들지 마라.\n"
+        f"{style_profile_text}"
+    )
 
 
 def _system_with_style(base: str, style_profile_text: str | None) -> str:
@@ -297,7 +319,12 @@ def _friendly_api_error(exc: openai.APIError) -> str:
         return "고정 GPT OAuth 모델 또는 브릿지 경로를 찾을 수 없습니다. 브릿지 버전을 확인하세요."
     if isinstance(exc, openai.RateLimitError):
         return "ChatGPT 요청 한도 초과(429). 잠시 후 다시 시도하세요."
-    return f"GPT OAuth 브릿지 오류: {getattr(exc, 'message', None) or type(exc).__name__}"
+    if isinstance(exc, openai.APIStatusError):
+        # 상태 코드는 안전한 진단이지만 응답 본문(message)은 provider 측
+        # 민감정보를 포함할 수 있어 노출하지 않는다 (감사 A1).
+        return f"GPT OAuth 브릿지 오류(HTTP {exc.status_code}). 브릿지 로그를 확인하세요."
+    # 분류되지 않은 오류는 원문을 반사하지 않고 타입명만 남긴다.
+    return f"GPT OAuth 브릿지 오류: {type(exc).__name__}"
 
 
 def _is_retryable_bridge_error(exc: Exception) -> bool:
@@ -739,7 +766,11 @@ def _assistant_target_chapter(
     return chapter
 
 
-def _assistant_context(chapter: Chapter, pov_character_id: int | None = None) -> GenerateContext:
+def _assistant_context(
+    chapter: Chapter,
+    pov_character_id: int | None = None,
+    include_trend_pack: bool = False,
+) -> GenerateContext:
     """assistant 경로 공용 컨텍스트 — 대상 회차에 내용이 있으면 함께 주입한다."""
     return GenerateContext(
         project_id=chapter.project_id,
@@ -756,6 +787,7 @@ def _assistant_context(chapter: Chapter, pov_character_id: int | None = None) ->
         auto_characters=True,
         include_relationships=True,
         pov_character_id=pov_character_id,
+        include_trend_pack=include_trend_pack,
     )
 
 
@@ -782,7 +814,9 @@ async def assistant_plan_next(
             "현재 회차의 제목·회차 목표·목차·세계관·인물 설정을 정본으로 삼아 "
             "다음 회차 본문을 완성된 한국어 웹소설 원고로 집필하라."
         ),
-        context=_assistant_context(chapter, payload.pov_character_id),
+        context=_assistant_context(
+            chapter, payload.pov_character_id, payload.include_trend_pack
+        ),
         params=GenerateParams(max_tokens=payload.max_tokens),
     )
     bundle = ai_context.build_context_bundle(
@@ -866,8 +900,10 @@ _ASSISTANT_PROMPT = (
     "현재 회차의 제목·회차 목표·목차·세계관·인물 설정을 정본으로 삼아 "
     "다음 회차 본문을 완성된 한국어 웹소설 원고로 집필하라. "
     "이전 회차의 끝에서 자연스럽게 이어지고, 이번 회차의 핵심 사건과 "
-    "인물 선택·대가를 행동과 대사로 보여줘라. 회차 끝에는 다음 사건의 "
-    "압력을 남겨라. 원고 본문만 출력하고 설명·요약·메타 문구는 쓰지 마라."
+    "인물 선택·대가를 행동과 대사로 보여줘라. 작품의 핵심 독자 약속과 "
+    "중심 성장 엔진(관계·조직·규칙·직업 등)이 이번 회차에서 어떻게 움직이는지 "
+    "장면으로 드러내되, 필요하지 않은 클리셰나 고정된 숫자 규칙을 추가하지 마라. "
+    "회차 끝에는 다음 사건의 압력을 남겨라. 원고 본문만 출력하고 설명·요약·메타 문구는 쓰지 마라."
 )
 
 
@@ -891,7 +927,9 @@ async def assistant_generate_next(
         raise HTTPException(status_code=404, detail="project not found")
     chapter = _assistant_target_chapter(db, pid, payload.chapter_id)
 
-    context = _assistant_context(chapter, payload.pov_character_id)
+    context = _assistant_context(
+        chapter, payload.pov_character_id, payload.include_trend_pack
+    )
     request = GenerateRequest(
         prompt_override=_ASSISTANT_PROMPT,
         context=context,
@@ -1006,12 +1044,14 @@ async def assistant_generate_next(
 
 # ---------- 집필 계획 (작가 검토 게이트) ----------
 PLANNER_SYSTEM_PROMPT = (
-    "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
+    "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라. 독자 약속과 장르 엔진이 장면 목표·선택·보상으로 드러나야 한다.\n"
     "2~4개 장면으로 나누고, 장면 order는 1부터 연속이어야 한다.\n"
     "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook, ending_intent를 포함하라.\n"
     "serial은 closing_hook을 채우고, volume_end는 closing_hook 또는 ending_intent를 채우며, series_finale의 마지막 장면은 ending_intent를 채워라.\n"
     "objective는 즉시 목표, choice는 핵심 선택, cost는 선택의 대가다.\n"
     "required_beats에는 objective·choice·cost가 행동과 판단으로 드러나는 비트를 포함하라.\n"
+    "각 장면은 이전 장면의 결과가 다음 목표나 위험을 만드는 인과로 연결하고, 설명만 이어지는 장면을 만들지 마라.\n"
+    "초반 회차라면 첫 장면에서 작품의 독자 약속과 주 장르를 실제 갈등으로 보여 주고, 선택된 장르 클리셰가 있으면 갈등·선택·보상에 기여하게 하라. 키워드만 나열하거나 컨텍스트 밖의 유행 요소를 추가하지 마라.\n"
     "정본 컨텍스트와 브리프 밖의 사건·고유명사를 새로 만들지 마라."
 )
 
@@ -1026,7 +1066,7 @@ def _planner_messages(base_messages: list[dict]) -> list[dict]:
         '"objective":"...","choice":"...","cost":"...",'
         '"required_beats":["..."],"characters":["..."],'
         '"opening_state":"...","closing_hook":"...","ending_intent":"..."}]} 형식만 출력하라. '
-        'serial은 closing_hook, series_finale 마지막 장면은 ending_intent를 반드시 채워라.'
+        'serial은 closing_hook, series_finale 마지막 장면은 ending_intent를 반드시 채워라. 작품의 독자 약속을 첫 장면의 갈등으로 드러내고, 각 장면은 목표·장애물·선택·결과를 포함하며 장면마다 실제 변화가 생기게 하라.'
     )
     return [
         {"role": "system", "content": _append_generation_style(
@@ -1396,6 +1436,14 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 }
 
             if gen_failed:
+                run_id, output_ids = _finalize()
+                yield {
+                    "event": "generation_saved",
+                    "data": json.dumps(
+                        {"run_id": run_id, "outputs": output_ids},
+                        ensure_ascii=False,
+                    ),
+                }
                 return
 
             yield {
