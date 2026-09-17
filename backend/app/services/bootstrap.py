@@ -12,7 +12,6 @@
   3. Project + Chapter + Character + Relationship + LoreEntry를
      단일 트랜잭션으로 bulk insert
 """
-import asyncio
 import json
 import logging
 import time
@@ -35,30 +34,23 @@ OUTLINE_ANCHOR_MAX_CHARS = 12_000
 _OUTLINE_ANCHOR_TITLE_MAX_CHARS = 200
 _OUTLINE_ANCHOR_FIELD_MAX_CHARS = 600
 
-# OAuth bridge가 한 요청을 끝내지 못해 전체 bootstrap을 붙잡지 않도록 한다.
-# JSON 형식 오류는 기존처럼 1회 repair하지만, transport timeout은 즉시
-# BootstrapAIError로 변환해 라우터의 fallback/502 계약을 사용한다.
-# xhigh 추론 모델에서 3권×10화 목차 생성이 ~360초 걸리는 것을 실측으로
-# 확인해 여유를 둔다. 대용량 outline은 더 크게 잡는다.
-BOOTSTRAP_CALL_TIMEOUT_SECONDS = 300.0
-BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS = 800.0
+# 생성 시간은 provider/model의 추론 속도에 따라 달라진다. bootstrap은 SSE
+# 단계 이벤트와 transport heartbeat로 진행 상태를 알리므로 애플리케이션
+# 레벨에서 유효한 장시간 호출을 임의로 끊지 않는다.
+# 기존 상수 이름은 외부 호출자·테스트와의 호환을 위해 남기되, 더 이상
+# asyncio.wait_for의 제한값으로 사용하지 않는다.
+BOOTSTRAP_CALL_TIMEOUT_SECONDS = None
+BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS = None
+_STAGE_TIMEOUTS: dict[str, None] = {}
 
-# stage별 timeout override — 대용량 JSON 생성 단계는 더 길게 잡는다.
-# 10권×10화=100회차 목차를 xhigh로 요청하면 ~380초가 걸리므로 600초로 둔다.
-_STAGE_TIMEOUTS: dict[str, float] = {
-    "outline": BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS,
-    "relations-lore": BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS,
-}
-
-# outline·relations-lore stage는 대용량 JSON 생성이라 timeout을 더 길게 잡는다.
-# xhigh 유지 시 100회차 outline ~380초, 12,900자 relations-lore ~300초+.
-# 800초로 충분히 여유를 둔다.
-OUTLINE_REASONING_EFFORT = None  # provider 기본값(xhigh) 사용
-RELATIONS_LORE_REASONING_EFFORT = None  # provider 기본값(xhigh) 사용
+# 부트스트랩은 구조화 JSON을 최소 4회 순차 생성하므로 provider 기본 xhigh를
+# 그대로 쓰면 첫 단계부터 수분 이상 지연될 수 있다. 전용 강도는 유지한다.
+BOOTSTRAP_REASONING_EFFORT = "high"
 
 
-def _stage_timeout(stage: str) -> float:
-    return _STAGE_TIMEOUTS.get(stage, BOOTSTRAP_CALL_TIMEOUT_SECONDS)
+def _stage_timeout(stage: str) -> None:
+    """호환용 accessor — bootstrap stage에는 애플리케이션 timeout이 없다."""
+    return None
 
 LORE_CATEGORIES = ("용어", "장소", "세력", "기타")
 
@@ -107,30 +99,21 @@ async def _call_json(client, model: str, messages: list[dict],
     재시도용 prompt를 보내지 않고 즉시 명시적인 bootstrap 오류로 변환한다.
     """
     raw = ""
-    timeout = _stage_timeout(stage)
     started = time.monotonic()
     try:
-        logger.info("bootstrap LLM call start: stage=%s timeout=%ss", stage,
-                    timeout)
-        raw = await asyncio.wait_for(
-            llm.complete_chat(client, model, messages,
-                              reasoning_effort=reasoning_effort),
-            timeout=timeout,
-        )
+        logger.info("bootstrap LLM call start: stage=%s", stage)
+        raw = await llm.complete_chat(
+            client, model, messages, reasoning_effort=reasoning_effort)
         logger.info("bootstrap LLM call complete: stage=%s elapsed=%.1fs",
                     stage, time.monotonic() - started)
         return _extract_json(raw)
-    except asyncio.TimeoutError as exc:
-        logger.error("bootstrap LLM call timed out: stage=%s timeout=%ss", stage,
-                     timeout)
-        raise BootstrapAIError(
-            f"AI 호출 시간 초과({stage}, {timeout:g}초)") from exc
     except openai.APITimeoutError as exc:
         logger.error("bootstrap provider timed out: stage=%s", stage)
         raise BootstrapAIError(
             f"AI provider 시간 초과({stage})") from exc
     except (openai.APIError, ValueError, json.JSONDecodeError) as first_err:
-        logger.warning("bootstrap JSON 1차 시도 실패: %s", first_err)
+        logger.warning("bootstrap JSON 1차 시도 실패: stage=%s error=%s", stage,
+                       type(first_err).__name__)
         repaired_messages = list(messages) + [
             {"role": "assistant", "content": raw if isinstance(raw, str) else "(응답 없음)"},
             {"role": "user",
@@ -139,28 +122,22 @@ async def _call_json(client, model: str, messages: list[dict],
         ]
         repair_started = time.monotonic()
         try:
-            logger.info("bootstrap LLM repair start: stage=%s timeout=%ss", stage,
-                        timeout)
-            raw = await asyncio.wait_for(
-                llm.complete_chat(
-                    client, model, repaired_messages,
-                    reasoning_effort=reasoning_effort),
-                timeout=timeout,
-            )
+            logger.info("bootstrap LLM repair start: stage=%s", stage)
+            raw = await llm.complete_chat(
+                client, model, repaired_messages,
+                reasoning_effort=reasoning_effort)
             logger.info("bootstrap LLM repair complete: stage=%s elapsed=%.1fs",
                         stage, time.monotonic() - repair_started)
             return _extract_json(raw)
-        except asyncio.TimeoutError as exc:
-            logger.error("bootstrap LLM repair timed out: stage=%s timeout=%ss", stage,
-                         timeout)
-            raise BootstrapAIError(
-                f"AI 재시도 시간 초과({stage}, {timeout:g}초)") from exc
         except openai.APITimeoutError as exc:
             logger.error("bootstrap provider timed out during repair: stage=%s", stage)
             raise BootstrapAIError(
                 f"AI provider 시간 초과({stage})") from exc
         except (openai.APIError, ValueError, json.JSONDecodeError) as second_err:
-            raise BootstrapAIError(f"JSON 재시도 실패: {second_err}") from second_err
+            logger.error("bootstrap JSON repair failed: stage=%s error=%s",
+                         stage, type(second_err).__name__)
+            raise BootstrapAIError(
+                f"AI 응답 형식 오류({stage}) — 재시도도 실패했습니다") from second_err
     finally:
         usage_service.record(
             kind="bootstrap", model=model, endpoint_name=None,

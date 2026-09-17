@@ -49,9 +49,12 @@ elif port_up "$BACKEND_PORT"; then
    echo "       movestudio 등 다른 프로젝트의 서버일 수 있으니 확인 후 정리하세요."
 else
    echo "[backend] uvicorn 기동..."
+   # 윤문 스텁: prod.sh와 동일 — Windows python.exe라 cmd에 cp가 없어
+   # PowerShell Copy-Item을 쓰고, WSLENV로 두 변수를 Windows에 전달한다.
    (cd "$PROJ/backend" && setsid nohup env \
-      IM_NOT_AI_DIAGNOSE_CMD='cp {input} {diagnosis}' \
-      IM_NOT_AI_REFINE_CMD='cp {input} {output}' \
+      IM_NOT_AI_DIAGNOSE_CMD='powershell -NoProfile -Command "Copy-Item -LiteralPath {input} -Destination {diagnosis}"' \
+      IM_NOT_AI_REFINE_CMD='powershell -NoProfile -Command "Copy-Item -LiteralPath {input} -Destination {output}"' \
+      WSLENV="IM_NOT_AI_DIAGNOSE_CMD:IM_NOT_AI_REFINE_CMD${WSLENV:+:$WSLENV}" \
       .venv/Scripts/python.exe -m uvicorn app.main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" \
       >"$LOG_DIR/backend.log" 2>&1 </dev/null &)
    for i in $(seq 1 30); do

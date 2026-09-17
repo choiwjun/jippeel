@@ -1,6 +1,101 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
-## 현재 작업 기준 — 2026-09-14
+## 최신 인계 요약 — 2026-09-16 (trend_pack 통합·SSE 완료 계약·전체 검증)
+
+> **상세 현재 상태의 단일 기준:** [`docs/handoffs/2026-09-08-remaining-work.md`](docs/handoffs/2026-09-08-remaining-work.md)
+>
+> 아래 이전 기록 중 완료·잔여 판정이 최신 기준 문서와 다르면 최신 기준 문서를 우선한다. 이번 인계에서 운영 DB, 실제 provider 재호출, remote push는 수행하지 않았다.
+
+### 2026-09-16 소설 생성 timeout 제거·heartbeat 전환
+
+- 사용자 승인 후 소설 생성 중 응답 제한시간으로 GPT 호출이 끊기지 않도록 장시간 생성 경로를 수정했다. 실제 GPT/provider 호출과 운영 DB 변경은 하지 않았다.
+- `backend/app/services/llm.py`: 기존 `make_client(base_url, key)` 호출 표면과 일반/legacy 호출의 `REQUEST_TIMEOUT=600초`를 유지하고, 명시적인 `make_long_running_client()`만 `timeout=None`을 사용한다. 따라서 plan·assistant·style analysis·legacy compatibility 등 비대상 호출까지 무제한화하지 않는다.
+- `backend/app/services/bootstrap.py`: `_call_json()`의 `asyncio.wait_for()`를 제거했다. `BOOTSTRAP_CALL_TIMEOUT_SECONDS`·`BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS`·`_stage_timeout()`은 호환용 `None`으로 남겼고, JSON 형식 오류 repair와 provider `APITimeoutError` 오류 계약은 유지했다.
+- bootstrap은 기존 bounded `BOOTSTRAP_REASONING_EFFORT="high"` 계약을 유지한다. SSE/일반 bootstrap 모두 전용 long-running client를 사용한다.
+- `backend/app/routers/ai_panel.py`: `/ai/generate`, `/ai/generate-parallel`, `/ai/review`에 `_with_generation_heartbeat()`를 적용했다. 15초마다 콘텐츠를 포함하지 않는 `{stage, elapsed_seconds}` 상태 이벤트를 보낸다. client disconnect 시 provider iterator와 client를 정리한다.
+- 장시간 생성 동시 실행은 전역 semaphore 4개로 제한한다. 대기 중에도 `stage="queued"` heartbeat를 보내며, 취소 시 대기 task도 정리한다.
+- `backend/app/routers/projects.py`: bootstrap SSE에도 stage별 상태 heartbeat와 `EventSourceResponse(ping=15)`를 추가했다. bootstrap client는 정상 종료·오류·disconnect에서 닫힌다.
+- frontend: `frontend/src/lib/aiStream.ts`가 heartbeat를 파싱하고, `aiPanelStore`·`AiPanel.tsx`가 일반/병렬 생성 모두 연결 상태와 경과 시간을 표시한다. `BootstrapDialog.tsx`도 bootstrap heartbeat를 표시한다. `done` 없는 EOF는 기존대로 오류다.
+- 회귀 테스트: `backend/tests/test_generation_heartbeat.py` 신규, `test_ai_generate_stream.py` 느린 provider heartbeat, `test_bootstrap_api.py` 장시간 대기·timeout 비활성 계약을 추가/갱신했다.
+- 검증: 지정 runner로 관련 backend **65 passed**, `isolation violations=0`, `subprocess_attempts=0`; frontend `tsc -b && vite build` 통과; focused Playwright bootstrap 401 테스트 **1 passed**; 대상 diff `git diff --check` 통과.
+- 독립 `qa-review`에서 지적된 전역 timeout 영향, client cleanup, bootstrap reasoning drift, 일반 생성 heartbeat UI 누락을 수정 후 위 검증을 재실행했다.
+- 현재 상태: 관련 코드는 **uncommitted**다. commit/stage/push는 수행하지 않았다. 운영 backend/OAuth bridge는 임의로 중지하지 않았다.
+
+### 2026-09-16 웹소설 생성 페르소나·프롬프트 고도화
+
+- `backend/app/routers/ai_panel.py::NOVEL_SYSTEM_PROMPT`를 긴 프롬프트 원문 통합 대신 계층형 공통 계약으로 보강했다. 시스템/안전·출력 계약 → 이번 화 브리프 → 인물·세계관·연속성 → 호출 시 확정 스타일 지침 순서를 명시한다.
+- 장면 목표·충돌·선택과 대가·변화, 인과적 연결, 인물의 목표/정보량/말투, 장면 유형별 리듬을 포함했다. `serial`은 다음 장면의 압력, `volume_end`는 권말 수렴·정서 보상, `series_finale`는 억지 클리프행어보다 완결감을 우선한다.
+- 브리프 밖 독립 사건·근거 없는 설정 변경·작가 인사말·요약·분석·생성 과정·다음 화 안내를 금지하고 원고 본문만 출력하도록 명시했다. 모델 내부 점검 항목은 출력하지 않는다.
+- 작품 문체 프로파일은 기존처럼 선택적으로 주입한다. 항상 존재하는 공통 프롬프트에서 프로파일이 적용됐다고 가정하지 않아 `style_profile=false` 계약을 보존했다.
+- `test_ai_generate_stream.py`에 새 계약 회귀 assertion을 TDD로 추가했다. 구현 전 RED를 확인한 뒤 focused **29 passed**, 관련 회귀 **44 passed**, 전체 backend **897 passed / 1 skipped / 70 subtests / violations 0**, frontend `npm run build`(`tsc -b` + Vite) 통과.
+- 후속 검토에서 확인된 두 조건부 계약 결함을 수정했다. 회차 브리프가 제공된 경우에만 브리프 밖 독립 사건을 제한하고, 브리프가 없으면 작품 컨텍스트와 사용자 집필 지시에 따라 장면을 구성한다. `next_hook`·결말 의도는 제공된 경우에만 반영하도록 명시했다. 회귀 테스트가 두 조건과 기존 무조건 문구의 부재를 고정한다. 수정 후 focused **29 passed**, 관련 회귀 **44 passed**, isolation `violations: []`; 실제 provider 호출·운영 DB·commit·push는 수행하지 않았다.
+
+### 2026-09-15 잔여 3건 수정 및 LAN auth 검증
+
+- **`ai_panel` provider 오류 민감정보 노출(감사 A1):** `_friendly_api_error`의 fallback이 `exc.message` 원문을 반사하던 것을 수정. `APIStatusError`는 상태 코드만 노출하고 응답 본문을 숨기며, 분류되지 않은 오류는 타입명만 남긴다. `test_ai_panel_api.py`에 sentinel 회귀 테스트 2건 추가.
+- **auto-backup 경로 오류:** `_sqlite_file_from_url`이 `sqlite:///./jippeel.db`를 `urlparse` 결과 `/./jippeel.db`로 해석해 Windows에서 `C:\jippeel.db`로 잘못 잡던 버그 수정. `make_url().database`를 우선 사용해 SQLAlchemy 엔진과 동일하게 cwd 기준 상대경로로 해석한다. `test_database_pragmas.py`에 회귀 테스트 3건 추가.
+- **frontend 로그인 UI + 401 처리:** `src/lib/auth.ts`(zustand 스토어: status/login/logout/requireLogin), `src/components/auth/LoginGate.tsx`(전체 화면 로그인 폼) 신규. `api.ts` `request`와 `aiStream.ts` `streamRequest` 모두 401 수신 시 `notifyUnauthorized()`로 로그인 화면을 연다. TopBar에 auth 활성 시 로그아웃 버튼 추가. `App.tsx`에 `LoginGate` 래핑. 비활성(기본 로컬 dev)이면 무간섭 통과.
+- **LAN auth 로그인 플로우 실 HTTP 검증:** 합성 TEMP SQLite + 합성 자격증명, 포트 18099에서 7단계 검증 — `/health` 무인증 200, `/auth/status` enabled, 미인증 API 401, 잘못된 PW 401, 로그인 성공 200+쿠키, 인증 후 API 200, 로그아웃 후 401 복귀.
+- 격리 backend 전체 검증: **897 passed / 1 skipped / 70 subtests / violations 0**, frontend `tsc -b` + `vite build` 통과. `npm run typecheck`라는 별도 script는 없으며 `npm run build`가 `tsc -b`와 Vite build를 함께 실행한다.
+
+### 2026-09-16 bootstrap timeout·단계 제어 보강
+
+- `backend/app/services/bootstrap.py`에서 OpenAI SDK `APITimeoutError`를 일반 `APIError`보다 먼저 처리했다. 최초 호출과 JSON repair 호출 모두 transport timeout을 즉시 `BootstrapAIError("AI provider 시간 초과(...)")`로 변환하며, timeout 때문에 repair를 추가 호출하지 않는다.
+- 3권 이상 supporting-cast는 권별 독립 호출이므로 한 권 timeout/failure는 `stage_failed` 이벤트 후 다음 권과 `relations-lore`로 진행한다. 새 회귀 테스트가 최초 timeout 1회 호출, repair timeout 2회 호출, 한 권 timeout 후 AI 결과 보존을 고정한다.
+- 운영 확인: `scripts/prod.sh`는 기존 backend가 실행 중이라고 보고했고, `curl.exe http://127.0.0.1:8000/health`는 200 `{"status":"ok"}`, frontend `/`는 200이었다. Windows listener는 `0.0.0.0:8000` PID 22608으로 확인했다. stale WSL uvicorn wrapper 229362·1113449·1467881은 종료하고 최신 wrapper 1711615만 유지했다.
+- 명백한 생성물 `backend/.coverage`, `frontend/tsconfig.tsbuildinfo`, 루트 `jippeel.db-shm`·`jippeel.db-wal`만 삭제했으며 운영 DB sidecar·백업·감사 자료·작업 디렉터리는 보존했다.
+- 실제 provider/운영 DB 호출은 하지 않았다.
+
+### 2026-09-16 bootstrap 캐릭터 보충 호출·단계 이벤트 보강
+
+- `generate_structure`의 캐릭터 인원 부족 재시도를 전체 재생성에서 누락 인물 보충 호출로 변경했다. 기존 인물을 assistant 메시지로 보존해 부족분(6-기존 수)만 요청하고 이름 중복 제거로 병합한다. 보충 호출 실패는 기존 캐스트 유지 + `stage_failed`로 끝나 전체 폴백으로 번지지 않는다. 인원 판정은 고유 name 기준(독립 검토 MED 반영 — 1차 응답의 중복 이름을 인원으로 세지 않는다).
+- SSE: `characters-retry` 단계에 `started`/`done`/`failed` 이벤트를 추가했다. `supporting-cast-volume-N` 이벤트는 이미 발행 중이며 `BootstrapDialog`는 stage 이름 무관하게 렌더링한다.
+- `_call_json`의 최초·repair `complete` 로그에 `elapsed=%.1fs`를 추가해 단계별 실제 소요시간을 운영 로그에 남긴다(기존에는 시작·완료만 기록돼 어느 호출이 오래 걸렸는지 확정 불가였다).
+- 회귀 테스트 7건 추가(보충 병합·프롬프트, 이름 dedupe, 중복 이름 인원 판정, 보충 실패 시 부분 캐스트 유지·`failed` 이벤트, 단계 이벤트 순서, 충분 인원 시 보충 없음). 독립 검토 PASS_WITH_NOTES — MED 1건 수정 반영. **검증: 지정 backend runner 904 passed / 1 skipped / 70 subtests / violations 0.** 실제 provider 호출·운영 DB·commit·push는 수행하지 않았다.
+
+### 2026-09-16 윤문 파이프라인 Windows 인터프리터·스텁 명령 수정
+
+- `backend/app/services/humanize.py`의 보조 스크립트 호출 3곳(metrics shim, 진단 결합 shim, 게이트 검증)을 하드코딩 `python3`에서 `sys.executable`로 변경했다. 운영 백엔드는 Windows `.venv/Scripts/python.exe`로 뜨며, bare `python3`는 WindowsApps 앱 실행 별칭 스텁으로 빠져 실패한다.
+- `scripts/prod.sh`와 `scripts/dev.sh`의 `IM_NOT_AI_DIAGNOSE_CMD`/`IM_NOT_AI_REFINE_CMD` 스텁을 POSIX `cp`에서 PowerShell `Copy-Item -LiteralPath`로 변경했다. Windows Python의 `shell=True`(cmd)에는 `cp`가 없어 진단·윤문 단계가 exit 1 → 라우터 502가 됐다. `Copy-Item`은 `_render_cmd`의 `shlex.quote` 단일따옴표 경로를 그대로 받는다.
+- 두 변수를 `WSLENV`에 등재했다. 실측으로 WSL→Windows 프로세스 env 전파는 WSLENV 등재 이름에만 적용됨을 확인했으며, 기존에는 미등재라 스텁이 Windows 백엔드에 전달되지 않았다.
+- 회귀 테스트 2건을 TDD로 추가했다(`test_humanize_unit.py`): shim/gate가 `sys.executable`로 실행되는 계약, prod.sh·dev.sh 스텁의 Windows 호환성·WSLENV 등재 정적 계약. 수정 전 RED 확인 후 구현.
+- `docs/audits/refine-copy-fallback-probe.py` 실동작 프로브로 Windows python.exe → `shell=True` → PowerShell `Copy-Item` 경로를 모킹 없이 검증했다(한글 본문 복사, rc=0, PROBE PASS).
+- **검증: 지정 backend runner 전체 906 passed / 1 skipped / violations 0** (기존 904 + 신규 2). `bash -n` 문법 검사 통과. 실제 provider 호출·운영 DB·commit·push는 수행하지 않았다.
+- 운영 백엔드는 기동 시 env를 읽으므로 이 변경은 **현재 실행 중인 프로세스에 반영되지 않는다**. 적용하려면 `Jippeel실행.bat` 재실행이 필요하다(실행 중 프로세스는 건드리지 않음).
+
+### 2026-09-16 trend_pack·SSE 최종 검증
+
+- `ProjectTrendPack` 모델·`project_trend_packs` migration(`i4c5d6e7f8a9`)·별도 CRUD API·typed `extra="forbid"` schema를 구현했다. 기존 Project 응답 shape는 유지한다.
+- trend pack은 `status=approved`, `schema_version=trend-pack-v1`, `include_trend_pack=true`, `target=generate`가 모두 충족될 때만 `ai_context.build_context_bundle()`에서 주입한다. draft/retired/미지원 schema/잘못된 payload는 fail-closed하고 reason metadata를 남긴다. canon에는 주입하지 않는다.
+- 단일 생성·계획·병렬·assistant plan/generate-next의 opt-in 전달과 context metadata/GenerationRun manifest 계약을 isolated 테스트로 검증했다. frontend는 승인된 pack 확인과 명시 선택 후에만 요청에 포함한다.
+- Bootstrap·일반 generation SSE 모두 명시적 terminal `done`/`error` 없는 EOF를 오류로 처리한다. Bootstrap parser는 reader chunk 사이에서 분리된 `event:`/`data:`를 보존하고 완전한 terminal frame의 EOF flush를 처리한다. 프로젝트/회차 identity 전환 시 stale character/lore/POV/trend 선택도 초기화한다.
+- 최신 검증: isolated backend 전체 **919 passed, 1 skipped**, `subprocess_attempts=0`, `violations=[]`; frontend `npm run build` 통과; 관련 AI-context Playwright **17 passed**; Alembic head `i4c5d6e7f8a9` 확인; `git diff --check`는 CRLF 파일을 `core.whitespace=cr-at-eol`로 검사해 통과했다.
+- trend pack 계획 문서의 과거 “production schema/DB/API 미구현” 표기를 현재 구현·검증 상태로 갱신했다.
+- 실제 provider 호출, 운영 DB 변경, commit, remote push는 수행하지 않았다.
+
+### 잔여
+
+- 실제 provider bootstrap 및 trend 적용/미적용 문학 품질 비교(비용·시간 승인 필요; isolated/mock만으로는 판단 불가).
+- 운영 `JIPPEEL_LAN_PASSWORD`/`JIPPEEL_LAN_SESSION_SECRET` 실제 설정(사용자 결정).
+- 로컬 HEAD 및 이후 변경사항의 remote push(사용자 확인 후).
+
+### 2026-09-15 bootstrap 무응답 수정 및 소설 생성 검증
+
+- `backend/app/services/bootstrap.py`의 각 LLM 최초/repair 호출에 독립적인 `asyncio.wait_for` timeout을 적용했다. 현재 기본값은 `BOOTSTRAP_CALL_TIMEOUT_SECONDS = 300.0`, 대용량 `outline`·`relations-lore`는 `800.0`초이다.
+- timeout은 JSON repair 대상이 아니라 `BootstrapAIError`로 변환되며, 기존 fallback/502 계약을 재사용한다. `idea`, `outline`, `characters`, 권별 supporting cast, `relations-lore` 단계의 시작·완료·timeout 로그를 남긴다.
+- `backend/app/routers/projects.py`의 provider resolution 운영 로그를 정리하고, `backend/tests/test_bootstrap_api.py`에 무한 대기 fake coroutine 기반 timeout 회귀 테스트를 추가했다.
+- 격리 backend 전체 검증: **888 passed / 1 skipped / 70 subtests / violations 0**, 변경 파일 `py_compile` 통과.
+- 합성 TEMP SQLite와 별도 포트 `18002`에서 `use_ai=false` bootstrap HTTP smoke를 실행했다. **HTTP 200**, 2권×3화, 캐릭터 4명, 로어 12건, 관계 3건, 권별 메모 2건이 응답에 반영됐고 `used_ai=false`, `fallback=true`를 확인했다. 운영 DB와 실제 provider는 사용하지 않았다.
+- `use_ai=true` 실제 provider 전체 성공 또는 애플리케이션 120초 timeout 발동은 비용·운영 경계상 아직 주장하지 않는다. 제한된 실 provider 요청은 애플리케이션 timeout보다 짧은 10초 curl 제한으로 종료됐다.
+
+### 다음 담당자 시작점
+
+1. 상세 완료·잔여·승인 대기는 위 기준 문서를 먼저 읽는다.
+2. 실제 provider bootstrap 검증은 비용·시간 상한, 로그 확인, 중단 조건을 별도 승인받은 뒤 합성 TEMP DB에서 진행한다.
+3. LAN auth 실제 로그인 플로우와 운영 secret 설정, 장시간 요청 재시작/SSE 실패 표시 검증이 남아 있다. frontend 로그인 UI/401 처리, auto-backup 경로 오류, provider 오류 민감정보 노출 검토는 9월 15일 수정·검증 완료다.
+4. 로컬 HEAD `00b9858`은 `origin/main` `a2789cc`보다 앞서며, push는 사용자 확인 후 수행한다.
+
+## 이전 작업 기준 — 2026-09-14
 
 **전 엔진 감사 + 고도화(2026-09-14):** "모든 엔진 조사분석" 지시로 백엔드 전 서비스·라우터를 감사하고 8개 항목을 수정했다. 검증: backend **829P/1skip/70subtests/violations 0** + frontend tsc/build 통과.
 
@@ -982,3 +1077,13 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - `OutlineCharacter.first_volume` 필드 추가, `_character_card_json`의 `data.first_volume`에 보존 — 캐릭터 카드에서 첫 등장 권 확인 가능(UI 노출은 후속 과제).
 - 테스트 신규 3건: 권별 조연 생성+중복 제거+first_volume 보정, 2권 이하는 호출 생략(4회 유지), 조연 호출 실패 시 핵심 캐스트로 완료. `volume_count=4` 기존 테스트는 큐 5개·호출 수 5로 갱신.
 - 전체 회귀 **819P/1skip/violations 0**. 백엔드 재기동 적용.
+
+## 90권 완결소설 탐색 분석 기반 프롬프트 병합 — 2026-09-16
+
+- 사용자 제공 `toki31` 무협·판타지·현대 각 30개 작품 분석을 검토하고, 북마크순 대체 인기·장르 간 중복·일부 완결/화수/연재주기 불확실성·본문 미계측을 한계로 유지했다. 특정 키워드·화수·연재주기를 흥행 공식으로 강제하지 않는다.
+- 전역 생성 페르소나에 `독자 약속`, 장면별 `목표·장애물·선택·결과`, 상태 변화, 보상·다음 압력, 클리셰를 갈등·선택·대가·보상으로 기능시키는 원칙을 반영했다. 고정된 첫 300자·10/30/100화·300화 이상·주4회 규칙은 넣지 않았다.
+- `bootstrap.py`의 작품 발상·목차·캐릭터·권별 조연·관계/로어 프롬프트에 결핍·전문성/페널티·반복 가능한 에피소드·관계/조직 변화·장르 엔진·인과를 반영했다.
+- `ai_panel.py`의 assistant 생성, Planner, 단일/병렬 Reviewer에 독자 약속·중심 성장 엔진·상태 변화·클리셰 비강제 기준을 반영했다.
+- `foreshadows.py` 복선 후보 추출은 표면 신호·숨은 질문·회수 조건·회수 시 변화·인과를 요구하고, `canon.py`는 독자 약속/성장 엔진의 인과 단절을 근거가 있을 때만 점검하도록 보강했다.
+- TDD 회귀: 의도한 새 테스트 RED 확인 후 구현. 관련 isolated suite **134 passed**, `subprocess_attempts=0`, `violations=0`; 대상 `py_compile` 및 `git diff --check` 통과. 실제 provider/운영 DB 호출·변경 없음.
+- 작품별 `trend_pack` DB 모델/API와 생성 요청 opt-in은 아직 구현하지 않았다. 현재 병합은 전역 안정 원칙과 프롬프트별 설계 기준까지다.

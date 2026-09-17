@@ -1,6 +1,6 @@
 # 전체 작업 현황 — 완료·잔여·승인 대기
 
-최종 대조: **2026-09-14(KST)**. 기존 링크 유지를 위해 파일명은 변경하지 않았다.
+최종 대조: **2026-09-16(KST)**. trend_pack 통합·SSE 완료 계약·생성 timeout 제거/heartbeat 전환·최신 isolated 검증을 반영했다. 기존 링크 유지를 위해 파일명은 변경하지 않았다.
 
 **현재 작업 상태의 단일 기준은 이 문서다.** `HANDOFF.md`는 진입점과 작업 이력,
 `docs/DOCUMENT_STATUS.md`는 문서 인덱스다. 아래 보존된 9월 8일 원문과 과거 문서의
@@ -8,7 +8,34 @@
 
 ## 1. 현재 결론과 판정 기준
 
+### 2026-09-16 소설 생성 timeout 제거·heartbeat 전환
+
+사용자 승인(“진행해”) 후, 장시간 GPT 소설 생성이 애플리케이션 제한시간으로 중단되지 않도록 변경했다. 실제 GPT/provider 호출과 운영 DB 변경은 수행하지 않았다.
+
+- **전용 timeout 해제:** `backend/app/services/llm.py`는 기존 `make_client(base_url, key)` API와 일반/legacy 호출의 `REQUEST_TIMEOUT=600초`를 유지한다. 명시적인 `make_long_running_client()`만 OpenAI transport `timeout=None`을 사용한다. 적용 대상은 `/ai/generate`, `/ai/generate-parallel`, `/ai/review`, bootstrap이다.
+- **Bootstrap 제한 제거:** `backend/app/services/bootstrap.py::_call_json()`의 `asyncio.wait_for()`를 제거했다. `BOOTSTRAP_CALL_TIMEOUT_SECONDS`, `BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS`, `_stage_timeout()`은 호환용 `None`으로 남겼다. JSON repair 1회 및 provider `APITimeoutError`의 `BootstrapAIError` 변환은 유지한다. bootstrap reasoning effort는 기존 승인된 `high`를 유지한다.
+- **Heartbeat:** 일반 생성·병렬 생성·독립 review SSE는 15초마다 상태 전용 `{stage, elapsed_seconds}` 이벤트를 보낸다. semaphore로 장시간 생성 동시 실행을 4개로 제한하며, 대기 중에는 `stage=queued`를 보낸다. bootstrap SSE는 stage 이름을 반영한 heartbeat와 SSE `ping=15`를 사용한다. heartbeat에는 원고·provider 응답·예외 원문을 넣지 않는다.
+- **취소·정리:** 사용자 중단/client disconnect 시 provider iterator와 long-running client를 닫고, semaphore 대기 task도 취소한다. provider/network 오류, JSON repair, 명시적 terminal `done`, terminal-event-free EOF 오류 계약은 유지한다.
+- **Frontend:** `frontend/src/lib/aiStream.ts`가 heartbeat를 비종료 이벤트로 파싱하고, `aiPanelStore`·`AiPanel.tsx`가 일반/병렬 생성에 연결 상태와 경과 시간을 표시한다. `BootstrapDialog.tsx`도 bootstrap heartbeat를 표시한다.
+- **검증:** 지정 `backend/scripts/run_backend_pytest.py`로 관련 suite **65 passed**, `isolation violations=0`, `subprocess_attempts=0`; frontend `npm run build`(`tsc -b && vite build`) 통과; focused Playwright bootstrap 401 **1 passed**; 대상 diff `git diff --check` 통과. 독립 `qa-review` 지적(전역 timeout 영향·client cleanup·reasoning drift·일반 생성 heartbeat UI)을 수정 후 재검증했다.
+- **게시 상태:** 이번 timeout/heartbeat 변경은 아직 **uncommitted**이며 commit/stage/push하지 않았다. 기존 dirty 파일·백업·감사 자료·작업 디렉터리는 보존했다. 운영 backend/OAuth bridge는 실행 중이며 중지하지 않았다.
+
+
 **2026-09-14 전 엔진 감사 + 고도화:** "모든 엔진 조사분석" 지시로 백엔드 전 서비스·라우터를 감사했다. 수정 완료 8건 — ① 단일 생성도 `previous_chapter`·`auto_characters`·`include_memory`·`style_profile` 자동 주입(계획 경로와 대칭) ② `auto_characters` 관련성 선정(`first_volume` 미래 권 제외·이름/별칭 언급 점수) ③ 요약 잡 API(`summary-jobs` plan/run/retry) + MemoryPage 실행 UI — 결과는 draft만·승인 게이트 유지 ④ 규칙 패널 "이력 분석으로 제안 생성" 버튼 ⑤ 병렬 worker 계약 위반 1회 재집필(재위반 시 run 실패 유지) ⑥ canon 컨텍스트 캡(캐릭터 20·로어 30, 주연 우선+언급 순) ⑦ 자동 백업 기본 활성화(prod.sh `INTERVAL_MIN=30`·`KEEP=10`) ⑧ `canon.last_prompt_chars` 전역 제거·`select_context_memory` N+1 배치화·캐릭터 목록 `first_volume` 배지. 검증: backend **829P/1skip/violations 0**, frontend tsc/build 통과, 신규 테스트 8건(관련성 선정·별칭·canon 캡·요약 잡 API 5종·재집필 2종).
+
+**2026-09-15 잔여 3건 수정 + LAN auth 검증:** ① `ai_panel` provider 오류 민감정보 노출(감사 A1) — `_friendly_api_error` fallback이 `exc.message` 원문을 반사하던 것을 수정. `APIStatusError`는 상태 코드만 노출, 분류되지 않은 오류는 타입명만. sentinel 회귀 테스트 2건. ② auto-backup 경로 오류 — `_sqlite_file_from_url`이 `sqlite:///./jippeel.db`를 `urlparse` `/./jippeel.db`로 해석해 Windows에서 `C:\jippeel.db`로 잘못 잡던 버그. `make_url().database`로 교정해 엔진과 동일한 cwd 기준 상대경로 해석. 회귀 테스트 3건. ③ frontend 로그인 UI+401 처리 — `src/lib/auth.ts`(zustand), `src/components/auth/LoginGate.tsx` 신규. `api.ts`·`aiStream.ts` 401 시 `notifyUnauthorized()`, TopBar 로그아웃 버튼, App에 LoginGate 래핑. 비활성 시 무간섭. **LAN auth 실 HTTP 검증(합성 TEMP DB·합성 자격증명·포트 18099):** `/health` 200, `/auth/status` enabled, 미인증 401, 잘못된 PW 401, 로그인 200+쿠키, 인증 후 200, 로그아웃 후 401 복귀 — 7단계 전부 확인. **검증: backend 893P/1skip/70subtests/violations 0, frontend tsc+build 통과.** 잔여: 실제 provider bootstrap 검증(비용 승인), 운영 `JIPPEEL_LAN_PASSWORD`/`JIPPEEL_LAN_SESSION_SECRET` 설정(사용자 결정), push(사용자 확인).
+
+**2026-09-16 웹소설 생성 페르소나·프롬프트 고도화:** `backend/app/routers/ai_panel.py::NOVEL_SYSTEM_PROMPT`를 긴 원문 통합 대신 계층형 공통 계약으로 보강했다. 시스템/안전·출력 계약 → 이번 화 브리프 → 인물·세계관·연속성 → 호출 시 확정 스타일 지침 순서를 명시하고, 장면 목표·충돌·선택과 대가·변화·인과적 연결·인물의 목표/정보량/말투·장면 유형별 리듬을 포함했다. `serial`은 다음 장면의 압력, `volume_end`는 권말 수렴·정서 보상, `series_finale`는 억지 클리프행어보다 완결감을 우선한다. 브리프 밖 독립 사건·근거 없는 설정 변경·작가 인사말·요약·분석·생성 과정·다음 화 안내를 금지하고 원고 본문만 출력하도록 했다. 스타일 프로파일은 선택 주입 계약을 유지한다. TDD로 새 회귀 assertion을 추가하고 구현 전 RED를 확인했다. focused 29 passed, 관련 회귀 44 passed, 전체 backend 897 passed/1 skipped/70 subtests/violations 0, frontend npm run build 통과. 실제 provider 호출 없음.
+
+**2026-09-16 90권 탐색 분석 병합:** 사용자 제공 `toki31` 무협·판타지·현대 각 30개 작품 분석을 검토했다. 북마크순 대체 인기, 장르 간 중복, 일부 완결·화수·연재주기 불확실성, 본문 미계측을 한계로 기록하고 특정 키워드·화수·연재주기를 흥행 공식으로 강제하지 않았다. 안정적으로 재사용 가능한 `독자 약속`, `목표·장애물·선택·결과`, 상태 변화, 반복 가능한 에피소드 엔진, 클리셰의 갈등·선택·대가·보상화 원칙을 전역 생성 페르소나에 반영했다. 부트스트랩의 작품·목차·캐릭터·관계/로어 프롬프트에는 결핍·전문성/페널티·관계/조직 변화·장르 엔진을 추가했고, assistant 다음 회차 생성·Planner·Reviewer에도 같은 기준을 연결했다. 복선 제안은 표면 신호·회수 조건·회수 시 변화·인과를 요구하고, canon 검사는 독자 약속/중심 성장 엔진의 인과 단절만 근거가 있을 때 점검하도록 보강했다. 회귀 테스트를 먼저 RED로 확인한 뒤 구현했으며 관련 isolated suite **134 passed**, isolation violations **0**, 대상 py_compile 및 `git diff --check` 통과. `trend_pack` DB/API는 아직 구현하지 않았고 실제 provider 호출은 없었다.
+
+**2026-09-16 프롬프트 조건부 계약 보완:** 후속 검토에서 확인된 두 결함을 최소 수정했다. 회차 브리프가 제공된 경우에만 브리프 밖 독립 사건을 제한하고, 브리프가 없으면 작품 컨텍스트와 사용자 집필 지시에 따라 장면을 구성한다. `next_hook`·결말 의도는 제공된 경우에만 반영하도록 명시했다. 회귀 테스트는 조건부 문구와 기존 무조건 문구의 부재를 확인한다. 수정 후 focused 29 passed, 관련 회귀 44 passed, isolation `violations: []`; 실제 provider 호출·운영 DB·commit·push는 수행하지 않았다.
+
+**2026-09-16 bootstrap timeout/단계 제어 보강:** `_call_json()`의 앱 레벨 timeout(기본 300초, 대용량 `outline`·`relations-lore` 800초)은 유지하고, OpenAI SDK `APITimeoutError`를 일반 `APIError`보다 먼저 분리해 최초 호출과 JSON repair 호출 모두 즉시 `BootstrapAIError("AI provider 시간 초과(...)")`로 변환한다. transport timeout에는 불필요한 JSON repair 재호출을 하지 않는다. 3권 이상 supporting-cast는 권별 독립 호출이며 한 권의 timeout/failure는 `stage_failed`를 내고 다음 권과 `relations-lore`로 진행한다. 회귀 테스트로 최초 timeout 1회 호출, repair timeout 2회 호출, 한 권 timeout 후 AI 결과 보존을 고정했다. **검증: 지정 backend runner 897 passed / 1 skipped / 70 subtests / violations 0; frontend `npm run build`(tsc -b + Vite) 통과.** 실제 provider 호출은 하지 않았다. `idea`, `outline`, `characters`, 권별 supporting cast, `relations-lore` 단계의 시작·완료·timeout 로그를 운영 로그에 남기며 provider 해상도 로그의 임시 DEBUG 문구를 정리했다. 회귀 테스트는 무한 대기 fake coroutine이 timeout 오류로 변환되고 1회만 호출되는지 검증한다. **검증: 지정 backend runner 888 passed / 1 skipped / violations 0; bootstrap API 15 passed; py_compile 통과.** 실제 provider 호출은 비용 경계상 재실행하지 않았고, 별도 합성 TEMP DB의 `use_ai=false` HTTP bootstrap은 200으로 저장 완료했다. 제한된 `use_ai=true` 실브릿지 요청은 10초 curl timeout으로 종료했으며, 해당 요청은 현재 120초 호출 timeout과 별개로 종료되어 로그에 단계 진입이 남지 않았다. 운영 상태 확인: backend `0.0.0.0:8000` PID 18140/parent 19828, OAuth bridge `127.0.0.1:10531` PID 8668, `/health`·`/v1/models` 200. 운영 DB migration·remote push는 수행하지 않았다.
+
+**2026-09-16 bootstrap 캐릭터 보충 호출·단계 이벤트 보강:** 캐릭터 인원 부족(고유 name <5명) 시 전체 프롬프트를 재생성하던 `characters-retry`를 누락 인물 보충 호출로 변경했다. 기존 인물을 assistant 메시지로 보존해 부족분 N명(6-기존 수)만 요청하고, 응답은 이름 중복 제거 후 기존 목록에 병합한다 — 재생성 비용과 기존 인물 재작성 위험을 제거한다. 보충 호출 실패(JSON repair 포함 2회)는 전체 폴백이 아니라 기존 캐스트 유지로 끝나며 `stage_failed`를 낸다. SSE 가시성: `characters-retry`에 `started`/`done`/`failed` 단계 이벤트를 추가했다(권별 조연 `supporting-cast-volume-N` 이벤트는 선행 작업에서 이미 발행 중이며 프론트는 stage 이름 무관하게 렌더링). 운영 진단 공백 보강: `_call_json` 최초·repair 호출의 `complete` 로그에 `elapsed=%.1fs`를 남겨 단계별 실제 소요시간을 기록한다. 독립 검토 PASS_WITH_NOTES — MED 1건(1차 응답의 중복 이름을 인원 수에 포함해 과대계상)을 고유 name 기준 카운트로 수정 반영. 회귀 테스트 7건 — 보충 호출 병합·프롬프트 계약, 이름 중복 제거, 중복 이름 인원 판정, 보충 실패 시 부분 캐스트 유지(200·used_ai)·`failed` 이벤트, `characters-retry`+권별 조연 단계 이벤트 순서, 충분 인원 시 보충 호출 부재. **검증: 지정 backend runner 904 passed / 1 skipped / 70 subtests / violations 0.** 실제 provider 호출·운영 DB·commit·push는 수행하지 않았다.
+
+**2026-09-16 윤문 파이프라인 Windows 인터프리터·스텁 명령 수정(bounded fix):** 운영 재현된 502의 두 원인을 수정했다. ① `backend/app/services/humanize.py`의 보조 스크립트 호출 3곳(metrics shim·진단 결합 shim·게이트 검증)이 하드코딩 `python3`를 썼는데, 운영 백엔드는 Windows `.venv/Scripts/python.exe`로 뜨고 bare `python3`는 WindowsApps 앱 실행 별칭 스텁으로 빠져 실패했다 → `sys.executable`로 변경. ② `scripts/prod.sh`·`scripts/dev.sh`가 `IM_NOT_AI_DIAGNOSE_CMD`/`IM_NOT_AI_REFINE_CMD`에 POSIX `cp`를 주입했는데 Windows Python의 `shell=True`(cmd)에는 `cp`가 없어 진단·윤문이 exit 1 → 라우터 502였다 → PowerShell `Copy-Item -LiteralPath`로 변경(`_render_cmd`의 `shlex.quote` 단일따옴표 경로를 그대로 수용). 추가 실측으로 WSL→Windows env 전파는 WSLENV 등재 이름에만 적용됨을 확인하고 두 변수를 양쪽 스크립트의 WSLENV에 등재했다(기존 미등재로 스텁이 Windows 백엔드에 도달하지 않았음). 회귀 테스트 2건을 TDD로 추가(구현 전 RED 확인): shim/gate의 `sys.executable` 실행 계약, prod.sh·dev.sh 스텁의 Copy-Item·WSLENV 정적 계약. `docs/audits/refine-copy-fallback-probe.py`로 Windows python.exe → `shell=True` → PowerShell `Copy-Item` 실 경로를 모킹 없이 검증(한글 본문 복사, rc=0, PROBE PASS). **검증: 지정 backend runner 전체 906 passed / 1 skipped / violations 0, `bash -n` 통과.** 실제 provider 호출·운영 DB·commit·push는 수행하지 않았다. **운영 반영에는 `Jippeel실행.bat` 재실행이 필요하다** — 백엔드는 기동 시 env를 읽으며 실행 중 프로세스는 건드리지 않았다.
 
 **감사 잔여(우선순위 순):** 캐릭터 라이프사이클 first-class 필드(퇴장/사망·권별 역할) → 권별 독립 조연 호출(현 단일 호출) → canon 결정적 사전검사(이름/시간/장소 모순 규칙으로 LLM 호출 절감) → 한국어 임베딩 로어 매칭(현 2-gram fallback) → 다중 프로세스 잡 락 → 인증/인가(LAN 공개 전 필수). 실제 provider·credential·실기기·운영 DB는 기존 G gate 유지.
 
@@ -129,9 +156,11 @@ SQLite DB를 본다. [사용법·방화벽·보안 한계](../runbooks/cross-pc-
 [최종 수용](../audits/failure-contracts-2026-09-12/b04-review-fixes.md), [지원 실행 가이드](../runbooks/isolated-backend-tests.md), [승인 계획](../superpowers/plans/2026-09-12-failure-contracts.md)을 따른다. 기존 401개 assertion 실행의 보존 실패·credential 부수 효과 미확정, 옛 `.coverage` 미복구는 [사고 기록](../audits/failure-contracts-2026-09-12/validation-isolation-incident.md)에 남긴다. 사용자가 유지 승인한 a8db… 생성본은 새 실행 동안 보존했다. 실제 키 저장소 조사·정책 변경·Git 반영은 수행하지 않았다.
 B03은 [집필·관리 감사](../audits/소설집필_관리_감사.md)의 후보를 새 공식 격리 runner로 재현·수정·수용했다. [원래 RED·로그](../audits/quality-b03-2026-09-12/manifest.json)와 [수용 사본 manifest](../audits/quality-b03-2026-09-12/accepted-evidence/manifest.json)를 구분한다. 504·axe·formatter 계측·ENOMEM 실패 원문은 유지하고 최종 현재 파일 검증으로 해결했다. 실제 외부 metrics/provider는 실행하지 않았다.
 
-### 게시 전 보안 참고 A1 — 낮음·별도 후속 범위
+### 게시 전 보안 참고 A1 — 낮음·구현 완료(2026-09-15)
 
-2026-09-13 게시 검토 2건은 PASS/차단0이다. 다만 `backend/app/routers/ai_panel.py:280`의 **기존** 일반 provider 오류 메시지 전달에 upstream 민감 정보가 로컬 화면으로 반영될 가능성이 있다는 LOW 참고를 남겼다. 새 회귀·실제 유출은 관측하지 않았으며 수용된 C13/B03을 재개하지 않는다. 고정 일반 메시지·정제 진단·fake sentinel 회귀의 별도 후속 범위를 검토할 수 있다. [검토 원문·범위](../audits/publication-2026-09-13/security-review.md.txt). 현재 사용자 승인은 인계·Git 게시이며 이 참고의 구현은 하지 않았다.
+2026-09-13 게시 검토 2건은 PASS/차단0이다. `backend/app/routers/ai_panel.py:280`의 **기존** 일반 provider 오류 메시지 전달에 upstream 민감 정보가 로컬 화면으로 반영될 가능성이 있다는 LOW 참고를 남겼다. [검토 원문·범위](../audits/publication-2026-09-13/security-review.md.txt)
+
+**2026-09-15 구현 완료:** `_friendly_api_error`의 fallback이 `exc.message` 원문을 반사하던 것을 수정했다. `APIStatusError`는 상태 코드만 노출하고 응답 본문을 숨기며, 분류되지 않은 오류는 타입명만 남긴다. `test_ai_panel_api.py`에 sentinel 회귀 테스트 2건을 추가해 민감 문자열이 UI로 반사되지 않음을 검증한다.
 
 ## 4. 미구현 제품 범위 — 구현된 기반과 분리
 
@@ -220,7 +249,8 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 
 | 증거 층 | 가장 최근 확인한 결과 | 해석 한계 |
 | --- | --- | --- |
-| 전체 backend — 최신(2026-09-15 D02 source-hash 회귀 보강 후) | **872 passed / 1 skipped / violations 0** | 지정 isolated runner; `subprocess_attempts=0`, `internal_ipc_count=507`, `fake_keyring_calls=8`. 실제 provider/운영 DB 아님 |
+| 전체 backend — trend_pack/SSE 최종(2026-09-16) | **919 passed / 1 skipped / violations 0** | 지정 isolated runner; `subprocess_attempts=0`, `fake_keyring_calls=8`. 실제 provider/운영 DB 아님 |
+| 전체 backend — 이전(2026-09-15 D02 source-hash 회귀 보강 후) | **872 passed / 1 skipped / violations 0** | 지정 isolated runner; `subprocess_attempts=0`, `internal_ipc_count=507`, `fake_keyring_calls=8`. 실제 provider/운영 DB 아님 |
 | 전체 backend — Windows 네이티브 | **714 passed / 1 skipped / violations 0 / warnings 0** | Windows 11 네이티브 Python 3.14.4 + 격리 러너 그대로. 수동 실기기 수용(G04 잔여)과 구분 |
 | V03 다중 프로세스 부하 | 8×50·16×100 동시 쓰기 **rows 무손실·integrity ok·journal wal** | `scripts/sqlite_multiprocess_check.py` — 실제 HTTP 다중 프로세스 배포 구성 아님 |
 | 전체 backend — B03 최종 | **482 passed / 1 skipped / 70 subtests / 19 warnings** | native isolated runner, exit0·guard 위반0·실제 subprocess 시도0. 기존 외부 metrics skip(V04) 유지 |
@@ -236,11 +266,13 @@ AI 자동 삽입·무검수 자동 승인·탐지 회피 기능도 추가하지 
 | P1 당시 전체 backend | **317 passed** | 역사적 P1 수용 로그. 최신 전체 결과는 위의 482개 |
 | P1 관련 backend + coverage | **64 passed** | 전체 317과 합산하지 않음 |
 | P1 당시 Memory Playwright/axe | **6 passed**, assertion 보강 후 부모 재통과 | 다른 모든 UI의 현재 재실행 결과는 아님 |
-| TypeScript/Vite build | **최신 PASS** — `npx tsc --noEmit`, `npm run build` (Vite 5.4.21) | 지정 Windows 기기 수용과 다름 |
+| TypeScript/Vite build | **최신 PASS** — `npx tsc -b`, `npm run build` (Vite 5.4.21) | 지정 Windows 기기 수용과 다름 |
 | 핵심 3모듈 branch 포함 coverage | memories **93%**, projects **85%**, long_memory **93%**, 합산 **90%** | 전체 저장소/프론트 coverage 아님; 예전 4모듈 93.59%와 분모가 다름 |
 | 독립 검토 | 무결성/security **PASS**, UI **PASS with notes** → assertion 보강 | 정적 검토. reviewer가 테스트를 독립 실행했다고 주장하지 않음 |
 
-최신 D02 게이트: backend **872 passed / 1 skipped**, isolation violations 0; frontend tsc/build PASS; Alembic current `f1a2b3c4d5e6`, head `g2a3b4c5d6e7`. 독립 검토 후 nested delta project validation, historical transition 차단, malformed derive 응답 502, canon client close, assistant POV 전달을 보강했고, 원문 변경 시 source hash가 달라져 기존 파생 행을 stale 이력으로 보존하는 회귀를 확인했다.
+최신 D02 게이트(역사 기록): backend **872 passed / 1 skipped**, isolation violations 0; frontend tsc/build PASS; Alembic current `f1a2b3c4d5e6`, head `g2a3b4c5d6e7`. 독립 검토 후 nested delta project validation, historical transition 차단, malformed derive 응답 502, canon client close, assistant POV 전달을 보강했고, 원문 변경 시 source hash가 달라져 기존 파생 행을 stale 이력으로 보존하는 회귀를 확인했다.
+
+최신 trend_pack/SSE 최종 게이트: backend **919 passed / 1 skipped**, isolation violations 0; frontend `npm run build` PASS; 관련 AI-context Playwright **17 passed**; Alembic head `i4c5d6e7f8a9`(parent `h3b4c5d6e7f8`) 확인. Bootstrap·generation의 terminal 없는 EOF, trend-pack approved/generate-only opt-in, assistant 전달, migration 및 stale context 초기화를 검증했다. 실제 provider·운영 DB는 사용하지 않았다.
 
 저장소 내 최신 근거: [B03 최종 수용](../audits/quality-b03-2026-09-12/acceptance.md), [B03 최종 사본 manifest](../audits/quality-b03-2026-09-12/accepted-evidence/post-write-manifest.json).
 M01~M05 수용 당시: [최종 수용](../audits/memory-m01-m05-2026-09-12/acceptance.md), [사본 manifest](../audits/memory-m01-m05-2026-09-12/accepted-evidence/post-write-manifest.json).

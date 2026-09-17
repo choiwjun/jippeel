@@ -62,14 +62,17 @@ elif [ -n "$WIN_LISTENERS" ]; then
   exit 1
 else
   echo "[backend] uvicorn 기동 (정적 서빙 포함 — $APP_HOST:$APP_PORT)..."
+  # 윤문 스텁: 백엔드는 Windows python.exe라 cmd에 cp가 없다. PowerShell
+  # Copy-Item은 humanize._render_cmd의 shlex.quote 단일따옴표 경로도 받는다.
+  # WSL→Windows 환경변수 전파는 WSLENV 등재 이름만 되므로 두 변수도 넣는다.
   (cd "$PROJ/backend" && setsid nohup env \
-     IM_NOT_AI_DIAGNOSE_CMD='cp {input} {diagnosis}' \
-     IM_NOT_AI_REFINE_CMD='cp {input} {output}' \
+     IM_NOT_AI_DIAGNOSE_CMD='powershell -NoProfile -Command "Copy-Item -LiteralPath {input} -Destination {diagnosis}"' \
+     IM_NOT_AI_REFINE_CMD='powershell -NoProfile -Command "Copy-Item -LiteralPath {input} -Destination {output}"' \
      JIPPEEL_REVIEW_PROVIDER="${JIPPEEL_REVIEW_PROVIDER:-agy}" \
      JIPPEEL_AGY_MODEL="${JIPPEEL_AGY_MODEL:-gemini-3.8-flash-high}" \
      JIPPEEL_AUTOBACKUP_INTERVAL_MIN="${JIPPEEL_AUTOBACKUP_INTERVAL_MIN:-30}" \
      JIPPEEL_AUTOBACKUP_KEEP="${JIPPEEL_AUTOBACKUP_KEEP:-10}" \
-     WSLENV="JIPPEEL_REVIEW_PROVIDER:JIPPEEL_AGY_MODEL:JIPPEEL_AUTOBACKUP_INTERVAL_MIN:JIPPEEL_AUTOBACKUP_KEEP${WSLENV:+:$WSLENV}" \
+     WSLENV="JIPPEEL_REVIEW_PROVIDER:JIPPEEL_AGY_MODEL:JIPPEEL_AUTOBACKUP_INTERVAL_MIN:JIPPEEL_AUTOBACKUP_KEEP:IM_NOT_AI_DIAGNOSE_CMD:IM_NOT_AI_REFINE_CMD${WSLENV:+:$WSLENV}" \
      .venv/Scripts/python.exe -m uvicorn app.main:app --host "$APP_HOST" --port "$APP_PORT" \
      > "$LOG_DIR/backend-prod.log" 2>&1 < /dev/null &)
   for i in $(seq 1 30); do backend_up && break; sleep 1; done

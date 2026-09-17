@@ -271,6 +271,7 @@ export function AiPanel() {
     (s) => s.setParallelReviewEffort,
   );
   const parallelProgress = useAiPanelStore((s) => s.parallelProgress);
+  const heartbeat = useAiPanelStore((s) => s.heartbeat);
 
   // 컨텍스트 + 스트리밍
   const ctx = useAiPanelStore((s) => s.contextSelection);
@@ -519,6 +520,7 @@ export function AiPanel() {
       useAiPanelStore.getState().setAbort(
         stream(body, {
           onChunk: (d) => useAiPanelStore.getState().appendChunk(d),
+          onHeartbeat: (info) => useAiPanelStore.getState().setHeartbeat(info),
           onStart: (info) => {
             const st = useAiPanelStore.getState();
             st.setInjectedLore(info.injectedLore);
@@ -911,6 +913,11 @@ export function AiPanel() {
                 {parallelProgress.phase === "workers" &&
                   `장면 ${parallelProgress.completed}/${parallelProgress.sceneCount} 조립 대기`}
                 {parallelProgress.phase === "review" && "xhigh 전체 감수 중"}
+              </span>
+            )}
+            {heartbeat && (
+              <span className="text-[11px] text-muted-foreground" aria-live="polite">
+                연결됨 · {heartbeat.elapsedSeconds}초 경과
               </span>
             )}
           </>

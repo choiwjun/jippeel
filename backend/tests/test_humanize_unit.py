@@ -114,3 +114,71 @@ def test_missing_skill_scripts_raise(tmp_path, monkeypatch):
     monkeypatch.setattr(humanize, "SKILL_SCRIPTS", tmp_path / "nowhere")
     with pytest.raises(humanize.HumanizeError):
         humanize._check_script("prepare_monolith_input.py")
+
+
+# ---------- 운영 인터프리터·실행 환경 회귀 ----------
+def test_shim_and_gates_run_under_current_interpreter(monkeypatch, tmp_path):
+    """shim·게이트는 python3 고정이 아니라 현재 인터프리터(sys.executable)로 실행한다.
+
+    운영 백엔드는 Windows .venv/Scripts/python.exe로 뜬다. 하드코딩된
+    python3는 WindowsApps 앱 실행 별칭 스텁으로 빠져 shim이 실패한다.
+    """
+    import json
+    import subprocess as sp
+    import sys
+    from pathlib import Path
+
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / humanize.SHIM_SCRIPT).write_text("# stub", encoding="utf-8")
+    (scripts / humanize.GATES_SCRIPT).write_text("# stub", encoding="utf-8")
+    monkeypatch.setattr(humanize, "SKILL_SCRIPTS", scripts)
+
+    calls = []
+
+    def fake_run(args, timeout=900, shell=False):
+        calls.append(list(args))
+        if "--run-dir" in args:
+            run_dir = Path(args[args.index("--run-dir") + 1])
+            (run_dir / "00_metrics.json").write_text("{}", encoding="utf-8")
+        return sp.CompletedProcess(
+            args, 0, stdout=json.dumps({"change_rate": {"rate": 0.1}}),
+            stderr="")
+
+    monkeypatch.setattr(humanize, "run_subprocess", fake_run)
+
+    run_dir = tmp_path / "run"
+    humanize.compute_metrics("본문", run_dir)
+    humanize.combine_diagnosis(run_dir, "essay")
+    humanize.verify_gates(tmp_path / "a.txt", tmp_path / "b.txt")
+
+    assert [c[0] for c in calls] == [sys.executable] * 3
+    assert {Path(c[1]).name for c in calls} <= {
+        humanize.SHIM_SCRIPT, humanize.GATES_SCRIPT}
+
+
+def test_refine_stub_commands_are_windows_portable():
+    """prod.sh·dev.sh의 윤문 스텁은 Windows Python의 shell=True(cmd)에서 동작해야 한다.
+
+    POSIX 전용 `cp`는 Windows에 없어 exit 1로 실패한다(운영 재현). PowerShell
+    Copy-Item은 _render_cmd의 shlex.quote 단일따옴표 경로를 그대로 받는다.
+    또한 WSL→Windows 환경변수 전파에는 WSLENV 등재가 필요하다.
+    """
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    for script_name in ("prod.sh", "dev.sh"):
+        text = (repo / "scripts" / script_name).read_text(encoding="utf-8")
+        cmd_lines = [l for l in text.splitlines()
+                     if "IM_NOT_AI_DIAGNOSE_CMD=" in l
+                     or "IM_NOT_AI_REFINE_CMD=" in l]
+        assert cmd_lines, f"{script_name}: 윤문 스텁 환경변수 없음"
+        for line in cmd_lines:
+            assert "'cp " not in line and "cp {" not in line, line
+            assert "Copy-Item" in line, line
+        assert any(
+            "WSLENV" in l
+            and "IM_NOT_AI_DIAGNOSE_CMD" in l
+            and "IM_NOT_AI_REFINE_CMD" in l
+            for l in text.splitlines()
+        ), f"{script_name}: WSLENV에 IM_NOT_AI_* 미등재 — Windows 백엔드에 미전달"

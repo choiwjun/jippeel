@@ -61,6 +61,8 @@ export interface StreamHandlers {
   onReviewChunk?: (delta: string) => void;
   /** 감수 반영 수정본 delta */
   onRefinedChunk?: (delta: string) => void;
+  /** 생성 중 상태 heartbeat — 콘텐츠를 포함하지 않는다 */
+  onHeartbeat?: (info: { stage: string; elapsedSeconds: number }) => void;
   /** 감수 실패 — 초안은 이미 수신 완료, 스트림은 계속 진행 */
   onReviewError?: (message: string) => void;
   /** E1 — 서버가 생성 이력을 확정한 뒤 보내는 run/output id 맵 */
@@ -219,6 +221,19 @@ function streamRequest(
           /* noop */
         }
         handlers.onParallelError?.(detail, stage);
+      } else if (eventName === "heartbeat") {
+        try {
+          const parsed = JSON.parse(data);
+          handlers.onHeartbeat?.({
+            stage: typeof parsed.stage === "string" ? parsed.stage : "generating",
+            elapsedSeconds:
+              Number.isFinite(Number(parsed.elapsed_seconds))
+                ? Math.max(0, Number(parsed.elapsed_seconds))
+                : 0,
+          });
+        } catch {
+          /* noop */
+        }
       } else if (eventName === "message") {
         try {
           const delta = JSON.parse(data).delta;

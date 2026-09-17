@@ -69,6 +69,7 @@ export function BootstrapDialog({
   const [streamError, setStreamError] = useState<string | null>(null);
   const [streamDone, setStreamDone] = useState(false);
   const [streamActive, setStreamActive] = useState(false);
+  const [heartbeatSeconds, setHeartbeatSeconds] = useState(0);
   const [assistantBusy, setAssistantBusy] = useState(false);
   const eventSourceRef = useRef<AbortController | null>(null);
 
@@ -152,6 +153,7 @@ export function BootstrapDialog({
     setStreamResult(null);
     setStreamError(null);
     setStreamDone(false);
+    setHeartbeatSeconds(0);
     setStreamActive(true);
 
     // EventSource는 GET만 지원하므로 POST 대신 fetch+ReadableStream 사용
@@ -201,6 +203,10 @@ export function BootstrapDialog({
               } else if (event === "error") {
                 terminalEventReceived = true;
                 setStreamError(parsed.detail ?? `HTTP ${parsed.status ?? 500}`);
+              } else if (event === "heartbeat") {
+                if (typeof parsed.elapsed_seconds === "number") {
+                  setHeartbeatSeconds(Math.max(0, Math.floor(parsed.elapsed_seconds)));
+                }
               } else if (event.startsWith("stage_")) {
                 const status = event.replace("stage_", "") as StageEvent["status"];
                 setStages((prev) => {
@@ -264,6 +270,7 @@ export function BootstrapDialog({
     setStreamError(null);
     setStreamDone(false);
     setStreamActive(false);
+    setHeartbeatSeconds(0);
     setAssistantBusy(false);
     planNext.reset();
     generateNext.reset();
@@ -477,9 +484,10 @@ export function BootstrapDialog({
               )}
             </ol>
 
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="mt-3 text-xs text-muted-foreground" aria-live="polite">
               AI 응답에 몇 분 정도 걸릴 수 있습니다. 완료될 때까지 이 창을 열어
               두세요.
+              {heartbeatSeconds > 0 && ` 연결됨 · ${heartbeatSeconds}초 경과`}
             </p>
           </>
         )}
@@ -490,7 +498,7 @@ export function BootstrapDialog({
               <DialogTitle>작품 생성 완료 🎉</DialogTitle>
               <DialogDescription>
                 {result.fallback
-                  ? "GPT OAuth 호출 없이 규칙 기반 템플릿으로 생성되었습니다."
+                  ? "AI 생성에 실패해 규칙 기반 템플릿으로 저장되었습니다."
                   : "AI가 만든 구조로 프로젝트가 저장되었습니다."}
               </DialogDescription>
             </DialogHeader>

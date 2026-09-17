@@ -1,4 +1,6 @@
 """프로젝트·회차 라우터 (사양 §5 M1, Sprint 1 범위)."""
+import asyncio
+import inspect
 import logging
 import sqlite3
 from datetime import datetime, timezone
@@ -98,16 +100,21 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
     이벤트: stage_started / stage_done / stage_failed / done / error
     마지막 done 이벤트의 data에 BootstrapResponse JSON이 들어 있다.
     """
-    import asyncio
     import json
 
     queue: asyncio.Queue = asyncio.Queue()
+    heartbeat_interval = 15.0
+    current_stage = "starting"
 
     async def on_stage(stage: str, status_: str, label: str):
+        nonlocal current_stage
+        if status_ == "started":
+            current_stage = stage
         await queue.put({"event": f"stage_{status_}", "data": json.dumps(
             {"stage": stage, "label": label}, ensure_ascii=False)})
 
     async def run_bootstrap():
+        client = None
         try:
             if payload.use_ai:
                 try:
@@ -117,13 +124,14 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
                         {"status": 503, "detail": str(exc)}, ensure_ascii=False)})
                     return
                 from app.services import llm
-                client = llm.make_client(provider.base_url, None)
+                client = llm.make_long_running_client(provider.base_url, None)
                 try:
                     structure = await bootstrap_service.generate_structure(
                         payload.genre, payload.premise, payload.title_style,
                         payload.volume_count, payload.chapters_per_volume,
                         client, provider.default_model,
-                        reasoning_effort=provider.reasoning_effort, db=db,
+                        reasoning_effort=provider.reasoning_effort,
+                        db=db,
                         on_stage=on_stage)
                     body = bootstrap_service.persist_structure(
                         db, payload.genre, payload.premise, structure,
@@ -155,17 +163,38 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
             await queue.put({"event": "error", "data": json.dumps(
                 {"status": 500, "detail": "작품 생성 중 서버 오류가 발생했습니다."}, ensure_ascii=False)})
         finally:
+            if client is not None:
+                closer = getattr(client, "aclose", None)
+                if closer is not None:
+                    result = closer()
+                    if inspect.isawaitable(result):
+                        await result
             await queue.put(None)  # 종료 sentinel
 
     async def event_stream():
         task = asyncio.create_task(run_bootstrap())
+        started = asyncio.get_running_loop().time()
+        queue_task = asyncio.create_task(queue.get())
         try:
             while True:
-                item = await queue.get()
+                done, _ = await asyncio.wait(
+                    {queue_task}, timeout=heartbeat_interval)
+                if not done:
+                    # 콘텐츠·provider 응답은 노출하지 않는 상태 전용 heartbeat.
+                    yield {"event": "heartbeat", "data": json.dumps({
+                        "stage": current_stage,
+                        "elapsed_seconds": int(asyncio.get_running_loop().time() - started),
+                    })}
+                    continue
+                item = queue_task.result()
                 if item is None:
                     break
                 yield item
+                queue_task = asyncio.create_task(queue.get())
         finally:
+            if not queue_task.done():
+                queue_task.cancel()
+            await asyncio.gather(queue_task, return_exceptions=True)
             if not task.done():
                 task.cancel()
                 try:
@@ -173,7 +202,7 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
                 except asyncio.CancelledError:
                     pass
 
-    return EventSourceResponse(event_stream())
+    return EventSourceResponse(event_stream(), ping=15)
 
 
 @router.post("/projects/bootstrap", response_model=BootstrapResponse)
@@ -191,17 +220,18 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                                 detail=str(exc)) from exc
         from app.services import llm
-        client = llm.make_client(provider.base_url, None)
+        client = llm.make_long_running_client(provider.base_url, None)
         logger.info(
             "bootstrap provider resolved: provider=%s base_url=%s model=%s reasoning=%s",
             provider.name, provider.base_url, provider.default_model,
-            provider.reasoning_effort)
+            bootstrap_service.BOOTSTRAP_REASONING_EFFORT)
         try:
             structure = await bootstrap_service.generate_structure(
                 payload.genre, payload.premise, payload.title_style,
                 payload.volume_count, payload.chapters_per_volume,
                 client, provider.default_model,
-                reasoning_effort=provider.reasoning_effort, db=db)
+                reasoning_effort=bootstrap_service.BOOTSTRAP_REASONING_EFFORT,
+                db=db)
             body = bootstrap_service.persist_structure(
                 db, payload.genre, payload.premise, structure,
                 generated_by="ai",

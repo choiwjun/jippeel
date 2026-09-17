@@ -48,6 +48,67 @@ from app.services import (agy_review, ai_context,
                           parallel_writer, usage as usage_service)
 from app.services.wordcount import count_novelpia_chars
 
+GENERATION_HEARTBEAT_INTERVAL_SECONDS = 15.0
+GENERATION_MAX_CONCURRENCY = 4
+_GENERATION_SEMAPHORE = asyncio.Semaphore(GENERATION_MAX_CONCURRENCY)
+
+
+async def _with_generation_heartbeat(source, stage: str = "generating", cleanup=None):
+    """생성 SSE를 감싸 응답이 오래 없어도 연결 상태를 알린다.
+
+    heartbeat에는 단계와 경과 시간만 담고 provider 응답·원고 내용은 담지 않는다.
+    다음 provider 이벤트를 별도 task로 기다리므로 heartbeat 때문에 provider
+    호출이 취소되지 않으며, client disconnect 시에는 정상적으로 task가 취소된다.
+    """
+    started = time.monotonic()
+    acquire_task = asyncio.create_task(_GENERATION_SEMAPHORE.acquire())
+    iterator = None
+    next_event = None
+    try:
+        while not acquire_task.done():
+            done, _ = await asyncio.wait(
+                {acquire_task}, timeout=GENERATION_HEARTBEAT_INTERVAL_SECONDS)
+            if not done:
+                yield {"event": "heartbeat", "data": json.dumps({
+                    "stage": "queued",
+                    "elapsed_seconds": int(time.monotonic() - started),
+                })}
+        await acquire_task
+        iterator = source.__aiter__()
+        next_event = asyncio.create_task(iterator.__anext__())
+        while True:
+            done, _ = await asyncio.wait(
+                {next_event}, timeout=GENERATION_HEARTBEAT_INTERVAL_SECONDS)
+            if not done:
+                yield {"event": "heartbeat", "data": json.dumps({
+                    "stage": stage,
+                    "elapsed_seconds": int(time.monotonic() - started),
+                })}
+                continue
+            try:
+                item = next_event.result()
+            except StopAsyncIteration:
+                break
+            yield item
+            next_event = asyncio.create_task(iterator.__anext__())
+    finally:
+        if acquire_task.done() and not acquire_task.cancelled() and acquire_task.result():
+            _GENERATION_SEMAPHORE.release()
+        elif not acquire_task.done():
+            acquire_task.cancel()
+        if next_event is not None:
+            if not next_event.done():
+                next_event.cancel()
+            await asyncio.gather(next_event, return_exceptions=True)
+        if iterator is not None:
+            aclose = getattr(iterator, "aclose", None)
+            if aclose is not None:
+                await aclose()
+        if cleanup is not None:
+            result = cleanup()
+            if inspect.isawaitable(result):
+                await result
+
 # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
 # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
 # 장면 유형별 리듬에 적응하는 지침을 쓴다 (한국어 회차 품질 슬라이스).
@@ -575,7 +636,7 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
             ),
         }
     model = _resolve_model(provider, payload.params.model)
-    client = llm.make_client(provider.base_url, None)
+    client = llm.make_long_running_client(provider.base_url, None)
 
     # 감수 provider는 서버 설정이 결정한다 — 기본은 같은 고정 GPT OAuth
     # 브릿지, JIPPEEL_REVIEW_PROVIDER=agy면 Antigravity CLI(Gemini)로
@@ -735,7 +796,8 @@ async def generate(payload: GenerateRequest, db: Session = Depends(get_db)):
         if draft_error is None:
             yield {"event": "done", "data": "[DONE]"}
 
-    return EventSourceResponse(event_stream())
+    return EventSourceResponse(_with_generation_heartbeat(
+        event_stream(), cleanup=lambda: _close_llm_client(client)))
 
 
 # ---------- AI 어시스턴트 계획→승인→초안 집필 ----------
@@ -1339,7 +1401,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                     # HTTP/2 stream 상태가 서로 영향을 주어 RemoteProtocolError가
                     # 발생할 수 있다. worker마다 짧은 수명의 독립 client를 쓴다.
                     for attempt in range(2):
-                        worker_client = llm.make_client(provider.base_url, None)
+                        worker_client = llm.make_long_running_client(provider.base_url, None)
                         try:
                             text = await llm.complete_chat(
                                 worker_client, model, worker_messages,
@@ -1363,7 +1425,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                                 + "; ".join(content_issues)
                                 + ". 장면 계약을 지키며 원고 본문만 다시 출력하라.")},
                         ]
-                        repair_client = llm.make_client(provider.base_url, None)
+                        repair_client = llm.make_long_running_client(provider.base_url, None)
                         try:
                             repaired = await llm.complete_chat(
                                 repair_client, model, repair_messages,
@@ -1473,7 +1535,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
                 for attempt in range(2):
                     reviewer_client = (
                         None if reviewer_cfg["backend"] == "agy"
-                        else llm.make_client(provider.base_url, None))
+                        else llm.make_long_running_client(provider.base_url, None))
                     attempt_chars = 0
                     try:
                         async for delta in _review_stream(
@@ -1533,7 +1595,7 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
 
         yield {"event": "done", "data": "[DONE]"}
 
-    return EventSourceResponse(event_stream())
+    return EventSourceResponse(_with_generation_heartbeat(event_stream()))
 
 
 # ---------- 감수 패스 (백그라운드 병렬) ----------
@@ -1550,7 +1612,7 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
     model = review_cfg["model"]
     provider_name = review_cfg["provider_name"]
     reasoning_effort = review_cfg["reasoning_effort"]
-    client = (llm.make_client(provider.base_url, None)
+    client = (llm.make_long_running_client(provider.base_url, None)
               if review_cfg["backend"] == "bridge" else None)
     review_messages = [
         {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
@@ -1637,4 +1699,5 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
                                   ensure_ascii=False)}
         yield {"event": "done", "data": "[DONE]"}
 
-    return EventSourceResponse(event_stream())
+    return EventSourceResponse(_with_generation_heartbeat(
+        event_stream(), cleanup=lambda: _close_llm_client(client)))

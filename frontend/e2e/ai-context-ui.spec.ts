@@ -284,6 +284,7 @@ async function setupFixture(page: Page): Promise<FixtureState> {
           theme: null,
           used_ai: false,
           fallback: true,
+          detail: "AI 생성에 실패해 규칙 기반 폴백으로 저장했습니다.",
         }]]),
       });
     }

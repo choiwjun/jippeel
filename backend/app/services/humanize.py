@@ -24,6 +24,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -91,8 +92,10 @@ def compute_metrics(text: str, run_dir: Path, genre: str = "essay") -> dict:
     input_path = run_dir / "01_input.txt"
     input_path.write_text(text, encoding="utf-8")
 
+    # python3 고정 금지 — 운영 백엔드는 Windows .venv의 python.exe로 뜨며,
+    # bare python3는 WindowsApps 앱 실행 별칭 스텁으로 빠져 실패한다.
     proc = run_subprocess(
-        ["python3", str(shim), "--run-dir", str(run_dir), "--genre", genre],
+        [sys.executable, str(shim), "--run-dir", str(run_dir), "--genre", genre],
         timeout=60,
     )
     if proc.returncode != 0:
@@ -158,7 +161,7 @@ def combine_diagnosis(run_dir: Path, genre: str) -> Path:
     """shim --diagnosis 재실행 → [진단→정량블록→원문] 결합 입력 경로 반환."""
     shim = _check_script(SHIM_SCRIPT)
     proc = run_subprocess(
-        ["python3", str(shim), "--run-dir", str(run_dir), "--genre", genre,
+        [sys.executable, str(shim), "--run-dir", str(run_dir), "--genre", genre,
          "--diagnosis", str(run_dir / "02_diagnosis.md")],
         timeout=60,
     )
@@ -273,8 +276,8 @@ def verify_gates(before: Path, after: Path, genre: str = "essay") -> GateResult:
     gates = _check_script(GATES_SCRIPT)
     try:
         proc = run_subprocess(
-            ["python3", str(gates), "--before", str(before), "--after", str(after),
-             "--genre", genre, "--json"],
+            [sys.executable, str(gates), "--before", str(before),
+             "--after", str(after), "--genre", genre, "--json"],
             timeout=120,
         )
     except subprocess.TimeoutExpired as exc:

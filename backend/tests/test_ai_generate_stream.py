@@ -170,6 +170,30 @@ def test_generate_streams_deltas(client, fake_llm, endpoint_with_preset):
     assert fake_llm["client"].base_url == "http://127.0.0.1:10531/v1"
 
 
+def test_generate_emits_heartbeat_while_provider_is_slow(
+        client, fake_llm, endpoint_with_preset, monkeypatch):
+    """첫 token이 늦어도 생성 호출이 취소되지 않고 heartbeat를 보낸다."""
+    import asyncio
+    from app.routers import ai_panel
+
+    async def slow_stream(*_args, **_kwargs):
+        await asyncio.sleep(0.03)
+        yield "늦은 원고"
+
+    monkeypatch.setattr(ai_panel.llm, "stream_chat", slow_stream)
+    monkeypatch.setattr(ai_panel, "GENERATION_HEARTBEAT_INTERVAL_SECONDS", 0.01)
+
+    resp = client.post("/api/v1/ai/generate", json={
+        "endpoint_id": endpoint_with_preset["endpoint_id"],
+        "prompt_override": "느린 응답을 기다려줘"})
+
+    events = _parse_sse(resp.text)
+    assert any(name == "heartbeat" for name, _ in events)
+    assert "늦은 원고" == "".join(
+        json.loads(data)["delta"] for name, data in events if name == "message")
+    assert events[-1][0] == "done"
+
+
 def test_generate_timeout_error_becomes_sse_error_event(client, fake_llm, endpoint_with_preset):
     request = httpx.Request("POST", "http://localhost:1234/v1/chat/completions")
     fake_llm["client"].set_exc(openai.APITimeoutError(request=request))

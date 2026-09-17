@@ -193,6 +193,8 @@ export interface AiPanelState {
   setInjectedOutline: (
     info: { current?: boolean; next_title?: string } | null,
   ) => void;
+  heartbeat: { stage: string; elapsedSeconds: number } | null;
+  setHeartbeat: (info: { stage: string; elapsedSeconds: number } | null) => void;
 
   // 호출 폼 (FR-401/403/407)
   presetId: number | null;
@@ -502,6 +504,8 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
   setInjectedForeshadows: (items) => set({ injectedForeshadows: items }),
   injectedOutline: null,
   setInjectedOutline: (info) => set({ injectedOutline: info }),
+  heartbeat: null,
+  setHeartbeat: (info) => set({ heartbeat: info }),
 
   presetId: null,
   promptOverride: "",
@@ -570,6 +574,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       injectedLore: [],
       injectedForeshadows: [],
       injectedOutline: null,
+      heartbeat: null,
       reviewInfo: null,
       reviewText: "",
       refinedText: "",
@@ -601,6 +606,7 @@ export const useAiPanelStore = create<AiPanelState>((set, get) => ({
       injectedLore: [],
       injectedForeshadows: [],
       injectedOutline: null,
+      heartbeat: null,
       pendingGenerate: false,
       reviewInfo: null,
       reviewText: "",

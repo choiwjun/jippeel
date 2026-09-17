@@ -5,12 +5,16 @@
 compatibility route와 legacy callers를 위해만 보존한다.
 """
 import json
+from contextvars import ContextVar
 
 import openai  # pyright: ignore[reportMissingImports]
 
 from app.services.crypto import get_cipher
 
-REQUEST_TIMEOUT = 600.0  # 초 — 로컬 LLM 첫 토큰 지연·추론 모델(xhigh 등)의 사고 시간 감안
+REQUEST_TIMEOUT = 600.0  # legacy·동기 compatibility 호출용 transport 상한
+_UNSET = object()
+_client_timeout_override: ContextVar[object] = ContextVar(
+    "llm_client_timeout_override", default=_UNSET)
 
 
 def make_client(base_url: str, api_key_encrypted: str | None) -> openai.AsyncOpenAI:
@@ -23,7 +27,22 @@ def make_client(base_url: str, api_key_encrypted: str | None) -> openai.AsyncOpe
         api_key = get_cipher().decrypt(api_key_encrypted)
     else:
         api_key = "sk-local"
-    return openai.AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=REQUEST_TIMEOUT)
+    override = _client_timeout_override.get()
+    timeout = REQUEST_TIMEOUT if override is _UNSET else override
+    return openai.AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
+
+
+def make_long_running_client(base_url: str, api_key_encrypted: str | None):
+    """생성/부트스트랩처럼 provider 완료까지 기다리는 전용 client factory.
+
+    ContextVar로 override를 전달해 기존 test/호환 monkeypatch의
+    ``make_client(base_url, key)`` 호출 표면은 바꾸지 않는다.
+    """
+    token = _client_timeout_override.set(None)
+    try:
+        return make_client(base_url, api_key_encrypted)
+    finally:
+        _client_timeout_override.reset(token)
 
 
 async def stream_chat(client: openai.AsyncOpenAI, model: str, messages: list[dict],

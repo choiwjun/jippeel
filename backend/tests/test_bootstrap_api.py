@@ -613,6 +613,34 @@ def test_bootstrap_defaults_single_volume_10_chapters(client, fake_llm, default_
     assert n == 10
 
 
+def test_bootstrap_uses_bounded_reasoning_budget(client, fake_llm, default_endpoint):
+    """대형 구조 JSON은 provider의 xhigh 기본값을 그대로 물려받지 않는다.
+
+    xhigh 추론을 제목·목차·캐릭터·세계관에 연속 적용하면 부트스트랩 전체가
+    수분 이상 지연되어 AI 결과 대신 템플릿 폴백으로 끝날 수 있다.
+    """
+    enqueue_success(fake_llm, outline=_good_outline(volume_count=1, cpv=1))
+
+    resp = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "판타지", "volume_count": 1, "chapters_per_volume": 1})
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["used_ai"] is True
+    assert {call["reasoning_effort"] for call in fake_llm["calls"]} == {"high"}
+
+
+def test_generate_structure_preserves_explicit_reasoning_effort(fake_llm):
+    """서비스 함수의 명시적 reasoning 계약은 라우터의 전용 override와 분리한다."""
+    enqueue_success(fake_llm, outline=_good_outline(volume_count=1, cpv=1))
+
+    client_obj = bootstrap_service.llm.make_client("http://localhost", None)
+    asyncio.run(bootstrap_service.generate_structure(
+        "판타지", None, "웹소설식 긴 제목", 1, 1,
+        client_obj, "test-model", reasoning_effort="medium"))
+
+    assert {call["reasoning_effort"] for call in fake_llm["calls"]} == {"medium"}
+
+
 def test_bootstrap_broken_json_repaired_once(client, fake_llm, default_endpoint):
     # ①제목 단계만 깨짐 → repair 재시도로 성공 (총 4회 호출)
     broken = "네, 요청하신 결과입니다:\n{ titles: [누락된 따옴표], "
@@ -716,25 +744,19 @@ def test_bootstrap_request_validation(client):
     assert r.status_code == 422
 
 
-def test_bootstrap_llm_timeout_becomes_ai_error(monkeypatch):
-    """한 LLM 호출이 무한 대기해도 500 대신 부트스트랩 실패 계약으로 변환한다."""
-    calls = 0
-
-    async def never_returns(*_args, **_kwargs):
-        nonlocal calls
-        calls += 1
-        await asyncio.Event().wait()
+def test_bootstrap_llm_waits_past_legacy_timeout_without_cutting_call(monkeypatch):
+    """생성 응답이 늦어도 애플리케이션 timeout으로 provider 호출을 끊지 않는다."""
+    async def returns_late(*_args, **_kwargs):
+        await asyncio.sleep(0.03)
+        return json.dumps(GOOD_IDEA, ensure_ascii=False)
 
     monkeypatch.setattr(bootstrap_service, "BOOTSTRAP_CALL_TIMEOUT_SECONDS", 0.01)
-    monkeypatch.setattr(bootstrap_service.llm, "complete_chat", never_returns)
+    monkeypatch.setattr(bootstrap_service.llm, "complete_chat", returns_late)
 
-    async def exercise():
-        with pytest.raises(bootstrap_service.BootstrapAIError, match="시간 초과"):
-            await bootstrap_service._call_json(
-                object(), "test-model", [{"role": "user", "content": "test"}])
+    result = asyncio.run(bootstrap_service._call_json(
+        object(), "test-model", [{"role": "user", "content": "test"}]))
 
-    asyncio.run(exercise())
-    assert calls == 1
+    assert result == GOOD_IDEA
 
 # --------------------------------------------------------------------------
 # 회귀: 실제 llm.complete_chat 시그니처를 그대로 통과하는 bootstrap 경로
@@ -883,12 +905,13 @@ def test_bootstrap_outline_anchor_summary_has_a_hard_size_cap():
     assert "목차 앵커 생략" in summary
 
 
-def test_stage_timeout_outline_is_longer():
-    """outline stage는 대용량 JSON 생성이므로 기본보다 긴 timeout을 받는다."""
+def test_stage_timeout_is_disabled_for_generation_stages():
+    """생성 stage는 provider가 끝날 때까지 기다리고 애플리케이션 timeout을 쓰지 않는다."""
     from app.services.bootstrap import (_stage_timeout,
                                         BOOTSTRAP_CALL_TIMEOUT_SECONDS,
                                         BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS)
-    assert _stage_timeout("outline") == BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS
-    assert BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS > BOOTSTRAP_CALL_TIMEOUT_SECONDS
-    assert _stage_timeout("idea") == BOOTSTRAP_CALL_TIMEOUT_SECONDS
-    assert _stage_timeout("characters") == BOOTSTRAP_CALL_TIMEOUT_SECONDS
+    assert _stage_timeout("outline") is None
+    assert _stage_timeout("idea") is None
+    assert _stage_timeout("characters") is None
+    assert BOOTSTRAP_CALL_TIMEOUT_SECONDS is None
+    assert BOOTSTRAP_OUTLINE_TIMEOUT_SECONDS is None
