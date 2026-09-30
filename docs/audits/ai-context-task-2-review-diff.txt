@@ -1,0 +1,1613 @@
+Base: da49ff3da852def210a99d4b5792dd5b376d8e6f
+Task2 OWNED SOURCE/TEST ONLY uncommitted diff; includes new test file. Intentionally excludes parent-maintained HANDOFF.md / docs/audits/ai-context-progress.md and unrelated preexisting artifacts. This is not an all-worktree diff or a claim of clean checkout.
+SHA256 snapshot:
+{
+  "backend/app/services/ai_context.py": "7e075322e5f481d518af4db632e82980bd434b67679dcd0ab1a3946c805a65ec",
+  "backend/app/schemas.py": "5b67c979bb19a826c754d98fa0b3abe3626750b1a1bc045434572d10e455b71f",
+  "backend/app/routers/ai_panel.py": "3c2e0be21f057576848ccc775a7e44109ba3f89ed61d91f1db948631d9874740",
+  "backend/app/services/canon.py": "b6d3095376e45de432feb90dcc04824784e390687649c5d87bcc6ab4b5f635c2",
+  "backend/app/services/quality.py": "353eb79e5b41ca634177d98e804376a21dc4f489cdbf34f22c87691ae0614d7f",
+  "backend/app/routers/quality.py": "219a348542f04069ef38009b2a3a03b22f526c5f918c875929e94935cd605f4b",
+  "backend/app/services/parallel_writer.py": "6b32fcbe30901fa3ce19b7ad3c06a5f0a2b3098390a2c2d496b4c92dec1d62fe",
+  "backend/tests/test_ai_context_directives.py": "ba5ff8305724eefd899a94e6f6aa19c07149a0322d69576e133935d3d6a2340b",
+  "backend/tests/test_quality.py": "3bc7d1294353ca6f0d450798cfecf206b7a7ed384359e630cf6159190ce659dd",
+  "backend/tests/test_parallel_writer.py": "3df3891f127e885bee97a7ee6cf2e0b632a3a9d0051dec45b8d831dd56023b41",
+  "backend/tests/test_parallel_quality.py": "093d925d3167f7b1d9d72571e194a022dc1d3de9dfb32257009cb9c132f0b7f8",
+  "backend/tests/test_foreshadows_canon.py": "6a362ea11b3604edc15325fb2af6c74e15a8469905a6d0520459b0700a66f33a",
+  "backend/tests/test_ai_generate_stream.py": "cb59c891829bc2083bb6ee0fdff53847b8d5d24af6604c0535b032b8893c2a3e",
+  "backend/tests/test_ai_context_bundle.py": "d4a45dfdd415e297fa96cea591d0261df8b442786feda2e58f345d2dd35deb6e"
+}
+
+diff --git a/backend/app/routers/ai_panel.py b/backend/app/routers/ai_panel.py
+index 2cf961b..3d0dd5c 100644
+--- a/backend/app/routers/ai_panel.py
++++ b/backend/app/routers/ai_panel.py
+@@ -25,84 +25,83 @@ from app.schemas import (
+     ParallelGenerateRequest,
+     PromptPresetCreate,
+     PromptPresetOut,
+     PromptPresetUpdate,
+ )
+ from app.services import ai_context, injection, llm, parallel_writer, usage as usage_service
+ 
+ # 집필 기본 시스템 프롬프트 — 요즘 웹소설(노벨피아·문피아 상위권) 관례 반영.
+ # 보편 수치 규칙(대사 비율·문단 길이·도입 글자 수) 대신 회차 브리프와
+ # 장면 유형별 리듬에 적응하는 지침을 쓴다 (한국어 회차 품질 슬라이스).
+ NOVEL_SYSTEM_PROMPT = (
+     "너는 노벨피아·문피아 상위권에 연재하는 현역 한국 웹소설 작가다. 아래 컨텍스트와 지시에 따라 원고를 집필한다.\n"
+     "[브리프 우선]\n"
+     "- 회차 브리프('[이번 화 브리프 — 생성 계약]' 블록)가 주어지면 그것이 이 화의 최우선 계약이다. "
+     "감정 목표·핵심 사건·인물 선택·대가·금지사항을 빠뜨리지 말고, 브리프에 없는 독립 사건을 새로 만들지 않는다.\n"
+     "- 브리프의 장면 유형이 이 화의 리듬을 결정한다. 유형이 없으면 지시문과 컨텍스트에서 이 화의 성격을 스스로 판단한다.\n"
+     "[장면 유형별 리듬]\n"
+     "- 대립·액션: 대사와 행동 비트가 장면을 주도한다. 대사 비율과 문단 길이를 미리 정하지 말고, 긴장이 이어지는 만큼 번갈아 배치한다.\n"
+     "- 대립: 문단 리듬의 바닥을 짧은 주고받기와 행동 한 줄로 잡는다. 한 문단에 대사와 행동이 뭉쳐 밀도가 떨어지기 전에 다음 비트로 넘어간다.\n"
+     "- 액션: 문단을 한 행동 단위로 끊어 쓴다. 여러 동작을 한 문단에 쌓지 않고, 행동 하나가 착지하면 다음 문단으로 넘어간다.\n"
+     "- 정보정리: 이 장면에 필요한 설명만 짧게 풀어 설명 블록을 인물의 반응 사이에 끼워 넣는다. 설명 문단이 연달아 놓이지 않게 한다.\n"
+     "- 감정·이동: 인물의 시선과 판단이 흐르게 쓰되, 장면의 질문이나 갈등에 닿는 페이스를 유지한다.\n"
+     "[전개]\n"
+     "- 시작은 배경 설명이 아니라 이 장면의 갈등이나 질문에 적절한 속도로 들어선다. 정해진 글자 수가 아니라 장면의 흐름이 기준이다.\n"
+     "- 이전 화의 마지막 사건을 자연스럽게 이어받고, 화 중간에 긴장 고점을 하나 유지한다.\n"
+-    "- 브리프에 다음 화 훅이 있으면 그 훅으로 향하는 미해결 질문이나 행동으로 화를 끝낸다. 훅이 없어도 장면의 긴장이 완전히 풀리기 전에 끝낸다.\n"
++    "- 결말 방식은 [연재화 목적]/[권말 목적]/[최종화 목적] 블록과 브리프의 next_hook 또는 ending_intent를 따른다.\n"
+     "[문체]\n"
+     "- '~하고 ~했다' 식의 문학적 장문 대신, 인물의 시선에서 흐르는 구어체 단문을 쓴다.\n"
+     "- 형용사·수식어를 걷어내고 동사와 구체적 행동으로 보여준다. 설명은 절제하고, 보여줄 수 있는 것은 묘사하지 않는다.\n"
+     "- 내면 묘사는 짧은 독백 한 줄로 과감하게: 의심·비웃음·각오.\n"
+-    "- 갈등을 다 풀지 마라. 해결은 다음 화에 남긴다.\n"
+     "[금지]\n"
+     "- 풍경·날씨·외모 장식 묘사의 연속 금지\n"
+     "- '그러나', '한편' 같은 느린 전환 남발 금지\n"
+     "- 원고 외의 설명·요약·메타 코멘트 금지. 출력은 원고 본문만."
+ )
+ PREVIOUS_CHAPTER_TAIL_CHARS = 2_000  # 직전 회차는 끝부분(클리프행어) 위주로 주입
+ 
+ # 감수 패스 시스템 프롬프트 — 5개 관점의 근거 기반 감수 + 수정본.
+ # [감수]/[수정본] 마커는 SSE 분할 계약이므로 절대 변경하지 않는다.
+ REVIEW_SYSTEM_PROMPT = (
+     "너는 한국 웹소설 플랫폼의 감수자(편집장)다. 초안 원고를 아래 다섯 관점에서 검수하고, 지정된 형식 그대로 출력한다.\n"
+     "[감수 관점]\n"
+     "- 구조: 사건 배치·장면 전환·복선 회수와 페이스. 이 화가 하나의 장면 질문에 매달리는지.\n"
+     "- 캐릭터: 말투·행동·동기·지위의 일관성. 선택과 대가가 그 인물에게 설득력 있는지.\n"
+     "- 연속성/설정: 시간표·동선·세계관 규칙의 모순. 컨텍스트(회차·캐릭터·로어·브리프)와의 충돌.\n"
+     "- 문장/리듬: 중복·군더더기·설명 과다. 장면 유형에 맞는 대사·행동·설명의 리듬.\n"
+-    "- 플랫폼: 노벨피아·문피아 연재 관행 — 도입 페이스, 화 전환, 다음 화 클릭을 유도하는 마무리.\n"
++    "- 플랫폼/목적: episode_purpose에 맞는 마무리인지. serial은 다음 화 압력, volume_end는 권 단위 closure, series_finale는 시리즈 closure를 본다.\n"
+     "[출력 형식 — 절대 어긋나지 않는다]\n"
+     "[감수]\n"
+     "- 중요한 문제만 3~7개. 각 항목은 '- '으로 시작하고, 관점, 원문 위치와 근거(원문 표현), 이유, 수정 제안을 한국어로 간결하게 쓴다. 사소한 취향 지적은 하지 않는다.\n"
+     "[수정본]\n"
+     "지적을 반영해 초안 전체를 수정한 원고를 그대로 쓴다. 설명·메타 코멘트 금지.\n"
+     "분량은 초안과 비슷하게 유지하고, 좋은 부분은 함부로 바꾸지 않는다. 브리프와 작품 설정 밖의 사실을 새로 만들지 않는다."
+ )
+ REVIEW_MARKER = "[수정본]"  # 감수 의견 → 수정본 전환 지점 (라인 단위 매칭)
+ PARALLEL_REVIEW_SYSTEM_PROMPT = (
+-    "너는 한국 웹소설 편집장이다. 아래 장면별 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼 "
+-    "다섯 관점에서 감수하라. 장면 계약은 검수 기준이며 원고에 없는 사실을 추측하지 마라.\n"
++    "너는 한국 웹소설 편집장이다. 아래 장면별 조립 원고를 구조·캐릭터·연속성/설정·문장/리듬·플랫폼/목적 "
++    "다섯 관점에서 감수하라. episode_purpose에 맞는 마무리인지 보고, 장면 계약은 검수 기준이며 원고에 없는 사실을 추측하지 마라.\n"
+     "[출력 형식]\n"
+     "[감수]\n"
+     "- 중요한 문제만 3~7개. 원문 위치, 근거, 이유, 수정 제안을 한국어로 간결하게 쓴다.\n"
+     "[수정본] 섹션은 출력하지 마라. 원고를 다시 쓰거나 자동 수정하지 마라.\n"
+     "컨텍스트와 장면 계약 밖의 사실을 새로 만들지 마라."
+ )
+ 
+ router = APIRouter()
+ 
+ 
+ # ---------- helpers ----------
+ def _get_endpoint_or_404(eid: int, db: Session) -> AiEndpoint:
+     endpoint = db.get(AiEndpoint, eid)
+     if endpoint is None:
+         raise HTTPException(status_code=404, detail="endpoint not found")
+     return endpoint
+ 
+ 
+ def _get_preset_or_404(pid: int, db: Session) -> PromptPreset:
+     preset = db.get(PromptPreset, pid)
+     if preset is None:
+         raise HTTPException(status_code=404, detail="preset not found")
+     return preset
+ 
+ 
+@@ -203,51 +202,52 @@ def _build_context_blocks(payload: GenerateRequest, db: Session) -> tuple[list[s
+ 
+ 
+ def _build_messages(
+     payload: GenerateRequest,
+     db: Session,
+     bundle: ai_context.ContextBundle | None = None,
+ ) -> tuple[str, list[dict], list[dict], dict, list[dict], dict]:
+     """프리셋 템플릿 + 공유 ContextBundle + override → chat messages.
+ 
+     반환: (model_hint, messages, 자동 주입된 로어 목록, 목차 주입 정보, 복선 주입 목록, 컨텍스트 메타데이터)
+     """
+     if bundle is None:
+         bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(payload))
+     sections = ["다음 컨텍스트를 참고해 작성하세요.", *bundle.blocks]
+     context_text = "\n\n".join(p for p in sections if p)
+ 
+     instruction = payload.prompt_override
+     if payload.preset_id is not None:
+         preset = _get_preset_or_404(payload.preset_id, db)
+         instruction = f"{preset.template_text}\n\n{instruction}" if instruction else preset.template_text
+     if not instruction:
+         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                             detail="preset_id 또는 prompt_override 중 하나는 필요합니다.")
+ 
+     user_content = f"{context_text}\n\n---\n\n지시:\n{instruction}"
+-    system_prompt = _system_with_style(NOVEL_SYSTEM_PROMPT, bundle.style_profile_text)
++    base_system_prompt = f"{NOVEL_SYSTEM_PROMPT}\n\n{ai_context.purpose_directive(bundle.episode_purpose)}"
++    system_prompt = _system_with_style(base_system_prompt, bundle.style_profile_text)
+     messages = [{"role": "system", "content": system_prompt},
+                 {"role": "user", "content": user_content}]
+     injected_foreshadows = _foreshadow_items_from_metadata(db, bundle.metadata)
+     return (
+         "default",
+         messages,
+         list(bundle.metadata.get("injected_lore", [])),
+         dict(bundle.metadata.get("outline", {})),
+         injected_foreshadows,
+         bundle.metadata,
+     )
+ 
+ 
+ 
+ 
+ def _style_suffix_from_generation_system(system_prompt: str) -> str:
+     if system_prompt.startswith(NOVEL_SYSTEM_PROMPT):
+         return system_prompt[len(NOVEL_SYSTEM_PROMPT):].strip()
+     return ""
+ 
+ 
+ def _append_generation_style(system_prompt: str, generation_system_prompt: str) -> str:
+     suffix = _style_suffix_from_generation_system(generation_system_prompt)
+     if not suffix:
+         return system_prompt
+@@ -547,116 +547,119 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
+         endpoint_id=payload.endpoint_id,
+         preset_id=payload.preset_id,
+         prompt_override=payload.prompt_override,
+         context=payload.context,
+         params=payload.params,
+     )
+     bundle = ai_context.build_context_bundle(db, ai_context.request_from_generate(base_payload))
+     endpoint = _get_endpoint_or_404(payload.endpoint_id, db)
+     _, base_messages, injected_lore, injected_outline, injected_foreshadows, context_metadata = _build_messages(
+         base_payload, db, bundle=bundle)
+     model = _resolve_model(endpoint, payload.params.model)
+     temperature = payload.params.temperature
+     if temperature is None:
+         temperature = endpoint.temperature
+     generation_client = llm.make_client(endpoint.base_url, endpoint.api_key_encrypted)
+ 
+     reviewer = _get_endpoint_or_404(payload.review.endpoint_id or endpoint.id, db)
+     reviewer_model = _resolve_model(reviewer, payload.review.model)
+     reviewer_effort = payload.review.reasoning_effort or "xhigh"
+     reviewer_client = (llm.make_client(reviewer.base_url, reviewer.api_key_encrypted)
+                        if reviewer.id != endpoint.id else generation_client)
+ 
+     planner_system = (
+         "너는 한국 웹소설의 장면 설계자다. 반드시 단일 유효 JSON 객체만 출력하라.\n"
+         "2~4개 장면으로 나누고, 장면 order는 1부터 연속이어야 한다.\n"
+-        "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook을 포함하라.\n"
++        "각 장면에는 title, purpose, objective, choice, cost, required_beats, characters, opening_state, closing_hook, ending_intent를 포함하라.\n"
++        "serial은 closing_hook을 채우고, volume_end는 closing_hook 또는 ending_intent를 채우며, series_finale의 마지막 장면은 ending_intent를 채워라.\n"
+         "objective는 즉시 목표, choice는 핵심 선택, cost는 선택의 대가다.\n"
+         "required_beats에는 objective·choice·cost가 행동과 판단으로 드러나는 비트를 포함하라.\n"
+         "정본 컨텍스트와 브리프 밖의 사건·고유명사를 새로 만들지 마라."
+     )
+     planner_instruction = (
+         f"{base_messages[-1]['content']}\n\n"
+         "[병렬 Planner — 장면 계약 생성]\n"
+         "현재 회차를 2~4개 장면으로 분해하라. 각 worker는 자기 계약만 집필한다.\n"
+         '{"scenes":[{"order":1,"title":"...","purpose":"...",'
+         '"objective":"...","choice":"...","cost":"...",'
+         '"required_beats":["..."],"characters":["..."],'
+-        '"opening_state":"...","closing_hook":"..."}]} 형식만 출력하라.'
++        '"opening_state":"...","closing_hook":"...","ending_intent":"..."}]} 형식만 출력하라. '
++        'serial은 closing_hook, series_finale 마지막 장면은 ending_intent를 반드시 채워라.'
+     )
+ 
+     async def event_stream():
+         yield {
+             "event": "parallel_start",
+             "data": json.dumps({
+                 "model": model,
+                 "generation_reasoning_effort": payload.generation_reasoning_effort,
+                 "review_model": reviewer_model,
+                 "review_endpoint": reviewer.name,
+                 "review_reasoning_effort": reviewer_effort,
+                 "worker_limit": payload.worker_limit,
+                 "injected_lore": injected_lore,
+                 "injected_outline": injected_outline,
+                 "injected_foreshadows": injected_foreshadows,
+                 "context_metadata": context_metadata,
+             }, ensure_ascii=False),
+         }
+         try:
+             planner_messages = [
+                 {"role": "system", "content": _append_generation_style(planner_system, base_messages[0]["content"])},
+                 {"role": "user", "content": planner_instruction},
+             ]
+             planner_raw = await llm.complete_chat(
+                 generation_client, model, planner_messages,
+                 temperature=temperature,
+                 max_tokens=payload.params.max_tokens,
+                 reasoning_effort=payload.generation_reasoning_effort,
+             )
+-            plan = parallel_writer.parse_parallel_plan(planner_raw)
++            plan = parallel_writer.parse_parallel_plan(planner_raw, episode_purpose=bundle.episode_purpose)
+             yield {
+                 "event": "planner_done",
+                 "data": json.dumps({
+                     "scene_count": len(plan.scenes),
+                     "scenes": [{"order": s.order, "title": s.title} for s in plan.scenes],
+                 }, ensure_ascii=False),
+             }
+             for scene in plan.scenes:
+                 yield {
+                     "event": "worker_start",
+                     "data": json.dumps({"order": scene.order, "title": scene.title},
+                                        ensure_ascii=False),
+                 }
+ 
+             async def run_scene(scene):
+                 contract = json.dumps(scene.model_dump(), ensure_ascii=False)
+                 worker_prompt = (
+                     f"{base_messages[-1]['content']}\n\n"
+                     "[병렬 Worker — 자기 장면만 집필]\n"
+                     f"[장면 계약]\n{contract}\n"
+                     "opening_state에서 시작하고 objective를 향해 진행하라. "
+                     "choice를 인물의 행동과 판단으로 보여주고 cost를 실제 위험·손실로 드러내라. "
+-                    "closing_hook으로 끝내되, 다른 장면을 대신 쓰지 말고 정본 컨텍스트 밖의 사실을 만들지 마라. "
++                    "마무리는 episode_purpose와 장면 계약의 closing_hook 또는 ending_intent를 따른다. "
++                    "다른 장면을 대신 쓰지 말고 정본 컨텍스트 밖의 사실을 만들지 마라. "
+                     "장면 계약·JSON·[감수]·[수정본] 같은 메타 문구 없이 원고 본문만 출력하라."
+                 )
+                 worker_messages = [
+                     {"role": "system", "content": base_messages[0]["content"]},
+                     {"role": "user", "content": worker_prompt},
+                 ]
+                 text = await llm.complete_chat(
+                     generation_client, model, worker_messages,
+                     temperature=temperature,
+                     max_tokens=payload.params.max_tokens,
+                     reasoning_effort=payload.generation_reasoning_effort,
+                 )
+                 return parallel_writer.SceneResult(
+                     order=scene.order, title=scene.title, text=text,
+                 )
+ 
+             results = await parallel_writer.run_parallel_workers(
+                 plan.scenes, run_scene, payload.worker_limit,
+             )
+             quality_issues = parallel_writer.validate_results(results, plan.scenes)
+             if quality_issues:
+                 raise ValueError("parallel draft quality validation failed: " + "; ".join(quality_issues))
+             review_source = parallel_writer.build_review_source(results, plan.scenes)
+             for result in results:
+                 yield {
+@@ -685,51 +688,51 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
+                 "data": json.dumps({"stage": "generation", "detail": _friendly_api_error(exc)},
+                                    ensure_ascii=False),
+             }
+             return
+         except Exception as exc:  # noqa: BLE001 — 병렬 단계 전체를 사용자 이벤트로 변환
+             yield {
+                 "event": "parallel_error",
+                 "data": json.dumps({
+                     "stage": "generation", "detail": f"병렬 집필 실패: {type(exc).__name__}",
+                 }, ensure_ascii=False),
+             }
+             return
+ 
+         yield {
+             "event": "review_start",
+             "data": json.dumps({
+                 "model": reviewer_model,
+                 "endpoint": reviewer.name,
+                 "reasoning_effort": reviewer_effort,
+             }, ensure_ascii=False),
+         }
+         review_messages = [
+             {"role": "system", "content": _append_generation_style(PARALLEL_REVIEW_SYSTEM_PROMPT, base_messages[0]["content"])},
+             {"role": "user", "content": (
+                 f"{base_messages[-1]['content']}\n\n[장면별 조립 원고 — 감수 전용 메타데이터]\n{review_source}\n\n"
+-                "다음 항목을 반드시 확인하라: 장면별 purpose·required_beats·closing_hook 달성, "
++                "다음 항목을 반드시 확인하라: episode_purpose에 맞는 마무리, 장면별 purpose·required_beats·closing_hook·ending_intent 달성, "
+                 "장면 전환의 인과, 주인공의 objective·choice·cost가 행동과 판단으로 드러나는지, "
+                 "캐릭터·세계관·시간축·위치·미회수 복선과 충돌하는지. "
+                 "원고를 다시 쓰지 말고 [감수] 의견만 출력하라.")},
+         ]
+         review_chars = 0
+         try:
+             async for delta in llm.stream_chat(
+                     reviewer_client, reviewer_model, review_messages,
+                     max_tokens=payload.review.max_tokens or payload.params.max_tokens,
+                     reasoning_effort=reviewer_effort):
+                 review_chars += len(delta)
+                 yield {"event": "review",
+                        "data": json.dumps({"delta": delta}, ensure_ascii=False)}
+             if review_chars:
+                 usage_service.record(
+                     kind="parallel_review", model=reviewer_model,
+                     endpoint_name=reviewer.name,
+                     prompt_chars=sum(len(str(m.get("content") or "")) for m in review_messages),
+                     completion_chars=review_chars,
+                 )
+         except openai.APIError as exc:
+             yield {"event": "parallel_error",
+                    "data": json.dumps({"stage": "review", "detail": _friendly_api_error(exc)},
+                                       ensure_ascii=False)}
+         except Exception as exc:  # noqa: BLE001
+diff --git a/backend/app/routers/quality.py b/backend/app/routers/quality.py
+index d444289..b0f5a26 100644
+--- a/backend/app/routers/quality.py
++++ b/backend/app/routers/quality.py
+@@ -1,37 +1,37 @@
+ """canon 충돌 검사 + 회차 품질 진단 라우터 — 고도화 G-023·G-031·이력(G-041)."""
+ import hashlib
+ 
+ import openai
+ from fastapi import APIRouter, Depends, HTTPException, Query
+ from sqlalchemy import select
+ from sqlalchemy.orm import Session
+ 
+ from app.database import get_db
+ from app.models import CanonRun, Chapter, QualityCheck
+ from app.schemas import (CanonCheckRequest, CanonCheckResponse, CanonRunOut,
+-                         ChapterQualityOut, QualityCheckOut)
++                         ChapterQualityOut, EpisodePurpose, QualityCheckOut)
+ from app.services import ai_context
+ from app.services import canon as canon_service
+ from app.services import llm, quality as quality_service
+ from app.services import usage as usage_service
+ from app.services.bootstrap import NoEndpointError, resolve_endpoint
+ 
+ router = APIRouter()
+ 
+ 
+ def _get_chapter_or_404(cid: int, db: Session) -> Chapter:
+     chapter = db.get(Chapter, cid)
+     if chapter is None:
+         raise HTTPException(status_code=404, detail="chapter not found")
+     return chapter
+ 
+ 
+ @router.post("/canon-check", response_model=CanonCheckResponse)
+ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db)):
+     """회차 본문이 캐릭터·세계관·복선 설정과 모순되는지 LLM으로 검사한다(G-023).
+ 
+     원고를 자동 수정하지 않는다 — 모순 후보 목록을 작가 판단에 제공할 뿐.
+     결과는 canon_runs에 이력으로 저장되며 GET /canon-check/runs로 재조회한다.
+     """
+     chapter = _get_chapter_or_404(payload.chapter_id, db)
+     bundle = ai_context.build_context_bundle(db, ai_context.request_from_canon(payload, chapter))
+@@ -62,61 +62,72 @@ async def canon_check(payload: CanonCheckRequest, db: Session = Depends(get_db))
+     run = CanonRun(chapter_id=chapter.id, model=used_model,
+                    issues_json=issues, context_json=counts)
+     db.add(run)
+     db.commit()
+     db.refresh(run)
+     usage_service.record(kind="canon", model=used_model, endpoint_name=endpoint.name,
+                          prompt_chars=prompt_chars,
+                          completion_chars=sum(len(i["quote"]) + len(i["reason"]) for i in issues))
+ 
+     return CanonCheckResponse(
+         run_id=run.id, chapter_id=chapter.id, model=used_model, issues=issues,
+         checked_context=counts)
+ 
+ 
+ @router.get("/canon-check/runs", response_model=list[CanonRunOut])
+ def canon_runs(chapter_id: int = Query(...), db: Session = Depends(get_db)):
+     """canon 검사 이력 재조회(G-041) — 최신순."""
+     rows = db.scalars(
+         select(CanonRun).where(CanonRun.chapter_id == chapter_id)
+         .order_by(CanonRun.created_at.desc(), CanonRun.id.desc()).limit(50)
+     ).all()
+     return list(rows)
+ 
+ 
+ @router.get("/chapters/{cid}/quality", response_model=ChapterQualityOut)
+-def chapter_quality(cid: int, record: bool = True, db: Session = Depends(get_db)):
++def chapter_quality(
++    cid: int,
++    record: bool = True,
++    episode_purpose: EpisodePurpose = "serial",
++    db: Session = Depends(get_db),
++):
+     """규칙 기반 회차 품질 진단 — LLM 호출 없이 로컬 계산(G-030·G-031).
+ 
+     record=true(기본)이면 quality_checks에 이력을 기록하되, 본문 해시가
+     직전 기록과 같으면 스킵한다(점수 추이는 본문이 바뀔 때만 갱신).
+     """
+     chapter = _get_chapter_or_404(cid, db)
+     text = chapter.content_md or ""
+-    result = quality_service.analyze_chapter(text)
++    result = quality_service.analyze_chapter(text, episode_purpose=episode_purpose)
+ 
+     recorded = False
+     if record:
+         content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+-        last = db.scalars(
+-            select(QualityCheck).where(QualityCheck.chapter_id == cid)
+-            .order_by(QualityCheck.created_at.desc(), QualityCheck.id.desc())
+-        ).first()
+-        if last is None or last.content_hash != content_hash:
++        same_hash_rows = db.scalars(
++            select(QualityCheck).where(
++                QualityCheck.chapter_id == cid,
++                QualityCheck.content_hash == content_hash,
++            )
++        ).all()
++        has_same_purpose = any(
++            ((row.metrics_json or {}).get("episode_purpose") or "serial") == episode_purpose
++            for row in same_hash_rows
++        )
++        if not has_same_purpose:
+             db.add(QualityCheck(
+                 chapter_id=cid, score=result["score"], content_hash=content_hash,
+                 metrics_json=result["metrics"], suggestions_json=result["suggestions"],
+                 presets_json=result["suggested_preset_names"]))
+             db.commit()
+             recorded = True
+     return ChapterQualityOut(chapter_id=chapter.id, recorded=recorded, **result)
+ 
+ 
+ @router.get("/chapters/{cid}/quality/history", response_model=list[QualityCheckOut])
+ def chapter_quality_history(cid: int, db: Session = Depends(get_db)):
+     """품질 점수 추이 — 최신순 최대 100건."""
+     _get_chapter_or_404(cid, db)
+     rows = db.scalars(
+         select(QualityCheck).where(QualityCheck.chapter_id == cid)
+         .order_by(QualityCheck.created_at.desc(), QualityCheck.id.desc()).limit(100)
+     ).all()
+     return list(rows)
+diff --git a/backend/app/services/ai_context.py b/backend/app/services/ai_context.py
+index 6e698b6..5d9361e 100644
+--- a/backend/app/services/ai_context.py
++++ b/backend/app/services/ai_context.py
+@@ -165,64 +165,87 @@ def request_from_canon(payload: CanonCheckRequest, chapter: Chapter) -> ContextB
+     return ContextBundleRequest(
+         target="canon",
+         project_id=chapter.project_id,
+         chapter_id=chapter.id,
+         include_chapter_content=True,
+         expected_revision=payload.expected_revision,
+         scene_id=None,
+         character_ids=[],
+         lore_ids=[],
+         auto_lore=False,
+         auto_lore_limit=0,
+         auto_lore_semantic=False,
+         previous_chapter=True,
+         auto_outline=False,
+         auto_foreshadow=True,
+         auto_foreshadow_limit=50,
+         style_profile=False,
+         brief=None,
+         prompt_text=None,
+         episode_purpose=payload.episode_purpose,
+         approved_foreshadow_ids=list(payload.approved_foreshadow_ids or []),
+         include_relationships=payload.include_relationships,
+     )
+ 
+ 
++def purpose_directive(purpose: EpisodePurpose) -> str:
++    if purpose == "volume_end":
++        return (
++            "[권말 목적]\n"
++            "- 이 화는 권의 감정선·사건선을 닫는 회차다.\n"
++            "- 다음 권 질문은 작가가 준 경우에만 남긴다.\n"
++            "- 결말 의도가 있으면 억지 cliffhanger보다 closure를 우선한다."
++        )
++    if purpose == "series_finale":
++        return (
++            "[최종화 목적]\n"
++            "- 이 화는 시리즈 핵심 갈등과 감정선을 닫는 회차다.\n"
++            "- 작가가 명시하지 않은 새 sequel hook을 만들지 않는다.\n"
++            "- 해결된 결말을 약점으로 보지 않는다. 완결용 별도 점수는 만들지 않는다."
++        )
++    return (
++        "[연재화 목적]\n"
++        "- 이 화는 다음 회차로 이어지는 연재화다.\n"
++        "- next_hook이 있으면 그 방향으로 끝낸다.\n"
++        "- 단, 모든 갈등을 일부러 미완으로 남기라는 뜻은 아니다."
++    )
++
++
+ def _format_brief_block(brief: EpisodeBrief) -> str:
+     lines = ["[이번 화 브리프 — 생성 계약]"]
+     lines.append(f"감정 목표: {brief.emotion_goal}")
+     lines.append("핵심 사건:")
+     lines.extend(f"- {event}" for event in brief.core_events)
+     lines.append("인물 선택:")
+     lines.extend(f"- {choice}" for choice in brief.character_choices)
+     lines.append(f"대가(치르는 것): {brief.cost}")
+     lines.append("금지사항:")
+     lines.extend(f"- {item}" for item in brief.prohibitions)
+     if brief.next_hook:
+         lines.append(f"다음 화 훅: {brief.next_hook}")
+     if brief.ending_intent:
+-        lines.append(f"종결 의도: {brief.ending_intent}")
++        lines.append(f"결말 의도: {brief.ending_intent}")
+     if brief.scene_type:
+         lines.append(f"장면 유형: {brief.scene_type}")
+     if brief.target_chars_novelpia is not None:
+         lines.append(f"목표 글자 수(노벨피아): {brief.target_chars_novelpia}")
+     lines.append("→ 위 브리프에 없는 독립 사건을 새로 만들지 마라.")
+     return "\n".join(lines)
+ 
+ 
+ def _ordered_characters(db: Session, ids: list[int], project_id: int | None) -> tuple[list[Character], int | None]:
+     ordered_ids = _dedupe(ids)
+     if not ordered_ids:
+         return [], project_id
+     rows = db.scalars(select(Character).where(Character.id.in_(ordered_ids))).all()
+     by_id = {row.id: row for row in rows}
+     missing = [item for item in ordered_ids if item not in by_id]
+     if missing:
+         raise HTTPException(status_code=404, detail="character not found")
+     ordered = [by_id[item] for item in ordered_ids]
+     resolved = project_id
+     for row in ordered:
+         resolved = _resolve_project(resolved, row.project_id, "character")
+     return ordered, resolved
+ 
+ 
+ def _ordered_lore(db: Session, ids: list[int], project_id: int | None) -> tuple[list[LoreEntry], int | None]:
+@@ -272,67 +295,98 @@ def _validate_foreshadow_references(
+         for attr in ("planted_chapter_id", "resolved_chapter_id"):
+             ref_id = getattr(row, attr, None)
+             if ref_id is None:
+                 continue
+             ref = db.get(Chapter, ref_id)
+             if ref is None:
+                 raise HTTPException(status_code=404, detail="foreshadow referenced chapter not found")
+             if ref.project_id != row.project_id:
+                 raise HTTPException(status_code=422, detail="foreshadow referenced chapter belongs to another project")
+             if project_id is not None and ref.project_id != project_id:
+                 raise HTTPException(status_code=422, detail="foreshadow referenced chapter belongs to another project")
+             if _is_future_reference(current_chapter, ref) and row.id not in future_ids:
+                 future_ids.append(row.id)
+     return future_ids
+ 
+ 
+ def _foreshadow_position_key(db: Session, row: Foreshadow) -> tuple[float, int, int]:
+     ref = db.get(Chapter, row.planted_chapter_id) if row.planted_chapter_id else None
+     if ref is None and row.resolved_chapter_id:
+         ref = db.get(Chapter, row.resolved_chapter_id)
+     if ref is None:
+         return (float("inf"), row.id, row.id)
+     return (ref.sort_order, ref.id, row.id)
+ 
+ 
+-def _format_foreshadow_block(row: Foreshadow, approved: bool, future: bool) -> str:
++def _future_reference_attrs(db: Session, row: Foreshadow, current_chapter: Chapter | None) -> set[str]:
++    attrs: set[str] = set()
++    if current_chapter is None:
++        return attrs
++    for attr, label in (("planted_chapter_id", "planted"), ("resolved_chapter_id", "resolved")):
++        ref_id = getattr(row, attr, None)
++        if ref_id is None:
++            continue
++        ref = db.get(Chapter, ref_id)
++        if ref is not None and _is_future_reference(current_chapter, ref):
++            attrs.add(label)
++    return attrs
++
++
++def _chapter_ref_label(db: Session, chapter_id: int | None) -> str:
++    if chapter_id is None:
++        return "unknown/current record"
++    chapter = db.get(Chapter, chapter_id)
++    if chapter is None:
++        return "unknown/current record"
++    return f"{chapter.title}(현재 기록)"
++
++
++def _format_foreshadow_block(db: Session, row: Foreshadow, approved: bool, future_attrs: set[str]) -> str:
+     content = (row.content or "").strip()
++    future_planted = "planted" in future_attrs
++    future_resolved = "resolved" in future_attrs
+     if approved:
+         block = f"[이번 요청에서 회수/공개 허용된 복선: {row.title}]"
+-    elif future:
++    elif future_planted:
+         block = f"[미래 계획 복선: {row.title} — 현재 사실 아님]"
+     else:
+         block = f"[미회수 복선: {row.title}]"
+-    details = [f"상태: {row.status}. 독자 인지: {str(bool(row.audience_knows)).lower()}."]
++    details = [f"상태: {row.status}. 독자 인지: {str(bool(row.audience_knows)).lower()}. 기록: 현재 기록."]
++    if not future_planted:
++        details.append(f"설치 회차: {_chapter_ref_label(db, row.planted_chapter_id)}.")
+     if content:
+         details.append(content[:FORESHADOW_CONTENT_CHARS])
+     if approved:
+         details.append("→ 이번 원고에서 자연스럽게 공개하거나 회수할 수 있다. 단, 원고 밖 상태값은 자동 변경하지 마라.")
+-    elif future:
+-        details.append("→ 참조 회차가 현재 회차보다 뒤에 있다. 현재 인물 지식·세계 사실로 단정하지 마라.")
++        if future_planted:
++            details.append("→ 이 승인된 미래 설치 계획은 작가 허용 범위에서 사용할 수 있지만, 기존 현재 사실로 단정하지 마라.")
++    elif future_planted:
++        details.append("→ 참조 설치 회차가 현재 회차보다 뒤에 있다. 이 정보는 작가 계획일 수 있으나 현재 인물 지식·세계 사실로 단정하지 마라.")
+     else:
+-        details.append("→ 이 복선은 아직 회수 전이다. 이 화에서 건드릴 거면 자연스럽게, 건드리지 않으면 결론을 미리 풀지 마라.")
++        details.append("→ 이 복선은 현재 기록이다. 작가 승인 없이 결론·정체·회수를 공개하지 마라. 결론을 미리 풀지 마라.")
++    if future_resolved and not future_planted:
++        details.append("→ 미래 회수 계획은 현재 사실이나 현재 인물 지식으로 단정하지 마라.")
+     return block + "\n" + "\n".join(details)
+ 
+ 
+ def _relationship_text(rel: Relationship, from_ch: Character, to_ch: Character) -> str:
+     label = (rel.label or "관계").strip()
+     note = (rel.note or "").strip()
+     line = f"- {from_ch.name} ↔ {to_ch.name}: {label} 관계."
+     if note:
+         line += f" {note}"
+     return line
+ 
+ 
+ def _generation_relationships(
+     db: Session,
+     selected: list[Character],
+     project_id: int | None,
+ ) -> tuple[list[str], list[int]]:
+     if len(selected) < 2:
+         return [], []
+     selected_ids = {row.id for row in selected}
+     rows = db.scalars(select(Relationship).order_by(Relationship.id.asc())).all()
+     lines: list[str] = []
+     rel_ids: list[int] = []
+     for rel in rows:
+         if rel.from_character_id not in selected_ids or rel.to_character_id not in selected_ids:
+@@ -522,96 +576,116 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
+             select(Foreshadow).where(
+                 Foreshadow.project_id == project_id,
+                 Foreshadow.status.in_(("설치", "보류")),
+             )
+         ).all()
+         included_foreshadow_rows.sort(key=lambda row: _foreshadow_position_key(db, row))
+     elif request.auto_foreshadow and project_id is not None:
+         rows = db.scalars(
+             select(Foreshadow).where(
+                 Foreshadow.project_id == project_id,
+                 Foreshadow.status == "설치",
+             )
+         ).all()
+         rows.sort(key=lambda row: _foreshadow_position_key(db, row))
+         included_foreshadow_rows = rows[:request.auto_foreshadow_limit]
+ 
+     validation_by_id = {row.id: row for row in included_foreshadow_rows}
+     for row in approved_rows:
+         validation_by_id.setdefault(row.id, row)
+     validation_foreshadows = list(validation_by_id.values())
+     future_ids = _validate_foreshadow_references(db, validation_foreshadows, project_id, chapter)
+     if validation_foreshadows:
+         unknown_labels.append("foreshadow_history_is_current_record_only")
+     approved_ids = [row.id for row in approved_rows]
+ 
+-    if request.target == "canon" and included_foreshadow_rows:
+-        unknown = [row for row in included_foreshadow_rows if not row.audience_knows]
+-        known = [row for row in included_foreshadow_rows if row.audience_knows]
++    approved_set = set(approved_ids)
++    if request.target == "canon" and validation_foreshadows:
++        approved_for_render = [row for row in approved_rows]
++        unapproved_rows = [row for row in included_foreshadow_rows if row.id not in approved_set]
++        if approved_for_render:
++            parts = [
++                _format_foreshadow_block(
++                    db, row, approved=True, future_attrs=_future_reference_attrs(db, row, chapter)
++                )
++                for row in approved_for_render
++            ]
++            blocks.append("\n\n".join(parts))
++        unknown = [row for row in unapproved_rows if not row.audience_knows]
++        known = [row for row in unapproved_rows if row.audience_knows]
+         if unknown:
+             parts = [f"{row.title}: {row.content or ''}" for row in unknown]
+             blocks.append("[미회수 복선 — 아직 회수 전이므로 본문이 미리 결론을 풀어버리면 지적]\n" + "\n".join(parts))
+         if known:
+             parts = [f"{row.title}: {row.content or ''}" for row in known]
+             blocks.append("[독자가 이미 알게 된 사실 — 본문이 이를 마치 처음 밝히는 것처럼 쓰면 지적(인지 중복)]\n" + "\n".join(parts))
+-        included_foreshadows = [{"id": row.id, "title": row.title} for row in included_foreshadow_rows]
++        rendered = approved_for_render + unapproved_rows
++        included_foreshadows = [{"id": row.id, "title": row.title} for row in rendered]
+     elif request.target == "generate":
+-        for row in included_foreshadow_rows:
+-            future = row.id in future_ids
+-            blocks.append(_format_foreshadow_block(row, approved=False, future=future))
++        rendered_ids: set[int] = set()
++        render_rows = list(approved_rows) + [row for row in included_foreshadow_rows if row.id not in approved_set]
++        for row in render_rows:
++            if row.id in rendered_ids:
++                continue
++            rendered_ids.add(row.id)
++            blocks.append(
++                _format_foreshadow_block(
++                    db, row, approved=row.id in approved_set, future_attrs=_future_reference_attrs(db, row, chapter)
++                )
++            )
+             included_foreshadows.append({"id": row.id, "title": row.title})
+ 
+     included_relationship_ids: list[int] = []
+     if request.include_relationships:
+         if request.target == "canon":
+             rel_lines, included_relationship_ids = _canon_relationships(db, project_id)
+         else:
+             rel_lines, included_relationship_ids = _generation_relationships(db, selected_chars, project_id)
+         if rel_lines:
+             blocks.append("[인물 관계 — 관계가 본문 행동·호칭·거리감과 모순되면 지적]\n" + "\n".join(rel_lines))
+ 
+     style_profile_text: str | None = None
+     if request.style_profile and project is not None and (project.style_profile or "").strip():
+         style_profile_text = project.style_profile.strip()
+ 
+     characters_count = 0
+     lore_count = 0
+     foreshadows_count = 0
+     audience_known_count = 0
+     if request.target == "canon":
+         characters_count = len(selected_chars_for_metadata)
+         lore_count = len(selected_lore_for_metadata)
+         foreshadows_count = len([row for row in included_foreshadow_rows if not row.audience_knows])
+         audience_known_count = len([row for row in included_foreshadow_rows if row.audience_knows])
+ 
+     metadata = {
+         "project_id": project_id,
+         "chapter_id": chapter.id if chapter is not None else None,
+         "chapter_revision": chapter.revision if chapter is not None else None,
+         "include_chapter_content": request.include_chapter_content,
+         "episode_purpose": request.episode_purpose,
+         "included_character_ids": [row.id for row in selected_chars_for_metadata],
+         "included_lore_ids": [row.id for row in selected_lore_for_metadata],
+         "injected_lore": injected_lore,
+         "included_relationship_ids": included_relationship_ids,
+         "included_foreshadow_ids": [row["id"] for row in included_foreshadows],
+         "approved_foreshadow_ids": approved_ids,
+-        "future_reference_foreshadow_ids": future_ids,
++        "future_reference_foreshadow_ids": sorted(future_ids),
+         "outline": outline_info,
+         "unknown_labels": unknown_labels,
+         # Legacy canon count keys. Generation keeps them zero for JSON shape stability.
+         "characters": characters_count,
+         "lore": lore_count,
+         "foreshadows": foreshadows_count,
+         "audience_known": audience_known_count,
+     }
+ 
+     return ContextBundle(
+         project_id=project_id,
+         chapter_id=chapter.id if chapter is not None else None,
+         chapter_revision=chapter.revision if chapter is not None else None,
+         episode_purpose=request.episode_purpose,
+         blocks=blocks,
+         style_profile_text=style_profile_text,
+         metadata=metadata,
+         source_text="\n".join(part for part in source_parts if part),
+     )
+diff --git a/backend/app/services/canon.py b/backend/app/services/canon.py
+index 40da1c3..39c38be 100644
+--- a/backend/app/services/canon.py
++++ b/backend/app/services/canon.py
+@@ -3,82 +3,84 @@
+ 회차 본문이 캐릭터 카드·세계관(로어)·미회수 복선과 모순되는 지점을
+ LLM 1콜(비스트리밍, JSON)로 탐지한다. 결과는 응답으로만 반환하며
+ 원고·설정을 절대 자동 수정하지 않는다(작가 판단 대상).
+ """
+ import hashlib
+ import json
+ 
+ import openai
+ from sqlalchemy import select
+ from sqlalchemy.orm import Session
+ 
+ from app.models import Chapter, Character, Foreshadow, LoreEntry
+ from app.schemas import CanonCheckRequest
+ from app.services import ai_context, llm
+ from app.services.bootstrap import _extract_json  # JSON 추출 계약 공유
+ 
+ _SYSTEM_JSON = (
+     "너는 웹소설 연속성 검수 편집장이다. 주어진 회차 본문이 캐릭터 설정, "
+     "세계관 설정, 복선과 모순되는 지점을 찾아낸다. 반드시 단일 유효한 JSON 객체만 "
+     "출력하고 코드펜스·주석·설명은 절대 출력하지 않는다. 모순이 없으면 빈 배열을 "
+     "반환한다. 실제 모순만 판정하고, 문체·호불호는 판정 대상이 아니다.\n"
+     "특히 아래를 검사한다:\n"
+     "- 시간축: 회차 사이 흐른 시간이 본문 묘사(계절·부상 상태·배고픔·조명 등)와 모순되는지\n"
+     "- 위치: 캐릭터가 직전 회차 끝에 있던 장소에서 이동 불가능한 장면 전환이 없는지\n"
+     "- 독자 인지: 독자가 아직 모른다고 표시된 사실을 본문이 미리 노출하지 않는지\n"
+-    "- 미회수 복선: 아직 회수 전인 복선을 본문이 결론까지 풀어버리지 않는지"
++    "- 미회수 복선: 아직 회수 전인 복선을 본문이 결론까지 풀어버리지 않는지\n"
++    "작가가 이번 요청에서 회수/공개 허용한 복선 ID는 그 공개 자체만으로 미회수 복선 오류로 판정하지 않는다. "
++    "그러나 다른 설정·관계·세계관 모순은 계속 지적한다."
+ )
+ 
+ 
+ def _build_context_blocks(db: Session, chapter: Chapter) -> tuple[list[str], dict]:
+     """Compatibility wrapper for older direct tests.
+ 
+     New callers should use build_messages(..., payload=...) so ownership and
+     revision validation come from app.services.ai_context.
+     """
+     payload = CanonCheckRequest(chapter_id=chapter.id)
+     bundle = ai_context.build_context_bundle(db, ai_context.request_from_canon(payload, chapter))
+     return bundle.blocks, bundle.metadata
+ 
+ 
+ def build_messages(
+     db: Session,
+     chapter: Chapter,
+     payload: CanonCheckRequest | None = None,
+     bundle: ai_context.ContextBundle | None = None,
+ ) -> tuple[list[dict], dict]:
+     if payload is None:
+         payload = CanonCheckRequest(chapter_id=chapter.id)
+     if bundle is None:
+         bundle = ai_context.build_context_bundle(db, ai_context.request_from_canon(payload, chapter))
+ 
+     checked_input_body = chapter.content_md or ""
+     context = dict(bundle.metadata)
+     context["checked_input_revision"] = chapter.revision
+     context["checked_input_hash"] = hashlib.sha256(checked_input_body.encode("utf-8")).hexdigest()
+ 
+-    user = "\n\n".join(bundle.blocks)
++    user = "\n\n".join([ai_context.purpose_directive(bundle.episode_purpose), *bundle.blocks])
+     user += ("\n\n위 회차 본문에서 설정 모순을 검사하라. 다음 JSON 형식으로 출력하라:\n"
+              '{"issues": [{"quote": "본문 발췌(그대로)", "reason": "모순 이유", '
+              '"severity": "warn|error|info"}]}')
+     return [{"role": "system", "content": _SYSTEM_JSON},
+             {"role": "user", "content": user}], context
+ 
+ 
+ def parse_issues(raw: str) -> list[dict]:
+     data = _extract_json(raw)
+     issues = []
+     for item in data.get("issues", []):
+         if not isinstance(item, dict):
+             continue
+         quote = str(item.get("quote") or "").strip()
+         reason = str(item.get("reason") or "").strip()
+         if not quote or not reason:
+             continue
+         severity = str(item.get("severity") or "warn")
+         if severity not in ("info", "warn", "error"):
+             severity = "warn"
+         issues.append({"quote": quote[:500], "reason": reason[:500],
+                        "severity": severity})
+     return issues
+ 
+ 
+diff --git a/backend/app/services/parallel_writer.py b/backend/app/services/parallel_writer.py
+index f8cc820..1dd44be 100644
+--- a/backend/app/services/parallel_writer.py
++++ b/backend/app/services/parallel_writer.py
+@@ -1,67 +1,92 @@
+ """병렬 장면 집필의 검증·동시성·조립 계약."""
+ from __future__ import annotations
+ 
+ import asyncio
+ import json
+ from dataclasses import dataclass
+ from typing import Awaitable, Callable
+ 
+-from app.schemas import ParallelPlan, ParallelScenePlan
++from app.schemas import EpisodePurpose, ParallelPlan, ParallelScenePlan
+ 
+ 
+ @dataclass(frozen=True)
+ class SceneResult:
+     """한 worker의 완성 장면."""
+ 
+     order: int
+     title: str
+     text: str
+ 
+ 
+ SceneWorker = Callable[[ParallelScenePlan], Awaitable[SceneResult]]
+ 
+ 
+ 
+ 
+-def parse_parallel_plan(raw: str) -> ParallelPlan:
++def validate_plan_for_purpose(plan: ParallelPlan, purpose: EpisodePurpose = "serial") -> None:
++    """Validate purpose-specific scene ending contracts without changing order."""
++    scenes = sorted(plan.scenes, key=lambda s: s.order)
++    if purpose == "serial":
++        missing = [s.order for s in scenes if not s.closing_hook]
++        if missing:
++            raise ValueError(f"serial scenes require closing_hook: {missing}")
++        return
++    if purpose == "volume_end":
++        missing = [s.order for s in scenes if not (s.closing_hook or s.ending_intent)]
++        if missing:
++            raise ValueError(f"volume_end scenes require closing_hook or ending_intent: {missing}")
++        return
++    if purpose == "series_finale":
++        missing = [s.order for s in scenes if not (s.closing_hook or s.ending_intent)]
++        if missing:
++            raise ValueError(f"series_finale scenes require closing_hook or ending_intent: {missing}")
++        if not scenes[-1].ending_intent:
++            raise ValueError("series_finale final scene requires ending_intent")
++        return
++    raise ValueError(f"unknown episode_purpose: {purpose}")
++
++
++def parse_parallel_plan(raw: str, episode_purpose: EpisodePurpose = "serial") -> ParallelPlan:
+     """planner의 JSON 응답을 코드펜스 허용 방식으로 검증한다."""
+     text = (raw or "").strip()
+     if text.startswith("```"):
+         first_nl = text.find("\n")
+         if first_nl >= 0:
+             text = text[first_nl + 1:]
+         if text.rstrip().endswith("```"):
+             text = text.rstrip()[:-3].strip()
+     start, end = text.find("{"), text.rfind("}")
+     if start < 0 or end <= start:
+         raise ValueError("parallel planner JSON object not found")
+     try:
+         data = json.loads(text[start:end + 1])
+     except json.JSONDecodeError as exc:
+         raise ValueError("parallel planner JSON is invalid") from exc
+-    return ParallelPlan.model_validate(data)
++    plan = ParallelPlan.model_validate(data)
++    validate_plan_for_purpose(plan, episode_purpose)
++    return plan
+ CONTRACT_LEAK_MARKERS = (
+     "[장면 계약]", "[장면 원고]", "[감수]", "[수정본]", "원고 본문만 출력",
+ )
+ DEFAULT_SCENE_MAX_CHARS = 12_000
+ 
+ 
+ def validate_scene_result(
+     plan: ParallelScenePlan,
+     text: str,
+     max_chars: int = DEFAULT_SCENE_MAX_CHARS,
+ ) -> list[str]:
+     """LLM을 호출하지 않고 한 worker 결과의 안전한 출력 계약을 검사한다."""
+     issues: list[str] = []
+     normalized = (text or "").strip()
+     if not normalized:
+         issues.append(f"scene {plan.order} text is empty")
+         return issues
+     if len(normalized) > max_chars:
+         issues.append(f"scene {plan.order} exceeds {max_chars} characters")
+     leaked = [marker for marker in CONTRACT_LEAK_MARKERS if marker in normalized]
+     if leaked:
+         issues.append(f"scene {plan.order} leaks contract markers: {', '.join(leaked)}")
+     return issues
+ 
+ 
+diff --git a/backend/app/services/quality.py b/backend/app/services/quality.py
+index 04a725d..3f96a0b 100644
+--- a/backend/app/services/quality.py
++++ b/backend/app/services/quality.py
+@@ -1,166 +1,174 @@
+ """회차 품질 진단 — 고도화 G-030 (로컬 규칙 기반, LLM 불필요).
+ 
+ 웹소설(노벨피아·문피아 상위권) 관례를 지표화한다:
+   - 대사 비율(목표 35~50%)
+   - 초단문 리듬(평균 문단 길이)
+   - 어미 반복(~했다·이었다·하게 된다 등)
+   - 전환 접속사 남발(그러나·한편·그리고)
+   - 문단 첫머리 다양성
+   - 후크 진단(마지막 300자: 다음 화 클릭 유도 시그널)
+   - 노벨피아 공백제외 글자 수
+ 
+ 외부 의존 0(순수 규칙)이므로 결정적·테스트 가능하다.
+ metrics_v2(im-not-ai) 정량 엔진 재사용은 후속 경로.
+ """
+ import importlib.util
+ import logging
+ import os
+ import re
+ import sys
+ from pathlib import Path
+ 
++from app.schemas import EpisodePurpose
+ from app.services.wordcount import count_novelpia_chars
+ 
+ logger = logging.getLogger(__name__)
+ 
+ _DIALOGUE_RE = re.compile(r'[“"『「]([^”"』」]{1,200}?)[”"』」]')
+ CONNECTORS = ("그러나", "하지만", "한편", "그리고", "그래서", "그런데")
+ WEAK_ENDINGS = ("~하게 된다", "~것이었다", "~일 뿐이다", "~기도 했다")
+ PLAIN_PAST = ("했다", "이었다", "였다")
+ HOOK_SIGNALS = ("?", "!", "…", "…", "순간", "눈을 떠", "소리가", "돌아서", "참견",
+                 "알아차리", "들려왔다", "나타났", "움켜쥐", "훅", "덮치", "말이었다",
+                 "그런데 그", "반짝", "번개", "빙글")
+ 
+ 
+-def analyze_text(text: str) -> dict:
++def analyze_text(text: str, episode_purpose: EpisodePurpose = "serial") -> dict:
+     """텍스트 → 지표 딕셔너리(결정적). 빈 텍스트도 안전하게 처리한다."""
+     text = (text or "").strip()
+     metrics: dict = {}
+     if not text:
+         return {"chars_novelpia": 0, "dialogue_ratio": 0.0, "avg_para_chars": 0.0,
+                 "ending_repeat_per_1k": 0.0, "connector_per_1k": 0.0,
+                 "para_opener_variety": 0.0, "hook_present": False,
+-                "para_count": 0}
++                "hook_score_applicable": episode_purpose == "serial",
++                "episode_purpose": episode_purpose, "para_count": 0}
+ 
+     per_1k = max(len(text) / 1000, 0.001)
+ 
+     # 1) 대사 비율
+     dialogue_chars = sum(len(m) for m in _DIALOGUE_RE.findall(text))
+     metrics["dialogue_ratio"] = round(dialogue_chars / len(text), 4)
+     metrics["chars_novelpia"] = count_novelpia_chars(text)
+ 
+     # 2) 초단문 리듬 — 문단 평균 길이
+     paras = [p.strip() for p in re.split(r"\n\s*\n|\n", text) if p.strip()]
+     metrics["para_count"] = len(paras)
+     metrics["avg_para_chars"] = round(len(text) / max(len(paras), 1), 1)
+ 
+     # 3) 어미 반복 (1,000자당)
+     ending_count = sum(text.count(w) for w in PLAIN_PAST)
+     ending_count += sum(text.count(w) for w in WEAK_ENDINGS)
+     metrics["ending_repeat_per_1k"] = round(ending_count / per_1k, 2)
+ 
+     # 4) 전환 접속사 (1,000자당)
+     connector_count = sum(text.count(w) for w in CONNECTORS)
+     metrics["connector_per_1k"] = round(connector_count / per_1k, 2)
+ 
+     # 5) 문단 첫머리 다양성 (앞 2글자 기준 고유 비율)
+     openers = [p[:2] for p in paras]
+     metrics["para_opener_variety"] = round(
+         len(set(openers)) / max(len(openers), 1), 3)
+ 
+     # 6) 후크 진단 — 마지막 300자
+     tail = text[-300:]
+     metrics["hook_present"] = any(sig in tail for sig in HOOK_SIGNALS)
++    metrics["hook_score_applicable"] = episode_purpose == "serial"
++    metrics["episode_purpose"] = episode_purpose
+ 
+     return metrics
+ 
+ 
+-def score_and_suggest(metrics: dict) -> tuple[int, list[str], list[str]]:
++def score_and_suggest(metrics: dict, episode_purpose: EpisodePurpose = "serial") -> tuple[int, list[str], list[str]]:
+     """지표 → (0~100 점수, 개선 제안, 제안 프리셋 이름)."""
+     suggestions: list[str] = []
+     presets: list[str] = []
+     penalty = 0
+ 
+     dialogue = metrics.get("dialogue_ratio", 0.0)
+     if dialogue < 0.20:
+         penalty += 15
+         suggestions.append(
+             f"대사 비율이 {dialogue * 100:.0f}%로 낮습니다. 35~50%가 연재 관례입니다 — "
+             "설명을 대사·행동으로 바꿔보세요.")
+         presets.append("장면 확장")
+     elif dialogue > 0.70:
+         penalty += 10
+         suggestions.append("대사 비율이 지나치게 높습니다. 묘사·심리가 거의 없습니다.")
+ 
+     avg_para = metrics.get("avg_para_chars", 0.0)
+     if metrics.get("para_count", 0) >= 5 and avg_para > 180:
+         penalty += 15
+         suggestions.append(
+             f"평균 문단이 {avg_para:.0f}자로 깁니다. 초단문(1~2문장) 리듬으로 쪼개세요.")
+ 
+     ending = metrics.get("ending_repeat_per_1k", 0.0)
+     if ending > 12:
+         penalty += 15
+         suggestions.append(
+             f"어미 반복이 1,000자당 {ending:.0f}회입니다. '~했다·~이었다'를 줄이고 "
+             "문장 끝을 다양화하세요.")
+         presets.append("AI 티 제거 스타일")
+ 
+     connector = metrics.get("connector_per_1k", 0.0)
+     if connector > 5:
+         penalty += 10
+         suggestions.append(
+             f"전환 접속사(그러나·한편 등)가 1,000자당 {connector:.0f}회 남발됩니다 — "
+             "장면 전환을 사건으로 하세요.")
+ 
+     variety = metrics.get("para_opener_variety", 1.0)
+     if metrics.get("para_count", 0) >= 5 and variety < 0.5:
+         penalty += 10
+         suggestions.append("문단 첫머리가 단조롭습니다. 시작 패턴을 다양화하세요.")
+ 
+-    if not metrics.get("hook_present", False):
++    if episode_purpose == "serial" and not metrics.get("hook_present", False):
+         penalty += 20
+         suggestions.append(
+             "마지막 300자에 후크(질문·위기·반전 시그널)가 없습니다 — 다음 화를 "
+             "클릭하게 만드는 문장으로 끝내세요.")
+         presets.append("장 끝 후크")
++    elif episode_purpose == "volume_end" and not metrics.get("hook_present", False):
++        suggestions.append("권말 회차입니다. 다음 화 훅보다 권의 감정선·사건선이 닫혔는지 확인하세요.")
++    elif episode_purpose == "series_finale":
++        suggestions.append("최종화 목적입니다. 후크 점수는 적용하지 않고 결말 의도와 설정 정합성을 사람이 확인하세요.")
+ 
+     if metrics.get("chars_novelpia", 0) < 3000:
+         suggestions.append(
+             f"공백제외 글자 수 {metrics.get('chars_novelpia', 0):,}자 — 노벨피아 PLUS "
+             "3,000자 기준 미달입니다.")
+         presets.append("이어쓰기")
+ 
+     score = max(0, min(100, 100 - penalty))
+     return score, suggestions, presets
+ 
+ 
+-def analyze_chapter(text: str) -> dict:
++def analyze_chapter(text: str, episode_purpose: EpisodePurpose = "serial") -> dict:
+     """라우터용 편의 함수 — analyze_text + score_and_suggest 통합 (+metrics_v2)."""
+-    metrics = analyze_text(text)
+-    score, suggestions, presets = score_and_suggest(metrics)
++    metrics = analyze_text(text, episode_purpose=episode_purpose)
++    score, suggestions, presets = score_and_suggest(metrics, episode_purpose=episode_purpose)
+     v2 = try_metrics_v2(text)
+     if v2:
+         metrics["v2"] = v2
+     return {"score": score, "metrics": metrics,
+             "suggestions": suggestions, "suggested_preset_names": presets}
+ 
+ 
+ # --------------------------------------------------------------------------
+ # im-not-ai metrics_v2 연동 (고도화 G-071 — "선택 적용" 패턴, 부록05 §⑤-4와 동일)
+ #
+ # ~/.agents/im-not-ai 스킬이 있으면 정량 엔진(v1 8지표+이질성)을 병합한다.
+ # 표준 라이브러리 전용 모듈이므로 venv 오염 없음(기술설계 A3 실측 참조).
+ # 없으면 조용히 스킵 — 로컬 규칙 지표만으로 동작한다.
+ # --------------------------------------------------------------------------
+ 
+ _METRICS_DIR = Path(os.environ.get(
+     "IM_NOT_AI_METRICS_DIR",
+     str(Path.home() / ".agents" / "im-not-ai" / "skills" / "humanize-korean" / "references"),
+ ))
+ _metrics_v2_module = None
+ _metrics_v2_loaded = False
+ 
+ 
+ def try_metrics_v2(text: str) -> dict | None:
+     """metrics_v2.compute_all_v2 결과를 반환. 스킬 미설치/실패 시 None."""
+diff --git a/backend/tests/test_foreshadows_canon.py b/backend/tests/test_foreshadows_canon.py
+index 0f1b59c..eff7d39 100644
+--- a/backend/tests/test_foreshadows_canon.py
++++ b/backend/tests/test_foreshadows_canon.py
+@@ -195,25 +195,76 @@ def test_canon_checked_context_preserves_input_revision_and_hash(client, monkeyp
+     )
+     client.put(
+         f"/api/v1/chapters/{chapter['id']}/content",
+         json={"content_md": "검사 전 원본", "expected_revision": 0},
+     )
+     before = client.get(f"/api/v1/chapters/{chapter['id']}").json()
+     expected_hash = hashlib.sha256("검사 전 원본".encode("utf-8")).hexdigest()
+ 
+     resp = client.post(
+         "/api/v1/canon-check",
+         json={"chapter_id": chapter["id"], "expected_revision": before["revision"]},
+     )
+     assert resp.status_code == 200, resp.text
+     checked = resp.json()["checked_context"]
+     assert checked["checked_input_revision"] == before["revision"]
+     assert checked["checked_input_hash"] == expected_hash
+ 
+     runs = client.get(
+         "/api/v1/canon-check/runs", params={"chapter_id": chapter["id"]}
+     ).json()
+     assert runs[0]["context_json"]["checked_input_revision"] == before["revision"]
+     assert runs[0]["context_json"]["checked_input_hash"] == expected_hash
+     sent_user = holder["calls"][0]["messages"][-1]["content"]
+     assert "검사 전 원본" in sent_user
+     assert "provider 중 바뀐 본문" not in sent_user
++
++
++def test_canon_approved_foreshadow_permission_does_not_mutate_rows(client, monkeypatch, chapter):
++    from app.routers import quality as quality_router
++
++    holder = {"calls": []}
++
++    class _Completions:
++        async def create(self, **kwargs):
++            holder["calls"].append(kwargs)
++            return _Response(json.dumps({"issues": []}, ensure_ascii=False))
++
++    class _FakeClient:
++        def __init__(self, base_url=None, api_key_encrypted=None):
++            self.chat = type("NS", (), {"completions": _Completions()})()
++
++    monkeypatch.setattr(
++        quality_router.llm,
++        "make_client",
++        lambda base_url, api_key_encrypted: _FakeClient(),
++    )
++    client.post(
++        "/api/v1/ai/endpoints",
++        json={"name": "e", "base_url": "http://x/v1", "default_model": "m", "is_default": True},
++    )
++    pid = chapter["project_id"]
++    fs = _fs(
++        client, pid, "검의 진짜 주인",
++        content="검은 타인의 것이다", status="설치", audience_knows=False,
++    )
++
++    resp = client.post(
++        "/api/v1/canon-check",
++        json={
++            "chapter_id": chapter["id"],
++            "episode_purpose": "series_finale",
++            "approved_foreshadow_ids": [fs["id"]],
++        },
++    )
++    assert resp.status_code == 200, resp.text
++    user_text = holder["calls"][0]["messages"][-1]["content"]
++    system_text = holder["calls"][0]["messages"][0]["content"]
++    assert "[최종화 목적]" in user_text
++    assert "[이번 요청에서 회수/공개 허용된 복선: 검의 진짜 주인]" in user_text
++    assert "그 공개 자체만으로 미회수 복선 오류로 판정하지 않는다" in system_text
++    checked = resp.json()["checked_context"]
++    assert checked["approved_foreshadow_ids"] == [fs["id"]]
++    after = client.get(f"/api/v1/projects/{pid}/foreshadows").json()[0]
++    assert after["status"] == "설치"
++    assert after["audience_knows"] is False
++    assert after["resolved_chapter_id"] is None
+diff --git a/backend/tests/test_parallel_writer.py b/backend/tests/test_parallel_writer.py
+index eb67802..33a6441 100644
+--- a/backend/tests/test_parallel_writer.py
++++ b/backend/tests/test_parallel_writer.py
+@@ -66,25 +66,54 @@ def test_parallel_workers_are_bounded_and_cancel_on_failure():
+         async def fake_worker(scene: ParallelScenePlan) -> SceneResult:
+             nonlocal active, max_active
+             active += 1
+             max_active = max(max_active, active)
+             try:
+                 if scene.order == 2:
+                     raise RuntimeError("worker failed")
+                 await never.wait()
+                 return SceneResult(order=scene.order, title=scene.title, text=scene.title)
+             except asyncio.CancelledError:
+                 cancelled.append(scene.order)
+                 raise
+             finally:
+                 active -= 1
+ 
+         with pytest.raises(RuntimeError, match="worker failed"):
+             await run_parallel_workers(
+                 [valid_scene(1), valid_scene(2), valid_scene(3)],
+                 fake_worker,
+                 worker_limit=2,
+             )
+         assert max_active <= 2
+         assert cancelled
+ 
+     asyncio.run(exercise())
++
++
++def test_parallel_serial_requires_closing_hook():
++    from app.services.parallel_writer import validate_plan_for_purpose
++
++    p1 = valid_scene(1).model_copy(update={"closing_hook": None})
++    p2 = valid_scene(2)
++    plan = ParallelPlan(scenes=[p1, p2])
++    with pytest.raises(ValueError, match="closing_hook"):
++        validate_plan_for_purpose(plan, "serial")
++
++
++def test_parallel_series_finale_allows_ending_intent_on_final_scene():
++    from app.services.parallel_writer import validate_plan_for_purpose
++
++    p1 = valid_scene(1).model_copy(update={"closing_hook": "마지막 선택으로 이어진다"})
++    p2 = valid_scene(2).model_copy(update={"closing_hook": None, "ending_intent": "두 인물이 작별하며 시리즈 갈등을 닫는다"})
++    plan = ParallelPlan(scenes=[p1, p2])
++    validate_plan_for_purpose(plan, "series_finale")
++
++
++def test_parallel_series_finale_rejects_legacy_hook_only_final_scene():
++    from app.services.parallel_writer import validate_plan_for_purpose
++
++    p1 = valid_scene(1).model_copy(update={"closing_hook": "마지막 선택으로 이어진다"})
++    p2 = valid_scene(2).model_copy(update={"closing_hook": "다음 사건처럼 보이는 문장", "ending_intent": None})
++    plan = ParallelPlan(scenes=[p1, p2])
++    with pytest.raises(ValueError, match="final scene requires ending_intent"):
++        validate_plan_for_purpose(plan, "series_finale")
+diff --git a/backend/tests/test_quality.py b/backend/tests/test_quality.py
+index f169456..8b7d734 100644
+--- a/backend/tests/test_quality.py
++++ b/backend/tests/test_quality.py
+@@ -36,25 +36,81 @@ def test_good_text_gets_high_score():
+         "「네가 누구야.」\n\n검이 그의 목 앞에서 멈췄다. 그는 웃었다.\n\n"
+         "「기억 안 나? 네가 죽인 그 집 아들인데.」\n\n"
+         "손끝이 떨렸다. 기억이 번개처럼 돌아왔다. 그날 밤, 불타는 저택.\n\n"
+         "「이제 알겠네.」 그가 검을 뽑았다.\n\n"
+         "칼끝이 흔들렸다. 그리고 — 대문이 박살 나는 소리가 들려왔다."
+     )
+     result = analyze_chapter(text)
+     assert result["score"] >= 70
+     assert result["metrics"]["hook_present"] is True
+     assert "장 끝 후크" not in result["suggested_preset_names"]
+ 
+ 
+ def test_empty_text_safe():
+     result = analyze_chapter("")
+     assert result["score"] >= 0
+     assert result["metrics"]["para_count"] == 0
+ 
+ 
+ def test_score_capped():
+     m = {"dialogue_ratio": 0.0, "avg_para_chars": 999, "ending_repeat_per_1k": 99,
+          "connector_per_1k": 99, "para_opener_variety": 0.0, "para_count": 10,
+          "hook_present": False, "chars_novelpia": 0}
+     score, suggestions, presets = score_and_suggest(m)
+     assert score <= 20  # 전 항목 위반 → 최하위권
+     assert len(suggestions) >= 4
++
++
++def test_series_finale_does_not_penalize_missing_hook():
++    text = "모든 싸움이 끝났다. 그는 검을 내려놓았다.\n\n문은 닫혔고, 남은 사람들은 서로를 바라보았다."
++    serial = analyze_chapter(text, episode_purpose="serial")
++    finale = analyze_chapter(text, episode_purpose="series_finale")
++    assert serial["metrics"]["hook_score_applicable"] is True
++    assert finale["metrics"]["hook_score_applicable"] is False
++    assert finale["score"] >= serial["score"]
++    assert "장 끝 후크" in serial["suggested_preset_names"]
++    assert "장 끝 후크" not in finale["suggested_preset_names"]
++    assert not any("다음 화" in s and "클릭" in s for s in finale["suggestions"])
++
++
++def test_quality_history_dedup_includes_purpose_not_hash(client):
++    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
++    ch = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "완결", "sort_order": 99}).json()
++    client.put(f"/api/v1/chapters/{ch['id']}/content", json={"content_md": "끝났다. 그는 웃었다.", "expected_revision": 0})
++    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial").status_code == 200
++    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial").status_code == 200
++    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=series_finale").status_code == 200
++    assert client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial").status_code == 200
++    rows = client.get(f"/api/v1/chapters/{ch['id']}/quality/history").json()
++    purposes = [row["metrics_json"]["episode_purpose"] for row in rows]
++    assert sorted(purposes) == ["serial", "series_finale"]
++
++
++def test_quality_history_legacy_rows_without_purpose_are_serial_compatible(client):
++    import hashlib
++
++    from app.database import get_db
++    from app.models import QualityCheck
++
++    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
++    ch = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
++    text = "끝났다. 그는 웃었다."
++    client.put(
++        f"/api/v1/chapters/{ch['id']}/content",
++        json={"content_md": text, "expected_revision": 0},
++    )
++    db = next(iter(client.app.dependency_overrides[get_db]()))
++    db.add(QualityCheck(
++        chapter_id=ch["id"],
++        score=80,
++        content_hash=hashlib.sha256(text.encode("utf-8")).hexdigest(),
++        metrics_json={"hook_present": False},
++        suggestions_json=[],
++        presets_json=[],
++    ))
++    db.commit()
++
++    resp = client.get(f"/api/v1/chapters/{ch['id']}/quality?episode_purpose=serial")
++    assert resp.status_code == 200
++    assert resp.json()["recorded"] is False
++    rows = client.get(f"/api/v1/chapters/{ch['id']}/quality/history").json()
++    assert len(rows) == 1
+
+diff --git a/backend/tests/test_ai_context_directives.py b/backend/tests/test_ai_context_directives.py
+new file mode 100755
+index 0000000..f3bcd0d
+--- /dev/null
++++ b/backend/tests/test_ai_context_directives.py
+@@ -0,0 +1,213 @@
++import json
++
++import pytest
++
++from tests.test_ai_generate_stream import _parse_sse, fake_llm, parallel_llm
++
++
++def _endpoint(client):
++    return client.post(
++        "/api/v1/ai/endpoints",
++        json={"name": "e", "base_url": "http://x/v1", "default_model": "m"},
++    ).json()
++
++
++def _base_brief(**extra):
++    data = {
++        "emotion_goal": "불안을 끝내는 안도감",
++        "core_events": ["황궁 지하 문을 연다"],
++        "character_choices": ["주인공은 복수보다 구출을 택한다"],
++        "cost": "왕좌를 포기한다",
++        "prohibitions": ["새 흑막을 만들지 않는다"],
++    }
++    data.update(extra)
++    return data
++
++
++def _project_chapter(client, title, body="본문"):
++    pid = client.post("/api/v1/projects", json={"title": title}).json()["id"]
++    chapter = client.post(
++        f"/api/v1/projects/{pid}/chapters",
++        json={"title": "1화", "sort_order": 1},
++    ).json()
++    client.put(
++        f"/api/v1/chapters/{chapter['id']}/content",
++        json={"content_md": body, "expected_revision": 0},
++    )
++    return pid, client.get(f"/api/v1/chapters/{chapter['id']}").json()
++
++
++def test_serial_brief_requires_next_hook(client, fake_llm):
++    ep = _endpoint(client)
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"],
++        "prompt_override": "이어 써줘",
++        "context": {"episode_purpose": "serial", "brief": _base_brief()},
++    })
++    assert resp.status_code == 422
++
++
++def test_series_finale_brief_accepts_ending_intent_without_next_hook(client, fake_llm):
++    ep = _endpoint(client)
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"],
++        "prompt_override": "완결 장면을 써줘",
++        "context": {
++            "episode_purpose": "series_finale",
++            "brief": _base_brief(ending_intent="주인공이 선택의 대가를 받아들이고 시리즈 갈등을 닫는다"),
++        },
++    })
++    assert resp.status_code == 200
++    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
++    assert "결말 의도" in user_text
++    assert "주인공이 선택의 대가" in user_text
++
++
++@pytest.mark.parametrize("purpose, must_contain, must_not_contain", [
++    ("serial", "연재화 목적", "무조건 갈등을 다 풀지 마라"),
++    ("volume_end", "권말 목적", "훅이 없어도 장면의 긴장이 완전히 풀리기 전에 끝낸다"),
++    ("series_finale", "최종화 목적", "갈등을 다 풀지 마라"),
++])
++def test_generation_system_prompt_is_purpose_aware(client, fake_llm, purpose, must_contain, must_not_contain):
++    ep = _endpoint(client)
++    context = {"episode_purpose": purpose}
++    if purpose == "serial":
++        context["brief"] = _base_brief(next_hook="문밖의 발소리로 넘긴다")
++    elif purpose == "volume_end":
++        context["brief"] = _base_brief(ending_intent="권의 감정선을 닫고 다음 권 질문만 남긴다")
++    else:
++        context["brief"] = _base_brief(ending_intent="시리즈 핵심 갈등을 닫는다")
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"], "prompt_override": "써줘", "context": context,
++    })
++    assert resp.status_code == 200
++    sys_text = fake_llm["client"].last_kwargs["messages"][0]["content"]
++    assert must_contain in sys_text
++    assert must_not_contain not in sys_text
++    assert "최종화 문학성 점수" not in sys_text
++
++
++def test_approved_foreshadow_block_allows_this_request_only(client, fake_llm):
++    ep = _endpoint(client)
++    pid, chapter = _project_chapter(client, "P")
++    fs = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
++        "title": "검의 진짜 주인", "content": "검은 타인의 것이다", "status": "설치",
++    }).json()
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"],
++        "prompt_override": "이번 화에서 검의 진실을 밝혀줘",
++        "context": {
++            "project_id": pid,
++            "chapter_id": chapter["id"],
++            "approved_foreshadow_ids": [fs["id"]],
++            "auto_foreshadow": False,
++        },
++    })
++    assert resp.status_code == 200
++    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
++    assert "[이번 요청에서 회수/공개 허용된 복선: 검의 진짜 주인]" in user_text
++    assert "상태값은 자동 변경하지 마라" in user_text
++    assert user_text.count("검의 진짜 주인") == 1
++    start = json.loads(dict(_parse_sse(resp.text))["start"])
++    assert start["context_metadata"]["approved_foreshadow_ids"] == [fs["id"]]
++    assert start["context_metadata"]["included_foreshadow_ids"] == [fs["id"]]
++    after = client.get(f"/api/v1/projects/{pid}/foreshadows").json()[0]
++    assert after["status"] == "설치"
++    assert after["audience_knows"] is False
++
++
++def test_approved_foreshadow_dedupes_auto_block(client, fake_llm):
++    ep = _endpoint(client)
++    pid, chapter = _project_chapter(client, "P")
++    fs = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
++        "title": "검의 진짜 주인", "content": "검은 타인의 것이다", "status": "설치",
++    }).json()
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"],
++        "prompt_override": "검의 진실",
++        "context": {
++            "project_id": pid,
++            "chapter_id": chapter["id"],
++            "approved_foreshadow_ids": [fs["id"]],
++            "auto_foreshadow": True,
++        },
++    })
++    assert resp.status_code == 200
++    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
++    assert user_text.count("검의 진짜 주인") == 1
++    assert "[미회수 복선: 검의 진짜 주인" not in user_text
++
++
++def test_future_resolved_chapter_keeps_planted_clue_current_record(client, fake_llm):
++    ep = _endpoint(client)
++    pid = client.post("/api/v1/projects", json={"title": "P"}).json()["id"]
++    ch1 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화", "sort_order": 1}).json()
++    ch2 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "2화", "sort_order": 2}).json()
++    fs = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
++        "title": "검의 진짜 주인",
++        "content": "검은 타인의 것이다",
++        "status": "설치",
++        "planted_chapter_id": ch1["id"],
++        "resolved_chapter_id": ch2["id"],
++    }).json()
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"], "prompt_override": "검",
++        "context": {"project_id": pid, "chapter_id": ch1["id"], "auto_foreshadow": True},
++    })
++    assert resp.status_code == 200
++    user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
++    assert "[미회수 복선: 검의 진짜 주인]" in user_text
++    assert "기록: 현재 기록" in user_text
++    assert "미래 회수 계획" in user_text
++    assert "[미래 계획 복선: 검의 진짜 주인 — 현재 사실 아님]" not in user_text
++    start = json.loads(dict(_parse_sse(resp.text))["start"])
++    assert start["context_metadata"]["future_reference_foreshadow_ids"] == [fs["id"]]
++
++
++def test_wrong_project_approved_foreshadow_rejected_before_llm(client, fake_llm):
++    ep = _endpoint(client)
++    pid_a, chapter_a = _project_chapter(client, "A")
++    pid_b, _chapter_b = _project_chapter(client, "B")
++    fs_b = client.post(f"/api/v1/projects/{pid_b}/foreshadows", json={"title": "타작품 복선"}).json()
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"], "prompt_override": "써줘",
++        "context": {"project_id": pid_a, "chapter_id": chapter_a["id"], "approved_foreshadow_ids": [fs_b["id"]]},
++    })
++    assert resp.status_code == 422
++    assert fake_llm["client"].last_kwargs is None or "타작품 복선" not in str(fake_llm["client"].last_kwargs)
++
++
++def test_single_review_receives_same_purpose_directive(client, fake_llm):
++    ep = _endpoint(client)
++    fake_llm["client"].set_chunks(["[감수]\n- 목적에 맞다", "[수정본]\n수정본"])
++    resp = client.post("/api/v1/ai/generate", json={
++        "endpoint_id": ep["id"],
++        "prompt_override": "완결 장면",
++        "context": {"episode_purpose": "series_finale"},
++        "review": {},
++    })
++    assert resp.status_code == 200
++    messages = fake_llm["client"].last_kwargs["messages"]
++    assert "[최종화 목적]" in messages[0]["content"]
++    assert "[초안 원고]" in messages[-1]["content"]
++
++
++def test_parallel_planner_workers_and_reviewer_receive_purpose_directive(client, parallel_llm):
++    ep = client.post("/api/v1/ai/endpoints", json={
++        "name": "medium", "base_url": "http://x/v1", "default_model": "medium-model",
++        "reasoning_effort": "medium",
++    }).json()
++    resp = client.post("/api/v1/ai/generate-parallel", json={
++        "endpoint_id": ep["id"],
++        "prompt_override": "권말 장면을 나눠 써줘",
++        "worker_limit": 2,
++        "context": {"episode_purpose": "volume_end"},
++        "review": {"reasoning_effort": "xhigh"},
++    })
++    assert resp.status_code == 200, resp.text
++    planner_messages = parallel_llm["complete_calls"][0]["messages"]
++    worker_messages = parallel_llm["complete_calls"][1]["messages"]
++    review_messages = parallel_llm["stream_calls"][-1]["messages"]
++    assert any("[권말 목적]" in m["content"] for m in planner_messages)
++    assert any("[권말 목적]" in m["content"] for m in worker_messages)
++    assert any("[권말 목적]" in m["content"] for m in review_messages)

@@ -5,6 +5,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.concepts import StoryConcept
+
+
 ChapterStatus = Literal["초고", "수정중", "완료"]
 EpisodePurpose = Literal["serial", "volume_end", "series_finale"]
 
@@ -13,6 +16,7 @@ EpisodePurpose = Literal["serial", "volume_end", "series_finale"]
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     genre: str | None = Field(default=None, max_length=100)
+    concept: StoryConcept | None = None
     synopsis: str | None = None
     platform_note: str | None = None
 
@@ -23,6 +27,7 @@ SerialState = Literal["ongoing", "hiatus", "completed"]
 class ProjectUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     genre: str | None = Field(default=None, max_length=100)
+    concept: StoryConcept | None = None
     synopsis: str | None = None
     platform_note: str | None = None
     style_profile: str | None = None  # 문체 프로파일 (G-040)
@@ -39,6 +44,7 @@ class ProjectUpdate(BaseModel):
         if isinstance(data, dict):
             if "serial_state" in data and data["serial_state"] is None:
                 raise ValueError("serial_state must be one of: ongoing, hiatus, completed")
+            # concept=null은 컨셉 초안을 지우는 명시적 업데이트로 허용한다.
             # D03-7: NOT NULL 컬럼 — 명시적 null은 IntegrityError가 아니라 422다.
             if "ending_locked" in data and data["ending_locked"] is None:
                 raise ValueError("ending_locked must be a boolean")
@@ -83,6 +89,7 @@ class ProjectOut(BaseModel):
     id: int
     title: str
     genre: str | None
+    concept: StoryConcept | None = None
     synopsis: str | None
     platform_note: str | None
     style_profile: str | None
@@ -1406,6 +1413,10 @@ class AiUsageSummaryOut(BaseModel):
 # ---- Project Bootstrap (입력 하나로 작품 전체 구조 AI 생성) ----
 class BootstrapRequest(BaseModel):
     genre: str = Field(min_length=1, max_length=100, examples=["판타지"])
+    concept: StoryConcept | None = Field(
+        default=None,
+        description="주인공·촉발 사건·목표·대립·위험·후크로 구성한 서사 전제",
+    )
     premise: str | None = Field(default=None, max_length=2000,
                                 description="한 줄 프리미스 — 없으면 AI가 발상")
     volume_count: int = Field(default=1, ge=1, le=50)
@@ -1417,6 +1428,7 @@ class BootstrapRequest(BaseModel):
 class BootstrapResponse(BaseModel):
     project_id: int
     title: str
+    concept: StoryConcept | None = None
     logline: str
     outline_summary: str
     character_count: int

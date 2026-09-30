@@ -1,0 +1,11 @@
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> d85fdcab0808, initial schema (Sprint 1+2)
+INFO  [alembic.runtime.migration] Running upgrade d85fdcab0808 -> a1b2c3d4e5f6, add project.memo (��ǰ ��Ʈ��Ʈ�� ��Ÿ ���� \u2014 �ĺ� ���������ǽ� ��)
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade a1b2c3d4e5f6 -> b3c4d5e6f7a8, T-002 chapter.volume nullable ��ȯ (������� ��4.2 ���� 1 \u2014 Q1 ������)
+POPULATED_MIGRATION_FAIL IntegrityError (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: 
+DROP TABLE chapters]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)

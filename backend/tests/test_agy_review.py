@@ -122,6 +122,35 @@ def test_generate_review_routes_to_agy(client, monkeypatch):
                for m in c["messages"] if m["role"] == "user")
 
 
+def test_standalone_review_includes_project_story_concept(client, monkeypatch):
+    concept = {
+        "summary": "실종된 기억을 되찾아야 귀환하는 조사관",
+        "protagonist": "매일 기억을 잃는 보험 조사관",
+        "goal": "화재 조작의 진범을 밝힌다",
+        "opposition": "사건을 은폐하는 동료",
+        "stakes": "증거와 자신의 기억이 매일 사라진다",
+        "hook": "기억이 사라지기 전에 어제의 수사를 복원해야 한다",
+    }
+    project_id = client.post(
+        "/api/v1/projects", json={"title": "감수 컨셉", "concept": concept}
+    ).json()["id"]
+    agy_calls: list = []
+    _enable_agy(monkeypatch, ["[감수] 검토\\n", "[수정본]\\n정본"], agy_calls)
+
+    resp = client.post(
+        "/api/v1/ai/review",
+        json={"draft": "초안 본문", "project_id": project_id},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert any(
+        concept["hook"] in m["content"]
+        for call in agy_calls
+        for m in call["messages"]
+        if m["role"] == "user"
+    )
+
+
 def test_review_endpoint_routes_to_agy(client, monkeypatch):
     """독립 /ai/review도 같은 라우팅 — 생성 provider를 거치지 않는다."""
     agy_calls: list = []

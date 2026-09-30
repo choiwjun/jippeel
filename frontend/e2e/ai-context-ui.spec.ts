@@ -691,6 +691,35 @@ test.describe
       await expect(page.getByText("작품 생성 중")).not.toBeVisible();
     });
 
+    test("bootstrap story concept is structured and sent with the request", async ({ page }) => {
+      await setupFixture(page);
+      let requestBody: Record<string, unknown> | undefined;
+      page.on("request", (request) => {
+        if (
+          request.method() === "POST" &&
+          request.url().endsWith("/api/v1/projects/bootstrap/stream")
+        ) {
+          requestBody = request.postDataJSON() as Record<string, unknown>;
+        }
+      });
+
+      await page.goto("/");
+      await page.getByRole("button", { name: "✨ AI로 작품 자동 생성" }).click();
+      await page
+        .getByLabel("한 문장 전제")
+        .fill("기억을 잃은 세무사가 죽은 이들의 빚을 갚아야 귀환한다.");
+      await page.getByText("컨셉 구성요소 더 입력하기").click();
+      await page
+        .getByLabel("차별화 후크")
+        .fill("죽은 자의 빚을 갚아야 산 자가 되는 회계 판타지");
+      await page.getByRole("button", { name: "생성하기" }).click();
+      await expect(page.getByText("작품 생성 완료")).toBeVisible();
+      expect(requestBody?.concept).toEqual({
+        summary: "기억을 잃은 세무사가 죽은 이들의 빚을 갚아야 귀환한다.",
+        hook: "죽은 자의 빚을 갚아야 산 자가 되는 회계 판타지",
+      });
+    });
+
     test("assistant plan action stays single-flight and manuscript is untouched before apply", async ({
       page,
     }) => {

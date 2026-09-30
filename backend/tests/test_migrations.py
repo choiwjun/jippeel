@@ -216,7 +216,7 @@ def test_populated_historical_upgrade_from_initial_with_references(alembic_confi
     assert run == {"chapter_id": 1, "base_revision": None}
     assert rel_count == 1
     assert lore_count == 1
-    assert version == "i4c5d6e7f8a9"
+    assert version == "j5a6b7c8d9e0"
 
 
 def test_populated_upgrade_backfills_flow_stage(alembic_config):
@@ -349,7 +349,7 @@ def test_populated_upgrade_backfills_serial_state(alembic_config):
     engine.dispose()
 
     assert row == {"serial_state": "ongoing", "serial_completed_at": None, "title": "existing"}
-    assert version == "i4c5d6e7f8a9"
+    assert version == "j5a6b7c8d9e0"
 
     # 리빌드 후 ck_project_serial_state가 강제된다
     engine = _engine(_current_url())
@@ -705,3 +705,50 @@ def test_populated_upgrade_downgrade_project_ending_fields(alembic_config):
         )).mappings().one()
     engine.dispose()
     assert project_row == {"title": "p"}
+
+
+def test_populated_upgrade_downgrade_project_concept(alembic_config):
+    """기존 프로젝트에 임의의 컨셉을 backfill하지 않고 downgrade에서도 행을 보존한다."""
+    from sqlalchemy import text
+
+    command.upgrade(alembic_config, "i4c5d6e7f8a9")
+
+    engine = _engine(_current_url())
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO projects (id, title) VALUES (1, 'p')"))
+    engine.dispose()
+
+    command.upgrade(alembic_config, "head")
+
+    engine = _engine(_current_url())
+    inspector = _inspect(engine)
+    assert "concept" in {c["name"] for c in inspector.get_columns("projects")}
+    with engine.connect() as conn:
+        concept = conn.execute(text(
+            "SELECT concept FROM projects WHERE id = 1"
+        )).scalar_one()
+    engine.dispose()
+    assert concept is None
+
+    engine = _engine(_current_url())
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO projects (id, title, concept) VALUES "
+            "(2, 'structured', '{\"summary\":\"주인공이 빚을 갚아야 귀환한다\"}')"
+        ))
+    engine.dispose()
+
+    command.downgrade(alembic_config, "i4c5d6e7f8a9")
+    engine = _engine(_current_url())
+    inspector = _inspect(engine)
+    assert "concept" not in {c["name"] for c in inspector.get_columns("projects")}
+    with engine.connect() as conn:
+        project_row = conn.execute(text(
+            "SELECT title FROM projects WHERE id = 1"
+        )).mappings().one()
+        structured_row = conn.execute(text(
+            "SELECT title FROM projects WHERE id = 2"
+        )).mappings().one()
+    engine.dispose()
+    assert project_row == {"title": "p"}
+    assert structured_row == {"title": "structured"}

@@ -132,7 +132,8 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
                         client, provider.default_model,
                         reasoning_effort=provider.reasoning_effort,
                         db=db,
-                        on_stage=on_stage)
+                        on_stage=on_stage,
+                        concept=payload.concept)
                     body = bootstrap_service.persist_structure(
                         db, payload.genre, payload.premise, structure,
                         generated_by="ai",
@@ -141,7 +142,8 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
                 except bootstrap_service.BootstrapAIError as exc:
                     structure = bootstrap_service.fallback_structure(
                         payload.genre, payload.premise,
-                        payload.volume_count, payload.chapters_per_volume)
+                        payload.volume_count, payload.chapters_per_volume,
+                        payload.concept)
                     body = bootstrap_service.persist_structure(
                         db, payload.genre, payload.premise, structure,
                         generated_by="fallback",
@@ -151,7 +153,8 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
             else:
                 structure = bootstrap_service.fallback_structure(
                     payload.genre, payload.premise,
-                    payload.volume_count, payload.chapters_per_volume)
+                    payload.volume_count, payload.chapters_per_volume,
+                    payload.concept)
                 body = bootstrap_service.persist_structure(
                     db, payload.genre, payload.premise, structure,
                     generated_by="fallback",
@@ -231,7 +234,8 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
                 payload.volume_count, payload.chapters_per_volume,
                 client, provider.default_model,
                 reasoning_effort=bootstrap_service.BOOTSTRAP_REASONING_EFFORT,
-                db=db)
+                db=db,
+                concept=payload.concept)
             body = bootstrap_service.persist_structure(
                 db, payload.genre, payload.premise, structure,
                 generated_by="ai",
@@ -242,7 +246,8 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
             # 규칙 기반 폴백 — 템플릿으로라도 생성하고 502로 응답
             structure = bootstrap_service.fallback_structure(
                 payload.genre, payload.premise,
-                payload.volume_count, payload.chapters_per_volume)
+                payload.volume_count, payload.chapters_per_volume,
+                payload.concept)
             body = bootstrap_service.persist_structure(
                 db, payload.genre, payload.premise, structure,
                 generated_by="fallback",
@@ -253,7 +258,8 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
 
     structure = bootstrap_service.fallback_structure(
         payload.genre, payload.premise,
-        payload.volume_count, payload.chapters_per_volume)
+        payload.volume_count, payload.chapters_per_volume,
+        payload.concept)
     return bootstrap_service.persist_structure(
         db, payload.genre, payload.premise, structure,
         generated_by="fallback",

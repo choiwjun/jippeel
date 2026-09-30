@@ -1,0 +1,1832 @@
+diff --git a/backend/alembic/versions/0a1b2c3d4e5f_manuscript_preservation.py b/backend/alembic/versions/0a1b2c3d4e5f_manuscript_preservation.py
+new file mode 100644
+index 0000000..ff2de2d
+--- /dev/null
++++ b/backend/alembic/versions/0a1b2c3d4e5f_manuscript_preservation.py
+@@ -0,0 +1,49 @@
++"""manuscript preservation revisions and snapshots
++
++Revision ID: 0a1b2c3d4e5f
++Revises: f9a1b2c3d4e5
++Create Date: 2026-09-07
++"""
++from typing import Sequence, Union
++
++import sqlalchemy as sa
++from alembic import op
++
++# revision identifiers, used by Alembic.
++revision: str = "0a1b2c3d4e5f"
++down_revision: Union[str, Sequence[str], None] = "f9a1b2c3d4e5"
++branch_labels: Union[str, Sequence[str], None] = None
++depends_on: Union[str, Sequence[str], None] = None
++
++
++def upgrade() -> None:
++    with op.batch_alter_table("chapters", schema=None) as batch_op:
++        batch_op.add_column(sa.Column("revision", sa.Integer(), nullable=False, server_default="0"))
++
++    op.create_table(
++        "chapter_snapshots",
++        sa.Column("id", sa.Integer(), primary_key=True),
++        sa.Column("chapter_id", sa.Integer(), sa.ForeignKey("chapters.id", ondelete="CASCADE"), nullable=False),
++        sa.Column("revision", sa.Integer(), nullable=False),
++        sa.Column("content_md", sa.Text(), nullable=False),
++        sa.Column("reason", sa.String(32), nullable=False),
++        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
++        sa.UniqueConstraint("chapter_id", "revision", name="uq_chapter_snapshots_chapter_revision"),
++    )
++    op.create_index("ix_chapter_snapshots_chapter_id", "chapter_snapshots", ["chapter_id"])
++    op.create_index("ix_chapter_snapshots_created_at", "chapter_snapshots", ["created_at"])
++
++    with op.batch_alter_table("refine_runs", schema=None) as batch_op:
++        batch_op.add_column(sa.Column("base_revision", sa.Integer(), nullable=True))
++
++
++def downgrade() -> None:
++    with op.batch_alter_table("refine_runs", schema=None) as batch_op:
++        batch_op.drop_column("base_revision")
++
++    op.drop_index("ix_chapter_snapshots_created_at", table_name="chapter_snapshots")
++    op.drop_index("ix_chapter_snapshots_chapter_id", table_name="chapter_snapshots")
++    op.drop_table("chapter_snapshots")
++
++    with op.batch_alter_table("chapters", schema=None) as batch_op:
++        batch_op.drop_column("revision")
+diff --git a/backend/app/database.py b/backend/app/database.py
+index c2aa384..edbf2f6 100644
+--- a/backend/app/database.py
++++ b/backend/app/database.py
+@@ -1,12 +1,15 @@
+ """DB 엔진·세션 팩토리 (사양 §2.2, §8.2)."""
+ import os
++import tempfile
++from pathlib import Path
++from urllib.parse import unquote, urlparse
+ 
+-from sqlalchemy import create_engine, event
++from sqlalchemy import create_engine, event, inspect
+ from sqlalchemy.engine import Engine
+ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+ 
+ # 기본: 프로젝트 루트의 SQLite 파일. 테스트/배포는 DATABASE_URL로 교체.
+ DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./jippeel.db")
+ 
+ 
+ class Base(DeclarativeBase):
+@@ -46,13 +49,97 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
+ def get_db():
+     db: Session = SessionLocal()
+     try:
+         yield db
+     finally:
+         db.close()
+ 
+ 
++ALEMBIC_HEAD = "0a1b2c3d4e5f"
++TEMP_CREATE_ALL_ENV = "JIPPEEL_ALLOW_TEMP_CREATE_ALL"
++
++
++def _sqlite_file_from_url(url: str) -> Path | None:
++    parsed = urlparse(url)
++    if parsed.scheme != "sqlite" or not parsed.path or parsed.path == ":memory:":
++        return None
++    return Path(unquote(parsed.path[1:] if len(parsed.path) > 3 and parsed.path[0] == "/" and parsed.path[2] == ":" else parsed.path)).resolve()
++
++
++def _allow_temp_create_all() -> bool:
++    if os.environ.get(TEMP_CREATE_ALL_ENV) != "1":
++        return False
++    db_path = _sqlite_file_from_url(DATABASE_URL)
++    if db_path is None:
++        return False
++    try:
++        db_path.relative_to(Path(tempfile.gettempdir()).resolve())
++        return True
++    except ValueError:
++        return False
++
++
++def assert_manuscript_schema_current(bind: Engine) -> None:
++    """Fail fast when an existing DB lacks preservation schema or Alembic head."""
++    if _allow_temp_create_all():
++        return
++
++    inspector = inspect(bind)
++    tables = set(inspector.get_table_names())
++    problems: list[str] = []
++    if "chapters" not in tables:
++        problems.append("empty or unmigrated database")
++    else:
++        chapter_cols = {col["name"] for col in inspector.get_columns("chapters")}
++        if "revision" not in chapter_cols:
++            problems.append("chapters.revision")
++
++        if "refine_runs" in tables:
++            refine_cols = {col["name"] for col in inspector.get_columns("refine_runs")}
++            if "base_revision" not in refine_cols:
++                problems.append("refine_runs.base_revision")
++        else:
++            problems.append("refine_runs table")
++
++        if "chapter_snapshots" not in tables:
++            problems.append("chapter_snapshots table")
++        else:
++            unique_cols = {
++                tuple(constraint.get("column_names") or [])
++                for constraint in inspector.get_unique_constraints("chapter_snapshots")
++            }
++            if ("chapter_id", "revision") not in unique_cols:
++                problems.append("chapter_snapshots(chapter_id, revision) unique")
++            index_cols = {
++                tuple(index.get("column_names") or [])
++                for index in inspector.get_indexes("chapter_snapshots")
++            }
++            if ("chapter_id",) not in index_cols:
++                problems.append("chapter_snapshots.chapter_id index")
++            if ("created_at",) not in index_cols:
++                problems.append("chapter_snapshots.created_at index")
++
++    if "alembic_version" not in tables:
++        problems.append("alembic_version table")
++    else:
++        with bind.connect() as connection:
++            current = connection.exec_driver_sql(
++                "SELECT version_num FROM alembic_version"
++            ).scalar()
++        if current != ALEMBIC_HEAD:
++            problems.append(f"alembic head {current!r} != {ALEMBIC_HEAD}")
++
++    if problems:
++        missing = ", ".join(problems)
++        raise RuntimeError(
++            f"DB schema is missing manuscript preservation objects ({missing}). "
++            "Back up the database and run `alembic upgrade head` before starting the API."
++        )
++
++
+ def init_db() -> None:
+-    """Sprint 1: create_all 사용. Alembic 마이그레이션은 다음 스프린트."""
++    """Initialize only explicitly marked temporary DBs; otherwise require Alembic."""
+     from app import models  # noqa: F401  (모델 등록)
+ 
+-    Base.metadata.create_all(bind=engine)
++    assert_manuscript_schema_current(engine)
++    if _allow_temp_create_all():
++        Base.metadata.create_all(bind=engine)
+diff --git a/backend/app/models.py b/backend/app/models.py
+index 6f4f2c6..d1c1045 100644
+--- a/backend/app/models.py
++++ b/backend/app/models.py
+@@ -1,12 +1,12 @@
+ """SQLAlchemy 2.x 모델 — 사양 §4 데이터 모델 개요."""
+ from datetime import datetime, timezone
+ 
+-from sqlalchemy import JSON, Boolean, CheckConstraint, Float, ForeignKey, Integer, String, Text, func
++from sqlalchemy import JSON, Boolean, CheckConstraint, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+ from sqlalchemy.orm import Mapped, mapped_column, relationship
+ 
+ from app.database import Base
+ 
+ 
+ def _utcnow() -> datetime:
+     return datetime.now(timezone.utc)
+ 
+@@ -53,34 +53,58 @@ class Chapter(TimestampMixin, Base):
+     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True, nullable=False)
+     volume: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)  # 권 (Q1 결정안: 권 없는 평면 회차 — NULL 허용)
+     sort_order: Mapped[float] = mapped_column(Float, default=0.0)  # 정렬 순서
+     title: Mapped[str] = mapped_column(String(255), default="")
+     content_md: Mapped[str] = mapped_column(Text, default="")
+     # 초고|수정중|완료 (사양 S2 상태 칩)
+     status: Mapped[str] = mapped_column(String(20), default="초고")
+     word_count_cache: Mapped[int] = mapped_column(Integer, default=0)  # 노벨피아 모드 글자 수(공백·문장부호·특수문자 제외)
++    revision: Mapped[int] = mapped_column(Integer, default=0)  # 원고 낙관적 잠금 revision
+     memo: Mapped[str | None] = mapped_column(Text)  # 빠른 메모 (FR-108, v0.3)
+ 
+     project: Mapped["Project"] = relationship(back_populates="chapters")
+     refine_runs: Mapped[list["RefineRun"]] = relationship(
+         back_populates="chapter", cascade="all, delete-orphan"
+     )
+     scenes: Mapped[list["Scene"]] = relationship(
+         back_populates="chapter", cascade="all, delete-orphan",
+         order_by="Scene.sort_order"
+     )
++    snapshots: Mapped[list["ChapterSnapshot"]] = relationship(
++        back_populates="chapter", cascade="all, delete-orphan", order_by="ChapterSnapshot.id"
++    )
+     canon_runs: Mapped[list["CanonRun"]] = relationship(
+         cascade="all, delete-orphan")
+     quality_checks: Mapped[list["QualityCheck"]] = relationship(
+         cascade="all, delete-orphan")
+ 
+     __table_args__ = (CheckConstraint("status IN ('초고','수정중','완료')", name="ck_chapter_status"),)
+ 
+ 
++class ChapterSnapshot(Base):
++    """회차 본문 교체 전 복구본."""
++
++    __tablename__ = "chapter_snapshots"
++    __table_args__ = (
++        UniqueConstraint("chapter_id", "revision", name="uq_chapter_snapshots_chapter_revision"),
++    )
++
++    id: Mapped[int] = mapped_column(primary_key=True)
++    chapter_id: Mapped[int] = mapped_column(
++        ForeignKey("chapters.id", ondelete="CASCADE"), index=True, nullable=False
++    )
++    revision: Mapped[int] = mapped_column(Integer, nullable=False)
++    content_md: Mapped[str] = mapped_column(Text, default="")
++    reason: Mapped[str] = mapped_column(String(32), nullable=False)
++    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now(), index=True)
++
++    chapter: Mapped["Chapter"] = relationship(back_populates="snapshots")
++
++
+ class Scene(TimestampMixin, Base):
+     """장면 — 회차 → 장면 계층 (고도화 G-010, 백로그 P2).
+ 
+     회차 본문(content_md)은 통짜로 유지하되, 작가가 장면 단위로
+     AI 생성·재작성을 할 수 있게 병행 저장한다.
+     """
+ 
+     __tablename__ = "scenes"
+@@ -270,11 +294,12 @@ class RefineRun(Base):
+     __tablename__ = "refine_runs"
+ 
+     id: Mapped[int] = mapped_column(primary_key=True)
+     chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id"), index=True, nullable=False)
+     route_hint: Mapped[str | None] = mapped_column(String(20))  # light|standard|heavy
+     changed_ratio: Mapped[float] = mapped_column(Float, default=0.0)
+     report_json: Mapped[dict | None] = mapped_column(JSON)
+     result_text: Mapped[str | None] = mapped_column(Text)
++    base_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+     accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+ 
+     chapter: Mapped["Chapter"] = relationship(back_populates="refine_runs")
+diff --git a/backend/app/routers/projects.py b/backend/app/routers/projects.py
+index 4503815..0f55881 100644
+--- a/backend/app/routers/projects.py
++++ b/backend/app/routers/projects.py
+@@ -1,30 +1,33 @@
+ """프로젝트·회차 라우터 (사양 §5 M1, Sprint 1 범위)."""
+ from fastapi import APIRouter, Depends, HTTPException, Query, status
+ from fastapi.responses import JSONResponse
+ from sqlalchemy import select
+ from sqlalchemy.orm import Session
+ 
+ from app.database import get_db
+-from app.models import Chapter, Character, Project, Relationship
++from app.models import Chapter, ChapterSnapshot, Character, Project, Relationship
+ from app.schemas import BootstrapRequest, BootstrapResponse, PlusStatusOut, PLUS_MIN_CHAPTERS, PLUS_MIN_CHARS_DONE
+ from app.services import bootstrap as bootstrap_service
++from app.services import manuscripts
+ from app.schemas import (
+     ChaptersReorder,
+     ChapterContentPut,
+     ChapterCreate,
++    ChapterRestorePost,
++    ChapterSnapshotDetail,
++    ChapterSnapshotOut,
+     ChapterDetail,
+     ChapterOut,
+     ChapterUpdate,
+     ProjectCreate,
+     ProjectOut,
+     ProjectUpdate,
+ )
+-from app.services.wordcount import count_novelpia_chars
+ 
+ router = APIRouter()
+ 
+ 
+ # ---------- helpers ----------
+ def _get_project_or_404(pid: int, db: Session) -> Project:
+     project = db.get(Project, pid)
+     if project is None:
+@@ -197,38 +200,78 @@ def update_chapter(cid: int, payload: ChapterUpdate, db: Session = Depends(get_d
+     chapter = _get_chapter_or_404(cid, db)
+     for field, value in payload.model_dump(exclude_unset=True).items():
+         setattr(chapter, field, value)
+     db.commit()
+     db.refresh(chapter)
+     return chapter
+ 
+ 
++def _revision_conflict(exc: manuscripts.RevisionConflict) -> HTTPException:
++    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.detail())
++
++
+ @router.put("/chapters/{cid}/content", response_model=ChapterDetail)
+ def put_chapter_content(cid: int, payload: ChapterContentPut, db: Session = Depends(get_db)):
+     """본문(content_md) 저장 + 공백 제외 글자 수 캐시 갱신."""
+-    chapter = _get_chapter_or_404(cid, db)
+-    chapter.content_md = payload.content_md
+-    chapter.word_count_cache = count_novelpia_chars(payload.content_md)
+-    db.commit()
+-    db.refresh(chapter)
+-    return chapter
++    try:
++        chapter = manuscripts.replace_manuscript(
++            db, cid, payload.content_md, payload.expected_revision, reason="autosave"
++        )
++        db.commit()
++        db.refresh(chapter)
++        return chapter
++    except manuscripts.ChapterNotFound as exc:
++        db.rollback()
++        raise HTTPException(status_code=404, detail="chapter not found") from exc
++    except manuscripts.RevisionConflict as exc:
++        db.rollback()
++        raise _revision_conflict(exc) from exc
+ 
+ 
+ @router.post("/chapters/{cid}/content", response_model=ChapterDetail,
+              status_code=status.HTTP_200_OK)
+ def post_chapter_content(cid: int, payload: ChapterContentPut, db: Session = Depends(get_db)):
+-    """PUT 별칭 — 언로드 플러시 전용(QA Minor #1).
+-
+-    프론트(EditorPage)의 navigator.sendBeacon은 메서드가 POST로 고정되어
+-    PUT을 쓸 수 없다. 페이지 이탈 시 대기 중 변경의 best-effort 저장을 수용한다.
+-    """
++    """PUT 별칭 — 언로드 플러시 전용(QA Minor #1)."""
+     return put_chapter_content(cid, payload, db)
+ 
+ 
++@router.get("/chapters/{cid}/snapshots", response_model=list[ChapterSnapshotOut])
++def list_chapter_snapshots(cid: int, db: Session = Depends(get_db)):
++    _get_chapter_or_404(cid, db)
++    return manuscripts.list_snapshots(db, cid)
++
++
++@router.get("/chapters/{cid}/snapshots/{sid}", response_model=ChapterSnapshotDetail)
++def get_chapter_snapshot(cid: int, sid: int, db: Session = Depends(get_db)):
++    _get_chapter_or_404(cid, db)
++    snapshot = db.get(ChapterSnapshot, sid)
++    if snapshot is None or snapshot.chapter_id != cid:
++        raise HTTPException(status_code=404, detail="snapshot not found")
++    return snapshot
++
++
++@router.post("/chapters/{cid}/restore", response_model=ChapterDetail)
++def restore_chapter_snapshot(cid: int, payload: ChapterRestorePost, db: Session = Depends(get_db)):
++    _get_chapter_or_404(cid, db)
++    snapshot = db.get(ChapterSnapshot, payload.snapshot_id)
++    if snapshot is None or snapshot.chapter_id != cid:
++        raise HTTPException(status_code=422, detail="해당 회차의 복구본만 복원할 수 있습니다")
++    try:
++        chapter = manuscripts.replace_manuscript(
++            db, cid, snapshot.content_md, payload.expected_revision, reason="restore"
++        )
++        db.commit()
++        db.refresh(chapter)
++        return chapter
++    except manuscripts.RevisionConflict as exc:
++        db.rollback()
++        raise _revision_conflict(exc) from exc
++
++
+ @router.delete("/chapters/{cid}", status_code=status.HTTP_204_NO_CONTENT)
+ def delete_chapter(cid: int, db: Session = Depends(get_db)):
+     chapter = _get_chapter_or_404(cid, db)
+     db.delete(chapter)
+     db.commit()
+ 
+ 
+ # ---------- chapters bulk reorder (Sprint 2) ----------
+diff --git a/backend/app/routers/refine.py b/backend/app/routers/refine.py
+index 969a585..bb25597 100644
+--- a/backend/app/routers/refine.py
++++ b/backend/app/routers/refine.py
+@@ -9,22 +9,22 @@ import json
+ from fastapi import APIRouter, Depends, HTTPException, status
+ from sqlalchemy.orm import Session
+ 
+ from app.database import get_db
+ from app.models import Chapter, RefineRun
+ from app.schemas import (
+     RefineRequest,
+     RefineResult,
++    ChapterDetail,
+     RefineRunOut,
+     SimpleOk,
+     SpanOut,
+ )
+-from app.services import humanize
+-from app.services.wordcount import count_novelpia_chars
++from app.services import humanize, manuscripts
+ 
+ router = APIRouter()
+ 
+ 
+ def _get_chapter_or_404(cid: int, db: Session) -> Chapter:
+     chapter = db.get(Chapter, cid)
+     if chapter is None:
+         raise HTTPException(status_code=404, detail="chapter not found")
+@@ -37,22 +37,29 @@ def _get_run_or_404(run_id: int, db: Session) -> RefineRun:
+         raise HTTPException(status_code=404, detail="refine run not found")
+     return run
+ 
+ 
+ @router.post("/refine", response_model=RefineResult)
+ def refine_chapter(payload: RefineRequest, db: Session = Depends(get_db)):
+     """FR-501~505 — 회차 본문 윤문 실행 → 진단 span + 최종본 + 게이트 판정."""
+     chapter = _get_chapter_or_404(payload.chapter_id, db)
+-    if not chapter.content_md.strip():
++    input_content_md = chapter.content_md or ""
++    base_revision = int(chapter.revision or 0)
++    if base_revision != payload.expected_revision:
++        raise HTTPException(
++            status_code=status.HTTP_409_CONFLICT,
++            detail=manuscripts.RevisionConflict(current_revision=base_revision).detail(),
++        )
++    if not input_content_md.strip():
+         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                             detail="본문이 비어 있어 윤문할 수 없습니다.")
+ 
+     try:
+-        result = humanize.run_pipeline(chapter.content_md, payload.force_route)
++        result = humanize.run_pipeline(input_content_md, payload.force_route)
+     except humanize.HumanizeNotConfigured as exc:
+         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                             detail=str(exc)) from exc
+     except humanize.HumanizeError as exc:
+         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                             detail=f"윤문 파이프라인 실패: {exc}") from exc
+ 
+     run = RefineRun(
+@@ -60,65 +67,76 @@ def refine_chapter(payload: RefineRequest, db: Session = Depends(get_db)):
+         route_hint=result["route_hint"],
+         changed_ratio=result["changed_ratio"],
+         report_json={
+             "gate": result["gate"],
+             "status": result["status"],
+             "spans": result["spans"],
+             "metrics": result["report"]["metrics"],
+             "gates_raw": result["report"]["gates"],
+-            "original_text": chapter.content_md,  # 수락 시점 원문 보존(감사용)
++            "original_text": input_content_md,  # pipeline 입력 원문 보존(감사용)
+         },
+         result_text=None if result["status"] == "blocked" else result["refined"],
++        base_revision=base_revision,
+         accepted=False,
+     )
+     db.add(run)
+     db.commit()
+     db.refresh(run)
+     humanize.cleanup_workdir(result["work_dir"])
+ 
+     return RefineResult(
+         run_id=run.id,
+         route_hint=result["route_hint"],
+         spans=[SpanOut(**s) for s in result["spans"]],
+-        original=chapter.content_md,
++        original=input_content_md,
+         refined=result["refined"] if result["status"] != "blocked" else "",
+         changed_ratio=result["changed_ratio"],
+         gate=result["gate"],          # pass | warn | block
+         status=result["status"],      # FR-505 — block 시 status=blocked
+     )
+ 
+ 
+ @router.get("/refine/runs/{run_id}", response_model=RefineRunOut)
+ def get_refine_run(run_id: int, db: Session = Depends(get_db)):
+     """리포트 재조회."""
+     return _get_run_or_404(run_id, db)
+ 
+ 
+-@router.post("/refine/runs/{run_id}/accept", response_model=SimpleOk)
++@router.post("/refine/runs/{run_id}/accept", response_model=ChapterDetail)
+ def accept_refine_run(run_id: int, db: Session = Depends(get_db)):
+-    """FR-504 — 수락 → 대상 회차 본문 교체(자동저장 흐름과 동일하게 word_count_cache 갱신)."""
++    """FR-504 — 수락 → 대상 회차 본문 교체."""
+     run = _get_run_or_404(run_id, db)
+     if run.accepted:
+         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                             detail="이미 처리된 실행입니다.")
+     if (run.report_json or {}).get("rejected"):
+         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                             detail="거절된 실행은 수락할 수 없습니다. 다시 윤문을 실행하세요.")
+     if not run.result_text:
+         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                             detail="차단되었거나 결과가 없는 실행은 수락할 수 없습니다.")
++    if run.base_revision is None:
++        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
++                            detail="기준 revision이 없는 기존 윤문 기록은 수락할 수 없습니다. 다시 윤문을 실행하세요.")
+ 
+-    chapter = _get_chapter_or_404(run.chapter_id, db)
+-    # 자동저장 흐름 유지 — PUT content와 동일한 필드 갱신
+-    chapter.content_md = run.result_text
+-    chapter.word_count_cache = count_novelpia_chars(run.result_text)
+-    run.accepted = True
+-    db.commit()
+-    return SimpleOk()
++    try:
++        chapter = manuscripts.replace_manuscript(
++            db, run.chapter_id, run.result_text, run.base_revision, reason="refine"
++        )
++        run.accepted = True
++        db.commit()
++        db.refresh(chapter)
++        return chapter
++    except manuscripts.ChapterNotFound as exc:
++        db.rollback()
++        raise HTTPException(status_code=404, detail="chapter not found") from exc
++    except manuscripts.RevisionConflict as exc:
++        db.rollback()
++        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.detail()) from exc
+ 
+ 
+ @router.post("/refine/runs/{run_id}/reject", response_model=SimpleOk)
+ def reject_refine_run(run_id: int, db: Session = Depends(get_db)):
+     """FR-504 — 거절 → 기록만 남김(본문 무변경)."""
+     run = _get_run_or_404(run_id, db)
+     if run.accepted:
+         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+diff --git a/backend/app/routers/scenes.py b/backend/app/routers/scenes.py
+index 668597a..94ee855 100644
+--- a/backend/app/routers/scenes.py
++++ b/backend/app/routers/scenes.py
+@@ -4,18 +4,18 @@
+ context.scene_id로 처리한다(라우터 분리 원칙 유지).
+ """
+ from fastapi import APIRouter, Depends, HTTPException, status
+ from sqlalchemy import select
+ from sqlalchemy.orm import Session
+ 
+ from app.database import get_db
+ from app.models import Chapter, Scene
+-from app.schemas import ChapterDetail, SceneCreate, SceneOut, SceneUpdate, ScenesReorder
+-from app.services.wordcount import count_novelpia_chars
++from app.schemas import ChapterDetail, SceneCreate, SceneMergePut, SceneOut, SceneUpdate, ScenesReorder
++from app.services import manuscripts
+ 
+ router = APIRouter()
+ 
+ 
+ def _get_chapter_or_404(cid: int, db: Session) -> Chapter:
+     chapter = db.get(Chapter, cid)
+     if chapter is None:
+         raise HTTPException(status_code=404, detail="chapter not found")
+@@ -92,28 +92,31 @@ def reorder_scenes(cid: int, payload: ScenesReorder, db: Session = Depends(get_d
+     db.commit()
+     rows_out = db.scalars(
+         select(Scene).where(Scene.chapter_id == cid).order_by(Scene.sort_order, Scene.id)
+     ).all()
+     return list(rows_out)
+ 
+ 
+ @router.put("/chapters/{cid}/content_from_scenes", response_model=ChapterDetail)
+-def merge_scenes_to_content(cid: int, db: Session = Depends(get_db)):
+-    """장면 → 회차 본문 조립 (고도화 G-013).
+-
+-    sort_order 순으로 장면 본문을 빈 줄로 이어 붙여 content_md를 교체한다.
+-    명시 호출 전용(자동 실행 없음 — P1). 장면이 없으면 422.
+-    """
+-    chapter = _get_chapter_or_404(cid, db)
++def merge_scenes_to_content(cid: int, payload: SceneMergePut, db: Session = Depends(get_db)):
++    """장면 → 회차 본문 조립 (고도화 G-013)."""
++    _get_chapter_or_404(cid, db)
+     scenes = db.scalars(
+         select(Scene).where(Scene.chapter_id == cid)
+         .order_by(Scene.sort_order, Scene.id)
+     ).all()
+     if not scenes:
+         raise HTTPException(status_code=422, detail="조립할 장면이 없습니다")
+     merged = "\n\n".join(
+         (s.content_md or "").strip() for s in scenes if (s.content_md or "").strip())
+-    chapter.content_md = merged
+-    chapter.word_count_cache = count_novelpia_chars(merged)
+-    db.commit()
+-    db.refresh(chapter)
+-    return chapter
++    if not merged:
++        raise HTTPException(status_code=422, detail="조립할 장면 본문이 없습니다")
++    try:
++        chapter = manuscripts.replace_manuscript(
++            db, cid, merged, payload.expected_revision, reason="scene_merge"
++        )
++        db.commit()
++        db.refresh(chapter)
++        return chapter
++    except manuscripts.RevisionConflict as exc:
++        db.rollback()
++        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.detail()) from exc
+diff --git a/backend/app/schemas.py b/backend/app/schemas.py
+index 1d6190b..50bbea0 100644
+--- a/backend/app/schemas.py
++++ b/backend/app/schemas.py
+@@ -50,44 +50,78 @@ class ChapterUpdate(BaseModel):
+     title: str | None = Field(default=None, max_length=255)
+     volume: int | None = Field(default=None, ge=1)
+     sort_order: float | None = None
+     status: ChapterStatus | None = None
+     memo: str | None = None
+ 
+ 
+ class ChapterContentPut(BaseModel):
+-    """본문 저장 (PUT content — 자동저장 debounce 대상)."""
++    """본문 저장 (PUT/POST content — 자동저장 debounce 대상)."""
+ 
+     content_md: str
++    expected_revision: int
++
++
++class ChapterRestorePost(BaseModel):
++    """복구본을 현재 회차 원고로 복원."""
++
++    snapshot_id: int
++    expected_revision: int
++
++
++class SceneMergePut(BaseModel):
++    """장면 본문을 회차 원고로 조립."""
++
++    expected_revision: int
++
+ 
+ 
+ class ChapterOut(BaseModel):
+     """회차 목록/트리용 (본문 제외)."""
+ 
+     model_config = ConfigDict(from_attributes=True)
+ 
+     id: int
+     project_id: int
+     volume: int | None  # Q1: NULL = 권 없는 평면 회차
+     sort_order: float
+     title: str
+     status: ChapterStatus
+     word_count_cache: int
++    revision: int
+     memo: str | None
+     created_at: datetime
+     updated_at: datetime
+ 
+ 
+ class ChapterDetail(ChapterOut):
+     """본문 포함."""
+ 
+     content_md: str
+ 
+ 
++class ChapterSnapshotOut(BaseModel):
++    """회차 복구본 목록용 메타데이터."""
++
++    model_config = ConfigDict(from_attributes=True)
++
++    id: int
++    chapter_id: int
++    revision: int
++    reason: str
++    created_at: datetime
++
++
++class ChapterSnapshotDetail(ChapterSnapshotOut):
++    """회차 복구본 상세."""
++
++    content_md: str
++
++
+ # ---- 노벨피아 PLUS 충족 현황 (A-038 / F-033, 결정사항_G4 Q3) ----
+ PLUS_MIN_CHAPTERS = 15        # 프로젝트 내 회차 수 기준
+ PLUS_MIN_CHARS_DONE = 3000    # 완료 회차 공백제외 글자 수 기준
+ 
+ 
+ class PlusStatusOut(BaseModel):
+     """노벨피아 PLUS 충족 현황 (F-033).
+ 
+@@ -420,16 +454,17 @@ class SpanOut(BaseModel):
+     start: int
+     end: int
+     severity: SpanSeverity = "info"
+     message: str | None = None
+ 
+ 
+ class RefineRequest(BaseModel):
+     chapter_id: int
++    expected_revision: int
+     force_route: RefineRoute | None = None
+ 
+ 
+ class RefineResult(BaseModel):
+     run_id: int
+     route_hint: str
+     spans: list[SpanOut]
+     original: str
+@@ -443,16 +478,17 @@ class RefineRunOut(BaseModel):
+     model_config = ConfigDict(from_attributes=True)
+ 
+     id: int
+     chapter_id: int
+     route_hint: str | None
+     changed_ratio: float
+     report_json: dict | None
+     result_text: str | None
++    base_revision: int | None
+     accepted: bool
+ 
+ 
+ class SimpleOk(BaseModel):
+     ok: bool = True
+ 
+ 
+ # ---- Scene (고도화 G-010 — 회차 → 장면 계층) ----
+diff --git a/backend/app/services/manuscripts.py b/backend/app/services/manuscripts.py
+new file mode 100644
+index 0000000..d7912b0
+--- /dev/null
++++ b/backend/app/services/manuscripts.py
+@@ -0,0 +1,115 @@
++"""Atomic chapter manuscript replacement service."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++
++from sqlalchemy import desc, select, update
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.orm import Session
++
++from app.models import Chapter, ChapterSnapshot
++from app.services.wordcount import count_novelpia_chars
++
++CONFLICT_MESSAGE = "원고가 다른 곳에서 먼저 저장되었습니다. 최신 원고를 확인한 뒤 다시 시도하세요."
++
++
++@dataclass(slots=True)
++class RevisionConflict(Exception):
++    """Raised when a manuscript write uses a stale expected revision."""
++
++    current_revision: int
++
++    def detail(self) -> dict[str, int | str]:
++        return {
++            "code": "revision_conflict",
++            "message": CONFLICT_MESSAGE,
++            "current_revision": self.current_revision,
++        }
++
++
++class ChapterNotFound(Exception):
++    """Raised when the target chapter does not exist."""
++
++
++def replace_manuscript(
++    db: Session,
++    chapter_id: int,
++    content_md: str,
++    expected_revision: int,
++    reason: str,
++) -> Chapter:
++    """Replace a chapter manuscript with optimistic revision protection.
++
++    The caller owns commit/rollback. Successful content changes create a snapshot of
++    the pre-change manuscript in the same transaction. Stale writes raise
++    ``RevisionConflict`` without mutating the current transaction.
++    """
++    chapter = db.get(Chapter, chapter_id)
++    if chapter is None:
++        raise ChapterNotFound()
++
++    current_revision = int(chapter.revision or 0)
++    if current_revision != expected_revision:
++        raise RevisionConflict(current_revision=current_revision)
++
++    current_content = chapter.content_md or ""
++    if current_content == content_md:
++        noop_stmt = (
++            update(Chapter)
++            .where(
++                Chapter.id == chapter_id,
++                Chapter.revision == expected_revision,
++                Chapter.content_md == content_md,
++            )
++            .values(revision=expected_revision)
++        )
++        result = db.execute(noop_stmt)
++        if result.rowcount != 1:
++            latest = db.get(Chapter, chapter_id)
++            raise RevisionConflict(current_revision=int(latest.revision if latest else current_revision))
++        db.flush()
++        db.refresh(chapter)
++        return chapter
++
++    stmt = (
++        update(Chapter)
++        .where(Chapter.id == chapter_id, Chapter.revision == expected_revision)
++        .values(
++            content_md=content_md,
++            revision=expected_revision + 1,
++            word_count_cache=count_novelpia_chars(content_md),
++        )
++    )
++    result = db.execute(stmt)
++    if result.rowcount != 1:
++        latest = db.get(Chapter, chapter_id)
++        raise RevisionConflict(current_revision=int(latest.revision if latest else current_revision))
++
++    db.add(
++        ChapterSnapshot(
++            chapter_id=chapter_id,
++            revision=expected_revision,
++            content_md=current_content,
++            reason=reason,
++        )
++    )
++    try:
++        db.flush()
++    except IntegrityError as exc:
++        text = str(exc.orig if getattr(exc, "orig", None) is not None else exc)
++        if "chapter_snapshots" in text and "revision" in text:
++            raise RevisionConflict(current_revision=expected_revision + 1) from exc
++        raise
++    db.refresh(chapter)
++    return chapter
++
++
++def list_snapshots(db: Session, chapter_id: int) -> list[ChapterSnapshot]:
++    return list(
++        db.scalars(
++            select(ChapterSnapshot)
++            .where(ChapterSnapshot.chapter_id == chapter_id)
++            .order_by(desc(ChapterSnapshot.created_at), desc(ChapterSnapshot.id))
++        ).all()
++    )
+diff --git a/backend/tests/conftest.py b/backend/tests/conftest.py
+index 620e70c..7e8e9c5 100644
+--- a/backend/tests/conftest.py
++++ b/backend/tests/conftest.py
+@@ -1,9 +1,29 @@
+ """pytest fixtures — 임시 SQLite 파일 기반 통합 테스트 환경."""
++import os
++import tempfile
++from pathlib import Path
++from urllib.parse import urlparse, unquote
++
++
++def _mark_temp_lifespan_db() -> None:
++    url = os.environ.get("DATABASE_URL", "")
++    parsed = urlparse(url)
++    if parsed.scheme == "sqlite" and parsed.path:
++        try:
++            db_path = Path(unquote(parsed.path[1:] if len(parsed.path) > 3 and parsed.path[0] == "/" and parsed.path[2] == ":" else parsed.path)).resolve()
++            db_path.relative_to(Path(tempfile.gettempdir()).resolve())
++        except ValueError:
++            return
++        os.environ["JIPPEEL_ALLOW_TEMP_CREATE_ALL"] = "1"
++
++
++_mark_temp_lifespan_db()
++
+ import pytest
+ from fastapi.testclient import TestClient
+ from sqlalchemy.orm import sessionmaker
+ 
+ from app.database import Base, create_db_engine, get_db
+ from app.main import app
+ from app.services.presets_seed import ensure_builtin_presets
+ 
+diff --git a/backend/tests/test_ai_generate_stream.py b/backend/tests/test_ai_generate_stream.py
+index f396bb4..db768af 100644
+--- a/backend/tests/test_ai_generate_stream.py
++++ b/backend/tests/test_ai_generate_stream.py
+@@ -117,17 +117,17 @@ def endpoint_with_preset(client):
+         "name": "e", "base_url": "http://localhost:1234/v1",
+         "api_key": "secret", "default_model": "m-1"}).json()
+     preset = client.post("/api/v1/ai/presets", json={
+         "name": "요약", "template_text": "요약해줘",
+         "context_flags": ["chapter"]}).json()
+     project = client.post("/api/v1/projects", json={"title": "p"}).json()
+     chapter = client.post(f"/api/v1/projects/{project['id']}/chapters", json={}).json()
+     client.put(f"/api/v1/chapters/{chapter['id']}/content",
+-               json={"content_md": "제1장 본문"})
++               json={"content_md": "제1장 본문", "expected_revision": 0})
+     return {"endpoint_id": ep["id"], "preset_id": preset["id"],
+             "chapter_id": chapter["id"]}
+ 
+ 
+ def _parse_sse(text):
+     events = []
+     # sse-starlette는 CRLF(\r\n)로 전송한다 — 파싱 전 정규화
+     text = text.replace("\r\n", "\n")
+@@ -233,17 +233,17 @@ def test_generate_model_resolution(client, fake_llm, endpoint_with_preset):
+ 
+ def test_auto_lore_injects_matched_entries_only(client, fake_llm):
+     """auto_lore=True — 본문 키워드와 일치한 로어만 자동 포함(백로그 P1)."""
+     ep = client.post("/api/v1/ai/endpoints", json={
+         "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+     pid = client.post("/api/v1/projects", json={"title": "p"}).json()["id"]
+     ch = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
+     client.put(f"/api/v1/chapters/{ch['id']}/content", json={
+-        "content_md": "검은 강가의 마을에서 이야기가 시작된다. 흑요 검이 빛난다."})
++        "content_md": "검은 강가의 마을에서 이야기가 시작된다. 흑요 검이 빛난다.", "expected_revision": 0})
+     client.post(f"/api/v1/projects/{pid}/lore", json={
+         "category": "용어", "title": "흑요 검", "keywords": ["흑요 검"], "content": "검의 설정"})
+     client.post(f"/api/v1/projects/{pid}/lore", json={
+         "category": "장소", "title": "무한의 탑", "keywords": ["무한의 탑"], "content": "탑의 설정"})
+ 
+     resp = client.post("/api/v1/ai/generate", json={
+         "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+         "context": {"chapter_id": ch["id"], "auto_lore": True}})
+@@ -311,17 +311,17 @@ def test_previous_chapter_tail_injected(client, fake_llm):
+     ep = client.post("/api/v1/ai/endpoints", json={
+         "name": "e", "base_url": "http://x/v1", "default_model": "m"}).json()
+     pid = client.post("/api/v1/projects", json={"title": "p"}).json()["id"]
+     ch1 = client.post(f"/api/v1/projects/{pid}/chapters",
+                       json={"title": "1화", "sort_order": 0}).json()
+     ch2 = client.post(f"/api/v1/projects/{pid}/chapters",
+                       json={"title": "2화", "sort_order": 1}).json()
+     client.put(f"/api/v1/chapters/{ch1['id']}/content", json={
+-        "content_md": "첫 화 도입부. " * 20 + "마지막 문장은 문이 열리는 순간이었다."})
++        "content_md": "첫 화 도입부. " * 20 + "마지막 문장은 문이 열리는 순간이었다.", "expected_revision": 0})
+ 
+     resp = client.post("/api/v1/ai/generate", json={
+         "endpoint_id": ep["id"], "prompt_override": "이어서 써줘",
+         "context": {"chapter_id": ch2["id"], "previous_chapter": True}})
+     assert resp.status_code == 200
+     user_text = fake_llm["client"].last_kwargs["messages"][-1]["content"]
+     assert "[직전 회차: 1화 끝부분]" in user_text
+     assert "문이 열리는 순간이었다." in user_text  # 끝부분 위주 주입
+diff --git a/backend/tests/test_chapters_api.py b/backend/tests/test_chapters_api.py
+index 7c57ece..91944dc 100644
+--- a/backend/tests/test_chapters_api.py
++++ b/backend/tests/test_chapters_api.py
+@@ -12,16 +12,17 @@ def _mk_chapter(client, pid: int, **kwargs) -> dict:
+ def test_create_chapter_defaults(client):
+     pid = _mk_project(client)
+     body = _mk_chapter(client, pid, title="프롤로그")
+     # Q1 결정안: volume 생략 시 NULL(권 없는 평면 회차)
+     assert body["volume"] is None
+     assert body["status"] == "초고"
+     assert body["content_md"] == ""
+     assert body["word_count_cache"] == 0
++    assert body["revision"] == 0
+ 
+ 
+ def test_chapter_tree_ordered_and_lightweight(client):
+     pid = _mk_project(client)
+     _mk_chapter(client, pid, title="B", volume=2)
+     _mk_chapter(client, pid, title="A", volume=1)
+     items = client.get(f"/api/v1/projects/{pid}/chapters").json()
+     assert [c["title"] for c in items] == ["A", "B"]
+@@ -52,30 +53,30 @@ def test_status_change_flow(client):
+         assert r.status_code == 200 and r.json()["status"] == st
+ 
+ 
+ def test_put_content_updates_word_count(client):
+     pid = _mk_project(client)
+     cid = _mk_chapter(client, pid)["id"]
+ 
+     content = "첫 문장입니다.\n\n둘째 문장!"
+-    r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": content})
++    r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": content, "expected_revision": 0})
+     assert r.status_code == 200
+     body = r.json()
+     assert body["content_md"] == content
+     assert body["word_count_cache"] == 10  # 노벨피아 모드(문자·숫자만 — 마침표·느낌표 제외)
+ 
+ 
+ def test_post_content_beacon_alias_matches_put(client):
+     """sendBeacon(POST) 언로드 플러시 수용 — QA Minor #1 해소."""
+     pid = _mk_project(client)
+     cid = _mk_chapter(client, pid)["id"]
+ 
+     r = client.post(f"/api/v1/chapters/{cid}/content",
+-                    json={"content_md": "언로드 직전 저장"})
++                    json={"content_md": "언로드 직전 저장", "expected_revision": 0})
+     assert r.status_code == 200
+     body = r.json()
+     assert body["content_md"] == "언로드 직전 저장"
+     assert body["word_count_cache"] > 0
+ 
+     # PUT과 동일하게 캐시가 갱신됐는지 재조회로 확인
+     got = client.get(f"/api/v1/chapters/{cid}").json()
+     assert got["word_count_cache"] == body["word_count_cache"]
+diff --git a/backend/tests/test_foreshadows_canon.py b/backend/tests/test_foreshadows_canon.py
+index ab72bd8..f58525a 100644
+--- a/backend/tests/test_foreshadows_canon.py
++++ b/backend/tests/test_foreshadows_canon.py
+@@ -111,17 +111,17 @@ def test_canon_check_success(client, monkeypatch, chapter):
+ 
+     monkeypatch.setattr(quality_router.llm, "make_client",
+                         lambda base_url, api_key_encrypted: _FakeClient())
+ 
+     ep = client.post("/api/v1/ai/endpoints", json={
+         "name": "e", "base_url": "http://x/v1", "default_model": "m",
+         "is_default": True}).json()
+     client.put(f"/api/v1/chapters/{chapter['id']}/content",
+-               json={"content_md": "그는 어릴 때부터 검을 배웠다."})
++               json={"content_md": "그는 어릴 때부터 검을 배웠다.", "expected_revision": 0})
+ 
+     resp = client.post("/api/v1/canon-check", json={"chapter_id": chapter["id"]})
+     assert resp.status_code == 200, resp.text
+     body = resp.json()
+     assert len(body["issues"]) == 1  # 빈 quote 필터링
+     assert body["issues"][0]["severity"] == "error"
+     assert body["checked_context"] == {"characters": 0, "lore": 0,
+                                        "foreshadows": 0, "audience_known": 0}
+diff --git a/backend/tests/test_godohwa_v2.py b/backend/tests/test_godohwa_v2.py
+index 78dc9d7..63a6d79 100644
+--- a/backend/tests/test_godohwa_v2.py
++++ b/backend/tests/test_godohwa_v2.py
+@@ -106,17 +106,17 @@ def test_foreshadow_audience_knows(client, monkeypatch, chapter):
+         def __init__(self, base_url=None, api_key_encrypted=None):
+             self.chat = type("NS", (), {"completions": _Completions()})()
+ 
+     import app.routers.quality as qr
+     monkeypatch.setattr(qr.llm, "make_client",
+                         lambda base_url, api_key_encrypted: _FakeClient())
+     _endpoint(client)
+     client.put(f"/api/v1/chapters/{chapter['id']}/content",
+-               json={"content_md": "본문"})
++               json={"content_md": "본문", "expected_revision": 0})
+     body = client.post("/api/v1/canon-check",
+                        json={"chapter_id": chapter["id"]}).json()
+     assert body["checked_context"]["audience_known"] == 1
+ 
+ 
+ # ---------- G-040 문체 프로파일 ----------
+ def test_style_profile_in_system_prompt(client, monkeypatch, project):
+     from app.routers import ai_panel
+@@ -148,41 +148,41 @@ def test_style_profile_in_system_prompt(client, monkeypatch, project):
+         "context": {"chapter_id": ch["id"], "style_profile": False}})
+     system = holder["client"].last_kwargs["messages"][0]["content"]
+     assert "작품 문체 프로파일" not in system
+ 
+ 
+ # ---------- G-013 장면 → 본문 조립 ----------
+ def test_merge_scenes_to_content(client, project, chapter):
+     cid = chapter["id"]
+-    assert client.put(f"/api/v1/chapters/{cid}/content_from_scenes").status_code == 422
++    assert client.put(f"/api/v1/chapters/{cid}/content_from_scenes", json={}).status_code == 422
+ 
+     s2 = client.post(f"/api/v1/chapters/{cid}/scenes", json={
+         "title": "후반", "content_md": "두 번째 장면.", "sort_order": 2}).json()
+     s1 = client.post(f"/api/v1/chapters/{cid}/scenes", json={
+         "title": "전반", "content_md": "첫 번째 장면.", "sort_order": 1}).json()
+ 
+-    r = client.put(f"/api/v1/chapters/{cid}/content_from_scenes")
++    r = client.put(f"/api/v1/chapters/{cid}/content_from_scenes", json={"expected_revision": 0})
+     assert r.status_code == 200
+     body = r.json()
+     assert body["content_md"] == "첫 번째 장면.\n\n두 번째 장면."
+     assert body["word_count_cache"] > 0
+ 
+ 
+ # ---------- G-041 품질 이력 ----------
+ def test_quality_record_history_dedup(client, project, chapter):
+     cid = chapter["id"]
+-    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다."})
++    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다.", "expected_revision": 0})
+     r1 = client.get(f"/api/v1/chapters/{cid}/quality").json()
+     assert r1["recorded"] is True
+     # 같은 본문 재조회 — 중복 기록 스킵
+     r2 = client.get(f"/api/v1/chapters/{cid}/quality").json()
+     assert r2["recorded"] is False
+     # 본문 변경 — 새 기록
+-    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다. 소리가 들려왔다."})
++    client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "「비켜라.」\n\n순간, 칼이 빠졌다. 소리가 들려왔다.", "expected_revision": 1})
+     r3 = client.get(f"/api/v1/chapters/{cid}/quality").json()
+     assert r3["recorded"] is True
+ 
+     hist = client.get(f"/api/v1/chapters/{cid}/quality/history").json()
+     assert len(hist) == 2 and [h["score"] for h in hist][0] >= 0
+ 
+ 
+ # ---------- G-060 AI 사용량 ----------
+@@ -227,17 +227,17 @@ def test_foreshadow_suggest(client, monkeypatch, project, chapter):
+     class _FakeClient:
+         def __init__(self, base_url=None, api_key_encrypted=None):
+             self.chat = type("NS", (), {"completions": _Completions()})()
+ 
+     monkeypatch.setattr(fs_router.llm, "make_client",
+                         lambda base_url, api_key_encrypted: _FakeClient())
+     _endpoint(client)
+     client.put(f"/api/v1/chapters/{chapter['id']}/content",
+-               json={"content_md": "검이 스스로 그를 향했다."})
++               json={"content_md": "검이 스스로 그를 향했다.", "expected_revision": 0})
+ 
+     body = client.post(f"/api/v1/projects/{project['id']}/foreshadows/suggest",
+                        json={"chapter_id": chapter["id"]}).json()
+     assert len(body["candidates"]) == 1
+     assert body["candidates"][0]["title"] == "검의 진짜 주인"
+ 
+     # 빈 본문 → 422
+     ch2 = client.post(f"/api/v1/projects/{project['id']}/chapters",
+@@ -290,17 +290,17 @@ def test_bootstrap_ai_outline_volume_notes_persisted(client, fake_llm):
+ # ---------- G-047 복선 키워드 본문 매칭 ----------
+ def test_foreshadow_match_endpoint(client, project, chapter):
+     pid = project["id"]
+     f1 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
+         "title": "검의 진짜 주인", "keywords": ["검의 주인"], "status": "설치"}).json()
+     f2 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
+         "title": "예언의 조각", "keywords": ["예언"], "status": "설치"}).json()
+     client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
+-        "content_md": "검이 그의 손에서 울렸다. 검의 주인은 아직 다른 곳에 있다."})
++        "content_md": "검이 그의 손에서 울렸다. 검의 주인은 아직 다른 곳에 있다.", "expected_revision": 0})
+ 
+     matched = client.get(f"/api/v1/projects/{pid}/foreshadows/match",
+                          params={"chapter_id": chapter["id"]}).json()
+     ids = {m["id"] for m in matched}
+     assert f1["id"] in ids and f2["id"] not in ids
+     hit = next(m for m in matched if m["id"] == f1["id"])
+     assert set(hit["matched_terms"]) == {"검의 주인"}  # 제목은 본문에 미등장
+ 
+@@ -334,17 +334,17 @@ def test_semantic_hybrid_catches_morphological_variant(client, monkeypatch, proj
+     # v1 매칭 실패 케이스: 키워드 "흑염술"이 본문에 없고, 본문은 "흑염의 술식"을 언급
+     client.post(f"/api/v1/projects/{pid}/lore", json={
+         "category": "용어", "title": "흑염술", "keywords": ["흑염술"],
+         "content": "검은 불꽃을 다루는 술식"})
+     client.post(f"/api/v1/projects/{pid}/lore", json={
+         "category": "장소", "title": "남쪽 바다", "keywords": ["남쪽 바다"],
+         "content": "바다의 끝"})
+     client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
+-        "content_md": "그는 흑염의 술식을 손끝으로 모았다."})
++        "content_md": "그는 흑염의 술식을 손끝으로 모았다.", "expected_revision": 0})
+ 
+     # v1(키워드만) — 미매칭
+     client.post("/api/v1/ai/generate", json={
+         "endpoint_id": ep["id"], "prompt_override": "써줘",
+         "context": {"chapter_id": chapter["id"], "auto_lore": True}})
+     user_text = holder["client"].last_kwargs["messages"][-1]["content"]
+     assert "흑염술" not in user_text
+ 
+@@ -365,17 +365,17 @@ def test_foreshadow_reminder(client, project):
+     f2 = client.post(f"/api/v1/projects/{pid}/foreshadows", json={
+         "title": "방금 복선", "keywords": ["방금 복선"]}).json()
+     chapters = []
+     for i in range(7):
+         ch = client.post(f"/api/v1/projects/{pid}/chapters",
+                          json={"title": f"{i + 1}화", "sort_order": float(i)}).json()
+         content = "방금 복선이 등장한다." if i == 6 else f"{i + 1}화 본문"
+         client.put(f"/api/v1/chapters/{ch['id']}/content",
+-                   json={"content_md": content})
++                   json={"content_md": content, "expected_revision": 0})
+         chapters.append(ch)
+ 
+     body = client.get(f"/api/v1/projects/{pid}/foreshadows/reminder?window=5").json()
+     assert body["latest_chapter"]["title"] == "7화"
+     by_id = {r["id"]: r for r in body["items"]}
+     assert by_id[f1["id"]]["stale"] is True
+     assert by_id[f1["id"]]["chapters_since_mentioned"] is None  # 한 번도 미언급
+     assert by_id[f2["id"]]["stale"] is False                    # 직전 화에 언급
+@@ -388,15 +388,15 @@ def test_foreshadow_reminder(client, project):
+ 
+ 
+ # ---------- G-071 metrics_v2 연동 ----------
+ def test_quality_merges_metrics_v2_when_available(client, project, chapter):
+     """im-not-ai 스킬이 있는 환경에서 metrics.v2가 병합된다(없으면 생략 — 둘 다 허용)."""
+     from app.services import quality as quality_service
+     quality_service._metrics_v2_loaded = False  # 모듈 캐시 리셋
+     client.put(f"/api/v1/chapters/{chapter['id']}/content", json={
+-        "content_md": "「비켜라.」\n\n칼이 번개처럼 빠졌다. 그러나 그는 조용했다."})
++        "content_md": "「비켜라.」\n\n칼이 번개처럼 빠졌다. 그러나 그는 조용했다.", "expected_revision": 0})
+     r = client.get(f"/api/v1/chapters/{chapter['id']}/quality?record=false").json()
+     if quality_service._metrics_v2_module is not None:
+         assert "v2" in r["metrics"]
+         assert "risk_band" in r["metrics"]["v2"]
+     else:
+         assert "v2" not in r["metrics"]  # 스킬 미설치 환경 — 폴백 동작
+diff --git a/backend/tests/test_injection.py b/backend/tests/test_injection.py
+index 6c1d069..210536b 100644
+--- a/backend/tests/test_injection.py
++++ b/backend/tests/test_injection.py
+@@ -29,17 +29,17 @@ def _mk_lore(client, pid, title, keywords=None, content=None, category="용어")
+         "content": content if content is not None else f"{title} 설명",
+         "keywords": keywords or [],
+     }).json()
+ 
+ 
+ def _mk_chapter(client, pid, content_md):
+     ch = client.post(f"/api/v1/projects/{pid}/chapters", json={}).json()
+     client.put(f"/api/v1/chapters/{ch['id']}/content",
+-               json={"content_md": content_md})
++               json={"content_md": content_md, "expected_revision": 0})
+     return ch
+ 
+ 
+ @pytest.fixture()
+ def fake_llm(monkeypatch):
+     holder = {"client": None}
+ 
+     def _make_client(base_url, api_key_encrypted):
+diff --git a/backend/tests/test_manuscript_preservation.py b/backend/tests/test_manuscript_preservation.py
+new file mode 100644
+index 0000000..c329faa
+--- /dev/null
++++ b/backend/tests/test_manuscript_preservation.py
+@@ -0,0 +1,302 @@
++"""Manuscript preservation API regressions.
++
++These tests lock the approved revision/snapshot contract from
++``docs/superpowers/specs/2026-09-07-manuscript-preservation.md``.
++"""
++from concurrent.futures import ThreadPoolExecutor
++
++import pytest
++
++from app.services import humanize
++
++
++def _project(client, title="safe"):
++    return client.post("/api/v1/projects", json={"title": title}).json()
++
++
++def _chapter(client, project_id, title="one"):
++    return client.post(f"/api/v1/projects/{project_id}/chapters", json={"title": title}).json()
++
++
++def _put(client, chapter_id, content_md, expected_revision):
++    return client.put(
++        f"/api/v1/chapters/{chapter_id}/content",
++        json={"content_md": content_md, "expected_revision": expected_revision},
++    )
++
++
++def _post(client, chapter_id, content_md, expected_revision):
++    return client.post(
++        f"/api/v1/chapters/{chapter_id}/content",
++        json={"content_md": content_md, "expected_revision": expected_revision},
++    )
++
++
++def test_stale_write_preserves_manuscript_and_history(client):
++    project = client.post('/api/v1/projects', json={'title': 'safe'}).json()
++    chapter = client.post(f"/api/v1/projects/{project['id']}/chapters", json={'title': 'one'}).json()
++    cid = chapter['id']
++    first = client.put(f'/api/v1/chapters/{cid}/content', json={'content_md': 'newest', 'expected_revision': 0})
++    assert first.status_code == 200
++    assert first.json()['revision'] == 1
++    stale = client.put(f'/api/v1/chapters/{cid}/content', json={'content_md': 'old', 'expected_revision': 0})
++    assert stale.status_code == 409
++    assert client.get(f'/api/v1/chapters/{cid}').json()['content_md'] == 'newest'
++    snapshots = client.get(f'/api/v1/chapters/{cid}/snapshots').json()
++    assert len(snapshots) == 1
++    old = client.get(f"/api/v1/chapters/{cid}/snapshots/{snapshots[0]['id']}").json()
++    assert old['content_md'] == ''
++
++
++def test_revision_is_returned_and_required_on_content_routes(client):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++
++    created = client.get(f"/api/v1/chapters/{cid}").json()
++    listed = client.get(f"/api/v1/projects/{pid}/chapters").json()[0]
++    assert created["revision"] == 0
++    assert listed["revision"] == 0
++
++    assert client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "missing"}).status_code == 422
++    assert client.post(f"/api/v1/chapters/{cid}/content", json={"content_md": "missing"}).status_code == 422
++
++
++def test_post_alias_noop_and_conflict_shape(client):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++
++    first = _post(client, cid, "same", 0)
++    assert first.status_code == 200
++    assert first.json()["revision"] == 1
++
++    noop = _put(client, cid, "same", 1)
++    assert noop.status_code == 200
++    assert noop.json()["revision"] == 1
++    assert client.get(f"/api/v1/chapters/{cid}/snapshots").json()[0]["revision"] == 0
++    assert len(client.get(f"/api/v1/chapters/{cid}/snapshots").json()) == 1
++
++    stale_same_payload = _put(client, cid, "same", 0)
++    assert stale_same_payload.status_code == 409
++    assert stale_same_payload.json()["detail"] == {
++        "code": "revision_conflict",
++        "message": "원고가 다른 곳에서 먼저 저장되었습니다. 최신 원고를 확인한 뒤 다시 시도하세요.",
++        "current_revision": 1,
++    }
++
++
++def test_concurrent_same_revision_write_has_one_winner(client):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++
++    def save(text):
++        return _put(client, cid, text, 0)
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        results = list(pool.map(save, ["winner-a", "winner-b"]))
++
++    statuses = sorted(resp.status_code for resp in results)
++    assert statuses == [200, 409]
++    winner = next(resp.json()["content_md"] for resp in results if resp.status_code == 200)
++    current = client.get(f"/api/v1/chapters/{cid}").json()
++    assert current["content_md"] == winner
++    assert current["revision"] == 1
++    assert len(client.get(f"/api/v1/chapters/{cid}/snapshots").json()) == 1
++
++
++def test_snapshot_restore_is_same_chapter_only_and_reversible(client):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    other_cid = _chapter(client, pid, title="two")["id"]
++
++    assert _put(client, cid, "first", 0).json()["revision"] == 1
++    assert _put(client, cid, "second", 1).json()["revision"] == 2
++    first_snapshot = client.get(f"/api/v1/chapters/{cid}/snapshots").json()[-1]
++
++    rejected = client.post(
++        f"/api/v1/chapters/{other_cid}/restore",
++        json={"snapshot_id": first_snapshot["id"], "expected_revision": 0},
++    )
++    assert rejected.status_code == 422
++
++    restored = client.post(
++        f"/api/v1/chapters/{cid}/restore",
++        json={"snapshot_id": first_snapshot["id"], "expected_revision": 2},
++    )
++    assert restored.status_code == 200
++    assert restored.json()["content_md"] == ""
++    assert restored.json()["revision"] == 3
++
++    restore_snapshot = client.get(f"/api/v1/chapters/{cid}/snapshots").json()[0]
++    undo = client.post(
++        f"/api/v1/chapters/{cid}/restore",
++        json={"snapshot_id": restore_snapshot["id"], "expected_revision": 3},
++    )
++    assert undo.status_code == 200
++    assert undo.json()["content_md"] == "second"
++    assert undo.json()["revision"] == 4
++
++
++def test_scene_merge_requires_revision_and_preserves_on_empty_or_stale(client):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    _put(client, cid, "manual", 0)
++
++    missing = client.put(f"/api/v1/chapters/{cid}/content_from_scenes", json={})
++    assert missing.status_code == 422
++
++    client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "blank", "content_md": "   "})
++    empty = client.put(
++        f"/api/v1/chapters/{cid}/content_from_scenes",
++        json={"expected_revision": 1},
++    )
++    assert empty.status_code == 422
++    assert client.get(f"/api/v1/chapters/{cid}").json()["content_md"] == "manual"
++
++    client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "one", "sort_order": 0, "content_md": "scene a"})
++    client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "two", "sort_order": 1, "content_md": "scene b"})
++    stale = client.put(
++        f"/api/v1/chapters/{cid}/content_from_scenes",
++        json={"expected_revision": 0},
++    )
++    assert stale.status_code == 409
++    merged = client.put(
++        f"/api/v1/chapters/{cid}/content_from_scenes",
++        json={"expected_revision": 1},
++    )
++    assert merged.status_code == 200
++    assert merged.json()["content_md"] == "scene a\n\nscene b"
++    assert merged.json()["revision"] == 2
++
++
++@pytest.fixture()
++def mock_humanize(monkeypatch):
++    def fake_run_pipeline(content_md, force_route=None):
++        return {
++            "route_hint": force_route or "standard",
++            "changed_ratio": 0.01,
++            "gate": "pass",
++            "status": "ok",
++            "spans": [],
++            "report": {"metrics": {}, "gates": {}},
++            "refined": "refined text",
++            "work_dir": "unused",
++        }
++
++    monkeypatch.setattr(humanize, "run_pipeline", fake_run_pipeline)
++    monkeypatch.setattr(humanize, "cleanup_workdir", lambda work_dir: None)
++
++
++def test_refine_accept_uses_captured_base_revision_and_blocks_stale(client, mock_humanize):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    _put(client, cid, "base text", 0)
++
++    run = client.post("/api/v1/refine", json={"chapter_id": cid, "expected_revision": 1}).json()
++    assert client.get(f"/api/v1/refine/runs/{run['run_id']}").json()["base_revision"] == 1
++
++    _put(client, cid, "newer human edit", 1)
++    stale_accept = client.post(f"/api/v1/refine/runs/{run['run_id']}/accept")
++    assert stale_accept.status_code == 409
++    assert stale_accept.json()["detail"]["code"] == "revision_conflict"
++    after = client.get(f"/api/v1/chapters/{cid}").json()
++    assert after["content_md"] == "newer human edit"
++    assert after["revision"] == 2
++    assert client.get(f"/api/v1/refine/runs/{run['run_id']}").json()["accepted"] is False
++
++
++def test_refine_accept_returns_chapter_detail(client, mock_humanize):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    _put(client, cid, "base text", 0)
++
++    run = client.post("/api/v1/refine", json={"chapter_id": cid, "expected_revision": 1}).json()
++    accepted = client.post(f"/api/v1/refine/runs/{run['run_id']}/accept")
++    assert accepted.status_code == 200
++    body = accepted.json()
++    assert body["id"] == cid
++    assert body["content_md"] == "refined text"
++    assert body["revision"] == 2
++    assert client.get(f"/api/v1/refine/runs/{run['run_id']}").json()["accepted"] is True
++
++
++def test_refine_requires_expected_revision_and_stale_skips_pipeline(client, monkeypatch):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    _put(client, cid, "base text", 0)
++    _put(client, cid, "newer text", 1)
++
++    calls = {"count": 0}
++
++    def fail_if_called(content_md, force_route=None):
++        calls["count"] += 1
++        raise AssertionError("pipeline should not run for stale refine")
++
++    monkeypatch.setattr(humanize, "run_pipeline", fail_if_called)
++
++    missing = client.post("/api/v1/refine", json={"chapter_id": cid})
++    assert missing.status_code == 422
++
++    stale = client.post("/api/v1/refine", json={"chapter_id": cid, "expected_revision": 1})
++    assert stale.status_code == 409
++    assert stale.json()["detail"]["code"] == "revision_conflict"
++    assert stale.json()["detail"]["current_revision"] == 2
++    assert calls["count"] == 0
++
++
++def test_snapshot_failure_rolls_back_manuscript_update(tmp_path, monkeypatch):
++    from sqlalchemy.orm import sessionmaker
++
++    from app.database import Base, create_db_engine
++    from app.models import Chapter, Project
++    from app.services import manuscripts
++
++    engine = create_db_engine(f"sqlite:///{(tmp_path / 'rollback.db').as_posix()}")
++    Base.metadata.create_all(bind=engine)
++    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
++
++    db = SessionLocal()
++    try:
++        project = Project(title="rollback")
++        db.add(project)
++        db.flush()
++        chapter = Chapter(project_id=project.id, title="one", content_md="old", revision=0)
++        db.add(chapter)
++        db.commit()
++        cid = chapter.id
++
++        original_flush = db.flush
++
++        def fail_after_update(*args, **kwargs):
++            if db.new:
++                raise RuntimeError("snapshot insert failed")
++            return original_flush(*args, **kwargs)
++
++        monkeypatch.setattr(db, "flush", fail_after_update)
++        with pytest.raises(RuntimeError, match="snapshot insert failed"):
++            manuscripts.replace_manuscript(db, cid, "new", 0, reason="autosave")
++        db.rollback()
++    finally:
++        db.close()
++
++    verify = SessionLocal()
++    try:
++        persisted = verify.get(Chapter, cid)
++        assert persisted.content_md == "old"
++        assert persisted.revision == 0
++        assert manuscripts.list_snapshots(verify, cid) == []
++    finally:
++        verify.close()
++        engine.dispose()
++
++
++
++def test_delete_chapter_cascades_snapshots(client):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    _put(client, cid, "first", 0)
++    snapshots = client.get(f"/api/v1/chapters/{cid}/snapshots").json()
++    assert len(snapshots) == 1
++
++    assert client.delete(f"/api/v1/chapters/{cid}").status_code == 204
++    assert client.get(f"/api/v1/chapters/{cid}").status_code == 404
++    assert client.get(f"/api/v1/chapters/{cid}/snapshots/{snapshots[0]['id']}").status_code == 404
+diff --git a/backend/tests/test_migrations.py b/backend/tests/test_migrations.py
+index 9051354..ee49b5e 100644
+--- a/backend/tests/test_migrations.py
++++ b/backend/tests/test_migrations.py
+@@ -55,8 +55,74 @@ def test_upgrade_head_then_downgrade_base(alembic_config):
+     assert not (set(Base.metadata.tables.keys()) & tables)
+     engine.dispose()
+ 
+ 
+ def test_upgrade_is_idempotent_at_head(alembic_config):
+     command.upgrade(alembic_config, "head")
+     # 이미 head인 상태에서 재실행해도 오류 없어야 함
+     command.upgrade(alembic_config, "head")
++
++
++
++def test_populated_upgrade_to_manuscript_preservation_preserves_data(alembic_config):
++    """A populated pre-preservation DB upgrades with revision defaults."""
++    from sqlalchemy import text
++
++    command.upgrade(alembic_config, "f9a1b2c3d4e5")
++
++    engine = create_db_engine(_current_url())
++    with engine.begin() as conn:
++        conn.execute(text(
++            "INSERT INTO projects (id, title) VALUES (1, 'populated')"
++        ))
++        conn.execute(text(
++            "INSERT INTO chapters "
++            "(id, project_id, volume, sort_order, title, content_md, status, word_count_cache) "
++            "VALUES (1, 1, NULL, 0.0, 'one', 'old manuscript', '초고', 13)"
++        ))
++        conn.execute(text(
++            "INSERT INTO refine_runs "
++            "(id, chapter_id, route_hint, changed_ratio, report_json, result_text, accepted) "
++            "VALUES (1, 1, 'standard', 0.1, '{}', 'refined', 0)"
++        ))
++    engine.dispose()
++
++    command.upgrade(alembic_config, "head")
++
++    engine = create_db_engine(_current_url())
++    with engine.connect() as conn:
++        chapter = conn.execute(text(
++            "SELECT content_md, revision FROM chapters WHERE id = 1"
++        )).mappings().one()
++        run = conn.execute(text(
++            "SELECT base_revision FROM refine_runs WHERE id = 1"
++        )).mappings().one()
++        snapshots = conn.execute(text("SELECT count(*) FROM chapter_snapshots")).scalar_one()
++    engine.dispose()
++
++    assert chapter["content_md"] == "old manuscript"
++    assert chapter["revision"] == 0
++    assert run["base_revision"] is None
++    assert snapshots == 0
++
++
++def test_startup_rejects_existing_db_missing_preservation_columns(alembic_config, monkeypatch):
++    """Existing DBs must be migrated; startup must not silently patch them."""
++    from app.database import assert_manuscript_schema_current
++
++    monkeypatch.delenv("JIPPEEL_ALLOW_TEMP_CREATE_ALL", raising=False)
++    command.upgrade(alembic_config, "f9a1b2c3d4e5")
++    engine = create_db_engine(_current_url())
++    with pytest.raises(RuntimeError, match="alembic upgrade head"):
++        assert_manuscript_schema_current(engine)
++    engine.dispose()
++
++
++
++def test_startup_accepts_alembic_head_schema(alembic_config, monkeypatch):
++    from app.database import assert_manuscript_schema_current
++
++    monkeypatch.delenv("JIPPEEL_ALLOW_TEMP_CREATE_ALL", raising=False)
++    command.upgrade(alembic_config, "head")
++    engine = create_db_engine(_current_url())
++    assert_manuscript_schema_current(engine)
++    engine.dispose()
+diff --git a/backend/tests/test_outline_injection.py b/backend/tests/test_outline_injection.py
+index 2b8361d..7f4d5dc 100644
+--- a/backend/tests/test_outline_injection.py
++++ b/backend/tests/test_outline_injection.py
+@@ -28,17 +28,17 @@ def _setup(monkeypatch, client):
+     ch1 = client.post(f"/api/v1/projects/{pid}/chapters", json={
+         "title": "1화", "sort_order": 0}).json()
+     client.patch(f"/api/v1/chapters/{ch1['id']}", json={
+         "memo": "시놉시스: 흑마법사를 만난다\n[핵심 사건] 각성"})
+     ch2 = client.post(f"/api/v1/projects/{pid}/chapters", json={
+         "title": "2화", "sort_order": 1}).json()
+     client.patch(f"/api/v1/chapters/{ch2['id']}", json={"memo": "시놉시스: 탑에 오른다"})
+     client.put(f"/api/v1/chapters/{ch1['id']}/content", json={
+-        "content_md": "1화 본문"})
++        "content_md": "1화 본문", "expected_revision": 0})
+     return holder, ep["id"], ch1["id"], ch2["id"], ch2["title"]
+ 
+ 
+ def test_auto_outline_injects_memo_and_next_direction(client, monkeypatch):
+     holder, endpoint_id, ch1, _ch2_id, ch2_title = _setup(monkeypatch, client)
+     resp = client.post("/api/v1/ai/generate", json={
+         "endpoint_id": endpoint_id, "prompt_override": "이어서 써줘",
+         "context": {"chapter_id": ch1, "auto_outline": True}})
+diff --git a/backend/tests/test_plus_status.py b/backend/tests/test_plus_status.py
+index 16ea5f6..2317c33 100644
+--- a/backend/tests/test_plus_status.py
++++ b/backend/tests/test_plus_status.py
+@@ -9,17 +9,17 @@ def _mk_project(client) -> int:
+     return client.post("/api/v1/projects", json={"title": "연작"}).json()["id"]
+ 
+ 
+ def _mk_chapter(client, pid: int, title="회차", cache=None, status=None) -> dict:
+     body = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": title}).json()
+     cid = body["id"]
+     if cache is not None:
+         # PUT content가 word_count_cache(공백제외)를 계산·저장한다
+-        r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "가" * cache})
++        r = client.put(f"/api/v1/chapters/{cid}/content", json={"content_md": "가" * cache, "expected_revision": 0})
+         assert r.json()["word_count_cache"] == cache
+     if status is not None:
+         r = client.patch(f"/api/v1/chapters/{cid}", json={"status": status})
+         assert r.status_code == 200
+     return body
+ 
+ 
+ def test_plus_status_404_unknown_project(client):
+diff --git a/backend/tests/test_projects_api.py b/backend/tests/test_projects_api.py
+index 7720021..755c046 100644
+--- a/backend/tests/test_projects_api.py
++++ b/backend/tests/test_projects_api.py
+@@ -55,15 +55,15 @@ def test_delete_project_cascades_characters_with_relations(client):
+     assert client.get(f"/api/v1/characters/{a['id']}").status_code == 404
+     assert client.get(f"/api/v1/characters/{b['id']}").status_code == 404
+ 
+ 
+ def test_list_projects_includes_card_aggregates(client):
+     """목록 응답에 회차 수·누적 글자 수 집계가 포함된다(홈 카드용)."""
+     pid = client.post("/api/v1/projects", json={"title": "집계"}).json()["id"]
+     c1 = client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "1화"}).json()
+-    client.put(f"/api/v1/chapters/{c1['id']}/content", json={"content_md": "가나다라마바사"})  # 공백제외 7자
++    client.put(f"/api/v1/chapters/{c1['id']}/content", json={"content_md": "가나다라마바사", "expected_revision": 0})  # 공백제외 7자
+     client.post(f"/api/v1/projects/{pid}/chapters", json={"title": "2화"})
+ 
+     rows = client.get("/api/v1/projects").json()
+     row = next(r for r in rows if r["id"] == pid)
+     assert row["chapter_count"] == 2
+     assert row["total_chars"] == 7
+diff --git a/backend/tests/test_refine_api.py b/backend/tests/test_refine_api.py
+index 57b80b6..99f307e 100644
+--- a/backend/tests/test_refine_api.py
++++ b/backend/tests/test_refine_api.py
+@@ -79,25 +79,25 @@ def mock_pipeline(monkeypatch):
+     return _install
+ 
+ 
+ @pytest.fixture()
+ def chapter(client):
+     project = client.post("/api/v1/projects", json={"title": "소설"}).json()
+     ch = client.post(f"/api/v1/projects/{project['id']}/chapters", json={}).json()
+     client.put(f"/api/v1/chapters/{ch['id']}/content", json={
+-        "content_md": "AI 규제에 대해 논의할 필요가 있다. 이 문제에 있어서 신중함이 요구된다."})
++        "content_md": "AI 규제에 대해 논의할 필요가 있다. 이 문제에 있어서 신중함이 요구된다.", "expected_revision": 0})
+     return ch
+ 
+ 
+ # ---------- 파이프라인 실행 ----------
+ def test_refine_runs_and_returns_report(client, mock_pipeline, chapter):
+     mock_pipeline(route_hint="standard", ratio=0.08)
+ 
+-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
++    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
+     assert resp.status_code == 200, resp.text
+     body = resp.json()
+ 
+     assert body["route_hint"] == "standard"
+     assert body["gate"] == "pass"
+     assert body["status"] == "ok"
+     assert body["changed_ratio"] == 0.08
+     assert body["original"].startswith("AI 규제에 대해")
+@@ -117,78 +117,79 @@ def test_refine_runs_and_returns_report(client, mock_pipeline, chapter):
+     run = client.get(f"/api/v1/refine/runs/{body['run_id']}").json()
+     assert run["changed_ratio"] == 0.08
+     assert run["accepted"] is False
+     assert run["chapter_id"] == chapter["id"]
+ 
+ 
+ def test_light_route_skips_diagnosis(client, mock_pipeline, chapter):
+     mock_pipeline(route_hint="light")
+-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
++    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
+     assert resp.status_code == 200
+     assert resp.json()["route_hint"] == "light"
+ 
+     shell_cmds = [c["args"] for c in mock_pipeline.calls if c["shell"]]
+     assert not any(c.startswith("diagnose") for c in shell_cmds)  # light는 진단 생략
+     scripts = [c["args"][1] for c in mock_pipeline.calls if not c["shell"]]
+     assert sum("prepare_monolith_input.py" in s for s in scripts) == 1
+     assert sum("verify_gates.py" in s for s in scripts) == 1
+ 
+ 
+ def test_force_route_overrides_hint(client, mock_pipeline, chapter):
+     mock_pipeline(route_hint="light")
+     resp = client.post("/api/v1/refine",
+-                       json={"chapter_id": chapter["id"], "force_route": "heavy"})
++                       json={"chapter_id": chapter["id"], "expected_revision": 1, "force_route": "heavy"})
+     assert resp.json()["route_hint"] == "heavy"
+ 
+ 
+ def test_degraded_hint_falls_back_to_standard(client, mock_pipeline, chapter):
+     mock_pipeline(route_hint=None)  # shim graceful degrade → standard
+-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
++    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
+     assert resp.json()["route_hint"] == "standard"
+ 
+ 
+ def test_refine_empty_chapter_rejected(client, chapter):
+-    client.put(f"/api/v1/chapters/{chapter['id']}/content", json={"content_md": ""})
+-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
++    client.put(f"/api/v1/chapters/{chapter['id']}/content", json={"content_md": "", "expected_revision": 1})
++    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 2})
+     assert resp.status_code == 400
+ 
+ 
+ def test_engine_not_configured_returns_503(client, monkeypatch, mock_pipeline, chapter):
+     mock_pipeline(ratio=0.01)
+     monkeypatch.delenv(humanize.REFINE_CMD_ENV, raising=False)
+-    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]})
++    resp = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1})
+     assert resp.status_code == 503
+     assert "IM_NOT_AI_REFINE_CMD" in resp.json()["detail"]
+ 
+ 
+ # ---------- 수락/거절 플로우 ----------
+ def test_accept_replaces_chapter_content(client, mock_pipeline, chapter):
+     mock_pipeline(ratio=0.10)
+ 
+-    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]}).json()
++    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1}).json()
+     resp = client.post(f"/api/v1/refine/runs/{body['run_id']}/accept")
+     assert resp.status_code == 200
++    assert resp.json()["content_md"] == "수정된 본문입니다."
+ 
+     after = client.get(f"/api/v1/chapters/{chapter['id']}").json()
+     assert after["content_md"] == "수정된 본문입니다."
+     # 자동저장 흐름 유지 — PUT content와 동일하게 word_count_cache 재계산(공백 제외)
+     from app.services.wordcount import count_novelpia_chars
+     assert after["word_count_cache"] == count_novelpia_chars(after["content_md"])
+ 
+     run = client.get(f"/api/v1/refine/runs/{body['run_id']}").json()
+     assert run["accepted"] is True
+     # 재처리 방지
+     assert client.post(f"/api/v1/refine/runs/{body['run_id']}/accept").status_code == 409
+     assert client.post(f"/api/v1/refine/runs/{body['run_id']}/reject").status_code == 409
+ 
+ 
+ def test_reject_keeps_record_only(client, mock_pipeline, chapter):
+     mock_pipeline(ratio=0.12)
+-    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"]}).json()
++    body = client.post("/api/v1/refine", json={"chapter_id": chapter["id"], "expected_revision": 1}).json()
+ 
+     resp = client.post(f"/api/v1/refine/runs/{body['run_id']}/reject")
+     assert resp.status_code == 200
+     after = client.get(f"/api/v1/chapters/{chapter['id']}").json()
+     assert after["content_md"].startswith("AI 규제에 대해")  # 본문 무변경
+     run = client.get(f"/api/v1/refine/runs/{body['run_id']}").json()
+     assert run["accepted"] is False
+     assert run["report_json"]["rejected"] is True
+diff --git a/scripts/write_volume1.py b/scripts/write_volume1.py
+index e6cd33e..2807b0e 100644
+--- a/scripts/write_volume1.py
++++ b/scripts/write_volume1.py
+@@ -16,19 +16,19 @@ API = "http://localhost:8000/api/v1"
+ 
+ 
+ def get(client, path):
+     r = client.get(API + path, timeout=30)
+     r.raise_for_status()
+     return r.json()
+ 
+ 
+-def put_content(client, chapter_id, text):
++def put_content(client, chapter_id, text, expected_revision):
+     r = client.put(f"{API}/chapters/{chapter_id}/content",
+-                   json={"content_md": text}, timeout=60)
++                   json={"content_md": text, "expected_revision": expected_revision}, timeout=60)
+     r.raise_for_status()
+     return r.json()
+ 
+ 
+ def stream_generate(client, body):
+     text = ""
+     with client.stream("POST", f"{API}/ai/generate", json=body,
+                        timeout=httpx.Timeout(connect=15, read=900, write=15, pool=15)) as r:
+@@ -89,17 +89,17 @@ def main():
+             }
+             t0 = time.time()
+             print(f"[{i + 1}/{len(chapters)}] {ch['title']} 생성 중…", flush=True)
+             try:
+                 text = stream_generate(client, body)
+             except Exception as exc:  # noqa: BLE001 — 한 화 실패가 전체를 멈추지 않게
+                 print(f"  ✗ 실패({time.time() - t0:.0f}초): {exc}", flush=True)
+                 continue
+-            saved = put_content(client, ch["id"], text)
++            saved = put_content(client, ch["id"], text, detail["revision"])
+             print(f"  ✓ 저장: {len(text):,}자 (노벨피아 {saved['word_count_cache']:,}) "
+                   f"— {time.time() - t0:.0f}초", flush=True)
+ 
+         print("완료", flush=True)
+ 
+ 
+ if __name__ == "__main__":
+     main()

@@ -1,0 +1,13 @@
+brief_lore_injected []
+future_foreshadow_injected [{'id': 1, 'title': 'FUTURE_SENTINEL'}]
+style_normal True
+synopsis_injected False
+canon_future True
+outline [(1, 1, 0.0, 'A'), (2, 1, 2.0, 'B'), (2, 2, 3.0, 'C'), (2, 2, 3.0, '2권 2화')]
+canon_parse {} []
+canon_parse {"issues":"not-an-array"} []
+canon_parse {"issues":null} TypeError
+quality '' 65 {'chars_novelpia': 0, 'dialogue_ratio': 0.0, 'avg_para_chars': 0.0, 'ending_repeat_per_1k': 0.0, 'connector_per_1k': 0.0, 'para_opener_variety': 0.0, 'hook_present': False, 'para_count': 0}
+quality '"가나다라?" 마바사아자차카타파하.' 100 {'dialogue_ratio': 0.2632, 'chars_novelpia': 14, 'para_count': 1, 'avg_para_chars': 19.0, 'ending_repeat_per_1k': 0.0, 'connector_per_1k': 0.0, 'para_opener_variety': 1.0, 'hook_present': True}
+one_char_scenes_valid []
+style_parallel_calls [False, False, False, False]

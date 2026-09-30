@@ -1,0 +1,478 @@
+diff --git a/backend/alembic/versions/b3c4d5e6f7a8_chapter_volume_nullable.py b/backend/alembic/versions/b3c4d5e6f7a8_chapter_volume_nullable.py
+index 385f48c..50b16a3 100644
+--- a/backend/alembic/versions/b3c4d5e6f7a8_chapter_volume_nullable.py
++++ b/backend/alembic/versions/b3c4d5e6f7a8_chapter_volume_nullable.py
+@@ -15,17 +15,25 @@ from alembic import op
+ # revision identifiers, used by Alembic.
+ revision: str = 'b3c4d5e6f7a8'
+ down_revision: Union[str, Sequence[str], None] = 'a1b2c3d4e5f6'
+ branch_labels: Union[str, Sequence[str], None] = None
+ depends_on: Union[str, Sequence[str], None] = None
+ 
+ 
+ def upgrade() -> None:
+-    with op.batch_alter_table('chapters', schema=None) as batch_op:
+-        batch_op.alter_column('volume', existing_type=sa.Integer(), nullable=True)
++    bind = op.get_bind()
++    sqlite = bind.dialect.name == 'sqlite'
++    if sqlite:
++        bind.exec_driver_sql('PRAGMA foreign_keys=OFF')
++    try:
++        with op.batch_alter_table('chapters', schema=None) as batch_op:
++            batch_op.alter_column('volume', existing_type=sa.Integer(), nullable=True)
++    finally:
++        if sqlite:
++            bind.exec_driver_sql('PRAGMA foreign_keys=ON')
+ 
+ 
+ def downgrade() -> None:
+     # 되돌릴 때는 권 없는(NULL) 평면 회차를 1권으로 귀속한 뒤 NOT NULL 재전환
+     op.execute("UPDATE chapters SET volume = 1 WHERE volume IS NULL")
+     with op.batch_alter_table('chapters', schema=None) as batch_op:
+         batch_op.alter_column('volume', existing_type=sa.Integer(), nullable=False)
+diff --git a/backend/app/database.py b/backend/app/database.py
+index edbf2f6..da8d84b 100644
+--- a/backend/app/database.py
++++ b/backend/app/database.py
+@@ -60,32 +60,32 @@ TEMP_CREATE_ALL_ENV = "JIPPEEL_ALLOW_TEMP_CREATE_ALL"
+ 
+ def _sqlite_file_from_url(url: str) -> Path | None:
+     parsed = urlparse(url)
+     if parsed.scheme != "sqlite" or not parsed.path or parsed.path == ":memory:":
+         return None
+     return Path(unquote(parsed.path[1:] if len(parsed.path) > 3 and parsed.path[0] == "/" and parsed.path[2] == ":" else parsed.path)).resolve()
+ 
+ 
+-def _allow_temp_create_all() -> bool:
++def _allow_temp_create_all(url: str | None = None) -> bool:
+     if os.environ.get(TEMP_CREATE_ALL_ENV) != "1":
+         return False
+-    db_path = _sqlite_file_from_url(DATABASE_URL)
++    db_path = _sqlite_file_from_url(url or DATABASE_URL)
+     if db_path is None:
+         return False
+     try:
+         db_path.relative_to(Path(tempfile.gettempdir()).resolve())
+         return True
+     except ValueError:
+         return False
+ 
+ 
+ def assert_manuscript_schema_current(bind: Engine) -> None:
+     """Fail fast when an existing DB lacks preservation schema or Alembic head."""
+-    if _allow_temp_create_all():
++    if _allow_temp_create_all(str(bind.url)):
+         return
+ 
+     inspector = inspect(bind)
+     tables = set(inspector.get_table_names())
+     problems: list[str] = []
+     if "chapters" not in tables:
+         problems.append("empty or unmigrated database")
+     else:
+@@ -136,10 +136,10 @@ def assert_manuscript_schema_current(bind: Engine) -> None:
+         )
+ 
+ 
+ def init_db() -> None:
+     """Initialize only explicitly marked temporary DBs; otherwise require Alembic."""
+     from app import models  # noqa: F401  (모델 등록)
+ 
+     assert_manuscript_schema_current(engine)
+-    if _allow_temp_create_all():
++    if _allow_temp_create_all(str(engine.url)):
+         Base.metadata.create_all(bind=engine)
+diff --git a/backend/app/services/manuscripts.py b/backend/app/services/manuscripts.py
+index d7912b0..f0844d8 100644
+--- a/backend/app/services/manuscripts.py
++++ b/backend/app/services/manuscripts.py
+@@ -27,16 +27,36 @@ class RevisionConflict(Exception):
+             "current_revision": self.current_revision,
+         }
+ 
+ 
+ class ChapterNotFound(Exception):
+     """Raised when the target chapter does not exist."""
+ 
+ 
++def _fresh_current_revision(db: Session, chapter_id: int) -> int:
++    """Read the current revision from the database, not the identity map."""
++    db.expire_all()
++    current = db.execute(
++        select(Chapter.revision).where(Chapter.id == chapter_id)
++    ).scalar_one_or_none()
++    if current is None:
++        raise ChapterNotFound()
++    return int(current or 0)
++
++
++def _is_snapshot_revision_unique_error(exc: IntegrityError) -> bool:
++    text = str(exc.orig if getattr(exc, "orig", None) is not None else exc)
++    return (
++        "UNIQUE constraint failed" in text
++        and "chapter_snapshots.chapter_id" in text
++        and "chapter_snapshots.revision" in text
++    )
++
++
+ def replace_manuscript(
+     db: Session,
+     chapter_id: int,
+     content_md: str,
+     expected_revision: int,
+     reason: str,
+ ) -> Chapter:
+     """Replace a chapter manuscript with optimistic revision protection.
+@@ -46,65 +66,63 @@ def replace_manuscript(
+     ``RevisionConflict`` without mutating the current transaction.
+     """
+     chapter = db.get(Chapter, chapter_id)
+     if chapter is None:
+         raise ChapterNotFound()
+ 
+     current_revision = int(chapter.revision or 0)
+     if current_revision != expected_revision:
+-        raise RevisionConflict(current_revision=current_revision)
++        raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id))
+ 
+     current_content = chapter.content_md or ""
+     if current_content == content_md:
+         noop_stmt = (
+             update(Chapter)
+             .where(
+                 Chapter.id == chapter_id,
+                 Chapter.revision == expected_revision,
+                 Chapter.content_md == content_md,
+             )
+             .values(revision=expected_revision)
+         )
+         result = db.execute(noop_stmt)
+         if result.rowcount != 1:
+-            latest = db.get(Chapter, chapter_id)
+-            raise RevisionConflict(current_revision=int(latest.revision if latest else current_revision))
++            raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id))
+         db.flush()
+         db.refresh(chapter)
+         return chapter
+ 
+     stmt = (
+         update(Chapter)
+         .where(Chapter.id == chapter_id, Chapter.revision == expected_revision)
+         .values(
+             content_md=content_md,
+             revision=expected_revision + 1,
+             word_count_cache=count_novelpia_chars(content_md),
+         )
+     )
+     result = db.execute(stmt)
+     if result.rowcount != 1:
+-        latest = db.get(Chapter, chapter_id)
+-        raise RevisionConflict(current_revision=int(latest.revision if latest else current_revision))
++        raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id))
+ 
+     db.add(
+         ChapterSnapshot(
+             chapter_id=chapter_id,
+             revision=expected_revision,
+             content_md=current_content,
+             reason=reason,
+         )
+     )
+     try:
+         db.flush()
+     except IntegrityError as exc:
+-        text = str(exc.orig if getattr(exc, "orig", None) is not None else exc)
+-        if "chapter_snapshots" in text and "revision" in text:
+-            raise RevisionConflict(current_revision=expected_revision + 1) from exc
++        if _is_snapshot_revision_unique_error(exc):
++            db.rollback()
++            raise RevisionConflict(current_revision=_fresh_current_revision(db, chapter_id)) from exc
+         raise
+     db.refresh(chapter)
+     return chapter
+ 
+ 
+ def list_snapshots(db: Session, chapter_id: int) -> list[ChapterSnapshot]:
+     return list(
+         db.scalars(
+diff --git a/backend/tests/test_manuscript_preservation.py b/backend/tests/test_manuscript_preservation.py
+index c329faa..92ad805 100644
+--- a/backend/tests/test_manuscript_preservation.py
++++ b/backend/tests/test_manuscript_preservation.py
+@@ -92,16 +92,18 @@ def test_concurrent_same_revision_write_has_one_winner(client):
+         return _put(client, cid, text, 0)
+ 
+     with ThreadPoolExecutor(max_workers=2) as pool:
+         results = list(pool.map(save, ["winner-a", "winner-b"]))
+ 
+     statuses = sorted(resp.status_code for resp in results)
+     assert statuses == [200, 409]
+     winner = next(resp.json()["content_md"] for resp in results if resp.status_code == 200)
++    loser = next(resp for resp in results if resp.status_code == 409)
++    assert loser.json()["detail"]["current_revision"] == 1
+     current = client.get(f"/api/v1/chapters/{cid}").json()
+     assert current["content_md"] == winner
+     assert current["revision"] == 1
+     assert len(client.get(f"/api/v1/chapters/{cid}/snapshots").json()) == 1
+ 
+ 
+ def test_snapshot_restore_is_same_chapter_only_and_reversible(client):
+     pid = _project(client)["id"]
+@@ -295,8 +297,163 @@ def test_delete_chapter_cascades_snapshots(client):
+     cid = _chapter(client, pid)["id"]
+     _put(client, cid, "first", 0)
+     snapshots = client.get(f"/api/v1/chapters/{cid}/snapshots").json()
+     assert len(snapshots) == 1
+ 
+     assert client.delete(f"/api/v1/chapters/{cid}").status_code == 204
+     assert client.get(f"/api/v1/chapters/{cid}").status_code == 404
+     assert client.get(f"/api/v1/chapters/{cid}/snapshots/{snapshots[0]['id']}").status_code == 404
++
++
++
++def test_noop_racing_changing_writer_reports_fresh_revision(tmp_path):
++    from sqlalchemy.orm import sessionmaker
++
++    from app.database import Base, create_db_engine
++    from app.models import Chapter, Project
++    from app.services import manuscripts
++
++    engine = create_db_engine(f"sqlite:///{(tmp_path / 'noop-race.db').as_posix()}")
++    Base.metadata.create_all(bind=engine)
++    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
++
++    setup = SessionLocal()
++    try:
++        project = Project(title="race")
++        setup.add(project)
++        setup.flush()
++        chapter = Chapter(project_id=project.id, title="one", content_md="same", revision=1)
++        setup.add(chapter)
++        setup.commit()
++        cid = chapter.id
++    finally:
++        setup.close()
++
++    stale_noop = SessionLocal()
++    winner = SessionLocal()
++    try:
++        cached = stale_noop.get(Chapter, cid)
++        assert cached.revision == 1
++        assert cached.content_md == "same"
++
++        changed = manuscripts.replace_manuscript(winner, cid, "newest", 1, reason="autosave")
++        winner.commit()
++        assert changed.revision == 2
++
++        with pytest.raises(manuscripts.RevisionConflict) as exc_info:
++            manuscripts.replace_manuscript(stale_noop, cid, "same", 1, reason="autosave")
++        assert exc_info.value.current_revision == 2
++        stale_noop.rollback()
++    finally:
++        stale_noop.close()
++        winner.close()
++
++    verify = SessionLocal()
++    try:
++        current = verify.get(Chapter, cid)
++        assert current.content_md == "newest"
++        assert current.revision == 2
++        snapshots = manuscripts.list_snapshots(verify, cid)
++        assert [(s.revision, s.content_md, s.reason) for s in snapshots] == [(1, "same", "autosave")]
++    finally:
++        verify.close()
++        engine.dispose()
++
++
++def test_duplicate_snapshot_integrity_rollback_reports_real_current_revision(tmp_path):
++    from sqlalchemy.orm import sessionmaker
++
++    from app.database import Base, create_db_engine
++    from app.models import Chapter, ChapterSnapshot, Project
++    from app.services import manuscripts
++
++    engine = create_db_engine(f"sqlite:///{(tmp_path / 'snapshot-dupe.db').as_posix()}")
++    Base.metadata.create_all(bind=engine)
++    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
++
++    db = SessionLocal()
++    try:
++        project = Project(title="dupe")
++        db.add(project)
++        db.flush()
++        chapter = Chapter(project_id=project.id, title="one", content_md="old", revision=0)
++        db.add(chapter)
++        db.flush()
++        db.add(ChapterSnapshot(
++            chapter_id=chapter.id,
++            revision=0,
++            content_md="pre-existing duplicate",
++            reason="autosave",
++        ))
++        db.commit()
++        cid = chapter.id
++
++        with pytest.raises(manuscripts.RevisionConflict) as exc_info:
++            manuscripts.replace_manuscript(db, cid, "new", 0, reason="autosave")
++        assert exc_info.value.current_revision == 0
++        db.rollback()
++    finally:
++        db.close()
++
++    verify = SessionLocal()
++    try:
++        current = verify.get(Chapter, cid)
++        assert current.content_md == "old"
++        assert current.revision == 0
++        snapshots = manuscripts.list_snapshots(verify, cid)
++        assert [(s.revision, s.content_md, s.reason) for s in snapshots] == [
++            (0, "pre-existing duplicate", "autosave")
++        ]
++    finally:
++        verify.close()
++        engine.dispose()
++
++
++def test_restore_requires_revision_stale_conflicts_and_keeps_reason(client):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    assert _put(client, cid, "first", 0).json()["revision"] == 1
++    assert _put(client, cid, "second", 1).json()["revision"] == 2
++    snapshots = client.get(f"/api/v1/chapters/{cid}/snapshots").json()
++    snapshot_id = snapshots[-1]["id"]
++
++    missing = client.post(f"/api/v1/chapters/{cid}/restore", json={"snapshot_id": snapshot_id})
++    assert missing.status_code == 422
++
++    stale = client.post(
++        f"/api/v1/chapters/{cid}/restore",
++        json={"snapshot_id": snapshot_id, "expected_revision": 1},
++    )
++    assert stale.status_code == 409
++    assert stale.json()["detail"]["current_revision"] == 2
++    assert client.get(f"/api/v1/chapters/{cid}").json()["content_md"] == "second"
++
++    restored = client.post(
++        f"/api/v1/chapters/{cid}/restore",
++        json={"snapshot_id": snapshot_id, "expected_revision": 2},
++    )
++    assert restored.status_code == 200
++    assert restored.json()["revision"] == 3
++    reasons = [s["reason"] for s in client.get(f"/api/v1/chapters/{cid}/snapshots").json()]
++    assert reasons[0] == "restore"
++    assert "autosave" in reasons
++
++
++def test_snapshot_reason_values_for_refine_and_scene_merge(client, mock_humanize):
++    pid = _project(client)["id"]
++    cid = _chapter(client, pid)["id"]
++    _put(client, cid, "base text", 0)
++
++    run = client.post("/api/v1/refine", json={"chapter_id": cid, "expected_revision": 1}).json()
++    accepted = client.post(f"/api/v1/refine/runs/{run['run_id']}/accept")
++    assert accepted.status_code == 200
++    assert accepted.json()["revision"] == 2
++
++    client.post(f"/api/v1/chapters/{cid}/scenes", json={"title": "one", "sort_order": 0, "content_md": "scene body"})
++    merged = client.put(
++        f"/api/v1/chapters/{cid}/content_from_scenes",
++        json={"expected_revision": 2},
++    )
++    assert merged.status_code == 200
++
++    reasons = [s["reason"] for s in client.get(f"/api/v1/chapters/{cid}/snapshots").json()]
++    assert reasons[:3] == ["scene_merge", "refine", "autosave"]
+diff --git a/backend/tests/test_migrations.py b/backend/tests/test_migrations.py
+index ee49b5e..416f91c 100644
+--- a/backend/tests/test_migrations.py
++++ b/backend/tests/test_migrations.py
+@@ -121,8 +121,89 @@ def test_startup_rejects_existing_db_missing_preservation_columns(alembic_config
+ def test_startup_accepts_alembic_head_schema(alembic_config, monkeypatch):
+     from app.database import assert_manuscript_schema_current
+ 
+     monkeypatch.delenv("JIPPEEL_ALLOW_TEMP_CREATE_ALL", raising=False)
+     command.upgrade(alembic_config, "head")
+     engine = create_db_engine(_current_url())
+     assert_manuscript_schema_current(engine)
+     engine.dispose()
++
++
++
++def test_populated_historical_upgrade_from_initial_with_references(alembic_config):
++    """Regression for FK failure while upgrading populated d85 DB through nullable volume."""
++    from sqlalchemy import text
++
++    command.upgrade(alembic_config, "d85fdcab0808")
++
++    engine = create_db_engine(_current_url())
++    with engine.begin() as conn:
++        conn.execute(text("INSERT INTO projects (id, title) VALUES (1, 'historical')"))
++        conn.execute(text(
++            "INSERT INTO chapters "
++            "(id, project_id, volume, sort_order, title, content_md, status, word_count_cache) "
++            "VALUES (1, 1, 1, 1.0, 'one', 'old manuscript', '초고', 13)"
++        ))
++        conn.execute(text(
++            "INSERT INTO refine_runs "
++            "(id, chapter_id, route_hint, changed_ratio, report_json, result_text, accepted) "
++            "VALUES (1, 1, 'standard', 0.1, '{}', 'refined', 0)"
++        ))
++        conn.execute(text(
++            "INSERT INTO characters (id, project_id, name, aliases, card_json) "
++            "VALUES (1, 1, 'A', '[]', '{}')"
++        ))
++        conn.execute(text(
++            "INSERT INTO characters (id, project_id, name, aliases, card_json) "
++            "VALUES (2, 1, 'B', '[]', '{}')"
++        ))
++        conn.execute(text(
++            "INSERT INTO relationships (id, from_character_id, to_character_id, label, note) "
++            "VALUES (1, 1, 2, 'ally', 'kept')"
++        ))
++        conn.execute(text(
++            "INSERT INTO lore_entries (id, project_id, category, title, content, keywords) "
++            "VALUES (1, 1, '용어', '검', 'kept lore', '[]')"
++        ))
++    engine.dispose()
++
++    command.upgrade(alembic_config, "head")
++
++    engine = create_db_engine(_current_url())
++    with engine.connect() as conn:
++        chapter = conn.execute(text(
++            "SELECT volume, content_md, revision FROM chapters WHERE id = 1"
++        )).mappings().one()
++        run = conn.execute(text(
++            "SELECT chapter_id, base_revision FROM refine_runs WHERE id = 1"
++        )).mappings().one()
++        rel_count = conn.execute(text("SELECT count(*) FROM relationships WHERE note = 'kept'")).scalar_one()
++        lore_count = conn.execute(text("SELECT count(*) FROM lore_entries WHERE content = 'kept lore'")).scalar_one()
++        version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
++    engine.dispose()
++
++    assert chapter == {"volume": 1, "content_md": "old manuscript", "revision": 0}
++    assert run == {"chapter_id": 1, "base_revision": None}
++    assert rel_count == 1
++    assert lore_count == 1
++    assert version == "0a1b2c3d4e5f"
++
++
++def test_schema_guard_temp_bypass_uses_passed_engine_url(tmp_path, monkeypatch):
++    from app import database
++
++    allowed_root = tmp_path / "allowed-temp-root"
++    allowed_root.mkdir()
++    monkeypatch.setattr(database.tempfile, "gettempdir", lambda: str(allowed_root))
++    monkeypatch.setenv("JIPPEEL_ALLOW_TEMP_CREATE_ALL", "1")
++    monkeypatch.setattr(
++        database,
++        "DATABASE_URL",
++        f"sqlite:///{(allowed_root / 'lifespan.db').as_posix()}",
++    )
++
++    other_root = tmp_path / "not-the-bound-engine-temp-root"
++    other_root.mkdir()
++    engine = create_db_engine(f"sqlite:///{(other_root / 'empty.db').as_posix()}")
++    with pytest.raises(RuntimeError, match="alembic upgrade head"):
++        database.assert_manuscript_schema_current(engine)
++    engine.dispose()

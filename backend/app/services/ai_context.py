@@ -11,6 +11,8 @@ from typing import Literal
 
 from fastapi import HTTPException
 from sqlalchemy import select
+
+from app.concepts import concept_prompt_block
 from sqlalchemy.orm import Session
 
 from app.models import (Chapter, Character, Foreshadow, ImprovementRule, KnowledgeState,
@@ -649,6 +651,8 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
         raise _revision_conflict(chapter.revision)
 
     blocks: list[str] = []
+    if project is not None:
+        blocks.append(concept_prompt_block(project.concept))
     source_parts: list[str] = []
     trend_pack: ProjectTrendPack | None = None
     trend_pack_reason: str | None = None

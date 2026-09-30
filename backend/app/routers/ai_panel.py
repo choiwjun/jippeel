@@ -1599,6 +1599,30 @@ async def generate_parallel(payload: ParallelGenerateRequest, db: Session = Depe
 
 
 # ---------- 감수 패스 (백그라운드 병렬) ----------
+def _review_context_text(payload: ReviewRequest, db: Session) -> tuple[str, str | None]:
+    """독립 감수도 프로젝트 컨셉·정본·문체를 같은 경로로 읽는다."""
+    if payload.project_id is None and payload.chapter_id is None:
+        return "", None
+    context_payload = GenerateRequest(
+        context=GenerateContext(
+            project_id=payload.project_id,
+            chapter_id=payload.chapter_id,
+            include_chapter_content=False,
+            style_profile=True,
+        ),
+        prompt_override="",
+    )
+    bundle = ai_context.build_context_bundle(
+        db, ai_context.request_from_generate(context_payload)
+    )
+    return (
+        "\n\n".join(
+            part for part in ("[공유 작품 컨텍스트]", *bundle.blocks) if part
+        ),
+        bundle.style_profile_text,
+    )
+
+
 @router.post("/ai/review")
 async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
     """초안 원고를 감수하고 수정본까지 스트리밍하는 독립 엔드포인트.
@@ -1612,11 +1636,17 @@ async def review(payload: ReviewRequest, db: Session = Depends(get_db)):
     model = review_cfg["model"]
     provider_name = review_cfg["provider_name"]
     reasoning_effort = review_cfg["reasoning_effort"]
+    # ID/소유권 컨텍스트를 검증한 뒤에만 장시간 bridge client를 연다.
+    context_text, style_profile_text = _review_context_text(payload, db)
     client = (llm.make_long_running_client(provider.base_url, None)
               if review_cfg["backend"] == "bridge" else None)
+    review_user_content = "\n\n".join(
+        part for part in (context_text, f"[초안 원고]\n{payload.draft}") if part
+    )
     review_messages = [
-        {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
-        {"role": "user", "content": f"[초안 원고]\n{payload.draft}"},
+        {"role": "system", "content": _system_with_style(
+            REVIEW_SYSTEM_PROMPT, style_profile_text)},
+        {"role": "user", "content": review_user_content},
     ]
 
     async def event_stream():

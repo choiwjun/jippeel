@@ -24,6 +24,9 @@ class Project(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     genre: Mapped[str | None] = mapped_column(String(100))
+    # premise·주인공·촉발 사건·목표·대립·위험·후크를 담는 구조화된 작품 컨셉.
+    # JSON이므로 장르·테마·배경·톤과 분리된 서사 전제로 저장한다.
+    concept: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     synopsis: Mapped[str | None] = mapped_column(Text)
     platform_note: Mapped[str | None] = mapped_column(Text)  # 플랫폼 메모
     memo: Mapped[str | None] = mapped_column(Text)  # 부트스트랩 메타(후보 제목·주제의식 등)

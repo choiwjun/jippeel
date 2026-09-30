@@ -1,6 +1,15 @@
 # 전체 작업 현황 — 완료·잔여·승인 대기
 
-최종 대조: **2026-09-16(KST)**. trend_pack 통합·SSE 완료 계약·생성 timeout 제거/heartbeat 전환·최신 isolated 검증을 반영했다. 기존 링크 유지를 위해 파일명은 변경하지 않았다.
+최종 대조: **2026-09-17(KST)**. trend_pack 통합·SSE 완료 계약·생성 timeout 제거/heartbeat 전환·작품 컨셉 계약·최신 isolated 검증을 반영했다. 기존 링크 유지를 위해 파일명은 변경하지 않았다.
+
+### 2026-09-17 조사 기반 작품 컨셉 계약
+
+- 사용자 예시의 분위기 라벨을 컨셉 enum으로 채택하지 않고, `summary`·`protagonist`·`inciting_incident`·`goal`·`opposition`·`stakes`·`hook` 구조로 재설계했다.
+- 장르·테마·배경·톤과 컨셉을 분리하고, 컨셉을 목표·대립·위험이 연결된 서사 엔진으로 정의했다. 조사 보고서는 `docs/research/2026-09-17-novel-concept-taxonomy.md`다.
+- 부트스트랩 모든 AI 단계와 일반 회차/계획/병렬 생성의 공유 컨텍스트에 구성요소별 행동 규칙을 주입한다.
+- `projects.concept` migration(`j5a6b7c8d9e0`)은 기존 행에 임의 컨셉을 backfill하지 않고 `null`로 둔다. 실제 DB 적용은 아직 하지 않았다.
+- 공식 격리 backend **950 passed / 1 skipped / 70 subtests / violations 0**, frontend build 및 구조화 컨셉 Playwright 검증을 통과했다.
+- 컨셉 기능은 GPT/Gemini provider 계약과 기존 회차를 변경하지 않는다. migration 적용 후 백엔드를 재기동해야 한다.
 
 **현재 작업 상태의 단일 기준은 이 문서다.** `HANDOFF.md`는 진입점과 작업 이력,
 `docs/DOCUMENT_STATUS.md`는 문서 인덱스다. 아래 보존된 9월 8일 원문과 과거 문서의

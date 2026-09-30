@@ -80,10 +80,22 @@ export type ChapterStatus = "초고" | "수정중" | "완료";
 /** D03-3 연재 상태 — 회차 집필 확정(confirmed)과 다른 수명주기 */
 export type SerialState = "ongoing" | "hiatus" | "completed";
 
+/** 작품 컨셉 — 장르·테마·톤과 분리된 서사 전제 */
+export interface StoryConcept {
+  summary?: string | null;
+  protagonist?: string | null;
+  inciting_incident?: string | null;
+  goal?: string | null;
+  opposition?: string | null;
+  stakes?: string | null;
+  hook?: string | null;
+}
+
 export interface Project {
   id: number;
   title: string;
   genre: string | null;
+  concept: StoryConcept | null;
   synopsis: string | null;
   platform_note: string | null;
   style_profile?: string | null; // 문체 프로파일 (G-040)
@@ -102,6 +114,7 @@ export interface Project {
 export interface ProjectCreate {
   title: string;
   genre?: string | null;
+  concept?: StoryConcept | null;
   synopsis?: string | null;
   platform_note?: string | null;
 }
@@ -134,6 +147,7 @@ export interface TrendPackWrite {
 export interface ProjectUpdate {
   title?: string;
   genre?: string | null;
+  concept?: StoryConcept | null;
   synopsis?: string | null;
   platform_note?: string | null;
   style_profile?: string | null;
@@ -486,6 +500,7 @@ export interface PlusStatus {
 
 export interface BootstrapRequest {
   genre: string;
+  concept?: StoryConcept | null;
   premise?: string | null;
   volume_count?: number;
   chapters_per_volume?: number;
@@ -496,6 +511,7 @@ export interface BootstrapRequest {
 export interface BootstrapResponse {
   project_id: number;
   title: string;
+  concept: StoryConcept | null;
   logline: string;
   outline_summary: string;
   character_count: number;

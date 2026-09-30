@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, type Project, type ProjectCreate, type SerialState } from '@/lib/api';
+import {
+  api,
+  type Project,
+  type StoryConcept,
+  type ProjectCreate,
+  type SerialState,
+} from '@/lib/api';
 import { toast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { BootstrapDialog } from '@/components/home/BootstrapDialog';
+import {
+  StoryConceptFields,
+  compactStoryConcept,
+  storyConceptSummary,
+} from '@/components/home/StoryConceptFields';
 import { PlusStatusWidget } from '@/components/home/PlusStatusWidget';
 
 /** D03-3 연재 상태 표시 — 회차 집필 확정(confirmed)과 별개의 작품 수명주기 */
@@ -28,8 +40,15 @@ export function HomePage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [conceptEditTarget, setConceptEditTarget] = useState<Project | null>(null);
+  const [conceptEditDraft, setConceptEditDraft] = useState<StoryConcept>({});
   const [bootstrapOpen, setBootstrapOpen] = useState(false);
-  const [form, setForm] = useState<ProjectCreate>({ title: '', genre: '', synopsis: '' });
+  const [form, setForm] = useState<ProjectCreate>({
+    title: '',
+    genre: '',
+    concept: null,
+    synopsis: '',
+  });
 
   const projects = useQuery({
     queryKey: ['projects'],
@@ -41,8 +60,18 @@ export function HomePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setCreateOpen(false);
-      setForm({ title: '', genre: '', synopsis: '' });
+      setForm({ title: '', genre: '', concept: null, synopsis: '' });
     },
+  });
+
+  const updateConcept = useMutation({
+    mutationFn: ({ id, concept }: { id: number; concept: StoryConcept | null }) =>
+      api.patch<Project>(`/projects/${id}`, { concept }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setConceptEditTarget(null);
+    },
+    onError: () => toast('작품 컨셉 변경에 실패했습니다.', 'error'),
   });
 
   const deleteProject = useMutation({
@@ -97,9 +126,31 @@ export function HomePage() {
               className="flex flex-col rounded-lg border border-border bg-card p-5 shadow-soft transition-shadow duration-fast hover:shadow-md"
             >
               <h2 className="mb-1 truncate text-base font-semibold">{project.title}</h2>
-              {project.genre ? (
-                <Badge variant="secondary" className="w-fit">{project.genre}</Badge>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                {project.genre ? (
+                  <Badge variant="secondary" className="w-fit">{project.genre}</Badge>
+                ) : null}
+                {storyConceptSummary(project.concept) ? (
+                  <Badge variant="outline" className="w-fit">컨셉 있음</Badge>
+                ) : null}
+              </div>
+              <div className="mt-2 flex items-start justify-between gap-2">
+                <p className="line-clamp-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">컨셉:</span>{' '}
+                  {storyConceptSummary(project.concept) || '아직 서사 전제가 없습니다.'}
+                </p>
+                <Button
+                  variant="ghost"
+                  className="h-7 shrink-0 px-2 text-xs"
+                  aria-label={`컨셉 편집: ${project.title}`}
+                  onClick={() => {
+                    setConceptEditTarget(project);
+                    setConceptEditDraft(project.concept ?? {});
+                  }}
+                >
+                  편집
+                </Button>
+              </div>
               <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
                 {project.synopsis || '시놉시스 없음'}
               </p>
@@ -166,23 +217,34 @@ export function HomePage() {
 
       {/* 새 작품 Dialog — FR-101 */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>새 작품</DialogTitle>
             <DialogDescription>제목은 필수입니다.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
+            <Label htmlFor="new-project-title">제목</Label>
             <Input
+              id="new-project-title"
               placeholder="제목"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             />
+            <Label htmlFor="new-project-genre">장르</Label>
             <Input
+              id="new-project-genre"
               placeholder="장르 (예: 판타지, 무협)"
               value={form.genre ?? ''}
               onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
             />
+            <StoryConceptFields
+              value={form.concept ?? {}}
+              onChange={(concept) => setForm((f) => ({ ...f, concept }))}
+              idPrefix="new-project-concept"
+            />
+            <Label htmlFor="new-project-synopsis">시놉시스</Label>
             <textarea
+              id="new-project-synopsis"
               className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="시놉시스"
               value={form.synopsis ?? ''}
@@ -198,9 +260,62 @@ export function HomePage() {
             <Button variant="ghost" onClick={() => setCreateOpen(false)}>취소</Button>
             <Button
               disabled={!form.title.trim() || createProject.isPending}
-              onClick={() => createProject.mutate({ ...form, title: form.title.trim() })}
+              onClick={() => createProject.mutate({
+                ...form,
+                title: form.title.trim(),
+                concept: compactStoryConcept(form.concept ?? {}),
+              })}
             >
               생성
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 프로젝트 카드에서 서사 전제 구성요소 편집 */}
+      <Dialog
+        open={conceptEditTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !updateConcept.isPending) setConceptEditTarget(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{conceptEditTarget?.title} 컨셉 편집</DialogTitle>
+            <DialogDescription>
+              장르·테마·분위기가 아니라, 이야기를 움직이는 전제를 수정합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <StoryConceptFields
+            value={conceptEditDraft}
+            onChange={setConceptEditDraft}
+            idPrefix="edit-project-concept"
+          />
+          {updateConcept.isError && (
+            <Alert variant="error">
+              <AlertDescription>{(updateConcept.error as Error).message}</AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              disabled={updateConcept.isPending}
+              onClick={() => setConceptEditTarget(null)}
+            >
+              취소
+            </Button>
+            <Button
+              disabled={updateConcept.isPending}
+              onClick={() => {
+                if (conceptEditTarget) {
+                  updateConcept.mutate({
+                    id: conceptEditTarget.id,
+                    concept: compactStoryConcept(conceptEditDraft),
+                  });
+                }
+              }}
+            >
+              저장
             </Button>
           </DialogFooter>
         </DialogContent>

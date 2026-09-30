@@ -1,0 +1,6 @@
+{"text": "", "score": 65, "metrics": {"chars_novelpia": 0, "dialogue_ratio": 0.0, "avg_para_chars": 0.0, "ending_repeat_per_1k": 0.0, "connector_per_1k": 0.0, "para_opener_variety": 0.0, "hook_present": false, "para_count": 0}}
+{"text": "\"\uac00\ub098\ub2e4\ub77c\" \ub9c8\ubc14\uc0ac!", "score": 100, "metrics": {"dialogue_ratio": 0.3636, "chars_novelpia": 7, "para_count": 1, "avg_para_chars": 11.0, "ending_repeat_per_1k": 0.0, "connector_per_1k": 0.0, "para_opener_variety": 1.0, "hook_present": true}}
+{"text": "\uc77c \ubfd0\uc774\ub2e4", "score": 65, "metrics": {"dialogue_ratio": 0.0, "chars_novelpia": 4, "para_count": 1, "avg_para_chars": 5.0, "ending_repeat_per_1k": 0.0, "connector_per_1k": 0.0, "para_opener_variety": 1.0, "hook_present": false}}
+{"text": "\uac83\uc774\uc5c8\ub2e4", "score": 50, "metrics": {"dialogue_ratio": 0.0, "chars_novelpia": 4, "para_count": 1, "avg_para_chars": 4.0, "ending_repeat_per_1k": 250.0, "connector_per_1k": 0.0, "para_opener_variety": 1.0, "hook_present": false}}
+{"mode": "offline", "cases": 20, "protocol_pass": 20, "draft_nonempty": null, "review_nonempty": null, "required_cue_hits": null, "forbidden_cue_hits": null, "errors": [], "note": "Offline mode validates corpus schema only; it does not claim prose quality."}
+garbage passes protocol: True

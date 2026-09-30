@@ -180,6 +180,85 @@ def enqueue_success(holder, idea=GOOD_IDEA, outline=None,
 from tests.conftest import _db
 
 
+def test_bootstrap_story_concept_is_in_every_prompt_and_response(client, fake_llm):
+    enqueue_success(fake_llm, outline=_good_outline(1, 2))
+    concept = {
+        "summary": "기억을 잃은 세무사가 죽은 이들의 빚을 청산해야 집으로 돌아간다.",
+        "protagonist": "타인의 장부를 읽는 기억상실 세무사",
+        "inciting_incident": "죽은 왕의 채무 통지서가 주인공 앞으로 도착한다.",
+        "goal": "왕의 빚을 청산하고 잃어버린 기억을 되찾는다.",
+        "opposition": "저승 관청과 왕의 빚을 숨긴 후계자",
+        "stakes": "실패하면 주인공의 존재 기록이 소멸한다.",
+        "hook": "죽은 자의 빚을 갚아야 산 자가 되는 회계 판타지",
+    }
+
+    response = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "무협",
+        "concept": concept,
+        "volume_count": 1,
+        "chapters_per_volume": 2,
+    })
+
+    assert response.status_code == 200, response.text
+    assert response.json()["concept"] == concept
+    assert len(fake_llm["calls"]) == 4
+    assert all("[작품 컨셉 — 서사 전제]" in str(call["messages"])
+               and concept["hook"] in str(call["messages"])
+               for call in fake_llm["calls"])
+
+
+def test_bootstrap_saves_ai_proposed_story_concept_when_input_is_omitted(client, fake_llm):
+    concept = {
+        "summary": "기억을 잃은 세무사가 죽은 이들의 빚을 갚아야 귀환한다.",
+        "protagonist": "타인의 장부를 읽는 기억상실 세무사",
+        "inciting_incident": "죽은 왕의 채무 통지서가 도착한다.",
+        "goal": "왕의 빚을 청산하고 기억을 되찾는다.",
+        "opposition": "저승 관청과 왕의 후계자",
+        "stakes": "실패하면 존재 기록이 소멸한다.",
+        "hook": "죽은 자의 빚을 갚아야 산 자가 되는 회계 판타지",
+    }
+    enqueue_success(
+        fake_llm,
+        idea={**GOOD_IDEA, "concept": concept},
+        outline=_good_outline(1, 1),
+    )
+
+    response = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "판타지",
+        "volume_count": 1,
+        "chapters_per_volume": 1,
+    })
+
+    assert response.status_code == 200, response.text
+    assert response.json()["concept"] == concept
+    project_id = response.json()["project_id"]
+    assert client.get(f"/api/v1/projects/{project_id}").json()["concept"] == concept
+    # 첫 발상 호출은 아직 AI 컨셉을 얻기 전이고, 그 이후 모든 단계가 공유한다.
+    assert all(
+        concept["hook"] in str(call["messages"])
+        for call in fake_llm["calls"][1:]
+    )
+
+
+def test_invalid_ai_concept_is_not_persisted_or_forwarded(client, fake_llm):
+    oversized = "x" * 1001
+    enqueue_success(
+        fake_llm,
+        idea={**GOOD_IDEA, "concept": {"summary": oversized}},
+        outline=_good_outline(1, 1),
+    )
+
+    response = client.post("/api/v1/projects/bootstrap", json={
+        "genre": "판타지",
+        "volume_count": 1,
+        "chapters_per_volume": 1,
+    })
+
+    assert response.status_code == 200, response.text
+    assert response.json()["concept"] is None
+    assert all(oversized not in str(call["messages"]) for call in fake_llm["calls"])
+
+
 def test_bootstrap_transport_timeout_does_not_trigger_json_repair(monkeypatch):
     """SDK transport timeout은 JSON 형식 오류가 아니므로 repair하지 않는다."""
     calls = 0

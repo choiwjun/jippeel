@@ -8,6 +8,7 @@ import {
   type BootstrapRequest,
   type BootstrapResponse,
   type GenerationOutputApplyResult,
+  type StoryConcept,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,11 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { notifyUnauthorized } from "@/lib/auth";
+import {
+  StoryConceptFields,
+  compactStoryConcept,
+  storyConceptSummary,
+} from "@/components/home/StoryConceptFields";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +66,7 @@ export function BootstrapDialog({
   const [genreChoice, setGenreChoice] = useState<string>(GENRE_PRESETS[0]);
   const [customGenre, setCustomGenre] = useState("");
   const [premise, setPremise] = useState("");
+  const [concept, setConcept] = useState<StoryConcept>({});
   const [volumeCount, setVolumeCount] = useState(1);
   const [chaptersPerVolume, setChaptersPerVolume] = useState(10);
 
@@ -263,6 +270,7 @@ export function BootstrapDialog({
     setGenreChoice(GENRE_PRESETS[0]);
     setCustomGenre("");
     setPremise("");
+    setConcept({});
     setVolumeCount(1);
     setChaptersPerVolume(10);
     setStages([]);
@@ -294,6 +302,7 @@ export function BootstrapDialog({
   const start = () => {
     startStream({
       genre: effectiveGenre,
+      concept: compactStoryConcept(concept),
       premise: premise.trim() || null,
       volume_count: volumeCount,
       chapters_per_volume: chaptersPerVolume,
@@ -306,21 +315,21 @@ export function BootstrapDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         {step === "form" && (
           <>
             <DialogHeader>
               <DialogTitle>✨ AI로 작품 자동 생성</DialogTitle>
               <DialogDescription>
-                장르와 프리미스만 넣으면 제목·목차·캐릭터·세계관을 한 번에
+                장르와 작품 컨셉을 바탕으로 제목·목차·캐릭터·세계관을 한 번에
                 만들어 드립니다.
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>장르 *</Label>
-                <div className="flex flex-wrap gap-2">
+              <fieldset className="flex flex-col gap-1.5">
+                <legend className="text-xs font-medium text-muted-foreground">장르 *</legend>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="장르 선택">
                   {GENRE_PRESETS.map((g) => (
                     <button
                       key={g}
@@ -331,6 +340,7 @@ export function BootstrapDialog({
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-background hover:bg-muted",
                       )}
+                      aria-pressed={genreChoice === g}
                       onClick={() => setGenreChoice(g)}
                     >
                       {g}
@@ -344,6 +354,7 @@ export function BootstrapDialog({
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-background hover:bg-muted",
                     )}
+                    aria-pressed={genreChoice === "__custom__"}
                     onClick={() => setGenreChoice("__custom__")}
                   >
                     직접입력
@@ -351,6 +362,7 @@ export function BootstrapDialog({
                 </div>
                 {genreChoice === "__custom__" && (
                   <Input
+                    id="bootstrap-custom-genre"
                     autoFocus
                     placeholder="장르 입력 (예: SF 서스펜스)"
                     value={customGenre}
@@ -358,18 +370,24 @@ export function BootstrapDialog({
                     maxLength={100}
                   />
                 )}
-              </div>
+              </fieldset>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="bootstrap-premise">한 줄 프리미스</Label>
+                <Label htmlFor="bootstrap-premise">추가 발상 힌트 (선택)</Label>
                 <Input
                   id="bootstrap-premise"
-                  placeholder="비워두면 AI가 발상합니다"
+                  placeholder="컨셉 외에 AI가 참고할 이야기 소재나 방향"
                   value={premise}
                   onChange={(e) => setPremise(e.target.value)}
                   maxLength={2000}
                 />
               </div>
+
+              <StoryConceptFields
+                value={concept}
+                onChange={setConcept}
+                idPrefix="bootstrap-concept"
+              />
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="bootstrap-volume">권 수</Label>
@@ -511,10 +529,21 @@ export function BootstrapDialog({
                 <Badge variant="secondary" className="shrink-0">
                   {result.volume_count}권 · 회차 {result.chapter_count}개
                 </Badge>
+                {storyConceptSummary(result.concept) && (
+                  <Badge variant="outline" className="shrink-0">
+                    컨셉 있음
+                  </Badge>
+                )}
               </div>
-              <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
+              <p className="mb-2 line-clamp-3 text-sm text-muted-foreground">
                 {result.logline}
               </p>
+              {storyConceptSummary(result.concept) && (
+                <p className="mb-3 line-clamp-3 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">컨셉:</span>{" "}
+                  {storyConceptSummary(result.concept)}
+                </p>
+              )}
               <dl className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-md bg-muted p-2">
                   <dt className="text-xs text-muted-foreground">회차</dt>

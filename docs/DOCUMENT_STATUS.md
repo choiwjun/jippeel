@@ -1,6 +1,6 @@
 # 문서 상태 인덱스
 
-최종 대조: 2026-09-14(KST)
+최종 대조: 2026-09-17(KST)
 
 ## 역할과 현재 기준
 
@@ -11,6 +11,7 @@
 | 진입점·작업 이력 | [HANDOFF.md](../HANDOFF.md) | 현재 원장 링크와 날짜별 실행·승인 기록. 과거 “다음 작업”은 현재 지시가 아님 |
 | MVP 제품 사양 | [대시보드_MVP_사양.md](../대시보드_MVP_사양.md) v0.6 | 제품 계약. 오래된 백로그의 실행 상태는 원장 참조 |
 | GPT OAuth provider 설계 | [기술설계](../기술설계_GPT_OAuth_브릿지_v1.md) | 고정 OAuth provider와 credential 소유 경계 |
+| 작품 컨셉 생성 계약 | [사양](superpowers/specs/2026-09-17-concept-aware-generation.md) / [조사](research/2026-09-17-novel-concept-taxonomy.md) / [구현 계획](superpowers/plans/2026-09-17-concept-aware-generation.md) | 서사 전제 구성요소의 프로젝트 저장·프롬프트·UI 계약. migration 적용은 별도 승인 |
 | 장편 기억 제품 사양 | [governance 사양](superpowers/specs/2026-09-11-long-memory-governance.md) | 기능·데이터·UI 계약. M01~M05 수용 완료; 확장·운영은 원장 참조 |
 | 장편 기억 구현·검증 이력 | [follow-up 계획](superpowers/plans/2026-09-11-long-memory-followup.md) | 기반 구현 및 승인 P1 네 건의 완료·독립 검토 근거 |
 | 자동 요약/backfill | [별도 설계](superpowers/plans/2026-09-11-long-memory-auto-summary-backfill.md) / [운영 runbook](runbooks/summary-backfill-operations.md) | worker·provider 어댑터·실 브릿지 smoke 완료(draft-only). 아크 요약은 [계층 기억 설계](specs/2026-09-14-hierarchical-memory-500ep.md). 운영 실행·승인 UI 통합 잔여 |

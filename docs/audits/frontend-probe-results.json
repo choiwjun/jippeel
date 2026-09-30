@@ -1,0 +1,71 @@
+[
+  {
+    "name": "rapid chapter switch drops dirty draft",
+    "puts": [],
+    "serverA": "ORIGINAL_A",
+    "editor": "ORIGINAL_TWO"
+  },
+  {
+    "name": "save then preview stale cache",
+    "puts": [
+      {
+        "id": 101,
+        "content_md": "SAVED_NEW_A"
+      }
+    ],
+    "preview": "ORIGINAL_A",
+    "remountedEditor": "ORIGINAL_A"
+  },
+  {
+    "name": "AI current chapter omitted",
+    "visibleChapter": "A-one",
+    "checkboxAfterClick": false,
+    "request": {
+      "endpoint_id": 1,
+      "preset_id": null,
+      "prompt_override": "Continue current chapter",
+      "context": {
+        "chapter_id": null,
+        "character_ids": [],
+        "lore_ids": [],
+        "auto_lore": true,
+        "auto_lore_semantic": false,
+        "auto_outline": true,
+        "auto_foreshadow": true,
+        "scene_id": null,
+        "style_profile": false
+      },
+      "params": {
+        "temperature": 0.7,
+        "max_tokens": 2048
+      },
+      "review": null
+    }
+  },
+  {
+    "name": "project switch retains old chapter",
+    "url": "http://127.0.0.1:15174/projects/2/write",
+    "editor": "ORIGINAL_A",
+    "puts": [
+      {
+        "id": 101,
+        "content_md": "THOUGHT_THIS_WAS_B"
+      }
+    ]
+  },
+  {
+    "name": "undo keyboard after typing",
+    "before": "ORIGINAL_A NEW",
+    "after": "ORIGINAL_A"
+  },
+  {
+    "name": "AI result applied to another chapter",
+    "editor": "ORIGINAL_TWO\n\n\nGENERATED"
+  },
+  {
+    "name": "scene manager cannot open because trigger not rendered",
+    "sceneOptionCount": 3,
+    "managerTriggerCount": 0,
+    "managerTextVisible": 0
+  }
+]

@@ -1,0 +1,2 @@
+// Read-only SPA server for the audit probe. Use freshly built frontend/dist.
+const http=require('http'),fs=require('fs'),path=require('path');const root=path.resolve(__dirname,'../../frontend/dist');http.createServer((req,res)=>{let p=path.join(root,decodeURIComponent(new URL(req.url,'http://local').pathname));if(!fs.existsSync(p)||fs.statSync(p).isDirectory())p=path.join(root,'index.html');res.setHeader('Content-Type',p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(p));}).listen(15174,'127.0.0.1');

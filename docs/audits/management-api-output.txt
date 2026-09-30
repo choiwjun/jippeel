@@ -1,0 +1,8 @@
+foreign scene reorder 200 99.0
+foreign foreshadow ref 1 2
+delete referenced chapter 500
+delete related character 500
+empty chapters reminder 500
+scoped lore search 200 [] expected entry 2
+stale refine accept 200 old refined manuscript
+reorder unassign volume 200 1

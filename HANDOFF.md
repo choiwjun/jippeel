@@ -6,6 +6,16 @@
 >
 > 아래 이전 기록 중 완료·잔여 판정이 최신 기준 문서와 다르면 최신 기준 문서를 우선한다. 이번 인계에서 운영 DB, 실제 provider 재호출, remote push는 수행하지 않았다.
 
+### 2026-09-17 조사 기반 작품 컨셉 계약
+
+- 사용자 예시의 분위기 라벨을 컨셉 enum으로 채택하지 않고, 조사 결과에 따라 `summary`·`protagonist`·`inciting_incident`·`goal`·`opposition`·`stakes`·`hook` 구조로 재설계했다.
+- 장르·테마·배경·톤과 컨셉을 분리하고, 컨셉을 목표·대립·위험이 연결된 서사 엔진으로 정의했다. 조사 보고서: `docs/research/2026-09-17-novel-concept-taxonomy.md`.
+- AI 부트스트랩과 일반 회차/계획/병렬 생성의 공유 컨텍스트에 구성요소별 행동 규칙을 주입한다. GPT/Gemini provider 계약은 변경하지 않았다.
+- 부트스트랩·수동 프로젝트 생성·홈 카드에서 컨셉 구성요소를 입력·조회·편집할 수 있다. 기존 프로젝트에는 임의 컨셉을 backfill하지 않고 `null`을 유지한다.
+- `backend/alembic/versions/j5a6b7c8d9e0_project_concept.py`의 실제 개발/운영 DB 적용은 아직 하지 않았고 별도 승인 경계다.
+- 검증: 공식 격리 backend **950 passed / 1 skipped / 70 subtests / violations 0**, frontend build PASS, 구조화 컨셉 Playwright PASS.
+- 다음 적용 시 `backend`에서 `alembic upgrade head` 후 백엔드를 재기동해야 한다. 현재 실행 중인 이전 백엔드는 migration 전 상태라 새 필드를 제공하지 않는다.
+
 ### 2026-09-16 소설 생성 timeout 제거·heartbeat 전환
 
 - 사용자 승인 후 소설 생성 중 응답 제한시간으로 GPT 호출이 끊기지 않도록 장시간 생성 경로를 수정했다. 실제 GPT/provider 호출과 운영 DB 변경은 하지 않았다.
