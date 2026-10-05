@@ -2,6 +2,7 @@ import { useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, volumeLabel } from '@/lib/api';
 import type { StoryMapData, StoryMapNode } from '@/lib/storyMap';
+import { fetchStoryMapScope } from '@/lib/storyMapScope';
 import { Button } from '@/components/ui/button';
 import type { Evidence, Result, Source } from './StoryMapEvidence';
 import { StoryWorkbench } from './StoryWorkbench';
@@ -74,7 +75,8 @@ function FlowGraph({ nodes, currentId, selectedId, onSelect }: {
 
 function WritingChart({ nodes, currentId, onSelect }: { nodes: StoryMapNode[]; currentId: number | null; onSelect: (id: number) => void }) {
   const max = Math.max(1000, ...nodes.map(n => n.word_count));
-  const width = Math.max(900, nodes.length * 32 + 70), plot = width - 80;
+  // Keep axes readable for an entire novel; only bars get narrower as it grows.
+  const width = 900, plot = width - 80;
   const step = plot / nodes.length;
   return <div className="overflow-x-auto">
     <svg role="group" aria-label="현재 조회 회차의 저장 글자 수 막대그래프" viewBox={`0 0 ${width} 220`} className="w-full" style={{ minWidth: 500 }}>
@@ -90,7 +92,7 @@ function WritingChart({ nodes, currentId, onSelect }: { nodes: StoryMapNode[]; c
           <title>{`${node.title}: ${node.word_count.toLocaleString()}자 · ${stages[node.flow_stage]}`}</title>
           <rect x={x} y="25" width={step} height="178" fill="transparent" />
           <rect x={x + step * 0.16} y={170 - h} width={step * 0.68} height={Math.max(h, 1)} rx="3" fill={node.id === currentId ? primary : muted} opacity={node.id === currentId ? 1 : 0.6} />
-          <text x={x + step / 2} y="190" textAnchor="middle" fill={node.id === currentId ? primary : muted} fontSize="11">{node.position}</text>
+          {(i % Math.max(1, Math.ceil(nodes.length / 24)) === 0 || i === nodes.length - 1) && <text x={x + step / 2} y="190" textAnchor="middle" fill={node.id === currentId ? primary : muted} fontSize="11">{node.position}</text>}
         </g>;
       })}
       <text x="55" y="16" fill={muted} fontSize="11">저장 글자 수(자)</text>
@@ -175,12 +177,12 @@ function RelationNetwork({ items, onBrowse }: { items: Evidence[]; onBrowse: (id
   </>;
 }
 
-function ForeshadowTimeline({ items, focusPosition, onBrowse }: { items: Evidence[]; focusPosition: number; onBrowse: (id: number) => void }) {
+function ForeshadowTimeline({ items, focusPosition, onBrowse, range }: { items: Evidence[]; focusPosition: number | null; onBrowse: (id: number) => void; range?: [number, number] }) {
   const [page, setPage] = useState(0);
   const records = items.filter(i => i.kind === 'foreshadow');
   const safePage = Math.min(page, Math.max(0, Math.ceil(records.length / 6) - 1));
   const rows = records.slice(safePage * 6, safePage * 6 + 6);
-  const allPositions = [focusPosition, ...records.flatMap(i => [i.planted, i.planned, i.resolved].filter((s): s is Source => !!s).map(s => s.position))];
+  const allPositions = [...(range ?? []), ...(focusPosition === null ? [] : [focusPosition]), ...records.flatMap(i => [i.planted, i.planned, i.resolved].filter((s): s is Source => !!s).map(s => s.position))];
   const min = Math.min(...allPositions), max = Math.max(min + 1, ...allPositions);
   const x = (position: number) => 170 + (position - min) / (max - min) * 470;
   const ticks = [...new Set(Array.from({ length: 6 }, (_, i) => Math.round(min + (max - min) * i / 5)))];
@@ -191,8 +193,8 @@ function ForeshadowTimeline({ items, focusPosition, onBrowse }: { items: Evidenc
           <line x1={x(tick)} x2={x(tick)} y1="35" y2={55 + rows.length * 80} stroke={border} />
           <text x={x(tick)} y="28" fill={muted} fontSize="11" textAnchor="middle">{tick}회차</text>
         </g>)}
-        <line x1={x(focusPosition)} x2={x(focusPosition)} y1="35" y2={55 + rows.length * 80} stroke={primary} strokeDasharray="3 3" />
-        <text x={x(focusPosition)} y="13" textAnchor="middle" fill={primary} fontSize="11">살펴보는 회차</text>
+        {focusPosition !== null && <><line x1={x(focusPosition)} x2={x(focusPosition)} y1="35" y2={55 + rows.length * 80} stroke={primary} strokeDasharray="3 3" />
+        <text x={x(focusPosition)} y="13" textAnchor="middle" fill={primary} fontSize="11">살펴보는 회차</text></>}
         {rows.map((item, i) => {
           const y = 75 + i * 80;
           const closure = item.disposition === 'intentional_unresolved' || item.disposition === 'side_story';
@@ -231,7 +233,7 @@ function ForeshadowTimeline({ items, focusPosition, onBrowse }: { items: Evidenc
   </>;
 }
 
-function EvidenceGraph({ pid, focus, view, onBrowse }: { pid: number; focus: StoryMapNode; view: 'relations' | 'foreshadows'; onBrowse: (id: number) => void }) {
+function EvidenceGraph({ pid, focus, view, onBrowse, wholeRange }: { pid: number; focus: StoryMapNode; view: 'relations' | 'foreshadows'; onBrowse: (id: number) => void; wholeRange?: [number, number] }) {
   const [offset, setOffset] = useState(0);
   const query = useQuery({
     queryKey: ['story-map', pid, 'evidence', focus.id, view, offset],
@@ -244,8 +246,8 @@ function EvidenceGraph({ pid, focus, view, onBrowse }: { pid: number; focus: Sto
       <Button size="sm" variant="ghost" onClick={() => void query.refetch()}>다시 불러오기</Button></p>}
     {query.data && <>
       {view === 'relations' ? <RelationNetwork key={offset} items={query.data.items} onBrowse={onBrowse} />
-        : <ForeshadowTimeline key={offset} items={query.data.items} focusPosition={focus.position} onBrowse={onBrowse} />}
-      <p className="mt-3 text-xs text-muted-foreground">기준: {focus.position}. {focus.title} · 조회 {query.data.items.length} / 전체 {query.data.total}개{query.isFetching ? ' · 갱신 중' : ''}</p>
+        : <ForeshadowTimeline key={offset} items={query.data.items} focusPosition={wholeRange ? null : focus.position} range={wholeRange} onBrowse={onBrowse} />}
+      <p className="mt-3 text-xs text-muted-foreground">{wholeRange ? `작품 전체 조회 · 승인 변화는 ${focus.position}회차까지` : `기준: ${focus.position}. ${focus.title}`} · 조회 {query.data.items.length} / 전체 {query.data.total}개{query.isFetching ? ' · 갱신 중' : ''}</p>
       {query.data.total > 50 && <div className="mt-1 flex justify-between">
         <Button size="sm" variant="outline" disabled={query.data.offset === 0} onClick={() => setOffset(Math.max(0, query.data!.offset - 50))}>자료 이전 페이지</Button>
         <Button size="sm" variant="outline" disabled={query.data.next_offset === null} onClick={() => setOffset(query.data!.next_offset ?? 0)}>자료 다음 페이지</Button>
@@ -254,18 +256,86 @@ function EvidenceGraph({ pid, focus, view, onBrowse }: { pid: number; focus: Sto
   </>;
 }
 
-export function StoryVisualOverview({ pid, data, currentId, selectedId, onSelect, onBrowse, onManageCharacters }: {
+interface OverviewProps {
   pid: number; data: StoryMapData; currentId: number | null; selectedId: number | null;
   onSelect: (id: number) => void; onBrowse: (id: number) => void;
   onManageCharacters?: () => void;
-}) {
+}
+
+function ScopeOverview({ pid, data, currentId, onBrowse }: OverviewProps) {
+  const scope = data.scope === 'volume' ? 'volume' : 'all';
+  const anchor = scope === 'volume' ? data.anchor_id : null;
+  const query = useQuery({ queryKey: ['story-map', pid, 'overview', scope, anchor],
+    queryFn: ({ signal }) => fetchStoryMapScope(pid, scope, anchor, signal), staleTime: 0 });
+  const [detailPage, setDetailPage] = useState(0);
+  const full = query.data;
+  const nodes = full?.nodes ?? [];
+  const last = nodes[nodes.length - 1];
+  const groups = new Map<number | null, StoryMapNode[]>();
+  nodes.forEach(node => groups.set(node.volume, [...(groups.get(node.volume) ?? []), node]));
+  const title = scope === 'all' ? '작품 전체 한눈에' : `${volumeLabel(nodes[0]?.volume ?? data.nodes[0]?.volume ?? null)} 한눈에`;
+  const safePage = Math.min(detailPage, Math.max(0, Math.ceil(nodes.length / 12) - 1));
+  const detailNodes = nodes.slice(safePage * 12, safePage * 12 + 12);
+  return <div className="story-workbench story-scope-overview">
+    <header className="sw-hero">
+      <div className="sw-hero-copy"><div className="sw-eyebrow">{scope === 'all' ? '모든 권 · 모든 회차' : '선택한 권 · 모든 회차'}<span>STORY OVERVIEW</span></div>
+        <h2>{title}</h2><p>전체 전개를 먼저 살펴보고, 궁금한 회차를 눌러 인물·장면·사건으로 들어가세요.</p></div>
+      {full && <div className="sw-scope-total"><b>{full.counts.total}</b><span>회차 전체</span></div>}
+    </header>
+    {query.isPending && <p className="sw-loading" role="status">전체 회차의 흐름을 모으는 중…</p>}
+    {query.isError && <div className="sw-loading" role="alert">{query.error.message}{full && ' 마지막 조회 결과를 표시합니다.'}<Button variant="outline" onClick={() => void query.refetch()}>다시 불러오기</Button></div>}
+    {full && <>
+      <div className="sw-scope-stats" aria-label="전체 집필 현황">
+        <div><small>작성한 회차</small><b>{full.counts.written}<em> / {full.counts.total}</em></b></div>
+        <div><small>집필 확정</small><b>{full.counts.confirmed}<em>회</em></b></div>
+        <div><small>저장 글자 수</small><b>{nodes.reduce((sum, n) => sum + n.word_count, 0).toLocaleString()}<em>자</em></b></div>
+        <div><small>등록된 장면</small><b>{nodes.reduce((sum, n) => sum + n.scene_count, 0)}<em>개</em></b></div>
+      </div>
+      <section className="sw-surface sw-scope-flow" aria-label="전체 회차 지도">
+        <div className="sw-row sw-between"><h3>처음부터 끝까지, 이야기의 흐름</h3><span className="sw-count">전체 {nodes.length}회 표시{query.isFetching ? ' · 갱신 중' : ''}</span></div>
+        <p className="sw-help">권 → 회차 순서 · 칸을 누르면 해당 회차 상세 · 현재 집필 회차는 테두리로 강조</p>
+        <div className="sw-scope-legend">{Object.entries(stages).map(([stage, label]) => <span key={stage}><i data-stage={stage} />{label}</span>)}</div>
+        {[...groups].map(([volume, rows]) => <section className="sw-volume-strip" key={String(volume)} aria-label={`${volumeLabel(volume)} 전체 회차`}>
+          <div className="sw-volume-heading"><b>{volumeLabel(volume)}</b><span>{rows[0].position}–{rows[rows.length - 1].position}회 · {rows.length}개</span><small>{rows.filter(n => n.word_count > 0).length}회 작성</small></div>
+          <div className="sw-chapter-grid">{rows.map(node => <button key={node.id} type="button" data-stage={node.flow_stage} aria-current={node.id === currentId ? 'step' : undefined}
+            aria-label={`${node.position}회차 ${node.title}, ${stages[node.flow_stage]}${node.id === currentId ? ', 현재 집필' : ''}, 상세 보기`}
+            title={`${node.position}. ${node.title}\n${stages[node.flow_stage]} · ${node.word_count.toLocaleString()}자\n계획: ${node.goal?.core_events?.[0] || node.goal?.emotion_goal || '미등록'}`}
+            onClick={() => onBrowse(node.id)}><b>{node.position}</b><span>{short(node.title || '제목 없음', 6)}</span></button>)}</div>
+        </section>)}
+        {!nodes.length && <p className="sw-empty">아직 등록된 회차가 없습니다.</p>}
+      </section>
+      {nodes.length > 0 && <>
+        <section className="sw-surface sw-scope-chart"><h3>전체 회차 집필량</h3><p className="sw-help">{scope === 'all' ? '작품 전체' : '선택한 권 전체'}의 저장 글자 수 · 막대를 누르면 해당 회차 상세</p><WritingChart nodes={nodes} currentId={currentId} onSelect={onBrowse} /></section>
+        <details className="sw-surface sw-scope-detail"><summary>회차별 전개 계획 자세히 보기 · 전체 {nodes.length}회</summary>
+          <FlowGraph nodes={detailNodes} currentId={currentId} selectedId={null} onSelect={onBrowse} />
+          <div className="sw-row sw-between mt-3"><Button size="sm" variant="outline" disabled={safePage === 0} onClick={() => setDetailPage(safePage - 1)}>이전 계획</Button><span className="sw-help">{safePage * 12 + 1}–{Math.min(nodes.length, (safePage + 1) * 12)} / {nodes.length}회</span><Button size="sm" variant="outline" disabled={(safePage + 1) * 12 >= nodes.length} onClick={() => setDetailPage(safePage + 1)}>다음 계획</Button></div>
+        </details>
+        <div className="sw-scope-evidence">
+          <Card title={scope === 'all' ? '작품 전체 인물 관계망' : '인물 관계 · 이 권까지의 변화'} description="현재 작가 설정과 마지막 회차까지의 승인 변화 기록 · 인물을 눌러 연결 살펴보기">
+            <EvidenceGraph key={`relations:${last.id}`} pid={pid} focus={last} view="relations" onBrowse={onBrowse} wholeRange={scope === 'all' ? [nodes[0].position, last.position] : undefined} />
+          </Card>
+          <Card title="작품 전체 복선 타임라인" description="작품에 등록된 모든 복선의 설치·예정 회수·실제 회수 · 내용이 많으면 아래에서 페이지 이동">
+            <EvidenceGraph key={`foreshadows:${last.id}`} pid={pid} focus={last} view="foreshadows" onBrowse={onBrowse} wholeRange={[nodes[0].position, last.position]} />
+          </Card>
+        </div>
+      </>}
+    </>}
+  </div>;
+}
+
+export function StoryVisualOverview(props: OverviewProps) {
+  return props.data.scope === 'near' ? <ChapterVisualOverview {...props} />
+    : <ScopeOverview key={`${props.pid}:${props.data.scope}:${props.data.scope === 'volume' ? props.data.anchor_id : ''}`} {...props} />;
+}
+
+function ChapterVisualOverview({ pid, data, currentId, selectedId, onSelect, onBrowse, onManageCharacters }: OverviewProps) {
   const [mode, setMode] = useState<'workbench' | 'charts'>('workbench');
   const focus = data.nodes.find(n => n.id === selectedId) ?? data.nodes.find(n => n.id === data.anchor_id) ?? data.nodes[0];
   if (!focus) return null;
   return <div className="space-y-3">
     <div role="group" aria-label="스토리 지도 화면" className="story-view-tabs">
       <Button size="sm" variant={mode === 'workbench' ? 'secondary' : 'ghost'} aria-pressed={mode === 'workbench'} onClick={() => setMode('workbench')}>인물과 이야기 한눈에</Button>
-      <Button size="sm" variant={mode === 'charts' ? 'secondary' : 'ghost'} aria-pressed={mode === 'charts'} onClick={() => setMode('charts')}>전체 흐름·복선 그래프</Button>
+      <Button size="sm" variant={mode === 'charts' ? 'secondary' : 'ghost'} aria-pressed={mode === 'charts'} onClick={() => setMode('charts')}>주변 흐름·복선 그래프</Button>
     </div>
     {mode === 'workbench' ? <StoryWorkbench key={`${pid}:${focus.id}`} pid={pid} map={data} focus={focus} currentId={currentId} onSelect={onSelect} onManageCharacters={onManageCharacters} /> : <>
     <Card title="전개 흐름도" description={`현재 범위 ${data.counts.total}회 중 ${data.nodes.length}회 표시 · 연결선은 회차 순서 · 점선 테두리는 기획 단계 · 노드를 눌러 상세 확인`}>

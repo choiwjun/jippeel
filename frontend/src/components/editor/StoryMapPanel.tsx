@@ -135,7 +135,7 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
     <div role="group" aria-label="지도 범위" className="mb-3 flex flex-wrap gap-1">
       {([['near', '현재 주변'], ['volume', '선택 권'], ['all', '작품 전체']] as const).map(([value, label]) =>
         <Button key={value} size="sm" variant={scope === value ? 'secondary' : 'ghost'} aria-pressed={scope === value}
-          onClick={() => { setScope(value); setOffset(null); setSelectedId(chapterId); setAnchor(chapterId); }}>{label}</Button>)}
+          onClick={() => { setScope(value); setOffset(null); setSelectedId(value === 'near' ? chapterId : null); setAnchor(chapterId); setList(false); }}>{label}</Button>)}
     </div>
     {data && scope === 'volume' && <label className="mb-3 block text-xs">권 선택
       <select className="ml-2 max-w-full rounded border border-border bg-background p-1"
@@ -188,12 +188,12 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
           </li>)}
         </ol>}
       </section>)}
-      {scope !== 'near' && <div className="my-3 flex items-center justify-between gap-2 text-xs">
+      {list && scope !== 'near' && <div className="my-3 flex items-center justify-between gap-2 text-xs">
         <Button size="sm" variant="outline" disabled={data.offset === 0} onClick={() => { setOffset(Math.max(0, data.offset - 25)); setSelectedId(null); }}>이전</Button>
         <span>{data.counts.total ? `${data.offset + 1}–${data.offset + data.nodes.length} / ${data.counts.total}회` : '0회'}</span>
         <Button size="sm" variant="outline" disabled={data.next_offset === null} onClick={() => { setOffset(data.next_offset ?? 0); setSelectedId(null); }}>다음</Button>
       </div>}
-      <section aria-label="선택 회차 상세" className="mt-4 rounded-lg border border-border p-3">
+      {(scope === 'near' || list) && <section aria-label="선택 회차 상세" className="mt-4 rounded-lg border border-border p-3">
         {selected ? <>
           <h3 className="mb-2 break-words text-sm font-semibold">{selected.title || '제목 없음'} · {selected.id === chapterId ? '현재 집필 회차' : '살펴보는 회차'}</h3>
           <details><summary className="cursor-pointer text-xs">목표와 상세 근거 펼치기</summary>
@@ -206,7 +206,7 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
           </Button>
         </> : <p className="text-xs text-muted-foreground">회차를 선택하면 목표와 저장 정보를 볼 수 있습니다.</p>}
         {navigationError && <p role="alert" className="mt-2 text-xs text-destructive">{navigationError}</p>}
-      </section>
+      </section>}
     </>}
     <StoryReviewHistory key={pid} pid={pid} />
   </aside>;

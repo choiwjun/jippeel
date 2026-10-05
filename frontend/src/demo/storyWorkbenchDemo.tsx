@@ -85,9 +85,12 @@ for (const node of nodes) {
     client.setQueryData(['story-map', 1, 'evidence', node.id, view, 0], { project_id: 1, chapter_id: node.id, chapter_revision: node.revision, view, total: items.length, offset: 0, next_offset: null, items: focusedItems });
   }
 }
-const map: StoryMapData = { project_id: 1, anchor_id: 3, scope: 'all', counts: { total: 8, written: 3, confirmed: 2 }, nodes, volumes: [], offset: 0, next_offset: null };
+const map: StoryMapData = { project_id: 1, anchor_id: 3, scope: 'all', counts: { total: 8, written: 3, confirmed: 2 }, nodes,
+  volumes: [{ volume: 1, first_chapter_id: 1, total: 8, written: 3, confirmed: 2 }], offset: 0, next_offset: null };
+client.setQueryData(['story-map', 1, 'overview', 'all', null], map);
 function Demo() {
   const [selected, setSelected] = useState(3);
+  const [scope, setScope] = useState<'near' | 'all'>(() => new URLSearchParams(location.search).get('scope') === 'all' ? 'all' : 'near');
   const [light, setLight] = useState(true);
   const [notice, setNotice] = useState('');
   return <main className="story-demo-shell mx-auto max-w-[1480px] p-4 md:p-8">
@@ -97,12 +100,13 @@ function Demo() {
       <button className="rounded-lg border border-border px-3 py-2 text-xs" onClick={() => { document.documentElement.classList.toggle('light', !light); setLight(!light); }}>{light ? '어두운 화면' : '밝은 화면'}</button>
     </header>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-primary/10 px-4 py-3 text-xs">
-      <span><b>인물 클릭</b> → 관련 연결 보기　 <b>장면 클릭</b> → 인물 조합 보기　 <b>전체 그래프</b> → 작품 흐름 보기</span>
-      <button className="font-semibold text-primary underline underline-offset-2" onClick={() => setSelected(3)}>3회차 예시로 돌아오기 ↗</button>
+      <span><b>인물 클릭</b> → 관련 연결 보기　 <b>장면 클릭</b> → 인물 조합 보기　 <b>작품 전체</b> → 모든 회차 보기</span>
+      <button className="font-semibold text-primary underline underline-offset-2" onClick={() => { setSelected(3); setScope('near'); }}>3회차 예시로 돌아오기 ↗</button>
     </div>
-    {selected !== 3 && <p className="mb-3 text-xs text-muted-foreground">상세 예시는 3회차에 준비되어 있습니다. 다른 회차에서는 회차 이동과 전개 계획을 살펴보세요.</p>}
+    <div className="mb-4 flex gap-2" role="group" aria-label="예시 지도 범위">{([['near', '현재 주변'], ['all', '작품 전체']] as const).map(([value, label]) => <button className={`rounded-lg border px-3 py-2 text-xs ${scope === value ? 'border-primary bg-primary/10 text-primary' : 'border-border'}`} key={value} aria-pressed={scope === value} onClick={() => setScope(value)}>{label}</button>)}</div>
+    {scope === 'near' && selected !== 3 && <p className="mb-3 text-xs text-muted-foreground">상세 예시는 3회차에 준비되어 있습니다. 다른 회차에서는 회차 이동과 전개 계획을 살펴보세요.</p>}
     {notice && <p role="status" className="mb-3 text-sm">{notice}<button className="ml-3 underline" onClick={() => setNotice('')}>닫기</button></p>}
-    <StoryVisualOverview pid={1} data={map} currentId={3} selectedId={selected} onSelect={setSelected} onBrowse={setSelected}
+    <StoryVisualOverview pid={1} data={{ ...map, scope }} currentId={3} selectedId={selected} onSelect={setSelected} onBrowse={id => { setSelected(id); setScope('near'); }}
       onManageCharacters={() => setNotice('체험 화면에서는 인물·장면·그래프 선택을 살펴볼 수 있습니다. 인물 편집은 실제 작품에서 이용해 주세요.')} />
     <footer className="mt-6 text-center text-xs text-muted-foreground">이 화면의 인물·사건·원고·승인 기록은 모두 기능 설명을 위한 가상 예시입니다.</footer>
   </main>;

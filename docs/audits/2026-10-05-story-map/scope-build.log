@@ -1,0 +1,20 @@
+vite v5.4.21 building for production...
+
+(!) outDir /tmp/jippeel-scope-build-H34HWQ is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+transforming...
+✓ 246 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/story-demo.html                    0.66 kB │ gzip:   0.40 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/index.html                         0.81 kB │ gzip:   0.42 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/index-DdF6VBhg.css         48.63 kB │ gzip:  10.50 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/storyDemo-EaM5Sx1M.js       8.40 kB │ gzip:   4.99 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/index-DIgFQpTi.js          46.61 kB │ gzip:  16.50 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/data-4ZvvBQin.js           46.62 kB │ gzip:  14.12 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/markdown-Bx13qlMl.js      130.22 kB │ gzip:  60.70 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/react-vendor-_bVWPHBf.js  164.02 kB │ gzip:  53.50 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/app-BsFC-NHK.js           274.38 kB │ gzip:  79.92 kB
+../../../../../../../tmp/jippeel-scope-build-H34HWQ/assets/editor-dbPoz2N-.js        475.11 kB │ gzip: 165.91 kB
+✓ built in 27.84s

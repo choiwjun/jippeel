@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-05",
+  "base_commit": "61c15842fe4b086655f42bc746b4ad242c1d5aa5",
+  "issue": "Whole-project scope left chapter workbench visible",
+  "resolution": "Separate chapter view and full-scope overview; collect all metadata pages; derive counters from displayed nodes; fixed-width chart coordinates",
+  "checks": [
+    "TypeScript noEmit passed",
+    "Temporary Vite build passed",
+    "Independent read-only code review passed"
+  ],
+  "preview": "Synthetic example; API and external requests blocked; screenshot rendering only",
+  "not_performed": [
+    "automated tests",
+    "interaction regression QA",
+    "database changes",
+    "backend restart",
+    "commit/push"
+  ],
+  "limitations": [
+    "Metadata pages are not an atomic DB snapshot",
+    "Relationship/foreshadow evidence keeps explicit pagination"
+  ],
+  "sha256": {
+    "frontend/src/lib/storyMapScope.ts": "609c3d5ea8a8606228e6bc6f107975ca0ee069973416e76fe292df177e45fb55",
+    "frontend/src/components/editor/StoryMapPanel.tsx": "07a84ff4d470008381f15eb29725b526f959593b36177aace52eb9d2f4c671e6",
+    "frontend/src/components/editor/StoryVisualOverview.tsx": "8492a89894475b4a901079a46fd4ac6a8d98a37e84b4b2ee605a0297146cb07d",
+    "frontend/src/components/editor/story-workbench.css": "59804bb5d1c585235cc7686d71cd808aa0b2131657bc828813416058b427aa5b",
+    "frontend/src/demo/storyWorkbenchDemo.tsx": "8af39b35ba2a4d62f20d34bf7048c77e45a975c5bc771739b95c71e8298453b1",
+    "docs/specs/2026-10-05-story-map-evolution.md": "4422a1d9b8f0a29506d7e6e9119e3f1273cff3d290b554d958546d0287cfcf42",
+    "docs/audits/2026-10-05-story-map/acceptance.md": "5cb5de009f9fa3ff8129a6e0c040a7c3b6e77a98a2aaaa589477beaebfc6f860",
+    "docs/audits/2026-10-05-story-map/scope-build.log": "8d908e66f0ebce37aed72d79b23297863cbd60354cd5519265af8e279b99308b",
+    "docs/audits/2026-10-05-story-map/scope-overview-preview.png": "98e1b079bf934924b9b1b17f3069c53a1a28c80254bab6a88906e19ee2f9b6bd"
+  }
+}
