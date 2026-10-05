@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Chapter, MemoryEntry
+from app.services.chapter_order import chapter_position
 
 MEMORY_KINDS = (
     "summary", "beat", "decision", "fact", "timeline", "relationship_note",
@@ -109,6 +110,108 @@ def is_stale(entry: MemoryEntry, source_chapter: Chapter | None) -> bool:
     return entry.source_sha256 != content_sha256(source_chapter.content_md)
 
 
+def arc_source_text(entries: list[MemoryEntry], chapters: dict[int, Chapter]) -> str:
+    parts = []
+    for entry in entries:
+        chapter = chapters.get(entry.chapter_id) if entry.chapter_id is not None else None
+        title = (chapter.title or "") if chapter is not None else ""
+        parts.append(f"[{title or entry.chapter_id}] {entry.body}")
+    return "\n\n".join(parts)
+
+
+def volume_source_text(entries: list[MemoryEntry]) -> str:
+    parts = []
+    for index, entry in enumerate(entries):
+        end = entry.effective_from_sort_order
+        label = (f"{index + 1}번째 아크 요약 (sort ≤ {end:g})" if isinstance(end, (int, float))
+                 else f"{index + 1}번째 아크 요약")
+        parts.append(f"[{label}] {entry.body}")
+    return "\n\n".join(parts)
+
+
+class MemoryFreshness:
+    """One batched provenance graph per request, including retired source rows."""
+
+    def __init__(self, entries: list[MemoryEntry], chapters: list[Chapter]):
+        self.entries = {entry.id: entry for entry in entries}
+        self.chapters = {chapter.id: chapter for chapter in chapters}
+        self._stale: dict[int, bool] = {}
+        self._last_source: dict[int, tuple | None] = {}
+
+    def last_source_position(self, entry: MemoryEntry) -> tuple | None:
+        """Canonical end of a rollup's source graph, or its direct source."""
+        if entry.id in self._last_source:
+            return self._last_source[entry.id]
+        self._last_source[entry.id] = None
+        chapter = self.chapters.get(entry.chapter_id)
+        positions = [chapter_position(chapter)] if chapter is not None else []
+        field = {"arc_summary": "arc_source_entry_ids",
+                 "volume_memory": "volume_source_entry_ids"}.get(entry.kind)
+        provenance = entry.provenance_json or {}
+        if field and isinstance(provenance, dict):
+            ids = provenance.get(field)
+            if isinstance(ids, list):
+                for sid in ids:
+                    child = self.entries.get(sid) if isinstance(sid, int) else None
+                    position = self.last_source_position(child) if child is not None else None
+                    if position is not None:
+                        positions.append(position)
+        result = max(positions) if positions else None
+        self._last_source[entry.id] = result
+        return result
+
+    def is_stale(self, entry: MemoryEntry) -> bool:
+        if entry.id in self._stale:
+            return self._stale[entry.id]
+        # Mark before traversal so malformed cycles fail closed.
+        self._stale[entry.id] = True
+        result = self._check(entry)
+        self._stale[entry.id] = result
+        return result
+
+    def _check(self, entry: MemoryEntry) -> bool:
+        source = self.chapters.get(entry.chapter_id) if entry.chapter_id is not None else None
+        if is_stale(entry, source):
+            return True
+        rollup = {"arc_summary": ("arc_source_entry_ids", "summary"),
+                  "volume_memory": ("volume_source_entry_ids", "arc_summary")}.get(entry.kind)
+        if rollup is None:
+            return False
+        provenance = entry.provenance_json or {}
+        if not isinstance(provenance, dict):
+            return True
+        field, source_kind = rollup
+        if field not in provenance:
+            # Manually authored project memories have no derived source graph.
+            return provenance.get("generated_by") == "summary-worker"
+        ids = provenance[field]
+        if not isinstance(ids, list) or not ids or any(
+            not isinstance(i, int) or isinstance(i, bool) or i < 1 for i in ids
+        ) or len(ids) != len(set(ids)):
+            return True
+        sources = []
+        for sid in ids:
+            child = self.entries.get(sid)
+            if (child is None or child.project_id != entry.project_id or child.kind != source_kind
+                    or child.visibility != "approved" or self.is_stale(child)):
+                return True
+            sources.append(child)
+        if provenance.get("generated_by") == "summary-worker":
+            text = arc_source_text(sources, self.chapters) if entry.kind == "arc_summary" else volume_source_text(sources)
+            if content_sha256(text) != entry.source_sha256:
+                return True
+        return False
+
+
+def load_memory_freshness(db: Session, project_id: int) -> MemoryFreshness:
+    # populate_existing also protects the post-provider check from identity-map staleness.
+    entries = list(db.scalars(select(MemoryEntry).where(MemoryEntry.project_id == project_id)
+                             .execution_options(populate_existing=True)).all())
+    chapters = list(db.scalars(select(Chapter).where(Chapter.project_id == project_id)
+                              .execution_options(populate_existing=True)).all())
+    return MemoryFreshness(entries, chapters)
+
+
 def select_context_memory(
     db: Session, project_id: int, target_chapter_id: int, include_draft: bool = False
 ) -> list[MemoryEntry]:
@@ -118,37 +221,31 @@ def select_context_memory(
     if target.project_id != project_id:
         raise ValueError("target chapter belongs to another project")
     allowed = ("approved", "draft") if include_draft else ("approved",)
-    rows = db.scalars(
-        select(MemoryEntry)
-        .where(MemoryEntry.project_id == project_id, MemoryEntry.visibility.in_(allowed))
-        .order_by(MemoryEntry.kind, MemoryEntry.id)
-    ).all()
-    # 원천 회차는 한 번에 적재한다 — 항목별 개별 조회(N+1)를 피한다.
-    source_ids = {entry.chapter_id for entry in rows if entry.chapter_id is not None}
-    sources_by_id: dict[int, Chapter] = {
-        ch.id: ch
-        for ch in db.scalars(select(Chapter).where(Chapter.id.in_(source_ids))).all()
-    } if source_ids else {}
+    freshness = load_memory_freshness(db, project_id)
+    rows = sorted((entry for entry in freshness.entries.values() if entry.visibility in allowed),
+                  key=lambda entry: (entry.kind, entry.id))
     selected: list[tuple[tuple, MemoryEntry]] = []
     target_position = _safe_sort_order(target.sort_order)
     for entry in rows:
-        source = sources_by_id.get(entry.chapter_id) if entry.chapter_id is not None else None
-        if source is not None and _safe_sort_order(source.sort_order) > target_position:
+        if freshness.is_stale(entry):
             continue
-        if is_stale(entry, source):
+        source_position = freshness.last_source_position(entry)
+        if source_position is not None and source_position > chapter_position(target):
             continue
-        if (entry.effective_from_sort_order is not None
+        provenance = entry.provenance_json or {}
+        derived_rollup = (entry.kind in ("arc_summary", "volume_memory")
+                          and isinstance(provenance, dict)
+                          and provenance.get("generated_by") == "summary-worker"
+                          and source_position is not None)
+        # Worker rollup bounds are legacy sort labels; their actual end comes
+        # from the source graph. Explicit ranges on manual memories still apply.
+        if (not derived_rollup and entry.effective_from_sort_order is not None
                 and target_position < entry.effective_from_sort_order):
             continue
         if (entry.effective_to_sort_order is not None
                 and target_position > entry.effective_to_sort_order):
             continue
-        source_position = (
-            _safe_sort_order(source.sort_order, default=-math.inf)
-            if source is not None
-            else -math.inf
-        )
-        selected.append(((entry.kind, source_position, entry.id), entry))
+        selected.append(((entry.kind, source_position or (-math.inf, -math.inf, -1), entry.id), entry))
     selected.sort(key=lambda item: item[0])
 
     # 커버리지 선택 — 승인된 상위 층(arc_summary/volume_memory)이 대표하는
@@ -160,6 +257,8 @@ def select_context_memory(
         if entry.visibility != "approved":
             continue
         prov = entry.provenance_json or {}
+        if not isinstance(prov, dict):
+            continue
         if entry.kind == "arc_summary":
             covered.update(
                 int(i) for i in (prov.get("arc_source_entry_ids") or [])

@@ -1,5 +1,13 @@
 # 📋 프로젝트 핸드오프 — 웹소설 AI 집필·관리 대시보드 구축
 
+## 2026-10-05 플랫폼 버그 8건 수정·검증
+
+- 조사에서 재현한 BUG-01~08을 사용자 후속 요청 **“모두 수정해. 그리고 커밋 푸시해”**에 따라 모두 수정했다. [조사 당시 증거](docs/audits/2026-10-05-bug-hunt/report.md)와 [수정·최종 수용](docs/audits/2026-10-05-bug-hunt/acceptance.md)을 구분해 보존했다.
+- 메모·장면 저장의 대상/편집 값을 고정했고, 상태 응답은 최신 원고를 보존하며 해당 회차 캐시에 병합한다. 내보내기는 draft를 저장한 후 최신 본문과 메타데이터를 함께 사용하며 오류·동시 편집 충돌 시 다운로드를 차단한다.
+- 계층 기억은 출처 그래프의 stale을 재귀 전파하며 회차 목록·AI 이웃/미래 참조·rollup/planner 순서는 권(null last)→sort_order→id로 맞췄다. lifecycle 참조 회차 삭제는 원고 보존 409, NOT NULL 명시적 null PATCH는 422로 처리한다.
+- 공식 격리 backend 전체 **979 passed / 1 skipped / 70 subtests passed / violations 0**, 브라우저 회귀 **10개**, 기존 원고 보존 fixture **26개**, frontend type/build 통과. 실제 어댑터+fake transport 회귀를 추가했으며 [독립 검토](docs/audits/2026-10-05-bug-hunt/independent-review.md)는 지적 6건 보완 후 수용했다.
+- 게시 대상은 `origin/main`이다. 이번 소스·회귀 테스트·조사/수용 자료만 선별 커밋하며 기존 미추적 작업 자료와 DB 백업은 보존한다. 운영 DB·실제 provider·credential·migration·배포는 이번 범위에 포함되지 않는다. 정확한 게시 커밋은 Git 로그를 기준으로 한다.
+
 ## 최신 인계 요약 — 2026-09-16 (trend_pack 통합·SSE 완료 계약·전체 검증)
 
 > **상세 현재 상태의 단일 기준:** [`docs/handoffs/2026-09-08-remaining-work.md`](docs/handoffs/2026-09-08-remaining-work.md)

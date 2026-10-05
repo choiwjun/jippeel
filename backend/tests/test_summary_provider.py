@@ -178,3 +178,46 @@ def test_make_provider_default_session_factory_is_sessionlocal():
     # 기본 경로가 운영 SessionLocal을 참조하는지 — 주입 경계 존재 확인용
     provider = make_gpt_summary_provider()
     assert callable(provider)
+
+
+@pytest.mark.parametrize("kind", ["arc", "volume"])
+def test_rollup_adapter_integrates_with_worker_and_fake_transport(session_factory, monkeypatch, kind):
+    from app.models import MemoryEntry
+    from app.services.long_memory import create_memory_entry
+    from app.services.summary_provider import ARC_PROMPT_VERSION, VOLUME_PROMPT_VERSION
+    from app.services.summary_worker import plan_arc_summary_jobs, plan_volume_summary_jobs
+
+    captured = {}
+    monkeypatch.setattr(summary_provider.llm, "complete_chat", _fake_complete(captured))
+    provider = make_gpt_summary_provider(session_factory=session_factory, client_factory=lambda: "fake-client")
+    with session_factory() as db:
+        project = Project(title="rollup adapter test")
+        db.add(project); db.flush()
+        for n in range(1, 5):
+            chapter = Chapter(project_id=project.id, volume=1, sort_order=n, title=f"{n}화",
+                              content_md=f"본문 {n}", revision=1)
+            db.add(chapter); db.flush()
+            create_memory_entry(db, project_id=project.id, chapter_id=chapter.id, source_revision=1,
+                source_text=chapter.content_md, kind="summary", body=f"회차 요약 {n}", visibility="approved")
+        db.commit()
+        options = dict(project_id=project.id, provider_identity="ChatGPT OAuth",
+                       model_snapshot="gpt-5.6-luna", request_options={})
+        plan_arc_summary_jobs(db, arc_size=2, min_arc_sources=2,
+                              prompt_version=ARC_PROMPT_VERSION, **options)
+        jobs = run_pending_summary_jobs(db, provider)
+        assert len(jobs) == 2 and all(job.status == "draft_saved" for job in jobs)
+        if kind == "volume":
+            for job in jobs:
+                db.get(MemoryEntry, job.memory_entry_id).visibility = "approved"
+            db.commit()
+            captured.clear()
+            plan_volume_summary_jobs(db, volume_size=2, min_volume_sources=2,
+                                     prompt_version=VOLUME_PROMPT_VERSION, **options)
+            jobs = run_pending_summary_jobs(db, provider)
+            assert len(jobs) == 1 and jobs[0].status == "draft_saved"
+        assert all(job.kind == kind for job in jobs)
+        assert all(db.get(MemoryEntry, job.memory_entry_id).visibility == "draft" for job in jobs)
+    assert captured["client"] == "fake-client"
+    assert captured["model"] == "gpt-5.6-luna"
+    assert captured["messages"][0]["role"] == "system"
+    assert ("회차 요약 4" if kind == "arc" else "요약 결과 텍스트") in captured["messages"][1]["content"]

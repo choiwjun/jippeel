@@ -166,7 +166,7 @@ function ChapterTree({ pid: pidProp }: { pid?: number }) {
   for (const ch of [...chapters.data].sort(
     (a, b) =>
       volumeSortKey(a.volume) - volumeSortKey(b.volume) ||
-      a.sort_order - b.sort_order,
+      a.sort_order - b.sort_order || a.id - b.id,
   )) {
     const key = ch.volume ?? 0;
     const list = byVolume.get(key) ?? [];

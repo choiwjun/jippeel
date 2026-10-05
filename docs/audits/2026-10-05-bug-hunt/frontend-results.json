@@ -1,0 +1,53 @@
+{
+  "results": [
+    {
+      "case": "scene_edit_reset_on_save",
+      "request": {
+        "kind": "scene",
+        "id": 101,
+        "body": {
+          "title": "장면A",
+          "content_md": "SCENE_A_ORIGINAL"
+        }
+      },
+      "edited_text": "SCENE_A_EDITED",
+      "scene_a_after": {
+        "id": 101,
+        "chapter_id": 10,
+        "sort_order": 1,
+        "title": "장면A",
+        "content_md": "SCENE_A_ORIGINAL",
+        "created_at": "2026-10-05T00:00:00Z",
+        "updated_at": "2026-10-05T00:00:00Z"
+      },
+      "defect_confirmed": true
+    },
+    {
+      "case": "memo_chapter_switch",
+      "request": {
+        "kind": "chapter_meta",
+        "id": 11,
+        "body": {
+          "memo": "MEMO_FOR_CHAPTER_10"
+        }
+      },
+      "chapter_10_memo": null,
+      "chapter_11_memo": "MEMO_FOR_CHAPTER_10",
+      "defect_confirmed": true
+    },
+    {
+      "case": "metadata_cache_stale",
+      "backend_status": "수정중",
+      "displayed_status": "초고",
+      "defect_confirmed": true
+    },
+    {
+      "case": "export_pending_draft",
+      "editor_text": "VISIBLE_UNSAVED_NEW_BODY",
+      "exported_text": "ORIGINAL_BODY",
+      "defect_confirmed": true
+    }
+  ],
+  "unmocked_api_requests": [],
+  "real_provider_calls": 0
+}

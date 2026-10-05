@@ -652,6 +652,7 @@ def _approved_arcs(db, project, chapters, per=3):
     arcs = []
     for start in range(0, len(chapters), per):
         group = chapters[start:start + per]
+        sources = _approved_summaries(db, project, group)
         arcs.append(
             create_memory_entry(
                 db,
@@ -664,7 +665,7 @@ def _approved_arcs(db, project, chapters, per=3):
                 visibility="approved",
                 effective_from_sort_order=group[-1].sort_order,
                 provenance={
-                    "arc_source_entry_ids": [1000 + start],
+                    "arc_source_entry_ids": [entry.id for entry in sources],
                     "arc_size": len(group),
                 },
             )

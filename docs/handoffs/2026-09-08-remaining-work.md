@@ -1,6 +1,10 @@
 # 전체 작업 현황 — 완료·잔여·승인 대기
 
-최종 대조: **2026-09-17(KST)**. trend_pack 통합·SSE 완료 계약·생성 timeout 제거/heartbeat 전환·작품 컨셉 계약·최신 isolated 검증을 반영했다. 기존 링크 유지를 위해 파일명은 변경하지 않았다.
+### 2026-10-05 추가 버그 8건 — 수정·수용 완료
+
+사용자 후속 요청 “모두 수정해. 그리고 커밋 푸시해”에 따라 [조사 보고서](../audits/2026-10-05-bug-hunt/report.md)의 BUG-01~08을 모두 수정했다. 메모 대상 고정·장면 편집 내용 저장·상위 기억 stale 전파·권 경계 AI/rollup 순서·최신 draft 내보내기·회차 상세 상태 캐시·lifecycle 참조 삭제 409·명시적 null PATCH 422를 회귀 검증했다. 최종 공식 격리 suite는 **979 passed / 1 skipped / 70 subtests passed / violations 0**, browser 회귀 10개·기존 원고 보존 26개 통과. 독립 검토의 동시 편집/오래된 응답/어댑터 등 6개 지적을 보완하고 수용했다. [최종 수용](../audits/2026-10-05-bug-hunt/acceptance.md). 게시 대상은 `origin/main`이며 이번 관련 파일만 선별 commit/push한다. 운영 DB·실제 provider·credential·migration·배포는 포함되지 않는다. 이전 완료 범위와 수용 기록, 기존 미추적 작업 자료/DB 백업은 보존한다.
+
+최종 대조: **2026-10-05(KST)**. 추가 버그 8건 수정과 격리 검증을 반영했다. 이전 trend_pack 통합·SSE 완료 계약·생성 timeout 제거/heartbeat 전환·작품 컨셉 계약은 유지한다. 기존 링크 유지를 위해 파일명은 변경하지 않았다.
 
 ### 2026-09-17 조사 기반 작품 컨셉 계약
 

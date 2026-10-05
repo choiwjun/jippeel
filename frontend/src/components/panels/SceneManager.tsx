@@ -3,7 +3,7 @@
  * 현재 회차의 장면 목록을 만들고, AI 패널에서 "현재 장면"으로 선택해
  * 장면 단위 AI 생성의 대상을 지정한다. 결과 반영은 여전히 P1 수동 삽입만.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type ChapterDetail } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,13 @@ export function SceneManager({
   const [draftTitle, setDraftTitle] = useState('');
   const [draftContent, setDraftContent] = useState('');
 
+  useEffect(() => {
+    setEditing(null);
+    setDraftTitle('');
+    setDraftContent('');
+    setOpen(false);
+  }, [chapterId]);
+
   const scenesQuery = useQuery({
     queryKey: ['scenes', projectId, chapterId],
     queryFn: () => api.get<Scene[]>(`/chapters/${chapterId}/scenes`),
@@ -70,14 +77,12 @@ export function SceneManager({
   });
 
   const updateScene = useMutation({
-    mutationFn: (s: Scene) =>
-      api.patch<Scene>(`/scenes/${s.id}`, {
-        title: draftTitle || s.title,
-        content_md: draftContent,
-      }),
-    onSuccess: () => {
-      setEditing(null);
-      void invalidate();
+    mutationFn: (action: { id: number; projectId: number | null; chapterId: number; title: string; content_md: string }) =>
+      api.patch<Scene>(`/scenes/${action.id}`, { title: action.title, content_md: action.content_md }),
+    onSuccess: (_scene, action) => {
+      setEditing((current) => current?.id === action.id ? null : current);
+      void queryClient.invalidateQueries({ queryKey: ['scenes', action.projectId, action.chapterId] });
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', action.projectId, action.chapterId] });
       toast('장면을 저장했습니다.', 'success');
     },
     onError: (e) => toast(`장면 저장 실패: ${(e as Error).message}`, 'error'),
@@ -143,6 +148,7 @@ export function SceneManager({
               aria-label="장면 제목"
               placeholder="장면 제목 (예: 골목 대치)"
               value={draftTitle}
+              disabled={updateScene.isPending}
               onChange={(e) => setDraftTitle(e.target.value)}
             />
             <Button
@@ -158,6 +164,7 @@ export function SceneManager({
             placeholder="장면 본문을 붙여넣거나 직접 쓰세요…"
             rows={4}
             value={draftContent}
+            disabled={updateScene.isPending}
             onChange={(e) => setDraftContent(e.target.value)}
           />
           {editing && (
@@ -176,11 +183,8 @@ export function SceneManager({
                 <button
                   type="button"
                   className="flex-1 truncate text-left text-sm hover:underline"
-                  onClick={() => {
-                    startEdit(s);
-                    setDraftTitle(s.title);
-                    setDraftContent(s.content_md);
-                  }}
+                  disabled={updateScene.isPending}
+                  onClick={() => startEdit(s)}
                   title="클릭하면 편집 내용에 불러옵니다"
                 >
                   {s.title || '무제'}
@@ -194,12 +198,9 @@ export function SceneManager({
                   size="sm"
                   variant="outline"
                   className="h-6 px-2 text-[11px]"
-                  disabled={updateScene.isPending}
+                  disabled={updateScene.isPending || editing?.id !== s.id || editing.chapter_id !== chapterId}
                   onClick={() => {
-                    setEditing(s);
-                    setDraftTitle(s.title);
-                    setDraftContent(s.content_md);
-                    updateScene.mutate(s);
+                    updateScene.mutate({ id: s.id, projectId, chapterId: s.chapter_id, title: draftTitle, content_md: draftContent });
                   }}
                 >
                   저장

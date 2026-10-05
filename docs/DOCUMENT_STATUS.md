@@ -1,6 +1,8 @@
 # 문서 상태 인덱스
 
-최종 대조: 2026-09-17(KST)
+최종 대조: 2026-10-05(KST)
+
+추가 수정 수용: **2026-10-05** — [조사 당시 결함 8개](audits/2026-10-05-bug-hunt/report.md)를 모두 수정했다. [최종 수용·검증](audits/2026-10-05-bug-hunt/acceptance.md), [독립 검토](audits/2026-10-05-bug-hunt/independent-review.md). 공식 backend 979P/skip1/70 subtests/위반 0, browser 회귀 10개·기존 원고 보존 26개 통과. 사용자 후속 요청으로 선별 commit/push가 승인됐으며 운영/배포 경계와 기존 기능 수용 범위는 유지한다.
 
 ## 역할과 현재 기준
 

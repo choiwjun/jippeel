@@ -1,0 +1,23 @@
+HEAD: f0606d07f82040927b11fe57803770fbc7269690
+Date: 2026-10-05 KST
+
+Command (cwd: backend):
+.venv/Scripts/python.exe -I -S -B scripts/run_backend_pytest.py --isolation-preflight
+Result:
+{"preflight": "passed", "internal_ipc_count": 1, "violations": [], "app_imported": false, "pytest_imported": false}
+
+Command (cwd: backend):
+.venv/Scripts/python.exe -I -B scripts/run_backend_pytest.py -q
+Result (final output copied from execution):
+950 passed, 1 skipped, 70 subtests passed in 175.16s (0:02:55)
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 568, "subprocess_attempts": 0, "fake_keyring_calls": 8, "violations": []}
+
+Browser fixture:
+http://127.0.0.1:15483
+vite.fixture.config.ts (no production proxy)
+Fixture server API tripwire file: /tmp/jippeel-bughunt-tripwire-lkOUcd
+Fixture server unmocked API request bytes after final probes: 0
+Browser mock unhandled API/external requests after final probes: []
+
+This records existing suite results. The separate probes assert the presence of defects;
+their successful exits do not mean those defects were fixed.

@@ -46,7 +46,7 @@ export function exportProjectBundle(
   ext: 'txt' | 'md',
 ) {
   const sorted = [...chapters].sort(
-    (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
+    (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order || a.id - b.id,
   );
   const parts = sorted.map((ch) => {
     const volumePrefix = ch.volume != null ? `${ch.volume}권 ` : '';

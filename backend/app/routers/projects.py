@@ -369,7 +369,7 @@ def list_chapters(
     stmt = (
         select(Chapter)
         .where(Chapter.project_id == pid)
-        .order_by(Chapter.volume.asc().nulls_last(), Chapter.sort_order)  # Q1: 권 NULL은 목록 끝으로
+        .order_by(Chapter.volume.asc().nulls_last(), Chapter.sort_order, Chapter.id)  # Q1: 권 NULL은 목록 끝으로
     )
     if volume is not None:
         stmt = stmt.where(Chapter.volume == volume)
@@ -1068,6 +1068,14 @@ def delete_chapter(cid: int, db: Session = Depends(get_db)):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="사건 영향이 연결된 회차는 사건 영향 이력을 먼저 정리해야 합니다",
+            )
+        has_lifecycle = db.scalar(
+            select(Character.id).where(Character.lifecycle_chapter_id == cid).limit(1)
+        )
+        if has_lifecycle is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="캐릭터 퇴장·사망 이력이 연결된 회차는 캐릭터의 근거 회차 참조를 먼저 정리해야 합니다",
             )
         db.delete(chapter)
         db.commit()

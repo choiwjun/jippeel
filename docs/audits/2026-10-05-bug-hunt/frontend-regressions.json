@@ -1,0 +1,87 @@
+{
+  "results": [
+    {
+      "case": "scene_edit_reset_on_save",
+      "request": {
+        "kind": "scene",
+        "id": 101,
+        "body": {
+          "title": "장면A",
+          "content_md": "SCENE_A_EDITED"
+        }
+      },
+      "edited_text": "SCENE_A_EDITED",
+      "scene_a_after": {
+        "id": 101,
+        "chapter_id": 10,
+        "sort_order": 1,
+        "title": "장면A",
+        "content_md": "SCENE_A_EDITED",
+        "created_at": "2026-10-05T00:00:00Z",
+        "updated_at": "2026-10-05T00:00:00Z"
+      },
+      "fix_verified": true
+    },
+    {
+      "case": "memo_chapter_switch",
+      "request": {
+        "kind": "chapter_meta",
+        "id": 10,
+        "body": {
+          "memo": "MEMO_FOR_CHAPTER_10"
+        }
+      },
+      "chapter_10_memo": "MEMO_FOR_CHAPTER_10",
+      "chapter_11_memo": null,
+      "fix_verified": true
+    },
+    {
+      "case": "metadata_cache_stale",
+      "backend_status": "수정중",
+      "displayed_status": "수정중",
+      "fix_verified": true
+    },
+    {
+      "case": "export_pending_draft",
+      "editor_text": "VISIBLE_UNSAVED_NEW_BODY",
+      "exported_text": "VISIBLE_UNSAVED_NEW_BODY",
+      "fix_verified": true
+    },
+    {
+      "case": "late_metadata_preserves_manuscript",
+      "exported_text": "NEWER_ACKNOWLEDGED_BODY",
+      "fix_verified": true
+    },
+    {
+      "case": "bundle_flushes_all_chapter_drafts",
+      "exported_text": "# project-1\n\n# 1권 초반 회차\n\nSECOND_LATEST_DRAFT\n\n---\n\n# 2권 후반 회차\n\nFIRST_LATEST_DRAFT\n\n---\n\n",
+      "fix_verified": true
+    },
+    {
+      "case": "bundle_preserves_concurrent_revision",
+      "downloads": 0,
+      "server_text": "OTHER_WRITER_COMMITTED",
+      "local_draft_preserved": true,
+      "fix_verified": true
+    },
+    {
+      "case": "bundle_ignores_get_older_than_save_ack",
+      "manuscript_writes": 1,
+      "fix_verified": true
+    },
+    {
+      "case": "export_blocks_save_500",
+      "downloads": 0,
+      "local_draft_preserved": true,
+      "fix_verified": true
+    },
+    {
+      "case": "export_blocks_save_409",
+      "downloads": 0,
+      "local_draft_preserved": true,
+      "fix_verified": true
+    }
+  ],
+  "unmocked_api_requests": [],
+  "real_provider_calls": 0
+}

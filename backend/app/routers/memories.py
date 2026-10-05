@@ -31,7 +31,8 @@ from app.services.long_memory import (
     MEMORY_VISIBILITIES,
     _safe_sort_order,
     create_memory_entry,
-    is_stale,
+    MemoryFreshness,
+    load_memory_freshness,
     validate_visibility_transition,
 )
 
@@ -74,7 +75,7 @@ def _memory_sort_key(entry: MemoryEntry, source: Chapter | None) -> tuple[str, f
     return entry.kind, source_position, entry.id
 
 
-def _to_out(entry: MemoryEntry, source: Chapter | None) -> MemoryEntryOut:
+def _to_out(entry: MemoryEntry, source: Chapter | None, freshness: MemoryFreshness) -> MemoryEntryOut:
     return MemoryEntryOut(
         id=entry.id,
         project_id=entry.project_id,
@@ -89,7 +90,7 @@ def _to_out(entry: MemoryEntry, source: Chapter | None) -> MemoryEntryOut:
         provenance=dict(entry.provenance_json or {}),
         created_at=entry.created_at,
         updated_at=entry.updated_at,
-        stale=is_stale(entry, source),
+        stale=freshness.is_stale(entry),
         source_chapter_title=source.title if source else None,
         source_chapter_revision=source.revision if source else None,
         source_chapter_sort_order=source.sort_order if source else None,
@@ -141,10 +142,8 @@ def list_memories(
         _get_chapter_for_project(pid, chapter_id, db)
 
     try:
-        chapters = {
-            chapter.id: chapter
-            for chapter in db.scalars(select(Chapter).where(Chapter.project_id == pid)).all()
-        }
+        freshness = load_memory_freshness(db, pid)
+        chapters = freshness.chapters
         items: list[MemoryEntryOut] = []
         offset = 0
         while len(items) < limit:
@@ -163,7 +162,7 @@ def list_memories(
                 for row in rows
             ]
             rows_with_source.sort(key=lambda pair: _memory_sort_key(*pair))
-            page_items = [_to_out(row, source) for row, source in rows_with_source]
+            page_items = [_to_out(row, source, freshness) for row, source in rows_with_source]
             if stale is not None:
                 page_items = [item for item in page_items if item.stale is stale]
             items.extend(page_items)
@@ -210,7 +209,7 @@ def create_memory(pid: int, payload: MemoryEntryCreate, db: Session = Depends(ge
             ) from exc
         logger.exception("memory create database failure: project_id=%s", pid)
         raise HTTPException(status_code=500, detail="기억 저장 중 오류가 발생했습니다.") from exc
-    return _to_out(entry, source)
+    return _to_out(entry, source, load_memory_freshness(db, pid))
 
 
 @router.patch("/projects/{pid}/memories/{mid}", response_model=MemoryEntryOut)
@@ -233,7 +232,7 @@ def update_memory(pid: int, mid: int, payload: MemoryEntryUpdate, db: Session = 
         raise _validation_error("memory effective range is reversed")
     if not changes:
         source = db.get(Chapter, entry.chapter_id) if entry.chapter_id is not None else None
-        return _to_out(entry, source)
+        return _to_out(entry, source, load_memory_freshness(db, pid))
 
     try:
         # Compare every value used to validate the transition/range, including NULL bounds.
@@ -264,4 +263,4 @@ def update_memory(pid: int, mid: int, payload: MemoryEntryUpdate, db: Session = 
         )
         raise HTTPException(status_code=500, detail="기억 수정 중 오류가 발생했습니다.") from exc
     source = db.get(Chapter, entry.chapter_id) if entry.chapter_id is not None else None
-    return _to_out(entry, source)
+    return _to_out(entry, source, load_memory_freshness(db, pid))

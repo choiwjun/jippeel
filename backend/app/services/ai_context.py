@@ -19,6 +19,7 @@ from app.models import (Chapter, Character, Foreshadow, ImprovementRule, Knowled
                          LoreEntry, Project, ProjectTrendPack, Relationship, Scene, VolumeNote)
 from app.schemas import CanonCheckRequest, EpisodeBrief, GenerateRequest, TrendSignal
 from app.services import injection
+from app.services.chapter_order import chapter_ordering, chapter_position, neighbor_condition
 from app.services.long_memory import format_context_memory, select_context_memory
 from app.services.manuscripts import RevisionConflict
 
@@ -111,10 +112,10 @@ def _resolve_project(existing: int | None, candidate: int | None, label: str) ->
     return candidate
 
 
-def _chapter_position(chapter: Chapter | None) -> tuple[float, int] | None:
+def _chapter_position(chapter: Chapter | None) -> tuple[float, float, int] | None:
     if chapter is None:
         return None
-    return (chapter.sort_order, chapter.id)
+    return chapter_position(chapter)
 
 
 def _is_future_reference(current: Chapter | None, referenced: Chapter | None) -> bool:
@@ -345,13 +346,13 @@ def _validate_foreshadow_references(
     return future_ids
 
 
-def _foreshadow_position_key(db: Session, row: Foreshadow) -> tuple[float, int, int]:
+def _foreshadow_position_key(db: Session, row: Foreshadow) -> tuple[float, float, int, int]:
     ref = db.get(Chapter, row.planted_chapter_id) if row.planted_chapter_id else None
     if ref is None and row.resolved_chapter_id:
         ref = db.get(Chapter, row.resolved_chapter_id)
     if ref is None:
-        return (float("inf"), row.id, row.id)
-    return (ref.sort_order, ref.id, row.id)
+        return (float("inf"), float("inf"), row.id, row.id)
+    return (*chapter_position(ref), row.id)
 
 
 def _future_reference_attrs(db: Session, row: Foreshadow, current_chapter: Chapter | None) -> set[str]:
@@ -734,8 +735,8 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
             prev = db.scalars(
                 select(Chapter).where(
                     Chapter.project_id == chapter.project_id,
-                    Chapter.sort_order < chapter.sort_order,
-                ).order_by(Chapter.sort_order.desc(), Chapter.id.desc())
+                    neighbor_condition(chapter, previous=True),
+                ).order_by(*chapter_ordering(reverse=True))
             ).first()
             if prev and (prev.content_md or "").strip():
                 cap = PREVIOUS_CANON_TAIL_CHARS if request.target == "canon" else PREVIOUS_GENERATE_TAIL_CHARS
@@ -745,8 +746,8 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
             nxt = db.scalars(
                 select(Chapter).where(
                     Chapter.project_id == chapter.project_id,
-                    Chapter.sort_order > chapter.sort_order,
-                ).order_by(Chapter.sort_order.asc(), Chapter.id.asc())
+                    neighbor_condition(chapter, previous=False),
+                ).order_by(*chapter_ordering())
             ).first()
             if nxt is not None:
                 direction = (nxt.memo or "").strip()

@@ -17,7 +17,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import ObjectDeletedError
 
 from app.models import Chapter, MemoryEntry, SummaryJob
-from app.services.long_memory import content_sha256, create_memory_entry
+from app.services.chapter_order import chapter_ordering
+from app.services.long_memory import (
+    MemoryFreshness, arc_source_text, content_sha256, create_memory_entry, load_memory_freshness, volume_source_text,
+)
 from app.services.summary_jobs import (
     _idempotency_key,
     build_summary_manifest,
@@ -152,11 +155,14 @@ def plan_summary_jobs(
     return created, duplicates
 
 
-def _join_arc_sources(db: Session, source_ids: Sequence[int]) -> list[MemoryEntry] | None:
+def _join_arc_sources(
+    db: Session, source_ids: Sequence[int], *, freshness: MemoryFreshness | None = None,
+) -> list[MemoryEntry] | None:
     """아크 원천 회차 요약을 id 순으로 적재한다. 하나라도 없으면 None."""
     entries: list[MemoryEntry] = []
     for entry_id in source_ids:
-        entry = db.get(MemoryEntry, int(entry_id))
+        entry = (freshness.entries.get(int(entry_id)) if freshness is not None
+                 else db.get(MemoryEntry, int(entry_id), populate_existing=True))
         if entry is None:
             return None
         entries.append(entry)
@@ -164,14 +170,9 @@ def _join_arc_sources(db: Session, source_ids: Sequence[int]) -> list[MemoryEntr
 
 
 def _arc_source_text(db: Session, entries: Sequence[MemoryEntry]) -> str:
-    parts: list[str] = []
-    for entry in entries:
-        title = ""
-        if entry.chapter_id is not None:
-            chapter = db.get(Chapter, entry.chapter_id)
-            title = (chapter.title or "") if chapter is not None else ""
-        parts.append(f"[{title or entry.chapter_id}] {entry.body}")
-    return "\n\n".join(parts)
+    ids = {entry.chapter_id for entry in entries if entry.chapter_id is not None}
+    chapters = {chapter.id: chapter for chapter in db.scalars(select(Chapter).where(Chapter.id.in_(ids))).all()}
+    return arc_source_text(list(entries), chapters)
 
 
 def plan_arc_summary_jobs(
@@ -208,10 +209,11 @@ def plan_arc_summary_jobs(
             MemoryEntry.kind == "summary",
             MemoryEntry.visibility == "approved",
         )
-        .order_by(Chapter.sort_order, MemoryEntry.id)
+        .order_by(*chapter_ordering(), MemoryEntry.id)
     ).all()
+    freshness = load_memory_freshness(db, project_id)
     summaries: list[tuple[MemoryEntry, float]] = [
-        (entry, float(sort)) for entry, sort in rows
+        (entry, float(sort)) for entry, sort in rows if not freshness.is_stale(entry)
     ]
 
     options_hash = canonical_request_options_hash(request_options)
@@ -268,16 +270,7 @@ def plan_arc_summary_jobs(
 
 
 def _volume_source_text(entries: Sequence[MemoryEntry]) -> str:
-    parts: list[str] = []
-    for index, entry in enumerate(entries):
-        end = entry.effective_from_sort_order
-        label = (
-            f"{index + 1}번째 아크 요약 (sort ≤ {end:g})"
-            if isinstance(end, (int, float))
-            else f"{index + 1}번째 아크 요약"
-        )
-        parts.append(f"[{label}] {entry.body}")
-    return "\n\n".join(parts)
+    return volume_source_text(list(entries))
 
 
 def plan_volume_summary_jobs(
@@ -317,6 +310,10 @@ def plan_volume_summary_jobs(
             .order_by(MemoryEntry.effective_from_sort_order, MemoryEntry.id)
         ).all()
     )
+    freshness = load_memory_freshness(db, project_id)
+    arcs = [arc for arc in arcs if not freshness.is_stale(arc)]
+    arcs.sort(key=lambda arc: (freshness.last_source_position(arc)
+                              or (float("inf"), arc.effective_from_sort_order or 0, arc.id), arc.id))
 
     options_hash = canonical_request_options_hash(request_options)
     options_json = dict(request_options)
@@ -408,7 +405,8 @@ def _finish(job: SummaryJob, status: str, *, error: str | None = None) -> None:
 def _process_arc_job(db: Session, job: SummaryJob, provider: SummaryProvider) -> None:
     """kind='arc' — 승인된 회차 요약 묶음을 아크 요약 draft로 만든다."""
     source_ids = job.source_ids_json or []
-    entries = _join_arc_sources(db, source_ids)
+    freshness = load_memory_freshness(db, job.project_id)
+    entries = _join_arc_sources(db, source_ids, freshness=freshness)
     if entries is None:
         _finish(job, "stale_source", error="arc source entry deleted")
         return
@@ -417,6 +415,9 @@ def _process_arc_job(db: Session, job: SummaryJob, provider: SummaryProvider) ->
                 or entry.visibility != "approved"):
             _finish(job, "stale_source", error="arc source no longer approved")
             return
+    if any(freshness.is_stale(entry) for entry in entries):
+        _finish(job, "stale_source", error="arc source manuscript changed")
+        return
     source_text = _arc_source_text(db, entries)
     if content_sha256(source_text) != job.source_sha256:
         _finish(job, "stale_source", error="arc sources changed since planning")
@@ -429,8 +430,11 @@ def _process_arc_job(db: Session, job: SummaryJob, provider: SummaryProvider) ->
         return
 
     # 생성 후 재검증 — 호출 중 원천 승인 상태가 바뀌면 저장하지 않는다.
-    recheck = _join_arc_sources(db, source_ids)
-    if recheck is None or any(e.visibility != "approved" for e in recheck):
+    freshness = load_memory_freshness(db, job.project_id)
+    recheck = [freshness.entries.get(int(sid)) for sid in source_ids]
+    if any(e is None or e.visibility != "approved" or e.kind != "summary" or freshness.is_stale(e) for e in recheck) or (
+        content_sha256(_arc_source_text(db, recheck)) != job.source_sha256
+    ):
         _finish(job, "stale_source", error="arc sources changed during generation")
         return
 
@@ -474,7 +478,8 @@ def _process_arc_job(db: Session, job: SummaryJob, provider: SummaryProvider) ->
 def _process_volume_job(db: Session, job: SummaryJob, provider: SummaryProvider) -> None:
     """kind='volume' — 승인된 아크 요약 묶음을 권 기억 draft로 만든다."""
     source_ids = job.source_ids_json or []
-    entries = _join_arc_sources(db, source_ids)
+    freshness = load_memory_freshness(db, job.project_id)
+    entries = _join_arc_sources(db, source_ids, freshness=freshness)
     if entries is None:
         _finish(job, "stale_source", error="volume source entry deleted")
         return
@@ -483,6 +488,9 @@ def _process_volume_job(db: Session, job: SummaryJob, provider: SummaryProvider)
                 or entry.visibility != "approved"):
             _finish(job, "stale_source", error="volume source no longer approved arc")
             return
+    if any(freshness.is_stale(entry) for entry in entries):
+        _finish(job, "stale_source", error="volume source manuscript changed")
+        return
     source_text = _volume_source_text(entries)
     if content_sha256(source_text) != job.source_sha256:
         _finish(job, "stale_source", error="volume sources changed since planning")
@@ -495,8 +503,11 @@ def _process_volume_job(db: Session, job: SummaryJob, provider: SummaryProvider)
         return
 
     # 생성 후 재검증 — 호출 중 원천 승인 상태가 바뀌면 저장하지 않는다.
-    recheck = _join_arc_sources(db, source_ids)
-    if recheck is None or any(e.visibility != "approved" for e in recheck):
+    freshness = load_memory_freshness(db, job.project_id)
+    recheck = [freshness.entries.get(int(sid)) for sid in source_ids]
+    if any(e is None or e.visibility != "approved" or e.kind != "arc_summary" or freshness.is_stale(e) for e in recheck) or (
+        content_sha256(_volume_source_text(recheck)) != job.source_sha256
+    ):
         _finish(job, "stale_source", error="volume sources changed during generation")
         return
 

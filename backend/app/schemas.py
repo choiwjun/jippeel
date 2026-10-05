@@ -12,6 +12,15 @@ ChapterStatus = Literal["초고", "수정중", "완료"]
 EpisodePurpose = Literal["serial", "volume_end", "series_finale"]
 
 
+def _reject_null_fields(data, *fields):
+    """PATCH omission is allowed; explicit null cannot clear NOT NULL columns."""
+    if isinstance(data, dict):
+        for field in fields:
+            if field in data and data[field] is None:
+                raise ValueError(f"{field} must not be null")
+    return data
+
+
 # ---- Project ----
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
@@ -40,6 +49,7 @@ class ProjectUpdate(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _reject_null_serial_state(cls, data):
+        _reject_null_fields(data, "title")
         # 명시적 null은 "필드 생략"과 다르다 — 잘못된 값으로 422 처리한다.
         if isinstance(data, dict):
             if "serial_state" in data and data["serial_state"] is None:
@@ -118,6 +128,11 @@ class ChapterUpdate(BaseModel):
     sort_order: float | None = None
     status: ChapterStatus | None = None
     memo: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_null_columns(cls, data):
+        return _reject_null_fields(data, "title", "sort_order", "status")
 
 
 class ChapterContentPut(BaseModel):
@@ -635,6 +650,11 @@ class CharacterUpdate(BaseModel):
     lifecycle_chapter_id: int | None = None
     lifecycle_note: str | None = None
     volume_roles: list[dict] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_null_columns(cls, data):
+        return _reject_null_fields(data, "name", "lifecycle_status")
 
 
 class CardJsonPatch(BaseModel):
@@ -1227,6 +1247,11 @@ class SceneUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     sort_order: float | None = None
     content_md: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_null_columns(cls, data):
+        return _reject_null_fields(data, "title", "sort_order", "content_md")
 
 
 class SceneOut(BaseModel):

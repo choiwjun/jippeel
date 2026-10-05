@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type Chapter, type ChapterDetail, type ChapterFlowOut, type ChapterResumeOut, type ChapterSnapshotDetail, type ChapterSnapshotMeta, type ChapterStatus, type FlowStage } from '@/lib/api';
 import { useEditorStore } from '@/stores/editorStore';
-import { beginManuscriptReplacement, completeManuscriptReplacement, flushManuscriptDraft, useManuscriptDraft } from '@/lib/manuscriptDrafts';
+import { beginManuscriptReplacement, completeManuscriptReplacement, flushManuscriptDraft, getManuscriptDraft, useManuscriptDraft } from '@/lib/manuscriptDrafts';
 import { useAiPanelStore } from '@/stores/aiPanelStore';
 import { countChars } from '@/lib/wordCount';
 import { volumeLabel, volumeSortKey } from '@/lib/api';
@@ -84,7 +84,7 @@ export function EditorPage() {
   useEffect(() => {
     if (!chaptersQuery.data) return;
     const sorted = [...chaptersQuery.data].sort(
-      (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order,
+      (a, b) => volumeSortKey(a.volume) - volumeSortKey(b.volume) || a.sort_order - b.sort_order || a.id - b.id,
     );
     const selected = chapterId === null ? null : sorted.find((c) => c.id === chapterId);
     const requested = hasRequestedChapter
@@ -191,15 +191,33 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
   });
 
   const patchMeta = useMutation({
-    mutationFn: (body: { title?: string; status?: ChapterStatus; memo?: string }) =>
-      api.patch<ChapterDetail>(`/chapters/${chapterId}`, body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chapters', pid] }),
+    mutationFn: (action: { projectId: number; chapterId: number; body: { title?: string; status?: ChapterStatus; memo?: string } }) =>
+      api.patch<ChapterDetail>(`/chapters/${action.chapterId}`, action.body),
+    onSuccess: (detail, action) => {
+      // A late metadata response must not replace a newer manuscript/revision.
+      queryClient.setQueryData<ChapterDetail>(['chapter', action.projectId, action.chapterId], (old) =>
+        ({ ...(old ?? detail), ...action.body, updated_at: detail.updated_at }));
+      void queryClient.invalidateQueries({ queryKey: ['chapters', action.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ['chapter-resume', action.projectId, action.chapterId] });
+    },
+    onError: (error) => toast(`회차 정보 저장 실패: ${(error as Error).message}`, 'error'),
   });
 
   const chapter = detail.data;
   const [titleDraft, setTitleDraft] = useState('');
   const [memoDraft, setMemoDraft] = useState('');
   const memoTimer = useRef<number | undefined>(undefined);
+  const pendingMemo = useRef<{ projectId: number; chapterId: number; body: { memo: string } } | null>(null);
+  const flushMemo = useCallback(() => {
+    window.clearTimeout(memoTimer.current);
+    memoTimer.current = undefined;
+    const action = pendingMemo.current;
+    pendingMemo.current = null;
+    if (action) patchMeta.mutate(action);
+  }, [patchMeta.mutate]);
+
+  // Preserve the memo's original identity when switching chapters or leaving the page.
+  useEffect(() => () => flushMemo(), [pid, chapterId, flushMemo]);
 
   useEffect(() => {
     setTitleDraft(chapter?.title ?? '');
@@ -223,7 +241,7 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
         placeholder="회차 제목"
         onChange={(e) => setTitleDraft(e.target.value)}
         onBlur={() => {
-          if (titleDraft !== chapter.title) patchMeta.mutate({ title: titleDraft });
+          if (titleDraft !== chapter.title) patchMeta.mutate({ projectId: pid, chapterId, body: { title: titleDraft } });
         }}
       />
       <StatusBadge status={chapter.status} />
@@ -233,7 +251,7 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
         value={chapter.status}
         onChange={(e) => {
           const next = e.target.value as ChapterStatus;
-          patchMeta.mutate({ status: next });
+          patchMeta.mutate({ projectId: pid, chapterId, body: { status: next } });
           // 고도화 G-042 — '완료' 전환 시 후크 자동 점검(차단 없음, 제안만)
           if (next === '완료') {
             void (async () => {
@@ -273,12 +291,11 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
               className="mt-1 min-h-24 w-64 rounded-sm border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={memoDraft}
               onChange={(e) => {
-                setMemoDraft(e.target.value);
+                const value = e.target.value;
+                setMemoDraft(value);
+                pendingMemo.current = { projectId: pid, chapterId, body: { memo: value } };
                 window.clearTimeout(memoTimer.current);
-                memoTimer.current = window.setTimeout(
-                  () => patchMeta.mutate({ memo: e.target.value }),
-                  800,
-                );
+                memoTimer.current = window.setTimeout(flushMemo, 800);
               }}
               placeholder="회차 메모…"
             />
@@ -300,25 +317,41 @@ function EditorHeader({ pid, chapterId }: { pid: number; chapterId: number | nul
  * .txt는 마크다운→plain 변환(mdToPlainText), 회차 단건 + 프로젝트 전체 묶음 지원.
  */
 function ExportMenu({ pid, chapter }: { pid: number; chapter: ChapterDetail }) {
-  // 프로젝트 묶음 — 전 회차 본문 로드 후 연결 파일 생성(zip 미사용 단일 묶음)
-  const chaptersQuery = useQuery({
-    queryKey: ['chapters', pid],
-    queryFn: () => api.get<Chapter[]>(`/projects/${pid}/chapters`),
-    enabled: false,
-  });
+  const [exporting, setExporting] = useState(false);
+
+  const exportCurrent = async (ext: 'txt' | 'md') => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const { detail } = await flushManuscriptDraft(pid, chapter.id);
+      exportChapter({ ...chapter, content_md: detail.content_md, revision: detail.revision }, ext);
+    } catch (e) {
+      toast(`내보내기 실패: ${(e as Error).message}`, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const exportProject = async (ext: 'txt' | 'md') => {
+    if (exporting) return;
+    setExporting(true);
     try {
-      let metas = chaptersQuery.data;
-      if (!metas) {
-        metas = await api.get<Chapter[]>(`/projects/${pid}/chapters`);
-      }
+      const metas = await api.get<Chapter[]>(`/projects/${pid}/chapters`);
       const details = await Promise.all(
-        metas.map((c) => api.get<ChapterDetail>(`/chapters/${c.id}`)),
+        metas.map(async (c) => {
+          const server = await api.get<ChapterDetail>(`/chapters/${c.id}`);
+          const draft = getManuscriptDraft(pid, c.id);
+          // Preserve a dirty draft's original optimistic-lock base.
+          if (!draft.hasUnsaved() && server.revision >= draft.serverRevision) draft.initFromServer(server);
+          const { detail } = await draft.flush();
+          return { ...server, content_md: detail.content_md, revision: detail.revision };
+        }),
       );
       exportProjectBundle(`project-${pid}`, details, ext);
     } catch (e) {
-      alert(`내보내기 실패: ${(e as Error).message}`);
+      toast(`내보내기 실패: ${(e as Error).message}`, 'error');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -327,13 +360,14 @@ function ExportMenu({ pid, chapter }: { pid: number; chapter: ChapterDetail }) {
       <DropdownMenuTrigger
         className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted"
         aria-label="내보내기 메뉴"
+        disabled={exporting}
       >
         내보내기 ▾
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>회차 내보내기</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => exportChapter(chapter, 'md')}>마크다운 (.md)</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => exportChapter(chapter, 'txt')}>텍스트 (.txt)</DropdownMenuItem>
+        <DropdownMenuItem aria-disabled={exporting} onClick={() => void exportCurrent('md')}>마크다운 (.md)</DropdownMenuItem>
+        <DropdownMenuItem aria-disabled={exporting} onClick={() => void exportCurrent('txt')}>텍스트 (.txt)</DropdownMenuItem>
         <DropdownMenuLabel>프로젝트 묶음 내보내기</DropdownMenuLabel>
         <DropdownMenuItem onClick={() => void exportProject('md')}>전 회차 마크다운 (.md)</DropdownMenuItem>
         <DropdownMenuItem onClick={() => void exportProject('txt')}>전 회차 텍스트 (.txt)</DropdownMenuItem>
