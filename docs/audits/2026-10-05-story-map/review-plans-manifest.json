@@ -1,0 +1,17 @@
+{
+  "scope": "planned payoff and review decisions; static/independent review only, runtime QA and migration not executed",
+  "sha256": {
+    "backend/app/models.py": "f3dce984c9636f5fc8d51004e8affc4cf0e169a5a17afbeb2634bd5bf0d5acef",
+    "backend/app/schemas.py": "5e6c9271e76471507b23775fa1b34cefe20c3e21358d76787376b0e13066d253",
+    "backend/app/database.py": "38309e6cfcbcf45a0cf5c081fe338633a9357105c69049e488175e02b23689c2",
+    "backend/app/routers/projects.py": "df65870e25665e6257f5dc6517dba242f82dd1c40b445f3b0ed38b62fc6f1366",
+    "backend/app/routers/foreshadows.py": "0719837df11b9847bb982c3fce6ebcca7c3d52e12a71dcb710e861145228bef5",
+    "backend/app/routers/story_map.py": "d261bef5a0aeeb67470717c95a4fdf8f1490c5320bfb6b3462fbbd7cc919909d",
+    "backend/app/services/story_map_evidence.py": "2eeb48a0a89b6fde3f8d641d80c26544c14836fd6b7f3ed3ba4bb5e356ab1733",
+    "backend/alembic/versions/k6b7c8d9e0f1_story_review_plans.py": "ca5109f0053752c1c734f005a762db863f53954509917fd4925a6cbcb6d6bc3c",
+    "frontend/src/pages/ForeshadowsPage.tsx": "172c17821b2d7c9ae6ba83098de5877c873397810f90f070b3efb8940de22fe8",
+    "frontend/src/components/editor/StoryMapPanel.tsx": "394855fd60e187d358fc3cd5a0a62b1de88238a0b136fa1836125bbb2a82592c",
+    "frontend/src/components/editor/StoryMapEvidence.tsx": "3c59282a2ffdefb6fb929fa023a80eb7d805a893fa09aa2a87d4469632eaef5d",
+    "frontend/src/components/editor/StoryReview.tsx": "2fc4fdecfa0c5d04eeade17a70957f8527d9d641615d23aa428021c93b3372f5"
+  }
+}

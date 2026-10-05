@@ -10,6 +10,7 @@ import { volumeLabel, volumeSortKey } from '@/lib/api';
 import { exportChapter, exportProjectBundle } from '@/lib/export';
 import { CodeMirrorEditor } from '@/components/editor/CodeMirrorEditor';
 import { EditorPreview } from '@/components/editor/EditorPreview';
+import { StoryMapPanel } from '@/components/editor/StoryMapPanel';
 import { SaveIndicator } from '@/components/editor/SaveIndicator';
 import { WordCountFooter } from '@/components/editor/WordCountFooter';
 import { QualityDialog } from '@/components/editor/QualityDialog';
@@ -62,6 +63,9 @@ export function EditorPage() {
   const setContext = useEditorStore((s) => s.setContext);
   const mode = useEditorStore((s) => s.mode);
   const setMode = useEditorStore((s) => s.setMode);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const mapToggle = useRef<HTMLButtonElement>(null);
   const openAiPanel = useAiPanelStore((s) => s.open);
   const setAiMode = useAiPanelStore((s) => s.setMode);
 
@@ -99,7 +103,18 @@ export function EditorPage() {
   }, [chapterId, chaptersQuery.data, hasRequestedChapter, pid, requestedChapterId, setContext]);
 
   return (
-    <div className="mx-auto flex h-full max-w-[820px] flex-col px-6">
+    <div className={`mx-auto flex h-full flex-col px-3 sm:px-6 ${mapOpen ? 'max-w-[1440px]' : 'max-w-[820px]'}`}>
+      <div className="flex shrink-0 items-center justify-end gap-2 pt-2">
+        {mapOpen && <Button size="sm" variant="ghost" aria-pressed={mapExpanded}
+          onClick={() => setMapExpanded(!mapExpanded)}>{mapExpanded ? '나란히 집필' : '지도 확대'}</Button>}
+        <Button ref={mapToggle} size="sm" variant="outline" aria-expanded={mapOpen} aria-controls={mapOpen ? 'story-map' : undefined}
+          onClick={() => { setMapOpen(!mapOpen); setMapExpanded(false); }}>
+          {mapOpen ? '지도를 접고 원고 보기' : '스토리 지도 열기'}
+        </Button>
+      </div>
+      <div className="flex min-h-0 flex-1 gap-4">
+      <div className={`min-h-0 min-w-0 flex-1 flex-col ${mapOpen ? (mapExpanded ? 'hidden' : 'hidden xl:flex') : 'flex'}`}>
+
       <EditorHeader
         pid={pid}
         chapterId={editorProjectId === pid ? chapterId : null}
@@ -141,6 +156,12 @@ export function EditorPage() {
         )}
       </div>
       <WordCountFooter />
+      </div>
+      {mapOpen && editorProjectId === pid && <div className={`min-h-0 min-w-0 ${mapExpanded ? 'flex-1' : 'w-full xl:w-[360px] xl:shrink-0'}`}>
+        <StoryMapPanel key={`${pid}:${chapterId}`} pid={pid} chapterId={chapterId}
+          onNavigate={() => { setMapOpen(false); setMapExpanded(false); mapToggle.current?.focus(); }} />
+      </div>}
+      </div>
 
       {/* 빠른 액션 (NFR-303) */}
       <div className="fixed bottom-14 right-6 z-30 flex flex-col gap-2">

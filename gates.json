@@ -16,7 +16,7 @@
     },
     "G2": {
       "status": "pass",
-      "artifact": "요구사항_정의서.md",
+      "artifact": "docs/archive/legacy-2026-08-09/요구사항_정의서.md",
       "reviewed_by": "requirements-reviewer",
       "date": "2026-08-26",
       "note": "R-001~R-054 고유번호 부여 + 전 행 수용기준 추가 + 모호 표현 정량화 완료 (규약 v1). Won't(FR-W1~W6)는 백로그로 ID 미부여."
@@ -30,14 +30,14 @@
     },
     "G4": {
       "status": "pass",
-      "artifact": "기술설계_v1.md",
+      "artifact": "docs/archive/legacy-2026-08-09/기술설계_v1.md",
       "reviewed_by": "backend-architect-cross-review",
       "date": "2026-08-26",
       "note": "리스크 C9(가정 A3) 실측 검증 성립: im-not-ai metrics_v2 모듈 임포트 + prepare_monolith_input/verify_gates CLI 실행 성공(진단·윤문은 설계상 외부 LLM 명령 주입). 스택 HANDOFF 확정안 준수. T-001~T-008, A-001~A-040 부여. 변경 항목 3건(T-002 volume nullable, A-038, A-040)은 기술설계 §4.2."
     },
     "G5": {
       "status": "pass",
-      "artifact": "디자인_화면설계서_v1.md (v1.3)",
+      "artifact": "docs/archive/legacy-2026-08-09/디자인_화면설계서_v1.md (v1.3)",
       "reviewed_by": "design-qa",
       "date": "2026-08-26",
       "note": "전 화면·컴포넌트 S-### 부여(53건, §0-A 레지스트리), 화면↔F-xxx↔A-### 매핑표 추가(F-001~F-036/A-001~A-040 커버리지 누락 0건 — A-039는 엔드포인트 미제공 결정으로 S-705 표기). traceability.json design 필드 S-### 채움(R-001~R-054 전 건). 결정사항_G4 Q1(S-702 명령 프리셋 UI)/Q3(S-104·S-704 문구)/Q4(S-606 진행 상태 UI) 반영. §6.3 시니어 배려 모드 접근성 보강. 기존 v1.1/v1.2 구조·이력 유지."
@@ -51,7 +51,7 @@
     },
     "G7": {
       "status": "pass",
-      "artifact": "QA_개발검증_리포트_v2.md → v3(2026-09-06)",
+      "artifact": "docs/archive/legacy-2026-08-09/QA_개발검증_리포트_v2.md → v3(2026-09-06)",
       "reviewed_by": "team-qa (v2) + 세션 재판정 (2026-09-06)",
       "date": "2026-09-06",
       "note": "2026-09-06 재판정 → pass. 자동 실행: backend pytest 122 passed·frontend build 통과·E2E 8/8 (기존 6 + TC-038 이탈 플러시 keepalive PUT + TC-308 미리보기 XSS 차단)·TC-037 백업 실측 PASS(db-info 경로→3파일 복사→데이터 동일성). 이탈 저장 플러시는 pagehide 병행으로 탭 닫기까지 커버하도록 개선. 잔여 pending-manual: a11y(axe/NVDA·TC-501~506)·성능 계측(TC-401~405)·Windows 실기기 keyring(TC-302)·시니어 모드 실측. F-036 라이선스 고지는 구현 완료(2026-09-05 확인)로 차단 해소."

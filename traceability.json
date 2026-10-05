@@ -4,7 +4,7 @@
   "links": [
     {
       "id": "R-001",
-      "requirement": "요구사항_정의서.md#R-001",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-001",
       "status": "implemented",
       "prd": "F-001",
       "design": "S-100, S-101, S-102",
@@ -21,7 +21,7 @@
     },
     {
       "id": "R-002",
-      "requirement": "요구사항_정의서.md#R-002",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-002",
       "status": "implemented",
       "prd": "F-002",
       "design": "S-200, S-006",
@@ -40,7 +40,7 @@
     },
     {
       "id": "R-003",
-      "requirement": "요구사항_정의서.md#R-003",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-003",
       "status": "implemented",
       "prd": "F-003",
       "design": "S-201, S-202",
@@ -55,7 +55,7 @@
     },
     {
       "id": "R-004",
-      "requirement": "요구사항_정의서.md#R-004",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-004",
       "status": "implemented",
       "prd": "F-004",
       "design": "S-203, S-005",
@@ -72,7 +72,7 @@
     },
     {
       "id": "R-005",
-      "requirement": "요구사항_정의서.md#R-005",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-005",
       "status": "implemented",
       "prd": "F-005",
       "design": "S-200",
@@ -89,7 +89,7 @@
     },
     {
       "id": "R-006",
-      "requirement": "요구사항_정의서.md#R-006",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-006",
       "status": "implemented",
       "prd": "F-006",
       "design": "S-204, S-005",
@@ -107,7 +107,7 @@
     },
     {
       "id": "R-007",
-      "requirement": "요구사항_정의서.md#R-007",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-007",
       "status": "implemented",
       "prd": "F-003",
       "design": "S-201, S-202",
@@ -122,7 +122,7 @@
     },
     {
       "id": "R-008",
-      "requirement": "요구사항_정의서.md#R-008",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-008",
       "status": "implemented",
       "prd": "F-007",
       "design": "S-206",
@@ -137,7 +137,7 @@
     },
     {
       "id": "R-009",
-      "requirement": "요구사항_정의서.md#R-009",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-009",
       "status": "implemented",
       "prd": "F-008",
       "design": "S-205",
@@ -152,7 +152,7 @@
     },
     {
       "id": "R-010",
-      "requirement": "요구사항_정의서.md#R-010",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-010",
       "status": "implemented",
       "prd": "F-009",
       "design": "S-300, S-301, S-302",
@@ -167,7 +167,7 @@
     },
     {
       "id": "R-011",
-      "requirement": "요구사항_정의서.md#R-011",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-011",
       "status": "implemented",
       "prd": "F-009",
       "design": "S-302",
@@ -183,7 +183,7 @@
     },
     {
       "id": "R-012",
-      "requirement": "요구사항_정의서.md#R-012",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-012",
       "status": "implemented",
       "prd": "F-010",
       "design": "S-303",
@@ -199,7 +199,7 @@
     },
     {
       "id": "R-013",
-      "requirement": "요구사항_정의서.md#R-013",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-013",
       "status": "planned",
       "prd": "F-011",
       "design": "S-302",
@@ -215,7 +215,7 @@
     },
     {
       "id": "R-014",
-      "requirement": "요구사항_정의서.md#R-014",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-014",
       "status": "implemented",
       "prd": "F-009",
       "design": "S-300, S-301",
@@ -230,7 +230,7 @@
     },
     {
       "id": "R-015",
-      "requirement": "요구사항_정의서.md#R-015",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-015",
       "status": "implemented",
       "prd": "F-012",
       "design": "S-400, S-402",
@@ -246,7 +246,7 @@
     },
     {
       "id": "R-016",
-      "requirement": "요구사항_정의서.md#R-016",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-016",
       "status": "implemented",
       "prd": "F-013",
       "design": "S-401",
@@ -262,7 +262,7 @@
     },
     {
       "id": "R-017",
-      "requirement": "요구사항_정의서.md#R-017",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-017",
       "status": "implemented",
       "prd": "F-014",
       "design": "S-401, S-402",
@@ -278,7 +278,7 @@
     },
     {
       "id": "R-018",
-      "requirement": "요구사항_정의서.md#R-018",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-018",
       "status": "implemented",
       "prd": "F-015",
       "design": "S-401",
@@ -294,7 +294,7 @@
     },
     {
       "id": "R-019",
-      "requirement": "요구사항_정의서.md#R-019",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-019",
       "status": "planned",
       "prd": "F-016",
       "design": "S-403",
@@ -309,7 +309,7 @@
     },
     {
       "id": "R-020",
-      "requirement": "요구사항_정의서.md#R-020",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-020",
       "status": "implemented",
       "prd": "F-017",
       "design": "S-500, S-501, S-701",
@@ -325,7 +325,7 @@
     },
     {
       "id": "R-021",
-      "requirement": "요구사항_정의서.md#R-021",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-021",
       "status": "implemented",
       "prd": "F-018",
       "design": "S-701",
@@ -341,7 +341,7 @@
     },
     {
       "id": "R-022",
-      "requirement": "요구사항_정의서.md#R-022",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-022",
       "status": "implemented",
       "prd": "F-019",
       "design": "S-502",
@@ -356,7 +356,7 @@
     },
     {
       "id": "R-023",
-      "requirement": "요구사항_정의서.md#R-023",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-023",
       "status": "implemented",
       "prd": "F-020",
       "design": "S-503",
@@ -371,7 +371,7 @@
     },
     {
       "id": "R-024",
-      "requirement": "요구사항_정의서.md#R-024",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-024",
       "status": "implemented",
       "prd": "F-021",
       "design": "S-504",
@@ -388,7 +388,7 @@
     },
     {
       "id": "R-025",
-      "requirement": "요구사항_정의서.md#R-025",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-025",
       "status": "implemented",
       "prd": "F-022",
       "design": "S-505",
@@ -404,7 +404,7 @@
     },
     {
       "id": "R-026",
-      "requirement": "요구사항_정의서.md#R-026",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-026",
       "status": "implemented",
       "prd": "F-023",
       "design": "S-501, S-701",
@@ -421,7 +421,7 @@
     },
     {
       "id": "R-027",
-      "requirement": "요구사항_정의서.md#R-027",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-027",
       "status": "implemented",
       "prd": "F-024",
       "design": "S-504, S-009",
@@ -437,7 +437,7 @@
     },
     {
       "id": "R-028",
-      "requirement": "요구사항_정의서.md#R-028",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-028",
       "status": "implemented",
       "prd": "F-017",
       "design": "S-500, S-701",
@@ -452,7 +452,7 @@
     },
     {
       "id": "R-029",
-      "requirement": "요구사항_정의서.md#R-029",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-029",
       "status": "implemented",
       "prd": "F-025",
       "design": "S-600, S-606, S-207",
@@ -468,7 +468,7 @@
     },
     {
       "id": "R-030",
-      "requirement": "요구사항_정의서.md#R-030",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-030",
       "status": "implemented",
       "prd": "F-026",
       "design": "S-600, S-604, S-702",
@@ -483,7 +483,7 @@
     },
     {
       "id": "R-031",
-      "requirement": "요구사항_정의서.md#R-031",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-031",
       "status": "implemented",
       "prd": "F-027",
       "design": "S-603",
@@ -499,7 +499,7 @@
     },
     {
       "id": "R-032",
-      "requirement": "요구사항_정의서.md#R-032",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-032",
       "status": "implemented",
       "prd": "F-028",
       "design": "S-602, S-604",
@@ -516,7 +516,7 @@
     },
     {
       "id": "R-033",
-      "requirement": "요구사항_정의서.md#R-033",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-033",
       "status": "implemented",
       "prd": "F-029",
       "design": "S-601",
@@ -533,7 +533,7 @@
     },
     {
       "id": "R-034",
-      "requirement": "요구사항_정의서.md#R-034",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-034",
       "status": "planned",
       "prd": "F-030",
       "design": "S-600, S-702",
@@ -549,7 +549,7 @@
     },
     {
       "id": "R-035",
-      "requirement": "요구사항_정의서.md#R-035",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-035",
       "status": "implemented",
       "prd": "F-031",
       "design": "S-605",
@@ -565,7 +565,7 @@
     },
     {
       "id": "R-036",
-      "requirement": "요구사항_정의서.md#R-036",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-036",
       "status": "implemented",
       "prd": "F-032",
       "design": "S-103, S-704",
@@ -580,7 +580,7 @@
     },
     {
       "id": "R-037",
-      "requirement": "요구사항_정의서.md#R-037",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-037",
       "status": "implemented",
       "prd": "F-033",
       "design": "S-104, S-704",
@@ -596,7 +596,7 @@
     },
     {
       "id": "R-038",
-      "requirement": "요구사항_정의서.md#R-038",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-038",
       "status": "implemented",
       "prd": "F-003",
       "design": "S-201",
@@ -611,7 +611,7 @@
     },
     {
       "id": "R-039",
-      "requirement": "요구사항_정의서.md#R-039",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-039",
       "status": "implemented",
       "prd": "F-021",
       "design": "S-504, S-004",
@@ -627,7 +627,7 @@
     },
     {
       "id": "R-040",
-      "requirement": "요구사항_정의서.md#R-040",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-040",
       "status": "implemented",
       "prd": "F-015",
       "design": "S-401",
@@ -642,7 +642,7 @@
     },
     {
       "id": "R-041",
-      "requirement": "요구사항_정의서.md#R-041",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-041",
       "status": "implemented",
       "prd": "F-020,F-034",
       "design": "S-503, S-705",
@@ -657,7 +657,7 @@
     },
     {
       "id": "R-042",
-      "requirement": "요구사항_정의서.md#R-042",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-042",
       "status": "implemented",
       "prd": "F-018",
       "design": "S-701",
@@ -673,7 +673,7 @@
     },
     {
       "id": "R-043",
-      "requirement": "요구사항_정의서.md#R-043",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-043",
       "status": "implemented",
       "prd": "F-034",
       "design": "S-705",
@@ -688,7 +688,7 @@
     },
     {
       "id": "R-044",
-      "requirement": "요구사항_정의서.md#R-044",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-044",
       "status": "implemented",
       "prd": "F-006",
       "design": "S-204",
@@ -704,7 +704,7 @@
     },
     {
       "id": "R-045",
-      "requirement": "요구사항_정의서.md#R-045",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-045",
       "status": "implemented",
       "prd": "F-035",
       "design": "S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009",
@@ -719,7 +719,7 @@
     },
     {
       "id": "R-046",
-      "requirement": "요구사항_정의서.md#R-046",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-046",
       "status": "implemented",
       "prd": "F-035",
       "design": "S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009",
@@ -734,7 +734,7 @@
     },
     {
       "id": "R-047",
-      "requirement": "요구사항_정의서.md#R-047",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-047",
       "status": "implemented",
       "prd": "F-017",
       "design": "S-500, S-207, S-004",
@@ -750,7 +750,7 @@
     },
     {
       "id": "R-048",
-      "requirement": "요구사항_정의서.md#R-048",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-048",
       "status": "planned",
       "prd": "F-030",
       "design": "S-600, S-702",
@@ -765,7 +765,7 @@
     },
     {
       "id": "R-049",
-      "requirement": "요구사항_정의서.md#R-049",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-049",
       "status": "implemented",
       "prd": "F-036",
       "design": "S-707",
@@ -780,7 +780,7 @@
     },
     {
       "id": "R-050",
-      "requirement": "요구사항_정의서.md#R-050",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-050",
       "status": "implemented",
       "prd": "F-032",
       "design": "S-103, S-704",
@@ -795,7 +795,7 @@
     },
     {
       "id": "R-051",
-      "requirement": "요구사항_정의서.md#R-051",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-051",
       "status": "implemented",
       "prd": "F-032",
       "design": "S-704",
@@ -810,7 +810,7 @@
     },
     {
       "id": "R-052",
-      "requirement": "요구사항_정의서.md#R-052",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-052",
       "status": "planned",
       "prd": "F-034",
       "design": "S-705, S-201",
@@ -826,7 +826,7 @@
     },
     {
       "id": "R-053",
-      "requirement": "요구사항_정의서.md#R-053",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-053",
       "status": "implemented",
       "prd": "F-035",
       "design": "S-001",
@@ -841,7 +841,7 @@
     },
     {
       "id": "R-054",
-      "requirement": "요구사항_정의서.md#R-054",
+      "requirement": "docs/archive/legacy-2026-08-09/요구사항_정의서.md#R-054",
       "status": "implemented",
       "prd": "F-017",
       "design": "S-501, S-701",

@@ -27,6 +27,8 @@ export interface Foreshadow {
   audience_knows?: boolean;
   planted_chapter_id: number | null;
   resolved_chapter_id: number | null;
+  planned_resolution_chapter_id: number | null;
+  revision: number;
 }
 
 interface ChapterMeta {
@@ -74,6 +76,50 @@ const DISPOSITIONS: Array<{
 ];
 const dispositionLabel = (d: Foreshadow['disposition']) =>
   DISPOSITIONS.find((x) => x.value === d)?.label ?? null;
+
+function PlannedResolution({ pid, row, chapters }: { pid: number; row: Foreshadow; chapters: ChapterMeta[] }) {
+  const client = useQueryClient();
+  const [base, setBase] = useState(row);
+  const [selected, setSelected] = useState(String(row.planned_resolution_chapter_id ?? ''));
+  const [reloading, setReloading] = useState(false);
+  const changed = row.revision !== base.revision;
+  const save = useMutation({
+    mutationFn: () => api.patch<Foreshadow>(`/foreshadows/${base.id}`, {
+      planned_resolution_chapter_id: selected ? Number(selected) : null, expected_revision: base.revision,
+    }),
+    onSuccess: updated => {
+      setBase(updated);
+      void client.invalidateQueries({ queryKey: ['foreshadows', pid] });
+      toast('예정 회수 일정을 저장했습니다.', 'success');
+    },
+  });
+  return <div className="mt-2 space-y-1 text-xs">
+    <label className="block">예정 회수 · 작가 계획
+      <select aria-label={`예정 회수 회차: ${row.title}`} value={selected} disabled={save.isPending || reloading}
+        onChange={e => { setSelected(e.target.value); save.reset(); }}
+        className="mt-1 block w-full rounded border border-input bg-background p-1.5">
+        <option value="">미정</option>
+        {chapters.map((c, index) => <option key={c.id} value={c.id}>{index + 1}. {c.title || '제목 없음'}</option>)}
+      </select>
+    </label>
+    <p className="text-muted-foreground">실제 회수 기록과 별도로 보관됩니다.</p>
+    {changed && <p role="status">복선이 변경되었습니다. 서버 일정을 다시 확인해 주세요.</p>}
+    {save.isError && <p role="alert">{save.error.message} 선택한 일정은 유지됩니다.</p>}
+    <div className="flex flex-wrap gap-1">
+      <Button size="sm" variant="outline" disabled={save.isPending || reloading || changed || selected === String(base.planned_resolution_chapter_id ?? '')}
+        onClick={() => save.mutate()}>{save.isPending ? '저장 중…' : '예정 회수 저장'}</Button>
+      <Button size="sm" variant="ghost" disabled={save.isPending || reloading} onClick={async () => {
+        setReloading(true);
+        const fresh = await client.fetchQuery({ queryKey: ['foreshadows', pid], staleTime: 0,
+          queryFn: () => api.get<Foreshadow[]>(`/projects/${pid}/foreshadows`) }).catch(() => null);
+        setReloading(false);
+        const current = fresh?.find(f => f.id === row.id);
+        if (current) { setBase(current); setSelected(String(current.planned_resolution_chapter_id ?? '')); save.reset(); }
+        else toast('일정을 불러오지 못했습니다. 복선이 삭제됐는지 확인해 주세요.', 'error');
+      }}>서버 일정 다시 읽기</Button>
+    </div>
+  </div>;
+}
 
 export function ForeshadowsPage() {
   const params = useParams();
@@ -371,6 +417,8 @@ export function ForeshadowsPage() {
               {f.content && (
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{f.content}</p>
               )}
+              {chaptersQuery.isSuccess && <PlannedResolution key={`${pid}:${f.id}`} pid={pid} row={f} chapters={chaptersQuery.data} />}
+              {chaptersQuery.isError && <p className="text-xs text-destructive">일정 선택을 위한 회차를 불러오지 못했습니다. <button className="underline" onClick={() => void chaptersQuery.refetch()}>다시 시도</button></p>}
               {(f.keywords?.length ?? 0) > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1">
                   {f.keywords!.map((k) => (

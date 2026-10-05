@@ -1,6 +1,12 @@
 # 문서 상태 인덱스
 
+Git 게시 지시(2026-10-05): 사용자 “커밋 푸시해”에 따라 현재 변경을 `origin/main`에 선별 게시한다. 아래 미게시 표기는 개발 당시 상태이고 실제 결과는 Git 이력을 따른다. 동작 QA·migration 미완료 범위는 유지한다.
+
 최종 대조: 2026-10-05(KST)
+
+최신 후속: **예정 복선 회수 일정·검토안 비교/결정 이력 코드 구현**, 독립 코드 검토 통과. [실행 기록](audits/2026-10-05-story-map/acceptance.md). 새 migration은 미적용이고 자동 테스트·브라우저 QA는 미실행이다. 아래 기존 수용 수치는 이 추가분 이전 소스에 대한 결과다.
+
+고도화 요구사항 통합: **2026-10-05** — [스토리 지도 중심 통합안](specs/2026-10-05-story-map-evolution.md). 기존 개선 방향과 스토리 흐름도·인물 관계도·복선 타임라인·진행률/긴장도 그래프를 연결하고 3단계 개발 순서를 정리했다. 후속 진행 지시에 따라 **사전 정리·1단계 안정화·2단계 첫 근거 읽기 구현과 격리 QA 완료**. backend 1001P/skip1/70 subtests/위반 0, 지도 browser 14개·기존 원고 보존 26개 및 독립 검토 통과. [최종 수용 기록](audits/2026-10-05-story-map/acceptance.md). 예정 회수 일정·검토 처리 이력·AI 참고 정보 설명과 3단계는 미완료다. 운영 반영·Git 게시는 미실행이며 세부 계약·정리 내역은 통합안의 실행 기록을 따른다.
 
 추가 수정 수용: **2026-10-05** — [조사 당시 결함 8개](audits/2026-10-05-bug-hunt/report.md)를 모두 수정했다. [최종 수용·검증](audits/2026-10-05-bug-hunt/acceptance.md), [독립 검토](audits/2026-10-05-bug-hunt/independent-review.md). 공식 backend 979P/skip1/70 subtests/위반 0, browser 회귀 10개·기존 원고 보존 26개 통과. 사용자 후속 요청으로 선별 commit/push가 승인됐으며 운영/배포 경계와 기존 기능 수용 범위는 유지한다.
 
@@ -78,3 +84,34 @@
 - `ai_endpoints`와 hidden compatibility routes는 보존·migration 호환용이다.
   제거한 endpoint/API key/base URL·모델 선택 UI를 미구현 기능으로 되살리지 않는다.
 - 최초 문서 대조 후 승인된 B01/B02 구현과 B04 보강·새 테스트 실행까지 완료했다. 최종 수용 기록과 원장 C13을 따른다. 당시 운영 작업·Git 반영은 하지 않았다. Git 게시만 9월 13일 별도로 승인받았다.
+
+## 과거 문서 보관 — 2026-10-05
+
+루트의 과거 문서 26개를 `docs/archive/legacy-2026-08-09/`로 이동했다. 아래 목록은 과거 기록에 남은 원래 파일명과 새 경로의 대응표다. 본문은 유지하고 이동에 필요한 상대 링크만 고쳤다. 현재 작업·승인·검증 기준은 위 인덱스를 따른다.
+
+- [QA_개발검증_리포트.md](archive/legacy-2026-08-09/QA_개발검증_리포트.md)
+- [QA_개발검증_리포트_v2.md](archive/legacy-2026-08-09/QA_개발검증_리포트_v2.md)
+- [QA_개발검증_리포트_v3.md](archive/legacy-2026-08-09/QA_개발검증_리포트_v3.md)
+- [QA_기획정합성_리포트.md](archive/legacy-2026-08-09/QA_기획정합성_리포트.md)
+- [QA_기획정합성_리포트_v2.md](archive/legacy-2026-08-09/QA_기획정합성_리포트_v2.md)
+- [QA_수동검증_가이드.md](archive/legacy-2026-08-09/QA_수동검증_가이드.md)
+- [결정사항_G4.md](archive/legacy-2026-08-09/결정사항_G4.md)
+- [고도화_사양_완성도_v1.md](archive/legacy-2026-08-09/고도화_사양_완성도_v1.md)
+- [규정추적_2026-08.md](archive/legacy-2026-08-09/규정추적_2026-08.md)
+- [기술설계_v1.md](archive/legacy-2026-08-09/기술설계_v1.md)
+- [노벨피아_PLUS_전환_체크리스트.md](archive/legacy-2026-08-09/노벨피아_PLUS_전환_체크리스트.md)
+- [디자인_화면설계서_v1.md](archive/legacy-2026-08-09/디자인_화면설계서_v1.md)
+- [리서치_oh-story-claudecode_통합검토.md](archive/legacy-2026-08-09/리서치_oh-story-claudecode_통합검토.md)
+- [리서치_병행연재_규정_사례.md](archive/legacy-2026-08-09/리서치_병행연재_규정_사례.md)
+- [부록01_오픈소스_리서치.md](archive/legacy-2026-08-09/부록01_오픈소스_리서치.md)
+- [부록02_시장_검증.md](archive/legacy-2026-08-09/부록02_시장_검증.md)
+- [부록03_플랫폼_정책.md](archive/legacy-2026-08-09/부록03_플랫폼_정책.md)
+- [부록04_im-not-ai_평가.md](archive/legacy-2026-08-09/부록04_im-not-ai_평가.md)
+- [부록05_오픈소스_최적조합.md](archive/legacy-2026-08-09/부록05_오픈소스_최적조합.md)
+- [부록06_노벨피아_글자수_집계방식.md](archive/legacy-2026-08-09/부록06_노벨피아_글자수_집계방식.md)
+- [부록06_외부도구_흡수_분석.md](archive/legacy-2026-08-09/부록06_외부도구_흡수_분석.md)
+- [요구사항_분석.md](archive/legacy-2026-08-09/요구사항_분석.md)
+- [요구사항_정의서.md](archive/legacy-2026-08-09/요구사항_정의서.md)
+- [진행중_리서치.md](archive/legacy-2026-08-09/진행중_리서치.md)
+- [추천_병행연재_최적장르.md](archive/legacy-2026-08-09/추천_병행연재_최적장르.md)
+- [테스트플랜_v1.md](archive/legacy-2026-08-09/테스트플랜_v1.md)

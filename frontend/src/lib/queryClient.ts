@@ -10,9 +10,31 @@ export const queryClient = new QueryClient({
   },
 });
 
+// API acknowledgement and manuscript acknowledgement happen in the same turn.
+// Batch both callers, then cancel even a data-less initial fetch before reloading.
+const pendingStoryMaps = new Set<number | 'all'>();
+let storyMapTimer: ReturnType<typeof setTimeout> | undefined;
+export function scheduleStoryMapRefresh(projectId?: number) {
+  pendingStoryMaps.add(projectId ?? 'all');
+  if (storyMapTimer !== undefined) return;
+  storyMapTimer = setTimeout(() => {
+    storyMapTimer = undefined;
+    const scopes = pendingStoryMaps.has('all') ? ['all' as const] : [...pendingStoryMaps];
+    pendingStoryMaps.clear();
+    for (const scope of scopes) {
+      const queryKey = scope === 'all' ? ['story-map'] : ['story-map', scope];
+      void queryClient.cancelQueries({ queryKey })
+        .then(() => queryClient.invalidateQueries({ queryKey }))
+        .catch(() => console.error('Story map refresh failed after an acknowledged write.'));
+    }
+  }, 0);
+}
+
 // Cache-only acknowledgement survives editor unmount; a refresh failure is not a failed write.
 export async function refreshMemoriesAfterRevision(projectId: number, chapterId: number, previous: number, next: number | undefined) {
   if (next === undefined || next === previous) return;
+  // A slow map must not delay the existing memory/evidence refresh path.
+  scheduleStoryMapRefresh(projectId);
   try {
     await queryClient.invalidateQueries({ queryKey: ["memories", projectId] });
     // D03-2: revision이 바뀌면 재개 드리프트(원고 변경됨)도 갱신 대상이다.

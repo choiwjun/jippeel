@@ -439,6 +439,7 @@ class Foreshadow(TimestampMixin, Base):
             "disposition IS NULL OR disposition IN ('resolved','intentional_unresolved','side_story')",
             name="ck_foreshadow_disposition",
         ),
+        {"sqlite_autoincrement": True},
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -455,6 +456,9 @@ class Foreshadow(TimestampMixin, Base):
         ForeignKey("chapters.id"), nullable=True)
     resolved_chapter_id: Mapped[int | None] = mapped_column(
         ForeignKey("chapters.id"), nullable=True)
+    planned_resolution_chapter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chapters.id"), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
 
 class VolumeNote(TimestampMixin, Base):
@@ -878,3 +882,23 @@ class EventImpact(TimestampMixin, Base):
 
     project: Mapped["Project"] = relationship(back_populates="event_impacts")
     chapter: Mapped["Chapter"] = relationship()
+
+
+class StoryReviewDecision(Base):
+    """Append-only author decisions; never grants freshness or manuscript approval."""
+    __tablename__ = "story_review_decisions"
+    __table_args__ = (
+        UniqueConstraint("project_id", "item_key", "sequence", name="uq_story_review_sequence"),
+        CheckConstraint("decision IN ('adopt','hold','discard')", name="ck_story_review_decision"),
+        CheckConstraint("sequence >= 1", name="ck_story_review_sequence"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    item_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    evidence_token: Mapped[str] = mapped_column(String(64), nullable=False)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    proposal: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    snapshot_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, server_default=func.now())

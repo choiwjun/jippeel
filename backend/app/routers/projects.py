@@ -1046,6 +1046,7 @@ def delete_chapter(cid: int, db: Session = Depends(get_db)):
             select(Foreshadow.id).where(
                 (Foreshadow.planted_chapter_id == cid)
                 | (Foreshadow.resolved_chapter_id == cid)
+                | (Foreshadow.planned_resolution_chapter_id == cid)
             ).limit(1)
         )
         if has_foreshadow is not None:

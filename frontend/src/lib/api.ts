@@ -4,6 +4,7 @@
  */
 
 import { notifyUnauthorized } from "./auth";
+import { scheduleStoryMapRefresh } from "./queryClient";
 
 const BASE = "/api/v1";
 
@@ -35,7 +36,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: init?.body ? { "content-type": "application/json" } : undefined,
       ...init,
     });
-  } catch {
+  } catch (error) {
+    if (init?.signal?.aborted) throw error;
     throw new ApiError(
       0,
       "백엔드에 연결할 수 없습니다. 서버 실행 여부를 확인하세요.",
@@ -54,12 +56,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, msg, detail);
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  const result = res.status === 204 ? undefined : await res.json();
+  // Acknowledged writes refresh open maps, including saves outside the mounted editor.
+  // Authoring mutations also refresh provenance views; failed writes leave the map intact.
+  if (init?.method && init.method !== "GET" &&
+      /^\/(?:(?:chapters|scenes|characters|relations|foreshadows)(?:\/|$)|projects\/\d+\/(?:chapters|characters|foreshadows|memories|event-impacts)(?:\/|$))/.test(path)) {
+    scheduleStoryMapRefresh();
+  }
+  return result as T;
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, options?: Pick<RequestInit, 'signal'>) => request<T>(path, options),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: "POST",

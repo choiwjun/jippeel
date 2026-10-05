@@ -55,7 +55,7 @@ def get_db():
         db.close()
 
 
-ALEMBIC_HEAD = "j5a6b7c8d9e0"
+ALEMBIC_HEAD = "k6b7c8d9e0f1"
 TEMP_CREATE_ALL_ENV = "JIPPEEL_ALLOW_TEMP_CREATE_ALL"
 
 
@@ -188,6 +188,13 @@ def assert_manuscript_schema_current(bind: Engine) -> None:
             }
             if "ck_foreshadow_disposition" not in foreshadow_checks:
                 problems.append("foreshadows.ck_foreshadow_disposition")
+
+        if "story_review_decisions" not in tables:
+            problems.append("story_review_decisions table")
+        if "foreshadows" in tables:
+            for column in ("planned_resolution_chapter_id", "revision"):
+                if column not in foreshadow_cols:
+                    problems.append(f"foreshadows.{column}")
 
         # D03-6 완결본 스냅샷 테이블
         if "project_final_editions" not in tables:

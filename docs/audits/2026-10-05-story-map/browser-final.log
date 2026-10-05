@@ -1,0 +1,24 @@
+[WebServer] (node:3907996) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 14 tests using 1 worker
+
+(node:3908981) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/story-map.spec.ts:143:1 › 권·전체 보기 전환은 현재 회차가 포함된 페이지를 연다 (1.1m)
+  ✓   2 [chromium] › e2e/story-map.spec.ts:154:1 › 한 번 저장하면 지도도 한 번만 다시 조회한다 (5.0s)
+  ✓   3 [chromium] › e2e/story-map.spec.ts:164:1 › 미리보기에서도 저장 완료 상태를 직접 반영한다 (5.2s)
+  ✓   4 [chromium] › e2e/story-map.spec.ts:174:1 › 늦은 최초 조회가 저장 후 지도를 덮지 않는다 (4.4s)
+  ✓   5 [chromium] › e2e/story-map.spec.ts:183:1 › 미래 계획 선택은 집필 회차를 바꾸지 않으며 명시 이동만 저장 후 반영한다 (3.7s)
+  ✓   6 [chromium] › e2e/story-map.spec.ts:202:56 › error 저장은 이동을 막고 작업본을 보존한다 (3.2s)
+  ✓   7 [chromium] › e2e/story-map.spec.ts:202:56 › conflict 저장은 이동을 막고 작업본을 보존한다 (3.1s)
+  ✓   8 [chromium] › e2e/story-map.spec.ts:216:1 › 이동 대기 중 다른 작품을 열면 이전 응답이 회차를 바꾸지 않는다 (3.6s)
+  ✓   9 [chromium] › e2e/story-map.spec.ts:230:1 › 이동 대상 조회를 기다리는 중 추가한 입력을 보존한다 (5.1s)
+  ✓  10 [chromium] › e2e/story-map.spec.ts:243:1 › 선택 권의 기준 회차 삭제 후 처음부터 복구할 수 있다 (4.3s)
+  ✓  11 [chromium] › e2e/story-map.spec.ts:256:1 › 좁은 화면 전환과 키보드 선택은 원고를 보존한다 (4.7s)
+  ✓  12 [chromium] › e2e/story-map.spec.ts:270:1 › 관계 설정의 시점 한계와 승인 변화 근거를 구분한다 (5.7s)
+  ✓  13 [chromium] › e2e/story-map.spec.ts:284:1 › 복선 미래 실제 회수 기록을 계획으로 바꾸지 않고 살펴본다 (2.9s)
+  ✓  14 [chromium] › e2e/story-map.spec.ts:301:1 › 원고 저장 후 변경 검토 목록에 근거 버전 차이를 표시한다 (5.4s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-XnGLje/violations.jsonl; no escapes
+
+  14 passed (2.4m)

@@ -1,0 +1,17 @@
+vite v5.4.21 building for production...
+
+(!) outDir /tmp/jippeel-review-plans-build-wTkf3I is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+transforming...
+✓ 240 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../../../tmp/jippeel-review-plans-build-wTkf3I/index.html                         0.74 kB │ gzip:   0.41 kB
+../../../../../../../tmp/jippeel-review-plans-build-wTkf3I/assets/index-zuFLUNbk.css         28.43 kB │ gzip:   6.24 kB
+../../../../../../../tmp/jippeel-review-plans-build-wTkf3I/assets/data-CsJLyNKm.js           46.59 kB │ gzip:  14.11 kB
+../../../../../../../tmp/jippeel-review-plans-build-wTkf3I/assets/markdown-Bx13qlMl.js      130.22 kB │ gzip:  60.70 kB
+../../../../../../../tmp/jippeel-review-plans-build-wTkf3I/assets/react-vendor-bc2r86EJ.js  162.37 kB │ gzip:  53.02 kB
+../../../../../../../tmp/jippeel-review-plans-build-wTkf3I/assets/index-CknTD6hV.js         278.35 kB │ gzip:  81.35 kB
+../../../../../../../tmp/jippeel-review-plans-build-wTkf3I/assets/editor-dbPoz2N-.js        475.11 kB │ gzip: 165.91 kB
+✓ built in 31.92s

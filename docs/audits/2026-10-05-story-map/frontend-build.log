@@ -1,0 +1,17 @@
+vite v5.4.21 building for production...
+
+(!) outDir /tmp/jippeel-story-map-build-PlgNfJ is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+transforming...
+✓ 239 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../../../tmp/jippeel-story-map-build-PlgNfJ/index.html                         0.74 kB │ gzip:   0.41 kB
+../../../../../../../tmp/jippeel-story-map-build-PlgNfJ/assets/index-BpAFFrKM.css         28.29 kB │ gzip:   6.23 kB
+../../../../../../../tmp/jippeel-story-map-build-PlgNfJ/assets/data-CsJLyNKm.js           46.59 kB │ gzip:  14.11 kB
+../../../../../../../tmp/jippeel-story-map-build-PlgNfJ/assets/markdown-Bx13qlMl.js      130.22 kB │ gzip:  60.70 kB
+../../../../../../../tmp/jippeel-story-map-build-PlgNfJ/assets/react-vendor-bc2r86EJ.js  162.37 kB │ gzip:  53.02 kB
+../../../../../../../tmp/jippeel-story-map-build-PlgNfJ/assets/index-CsCeR7zY.js         270.10 kB │ gzip:  79.02 kB
+../../../../../../../tmp/jippeel-story-map-build-PlgNfJ/assets/editor-dbPoz2N-.js        475.11 kB │ gzip: 165.91 kB
+✓ built in 1m 6s

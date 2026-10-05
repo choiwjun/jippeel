@@ -2,8 +2,8 @@
 
 > **2026-09-12 상태 정정: 아래는 역사적 체크리스트이며 현재 실행 지침이 아니다.**
 > API key 설정 UI는 제거됐고, 기본 DB/port·revision 없는 저장 명령을 그대로 실행하지 않는다.
-> 현재 잔여는 [전체 현황 G04](docs/handoffs/2026-09-08-remaining-work.md), 실행 준비는
-> [Windows QA 계획](docs/audits/windows-device-qa-plan-2026-09-10.md)을 따른다.
+> 현재 잔여는 [전체 현황 G04](../../handoffs/2026-09-08-remaining-work.md), 실행 준비는
+> [Windows QA 계획](../../audits/windows-device-qa-plan-2026-09-10.md)을 따른다.
 > 기존 자동화/axe 통과와 지정 장치의 NVDA·성능·DPAPI 수용은 구분한다.
 
 ---

@@ -1,0 +1,13 @@
+[WebServer] (node:3797275) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3797288) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:3797410) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/story-map.spec.ts:186:1 › 이동 대기 중 다른 작품을 열면 이전 응답이 회차를 바꾸지 않는다 (26.0s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-Q3PtHe/violations.jsonl; no escapes
+
+  1 passed (1.1m)

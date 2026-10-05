@@ -12,7 +12,7 @@ from starlette.types import Scope
 from app.database import DATABASE_URL, SessionLocal, init_db
 from app.routers import (ai_panel, auth, characters, cognitive, foreshadows, generation_runs,
                          improvement_rules, lorebook,
-                         projects, quality, refine, scenes, summary_jobs, system, trend_pack, volumes)
+                         projects, quality, refine, scenes, story_map, summary_jobs, system, trend_pack, volumes)
 from app.services.lan_auth import LanAuthMiddleware, load_config as load_lan_auth_config
 from app.routers.memories import router as memories_router  # pyright: ignore[reportMissingImports]
 from app.services.auto_backup import AutoBackupConfig, start_scheduler
@@ -64,6 +64,7 @@ app.add_middleware(LanAuthMiddleware, config=load_lan_auth_config())
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(story_map.router, prefix="/api/v1")
 app.include_router(cognitive.router, prefix="/api/v1")
 app.include_router(characters.router, prefix="/api/v1")
 app.include_router(lorebook.router, prefix="/api/v1")

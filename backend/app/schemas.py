@@ -1290,9 +1290,11 @@ class ForeshadowCreate(BaseModel):
     audience_knows: bool = False  # 독자가 이미 알게 된 사실인지 (G-045)
     planted_chapter_id: int | None = None
     resolved_chapter_id: int | None = None
+    planned_resolution_chapter_id: int | None = Field(default=None, ge=1, strict=True)
 
 
 class ForeshadowUpdate(BaseModel):
+    expected_revision: int | None = Field(default=None, ge=1, strict=True)
     title: str | None = Field(default=None, min_length=1, max_length=255)
     content: str | None = None
     keywords: list[str] | None = None
@@ -1301,6 +1303,7 @@ class ForeshadowUpdate(BaseModel):
     audience_knows: bool | None = None
     planted_chapter_id: int | None = None
     resolved_chapter_id: int | None = None
+    planned_resolution_chapter_id: int | None = Field(default=None, ge=1, strict=True)
 
 
 class ForeshadowOut(BaseModel):
@@ -1316,6 +1319,8 @@ class ForeshadowOut(BaseModel):
     audience_knows: bool
     planted_chapter_id: int | None
     resolved_chapter_id: int | None
+    planned_resolution_chapter_id: int | None
+    revision: int
     created_at: datetime
     updated_at: datetime
 

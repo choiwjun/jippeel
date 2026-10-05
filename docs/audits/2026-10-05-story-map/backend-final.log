@@ -1,0 +1,18 @@
+{"isolation": "ready-before-pytest", "root": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-xyolqb6d", "destinations": {"DATABASE_URL": "sqlite:///C:/Users/wj941/AppData/Local/Temp/jippeel-isolated-xyolqb6d/lifespan.db", "JIPPEEL_KEY_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-xyolqb6d\\dummy.key", "COVERAGE_FILE": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-xyolqb6d\\test.coverage", "JIPPEEL_TEST_BASETEMP": "C:\\Users\\wj941\\AppData\\Local\\Temp\\jippeel-isolated-xyolqb6d\\pytest"}, "fake_keyring": true, "crypto_loader_guard": true, "network_subprocess_tripwire": true, "protected_imports_absent": true}
+........................................................................ [  7%]
+........................................................................ [ 14%]
+........................................................................ [ 21%]
+........................................................................ [ 28%]
+........................................................................ [ 35%]
+........................................................................ [ 43%]
+........................................................................ [ 50%]
+..........................................................s............. [ 57%]
+............................uuuuu.uuuuuuuuu.....uuuuu...uuuuuuuuuuuu..uu [ 61%]
+uuuu.uuuuuu....uuuuuuuuu..uuuuuuuuuuuuuuuuuu............................ [ 64%]
+........................................................................ [ 72%]
+........................................................................ [ 79%]
+........................................................................ [ 86%]
+........................................................................ [ 93%]
+................................................................         [100%]
+1001 passed, 1 skipped, 70 subtests passed in 284.37s (0:04:44)
+{"isolation": "complete", "pytest_exit": 0, "internal_ipc_count": 622, "subprocess_attempts": 0, "fake_keyring_calls": 8, "violations": []}

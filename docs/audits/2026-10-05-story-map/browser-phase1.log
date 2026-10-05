@@ -1,0 +1,64 @@
+[WebServer] (node:3793865) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3793907) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 11 tests using 1 worker
+
+(node:3794721) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/story-map.spec.ts:109:1 › 권·전체 보기 전환은 현재 회차가 포함된 페이지를 연다 (21.6s)
+  ✓   2 [chromium] › e2e/story-map.spec.ts:120:1 › 한 번 저장하면 지도도 한 번만 다시 조회한다 (4.2s)
+  ✓   3 [chromium] › e2e/story-map.spec.ts:130:1 › 미리보기에서도 저장 완료 상태를 직접 반영한다 (4.4s)
+  ✓   4 [chromium] › e2e/story-map.spec.ts:140:1 › 늦은 최초 조회가 저장 후 지도를 덮지 않는다 (4.2s)
+  ✓   5 [chromium] › e2e/story-map.spec.ts:149:1 › 미래 계획 선택은 집필 회차를 바꾸지 않으며 명시 이동만 저장 후 반영한다 (3.1s)
+  ✓   6 [chromium] › e2e/story-map.spec.ts:168:56 › error 저장은 이동을 막고 작업본을 보존한다 (2.7s)
+  ✓   7 [chromium] › e2e/story-map.spec.ts:168:56 › conflict 저장은 이동을 막고 작업본을 보존한다 (2.2s)
+  ✘   8 [chromium] › e2e/story-map.spec.ts:182:1 › 이동 대기 중 다른 작품을 열면 이전 응답이 회차를 바꾸지 않는다 (3.8s)
+(node:3795289) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   9 [chromium] › e2e/story-map.spec.ts:196:1 › 이동 대상 조회를 기다리는 중 추가한 입력을 보존한다 (4.9s)
+  ✓  10 [chromium] › e2e/story-map.spec.ts:209:1 › 선택 권의 기준 회차 삭제 후 처음부터 복구할 수 있다 (3.6s)
+  ✓  11 [chromium] › e2e/story-map.spec.ts:222:1 › 좁은 화면 전환과 키보드 선택은 원고를 보존한다 (4.3s)
+Fixture API tripwire: /tmp/jippeel-fixture-tripwire-qidy5X/violations.jsonl; no escapes
+
+
+  1) [chromium] › e2e/story-map.spec.ts:182:1 › 이동 대기 중 다른 작품을 열면 이전 응답이 회차를 바꾸지 않는다 ───────────────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 4
+
+    - Array []
+    + Array [
+    +   "GET /projects/1/plus-status",
+    +   "GET /projects/2/plus-status",
+    + ]
+
+      14 | }
+      15 | const unexpected = new WeakMap<Page, string[]>();
+    > 16 | test.afterEach(async ({ page }) => expect(unexpected.get(page) ?? []).toEqual([]));
+         |                                                                       ^
+      17 |
+      18 | async function fixture(page: Page, count = 60) {
+      19 |   const fx = {
+        at /mnt/c/Users/wj941/Documents/jippeel/frontend/e2e/story-map.spec.ts:16:71
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/story-map-이동-대기-중-다른-작품을-열면-이전-응답이-회차를-바꾸지-않는다-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/story-map-이동-대기-중-다른-작품을-열면-이전-응답이-회차를-바꾸지-않는다-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/story-map-이동-대기-중-다른-작품을-열면-이전-응답이-회차를-바꾸지-않는다-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/story-map-이동-대기-중-다른-작품을-열면-이전-응답이-회차를-바꾸지-않는다-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/story-map.spec.ts:182:1 › 이동 대기 중 다른 작품을 열면 이전 응답이 회차를 바꾸지 않는다 ────────────────
+  10 passed (1.9m)

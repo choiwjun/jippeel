@@ -7,7 +7,8 @@ LLM 1콜로 추출해 후보만 반환한다(자동 등록 없음 — 작가가 
 """
 import openai  # type: ignore[import-not-found]
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -207,7 +208,7 @@ def _get_foreshadow_or_404(fid: int, db: Session) -> Foreshadow:
 
 
 def _validate_chapter_refs(payload, project_id: int, db: Session) -> None:
-    for field in ("planted_chapter_id", "resolved_chapter_id"):
+    for field in ("planted_chapter_id", "resolved_chapter_id", "planned_resolution_chapter_id"):
         cid = getattr(payload, field, None)
         if cid is None:
             continue
@@ -259,6 +260,7 @@ def create_foreshadow(pid: int, payload: ForeshadowCreate, db: Session = Depends
         audience_knows=payload.audience_knows,
         planted_chapter_id=payload.planted_chapter_id,
         resolved_chapter_id=payload.resolved_chapter_id,
+        planned_resolution_chapter_id=payload.planned_resolution_chapter_id,
     )
     db.add(row)
     db.commit()
@@ -270,6 +272,11 @@ def create_foreshadow(pid: int, payload: ForeshadowCreate, db: Session = Depends
 def update_foreshadow(fid: int, payload: ForeshadowUpdate, db: Session = Depends(get_db)):
     row = _get_foreshadow_or_404(fid, db)
     data = payload.model_dump(exclude_unset=True)
+    expected = data.pop("expected_revision", None)
+    if "planned_resolution_chapter_id" in data and expected is None:
+        raise HTTPException(422, "예정 회수 저장에는 expected_revision이 필요합니다")
+    if expected is not None and expected != row.revision:
+        raise HTTPException(409, "복선이 변경되었습니다. 새로고침 후 다시 확인하세요.")
     _validate_chapter_refs(payload, row.project_id, db)
     if "status" in data and data["status"] not in VALID_STATUS:
         raise HTTPException(status_code=422, detail="status는 설치|회수|보류 중 하나여야 합니다")
@@ -282,10 +289,20 @@ def update_foreshadow(fid: int, payload: ForeshadowUpdate, db: Session = Depends
             status_code=422,
             detail="설치 상태의 복선에는 disposition을 지정할 수 없습니다",
         )
-    for field, value in data.items():
-        setattr(row, field, value)
-    db.commit()
-    db.refresh(row)
+    if not data:
+        return row
+    try:
+        result = db.execute(update(Foreshadow).where(
+            Foreshadow.id == row.id, Foreshadow.revision == row.revision,
+        ).values(**data, revision=row.revision + 1))
+        if result.rowcount != 1:
+            db.rollback()
+            raise HTTPException(409, "복선이 변경되었습니다. 새로고침 후 다시 확인하세요.")
+        db.commit()
+        db.refresh(row)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(409, "복선을 저장하지 못했습니다. 최신 상태를 확인하고 다시 시도하세요.") from exc
     return row
 
 

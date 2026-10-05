@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-05",
+  "base_commit": "eb828cfca77f40739f07f6c4ffeb2c4cf88806eb",
+  "scope": "Story map stabilization and first read-only evidence views; uncommitted working tree",
+  "sha256": {
+    "backend/app/main.py": "26d7aa70f5773929e63c627267a1f11f1466be0c656ec44aabac18a0f70555f9",
+    "backend/app/routers/story_map.py": "5e95f9bf504a837135a12f03a2474280154caee2f46f2aff0fdc7429a85d574e",
+    "backend/app/services/story_map_evidence.py": "be7c462f248bfb8f6ad3a0d1734fd0fc0d12a08412db91454a8e6b6059baf6bf",
+    "backend/tests/test_story_map.py": "2c73ba3511b298950ba673e1d0755fc12588ff19aff959219983c0d4483e7db1",
+    "backend/tests/test_story_map_evidence.py": "43d75422e98a322a82965af7c03253fcc29657f7506de4371a0703b5292786ff",
+    "frontend/src/lib/api.ts": "addcf7be575bc7781e1c04d2e11a39bb70f5f3237b35de185bac0f36552417de",
+    "frontend/src/lib/queryClient.ts": "12bd73de1ee6d97806972f379033b3fa67f6e3565352e3b49f6e5770a4e968b1",
+    "frontend/src/lib/storyMap.ts": "14bb6697164c37c80ed1dbb30b244ee10c04ac9dee5d85de41fd4d639168fdf5",
+    "frontend/src/pages/EditorPage.tsx": "dba85b0524527670958c0739c3893a20f491df37a435c185098bf6e93117eb70",
+    "frontend/src/components/editor/StoryMapPanel.tsx": "fabb92429c2558d03ba4386de67fc11513de801dff255957add0b762a26e07f3",
+    "frontend/src/components/editor/StoryMapEvidence.tsx": "20a0dddcd91589673a4a446c9662cf26fc98fe5be159ce86d33e75c6b34893af",
+    "frontend/e2e/story-map.spec.ts": "ad1b4150628dadd9af882d4bf70c5a63117a67ba3d408ea5905be1cfde190b61",
+    "frontend/playwright.story-map.config.ts": "6c46606744e4371508d8da3c59458e6f8068317478aca2c5733cfaea97200db4",
+    "frontend/vite.story-map.config.ts": "e20a802c39404e143ca0d3c094cdbbc877eb52b0ee7ea6fa33acd2beac9f6fd0",
+    "frontend/e2e/manuscript-preservation.spec.ts": "07b37cc4cd0262411a27c44e92635330f0c698c7382f7d5240d1623fa8ff79f5",
+    "frontend/playwright.preservation.config.ts": "1b5ab1eaeb2a864c2079a0d10e7edff2e40107077cb3ed837c89772b828cc9aa"
+  }
+}
