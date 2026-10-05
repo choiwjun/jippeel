@@ -105,6 +105,7 @@ export function EditorPage() {
   return (
     <div className={`mx-auto flex h-full flex-col px-3 sm:px-6 ${mapOpen ? 'max-w-[1440px]' : 'max-w-[820px]'}`}>
       <div className="flex shrink-0 items-center justify-end gap-2 pt-2">
+        {!mapOpen && <Button size="sm" variant="default" onClick={() => { setMapOpen(true); setMapExpanded(true); }}>소설 한눈에 보기</Button>}
         {mapOpen && <Button size="sm" variant="ghost" aria-pressed={mapExpanded}
           onClick={() => setMapExpanded(!mapExpanded)}>{mapExpanded ? '나란히 집필' : '지도 확대'}</Button>}
         <Button ref={mapToggle} size="sm" variant="outline" aria-expanded={mapOpen} aria-controls={mapOpen ? 'story-map' : undefined}

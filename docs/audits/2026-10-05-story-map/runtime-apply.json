@@ -1,0 +1,604 @@
+{
+  "approved_by_user": true,
+  "operation": "DB backup, upgrade to k6b7c8d9e0f1, backend restart",
+  "backup_path": "C:\\Users\\wj941\\Documents\\jippeel\\backend\\jippeel.db.bak-2026-10-05-163405-pre-story-map",
+  "backup_sha256": "69554182bc563a0df5b7fa66b677cc5a65931f78828d0ae40b4110be8c89d670",
+  "before_version": "j5a6b7c8d9e0",
+  "before_tables": {
+    "ai_endpoints": {
+      "columns": [
+        "id",
+        "name",
+        "base_url",
+        "api_key_encrypted",
+        "default_model",
+        "temperature",
+        "reasoning_effort",
+        "is_default",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 1,
+      "sha256": "421386c92210b12bfc69ad08f244b0495a927c9e1aae8145d145c322fd11033f"
+    },
+    "ai_usage": {
+      "columns": [
+        "id",
+        "kind",
+        "model",
+        "endpoint_name",
+        "prompt_chars",
+        "completion_chars",
+        "created_at"
+      ],
+      "count": 1798,
+      "sha256": "40d62abcc68185df796e5a383e8c3570c21e6c5283df8bfad07ab057a554fe04"
+    },
+    "canon_runs": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "model",
+        "issues_json",
+        "context_json",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 2,
+      "sha256": "c50405e3691c31aea720401996de3b792d36a654e5d21430c26e167fa93e2ff7"
+    },
+    "chapter_flow_events": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "from_stage",
+        "to_stage",
+        "goal_version",
+        "manuscript_revision",
+        "created_at"
+      ],
+      "count": 2,
+      "sha256": "0b035dd58a9ff6a79053b73ca1336e60b5a34caeb9bda5c7f2e2cdf7a3066829"
+    },
+    "chapter_goal_evidence_links": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "goal_version",
+        "goal_field",
+        "item_index",
+        "goal_item_text",
+        "excerpt",
+        "created_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "chapter_goal_revisions": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "goal_version",
+        "goal_json",
+        "episode_purpose",
+        "base_manuscript_revision",
+        "restored_from",
+        "created_at"
+      ],
+      "count": 150,
+      "sha256": "45225eda039ff7e55a598b2fc90478e3371bf435bc3ce6e55b00233ea0de19ea"
+    },
+    "chapter_goals": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "goal_json",
+        "episode_purpose",
+        "goal_version",
+        "base_manuscript_revision",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 150,
+      "sha256": "ac546b93300c8fe771841dfe96ca9d46a84d99db833893f408652adc9464c81d"
+    },
+    "chapter_snapshots": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "revision",
+        "content_md",
+        "reason",
+        "created_at"
+      ],
+      "count": 132,
+      "sha256": "ab06fe409d48dafc65e72bf11e7a3b61b6ae8d80fa7c68272a921b5ddd65b417"
+    },
+    "chapters": {
+      "columns": [
+        "id",
+        "project_id",
+        "volume",
+        "sort_order",
+        "title",
+        "content_md",
+        "status",
+        "word_count_cache",
+        "memo",
+        "created_at",
+        "updated_at",
+        "revision",
+        "flow_stage"
+      ],
+      "count": 150,
+      "sha256": "cb39e650b56debd481828d25ee4094c3bdd01ccbbd1f6ae46df3eb985c8bb55a"
+    },
+    "characters": {
+      "columns": [
+        "id",
+        "project_id",
+        "name",
+        "aliases",
+        "role",
+        "appearance",
+        "personality",
+        "speech_style",
+        "background",
+        "card_json",
+        "created_at",
+        "updated_at",
+        "lifecycle_status",
+        "lifecycle_chapter_id",
+        "lifecycle_note",
+        "volume_roles"
+      ],
+      "count": 9,
+      "sha256": "46b4b0c3e60c1cb8f9e1dea4b11c2d151fb7852851f6a1068d4e472449e0249f"
+    },
+    "event_impacts": {
+      "columns": [
+        "id",
+        "project_id",
+        "chapter_id",
+        "label",
+        "character_deltas_json",
+        "relationship_deltas_json",
+        "foreshadow_deltas_json",
+        "state_after",
+        "visibility",
+        "source_sha256",
+        "generated_by",
+        "provenance_json",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "foreshadows": {
+      "columns": [
+        "id",
+        "project_id",
+        "title",
+        "content",
+        "keywords",
+        "status",
+        "audience_knows",
+        "planted_chapter_id",
+        "resolved_chapter_id",
+        "created_at",
+        "updated_at",
+        "disposition"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "generation_outputs": {
+      "columns": [
+        "id",
+        "run_id",
+        "channel",
+        "scene_order",
+        "output_text",
+        "output_sha256",
+        "output_chars",
+        "outcome",
+        "outcome_events_json",
+        "landed_text",
+        "chapter_revision_at_action",
+        "outcome_at",
+        "created_at"
+      ],
+      "count": 325,
+      "sha256": "16e9fc9ac8e27c9ea72b898bfe43e841246f50c3212f59abb09373f05caa6e8d"
+    },
+    "generation_runs": {
+      "columns": [
+        "id",
+        "project_id",
+        "chapter_id",
+        "surface",
+        "preset_id",
+        "model",
+        "reasoning_effort",
+        "input_sha256",
+        "input_manifest_json",
+        "prompt_chars",
+        "applied_rules_json",
+        "status",
+        "wall_ms",
+        "ai_usage_id",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 110,
+      "sha256": "c89202da21541b2c80ab754b67466225e70cdbc8487078b581f6df2b7ce7adea"
+    },
+    "improvement_rules": {
+      "columns": [
+        "id",
+        "project_id",
+        "category",
+        "rule_text",
+        "status",
+        "source",
+        "evidence_json",
+        "rationale",
+        "status_events_json",
+        "decided_at",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "knowledge_states": {
+      "columns": [
+        "id",
+        "project_id",
+        "subject_type",
+        "character_id",
+        "target_kind",
+        "target_id",
+        "status",
+        "revealed_chapter_id",
+        "effective_from_sort_order",
+        "visibility",
+        "source_sha256",
+        "generated_by",
+        "provenance_json",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lore_entries": {
+      "columns": [
+        "id",
+        "project_id",
+        "category",
+        "title",
+        "content",
+        "keywords",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 18,
+      "sha256": "c4ade810dcc492a7984e679a9ddff9f64038a3220f4a5d58d8182c6197217a3a"
+    },
+    "lore_entries_fts": {
+      "columns": [
+        "title",
+        "content",
+        "keywords"
+      ],
+      "count": 18,
+      "sha256": "ba362458bc24a067b42a8c1ca485dc5e2590a61b53fa5f7f108467a78c6d31b3"
+    },
+    "lore_entries_fts_config": {
+      "columns": [
+        "k",
+        "v"
+      ],
+      "count": 1,
+      "sha256": "1b46aa17993c72cbbcac958b9ad84a9ec19d6a5c50c2de596afd6a5d7f9ee94d"
+    },
+    "lore_entries_fts_content": {
+      "columns": [
+        "id",
+        "c0",
+        "c1",
+        "c2"
+      ],
+      "count": 18,
+      "sha256": "5855d4d3a4583fb2d2e60426b42347d6101e0e96364486d8642354f1cc534991"
+    },
+    "lore_entries_fts_data": {
+      "columns": [
+        "id",
+        "block"
+      ],
+      "count": 51,
+      "sha256": "75733f6b1690512a6c58dfb1e996affeefd688ec8d2faa2ae16c6927a912da8d"
+    },
+    "lore_entries_fts_docsize": {
+      "columns": [
+        "id",
+        "sz"
+      ],
+      "count": 18,
+      "sha256": "85ec10a68b7465d7410063d85da67f0cd085aa0cbeec91308293c7d5550e3d44"
+    },
+    "lore_entries_fts_idx": {
+      "columns": [
+        "segid",
+        "term",
+        "pgno"
+      ],
+      "count": 49,
+      "sha256": "419a201f15a85e821808a136d17aa3c41c12ecd062199c5fa81414ca1be50148"
+    },
+    "memory_entries": {
+      "columns": [
+        "id",
+        "project_id",
+        "chapter_id",
+        "source_revision",
+        "source_sha256",
+        "kind",
+        "body",
+        "visibility",
+        "effective_from_sort_order",
+        "effective_to_sort_order",
+        "provenance_json",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "project_final_editions": {
+      "columns": [
+        "id",
+        "project_id",
+        "label",
+        "created_at",
+        "serial_state",
+        "chapter_count",
+        "total_chars",
+        "manifest_json",
+        "content_md",
+        "checklist_json"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "project_trend_packs": {
+      "columns": [
+        "id",
+        "project_id",
+        "schema_version",
+        "status",
+        "source",
+        "as_of",
+        "version",
+        "payload_json",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projects": {
+      "columns": [
+        "id",
+        "title",
+        "genre",
+        "synopsis",
+        "platform_note",
+        "memo",
+        "style_profile",
+        "created_at",
+        "updated_at",
+        "serial_state",
+        "serial_completed_at",
+        "ending_intent",
+        "ending_locked",
+        "ending_updated_at",
+        "concept"
+      ],
+      "count": 1,
+      "sha256": "918cd8066827a2a2c5787945f111d4be291e3c82b1d685dd1608ade64c3c2f67"
+    },
+    "prompt_presets": {
+      "columns": [
+        "id",
+        "name",
+        "template_text",
+        "context_flags"
+      ],
+      "count": 11,
+      "sha256": "fb18e6cb4a2940f7bff9aac5e8d0bd35a1b9d11d0e012fab4ad70eabe2d4310a"
+    },
+    "quality_checks": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "score",
+        "content_hash",
+        "metrics_json",
+        "suggestions_json",
+        "presets_json",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 2,
+      "sha256": "61c40f45bbc61652856530de4d4e735a0cc2b0bba1d17869e88d10c0c2111b88"
+    },
+    "refine_runs": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "route_hint",
+        "changed_ratio",
+        "report_json",
+        "result_text",
+        "accepted",
+        "base_revision"
+      ],
+      "count": 38,
+      "sha256": "4007ea916399b3a5be2e36873b78335156bb35aeb5cde3297f9e596cfc2b203f"
+    },
+    "relationships": {
+      "columns": [
+        "id",
+        "from_character_id",
+        "to_character_id",
+        "label",
+        "note"
+      ],
+      "count": 7,
+      "sha256": "7a389d6595320c43e6122be09d929d401c81dbff4cf2871aa648b63b319e4b44"
+    },
+    "scenes": {
+      "columns": [
+        "id",
+        "chapter_id",
+        "sort_order",
+        "title",
+        "content_md",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "summary_jobs": {
+      "columns": [
+        "id",
+        "project_id",
+        "chapter_id",
+        "memory_entry_id",
+        "source_revision",
+        "source_sha256",
+        "source_sort_order",
+        "source_content_length",
+        "kind",
+        "prompt_version",
+        "provider_identity",
+        "model_snapshot",
+        "request_options_hash",
+        "request_options_json",
+        "idempotency_key",
+        "status",
+        "error",
+        "attempt_count",
+        "finished_at",
+        "created_at",
+        "updated_at",
+        "source_ids_json",
+        "lease_owner",
+        "lease_token",
+        "lease_expires_at"
+      ],
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "volume_notes": {
+      "columns": [
+        "id",
+        "project_id",
+        "volume",
+        "title",
+        "overview",
+        "emotion_curve",
+        "climax_note",
+        "created_at",
+        "updated_at"
+      ],
+      "count": 5,
+      "sha256": "da1c67643bd415921423b4fd2e2cada900612464641710b496177d44bbd50fe9"
+    }
+  },
+  "backup_quick_check": "ok",
+  "after_version": "k6b7c8d9e0f1",
+  "after_quick_check": [
+    [
+      "ok"
+    ]
+  ],
+  "foreign_key_issues": [],
+  "changed_existing_tables": [],
+  "new_review_rows": 0,
+  "foreshadow_columns": [
+    "id",
+    "project_id",
+    "title",
+    "content",
+    "keywords",
+    "status",
+    "audience_knows",
+    "planted_chapter_id",
+    "resolved_chapter_id",
+    "created_at",
+    "updated_at",
+    "disposition",
+    "planned_resolution_chapter_id",
+    "revision"
+  ],
+  "runtime_sample": [
+    1,
+    1
+  ],
+  "health": {
+    "status": "ok"
+  },
+  "readonly_endpoints_via_vite": {
+    "map": {
+      "status": 200,
+      "counts": {
+        "volumes": 5,
+        "nodes": 6
+      }
+    },
+    "workbench": {
+      "status": 200,
+      "counts": {
+        "characters": 9,
+        "scenes": 0,
+        "events": 0,
+        "relations": 7,
+        "foreshadows": 0,
+        "lore": 18,
+        "ambiguous_terms": 0
+      },
+      "revision": 4
+    },
+    "relations": {
+      "status": 200,
+      "counts": {
+        "items": 7
+      }
+    },
+    "foreshadows": {
+      "status": 200,
+      "counts": {
+        "items": 0
+      }
+    },
+    "review_history": {
+      "status": 200,
+      "counts": {
+        "items": 0
+      }
+    }
+  },
+  "post_startup_changed_existing_tables": [
+    "lore_entries_fts_data",
+    "lore_entries_fts_idx"
+  ],
+  "status": "applied_and_running",
+  "post_startup_change_explanation": "Existing ensure_fts_index startup routine rebuilds FTS indexes. Only lore_entries_fts_data and lore_entries_fts_idx changed. All existing source data remains identical.",
+  "post_startup_changed_source_tables": []
+}

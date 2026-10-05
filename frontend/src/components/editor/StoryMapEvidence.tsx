@@ -5,11 +5,12 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { StoryReviewEditor, type ReviewDecision } from './StoryReview';
 
-type View = 'relations' | 'foreshadows' | 'review';
-interface Source { id: number; title: string; position: number; revision: number; future: boolean }
-interface Evidence {
+export type View = 'relations' | 'foreshadows' | 'review';
+export interface Source { id: number; title: string; position: number; revision: number; future: boolean }
+export interface Evidence {
   id: string; kind: 'relation' | 'relationship_change' | 'foreshadow' | 'stale_memory' | 'goal_drift';
   label: string; excerpt: string; basis: string; source: Source | null;
+  from_id?: number | null; to_id?: number | null;
   from_name: string | null; to_name: string | null;
   planned: Source | null;
   review_key: string | null; evidence_token: string | null; review_text: string | null; latest_decision: ReviewDecision | null;
@@ -18,7 +19,7 @@ interface Evidence {
   visibility: 'draft' | 'approved' | 'retired' | null;
   disposition: 'resolved' | 'intentional_unresolved' | 'side_story' | null;
 }
-interface Result {
+export interface Result {
   project_id: number; chapter_id: number; chapter_revision: number; view: View;
   total: number; offset: number; next_offset: number | null; items: Evidence[];
 }

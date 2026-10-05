@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models import Chapter, ChapterGoal, Project, Scene, StoryReviewDecision
 from app.schemas import ChapterGoalPayload, FlowStage
 from app.services.chapter_order import chapter_ordering
-from app.services import story_map_evidence
+from app.services import story_map_evidence, story_workbench
 
 router = APIRouter()
 
@@ -151,6 +151,8 @@ class EvidenceItem(BaseModel):
     excerpt: str
     basis: str
     source: EvidenceSource | None = None
+    from_id: int | None = None
+    to_id: int | None = None
     from_name: str | None = None
     to_name: str | None = None
     planned: EvidenceSource | None = None
@@ -281,3 +283,11 @@ def review_history(pid: int, offset: int = Query(default=0, ge=0), db: Session =
                        .order_by(StoryReviewDecision.id.desc()).offset(offset).limit(20)).all()
     return ReviewHistoryOut(total=total, offset=offset,
                             next_offset=offset + 20 if offset + 20 < total else None, items=items)
+
+
+@router.get("/projects/{pid}/story-map/workbench", response_model=story_workbench.WorkbenchOut)
+def get_story_workbench(pid: int, chapter_id: int = Query(ge=1), db: Session = Depends(get_db)):
+    chapter = db.scalar(select(Chapter).where(Chapter.project_id == pid, Chapter.id == chapter_id))
+    if chapter is None:
+        raise HTTPException(404, "chapter not found in project")
+    return story_workbench.build(db, pid, chapter)

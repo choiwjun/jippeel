@@ -23,6 +23,7 @@ def relations(db: Session, pid: int, chapter: Chapter, refs: dict) -> list[dict]
                                                Relationship.to_character_id.in_(names))
                       .order_by(Relationship.id)).all()
     items = [{"id": f"relation-{r.id}", "kind": "relation", "label": r.label or "관계",
+              "from_id": r.from_character_id, "to_id": r.to_character_id,
               "from_name": names[r.from_character_id], "to_name": names[r.to_character_id],
               "excerpt": (r.note or "")[:1000], "basis": "시점 정보 없음 · 현재 작가 설정",
               "source": None} for r in rows]
@@ -57,15 +58,17 @@ def relations(db: Session, pid: int, chapter: Chapter, refs: dict) -> list[dict]
                 continue
             if all(isinstance(v, int) and not isinstance(v, bool) and v > 0 and v in names for v in pair):
                 pair_names = [names[v] for v in pair]
+                pair_ids = pair
             elif all(isinstance(v, str) and v.strip() for v in pair):
                 pair_names = [v.strip() for v in pair]
+                pair_ids = [None, None]
             else:
                 continue
             before = delta.get("from") if isinstance(delta.get("from"), str) else "미기록"
             after = delta.get("to") if isinstance(delta.get("to"), str) else "미기록"
             note = delta.get("note") if isinstance(delta.get("note"), str) else ""
             items.append({"id": f"event-{event.id}-{i}", "kind": "relationship_change",
-                          "label": event.label, "from_name": pair_names[0][:255], "to_name": pair_names[1][:255],
+                          "label": event.label, "from_id": pair_ids[0], "to_id": pair_ids[1], "from_name": pair_names[0][:255], "to_name": pair_names[1][:255],
                           "excerpt": f"{before[:400]} → {after[:400]}\n{note[:200]}",
                           "basis": "작가 승인 변화 기록 · 현재 원문 해시 일치",
                           "source": {**refs[event.chapter_id], "revision": source[1]}})

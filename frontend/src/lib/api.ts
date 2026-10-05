@@ -60,7 +60,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // Acknowledged writes refresh open maps, including saves outside the mounted editor.
   // Authoring mutations also refresh provenance views; failed writes leave the map intact.
   if (init?.method && init.method !== "GET" &&
-      /^\/(?:(?:chapters|scenes|characters|relations|foreshadows)(?:\/|$)|projects\/\d+\/(?:chapters|characters|foreshadows|memories|event-impacts)(?:\/|$))/.test(path)) {
+      /^\/(?:(?:chapters|scenes|characters|relations|foreshadows|lore)(?:\/|$)|projects\/\d+\/(?:chapters|characters|foreshadows|memories|event-impacts|lore)(?:\/|$))/.test(path)) {
     scheduleStoryMapRefresh();
   }
   return result as T;

@@ -24,6 +24,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      input: { app: path.resolve(__dirname, 'index.html'), storyDemo: path.resolve(__dirname, 'story-demo.html') },
       output: {
         // 벤더 청크 분리 — 단일 번들 비대화 완화 + 배포 캐시 효율
         manualChunks: {

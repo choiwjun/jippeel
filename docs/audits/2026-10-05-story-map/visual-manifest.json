@@ -1,0 +1,13 @@
+{
+  "scope": "visual overview; static build and independent review only; synthetic static preview",
+  "build_dir": "/tmp/jippeel-visual-build-XboYhD",
+  "sha256": {
+    "backend/app/routers/story_map.py": "d4ad9f3671c22745b25508448574de526a2227680a44386cdb0770fe5b846ef9",
+    "backend/app/services/story_map_evidence.py": "854b9cc9357b4539067d1617dcdb24cf261ca4ba249a9a5d216f714c95e0b15a",
+    "frontend/src/components/editor/StoryVisualOverview.tsx": "42b2ee126abfcdfe251815cd079a0b14bc17d62648be4e5397ace209895052d1",
+    "frontend/src/components/editor/StoryMapPanel.tsx": "e9d7183fb50cb391790e8664975507bc895550aaae7ee74633ee737bd4769534",
+    "frontend/src/components/editor/StoryMapEvidence.tsx": "bb2b71abcdfb2efcf235b556df7faa1fdcb08f907f642073201f0fa821ee7874",
+    "frontend/src/pages/EditorPage.tsx": "caca478633fb4b5181075496f33b3067c80647c1b5267626e4ec492030ab0e90",
+    "docs/audits/2026-10-05-story-map/visual-preview.png": "e77476b3635c6036f2e20f7d933b52cd8ad7b86f2dab35fdf70c78bd9d57c416"
+  }
+}

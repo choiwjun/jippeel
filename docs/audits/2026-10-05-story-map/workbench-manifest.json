@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-05",
+  "base_commit": "709b2eac1c6e8ad9fd59d991a9357363e9b560a7",
+  "scope": "Integrated story workbench, synthetic interactive demo, visual hierarchy refinement",
+  "static_checks": [
+    "TypeScript noEmit passed",
+    "Python AST parsing passed (3 changed source files)",
+    "Vite temporary multi-entry build passed"
+  ],
+  "review": "Independent read-only review passed after refreshing, complete details, demo link boundary and future-source fixes",
+  "screenshots": "Synthetic data only; API and external requests blocked; no interaction assertions",
+  "not_performed": [
+    "automated tests",
+    "interaction regression QA",
+    "operational database migration",
+    "backend restart",
+    "commit/push"
+  ],
+  "frontend_runtime": "Vite :5173 restarted with per-process polling for WSL file changes; no backend changes",
+  "files": {
+    "backend/app/services/story_workbench.py": "f703bf6659617c6443e5a59b6b2f1e013b619ce45b0795759fc17792cfcf61ee",
+    "backend/app/services/story_map_evidence.py": "854b9cc9357b4539067d1617dcdb24cf261ca4ba249a9a5d216f714c95e0b15a",
+    "backend/app/routers/story_map.py": "a4fb4d31464517753eb3bbf165850dcf04632ad931740a3f1274f872a62f520c",
+    "frontend/src/components/editor/StoryWorkbench.tsx": "56846a661223ae1f7de43386e125dab1f0d530160e2fcb1834fb54a52747f9cf",
+    "frontend/src/components/editor/story-workbench.css": "224eeb197746e01d04587894fce33732ad376f0e61c8172df73036fb55e8589f",
+    "frontend/src/components/editor/StoryVisualOverview.tsx": "9e8bb54d0af10c9cd8eb21a7e451b0ab518cf425c8153d037f38bfd547d397f5",
+    "frontend/src/components/editor/StoryMapPanel.tsx": "c51be8d344475bebf9b6b8a01d7637ead7a3873984e4a02cd446e930ebbdb159",
+    "frontend/src/components/editor/StoryMapEvidence.tsx": "bb2b71abcdfb2efcf235b556df7faa1fdcb08f907f642073201f0fa821ee7874",
+    "frontend/src/pages/EditorPage.tsx": "caca478633fb4b5181075496f33b3067c80647c1b5267626e4ec492030ab0e90",
+    "frontend/src/lib/api.ts": "76b5f03fd37eb99bef9b7216be4feb899a00b3578df1bd385e6a068bd5eb5cf1",
+    "frontend/src/demo/storyWorkbenchDemo.tsx": "63d437b4eb5127e1d29cd60169de6947598db8495b71d472da446e1250f2cde7",
+    "frontend/story-demo.html": "2d62cccf9ab63d34010093d0f078bc8f515d599eb499a7c389851e7b1344d62b",
+    "frontend/vite.config.ts": "f2c6b579bfd554a77ed5e065c86e5ce230174b1e3ba52d00cd8a74c490dc9201",
+    "docs/specs/2026-10-05-story-map-evolution.md": "3952bf1c8aef5d18fe5d2676939dc27b6e574c933c1a9c65f74ed8648e490532",
+    "docs/audits/2026-10-05-story-map/acceptance.md": "246dd0743e6c0aa9b203b5730a3e9721d2d21e2f692e42ba57e635ae71998402",
+    "docs/audits/2026-10-05-story-map/workbench-preview.png": "2d5398cb10aeb0cda66523d8999cde30b5a760c9a809468dbd185653e8b1ff57",
+    "docs/audits/2026-10-05-story-map/workbench-dark-preview.png": "58f3faef17c4510e4a4d0d2944dbdb39da20a0c3c00e23caa018a166758c523e",
+    "docs/audits/2026-10-05-story-map/workbench-build.log": "1e5781e1c5b2d940712ec5b8e84d38ba3da06b4cc6c779e64877f6b866b2fe5c"
+  }
+}

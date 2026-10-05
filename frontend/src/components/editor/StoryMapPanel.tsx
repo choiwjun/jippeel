@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, type ChapterDetail, type ChapterGoalPayload, volumeLabel } from '@/lib/api';
 import { flushManuscriptDraft, getManuscriptDraft, getManuscriptDraftState } from '@/lib/manuscriptDrafts';
 import type { StoryMapCounts, StoryMapData, StoryMapNode, StoryMapScope } from '@/lib/storyMap';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { StoryMapEvidence } from './StoryMapEvidence';
 import { StoryReviewHistory } from './StoryReview';
+import { StoryVisualOverview } from './StoryVisualOverview';
 
 const STAGES = { planning: '기획', writing: '집필', revising: '퇴고', confirmed: '확정' };
 const emptySubscribe = () => () => {};
@@ -78,6 +79,7 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
   const alive = useRef(true);
   const movingRef = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['story-map', pid, anchor, scope, offset],
     queryFn: ({ signal }) => api.get<StoryMapData>(`/projects/${pid}/story-map?scope=${scope}${offset !== null ? `&offset=${offset}` : ''}${anchor !== null ? `&anchor_id=${anchor}` : ''}`, { signal }),
@@ -126,7 +128,8 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
   return <aside id="story-map" aria-label="스토리 지도" className="thin-scroll h-full min-h-0 overflow-y-auto rounded-lg border border-border bg-card p-4 pb-40">
     <div className="mb-3 flex items-center justify-between gap-2">
       <h2 className="font-semibold">스토리 지도</h2>
-      <Button variant="ghost" size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>새로고침</Button>
+      <a className="text-xs text-primary underline underline-offset-2" href="/story-demo.html" target="_blank" rel="noreferrer">예시로 먼저 보기 ↗</a>
+      <Button variant="ghost" size="sm" disabled={query.isFetching} onClick={() => void queryClient.cancelQueries({ queryKey: ['story-map', pid] }).then(() => queryClient.invalidateQueries({ queryKey: ['story-map', pid] }))}>새로고침</Button>
     </div>
     <p role="status" className="mb-3 text-xs text-muted-foreground">{SAVE_LABELS[saveState]}{query.isFetching ? ' · 지도 갱신 중…' : ''}</p>
     <div role="group" aria-label="지도 범위" className="mb-3 flex flex-wrap gap-1">
@@ -151,7 +154,10 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
     </div>}
     {query.isPending && <p className="text-sm">지도를 불러오는 중…</p>}
     {data && <>
-      <Counts counts={data.counts} />
+      <details className="rounded border border-border px-3 py-2 text-xs">
+        <summary className="cursor-pointer">집필 진행 · 작성 {data.counts.written}/{data.counts.total}회 · 확정 {data.counts.confirmed}/{data.counts.total}회</summary>
+        <Counts counts={data.counts} />
+      </details>
       <div className="my-3 flex items-center justify-between gap-2 text-xs">
         <p className="text-muted-foreground">{scope === 'near'
           ? (data.anchor_id === chapterId ? '앞 2회 · 현재 · 다음 최대 5회' : '탐색 기준 회차의 앞 2회 · 뒤 최대 5회')
@@ -159,7 +165,10 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
         <Button size="sm" variant="outline" aria-pressed={list} onClick={() => setList(!list)}>{list ? '흐름도 보기' : '목록 보기'}</Button>
       </div>
       {data.counts.total === 0 && <p className="py-6 text-sm text-muted-foreground">아직 회차가 없습니다. 회차를 추가하면 지도에 나타납니다.</p>}
-      {[...groups].map(([key, nodes]) => <section key={key} className="mb-3">
+      {!list && <StoryVisualOverview pid={pid} data={data} currentId={chapterId} selectedId={selectedId}
+        onSelect={id => { setSelectedId(id); setNavigationError(''); }}
+        onBrowse={id => { setAnchor(id); setSelectedId(id); setScope('near'); setOffset(null); }} />}
+      {list && [...groups].map(([key, nodes]) => <section key={key} className="mb-3">
         <button type="button" className="mb-2 rounded px-1 text-sm font-medium focus-visible:outline focus-visible:outline-2"
           aria-expanded={!collapsed.has(key)} onClick={() => setCollapsed((old) => {
             const next = new Set(old); if (next.has(key)) next.delete(key); else next.add(key); return next;
@@ -187,9 +196,11 @@ export function StoryMapPanel({ pid, chapterId, onNavigate }: {
       <section aria-label="선택 회차 상세" className="mt-4 rounded-lg border border-border p-3">
         {selected ? <>
           <h3 className="mb-2 break-words text-sm font-semibold">{selected.title || '제목 없음'} · {selected.id === chapterId ? '현재 집필 회차' : '살펴보는 회차'}</h3>
+          <details><summary className="cursor-pointer text-xs">목표와 상세 근거 펼치기</summary>
           <GoalDetail node={selected} />
           <StoryMapEvidence key={selected.id} pid={pid} chapterId={selected.id}
             onBrowse={(id) => { setAnchor(id); setSelectedId(id); setScope('near'); setOffset(null); }} />
+          </details>
           <Button className="mt-3" size="sm" disabled={moving} onClick={() => void navigate(selected)}>
             {moving ? '저장 확인 중…' : selected.id === chapterId ? '원고로 돌아가기' : '이 회차 집필'}
           </Button>
