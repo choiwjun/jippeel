@@ -133,12 +133,14 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
                         reasoning_effort=provider.reasoning_effort,
                         db=db,
                         on_stage=on_stage,
-                        concept=payload.concept)
+                        concept=payload.concept,
+                        age_rating=payload.age_rating)
                     body = bootstrap_service.persist_structure(
                         db, payload.genre, payload.premise, structure,
                         generated_by="ai",
                         volume_count=payload.volume_count,
-                        chapters_per_volume=payload.chapters_per_volume)
+                        chapters_per_volume=payload.chapters_per_volume,
+                        age_rating=payload.age_rating)
                 except bootstrap_service.BootstrapAIError as exc:
                     structure = bootstrap_service.fallback_structure(
                         payload.genre, payload.premise,
@@ -148,7 +150,8 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
                         db, payload.genre, payload.premise, structure,
                         generated_by="fallback",
                         volume_count=payload.volume_count,
-                        chapters_per_volume=payload.chapters_per_volume)
+                        chapters_per_volume=payload.chapters_per_volume,
+                        age_rating=payload.age_rating)
                     body["detail"] = "AI 생성에 실패해 규칙 기반 폴백으로 저장했습니다."
             else:
                 structure = bootstrap_service.fallback_structure(
@@ -159,7 +162,8 @@ async def bootstrap_project_stream(payload: BootstrapRequest, db: Session = Depe
                     db, payload.genre, payload.premise, structure,
                     generated_by="fallback",
                     volume_count=payload.volume_count,
-                    chapters_per_volume=payload.chapters_per_volume)
+                    chapters_per_volume=payload.chapters_per_volume,
+                    age_rating=payload.age_rating)
             await queue.put({"event": "done", "data": json.dumps(body, ensure_ascii=False)})
         except Exception as exc:
             logger.exception("bootstrap stream failed")
@@ -235,12 +239,14 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
                 client, provider.default_model,
                 reasoning_effort=bootstrap_service.BOOTSTRAP_REASONING_EFFORT,
                 db=db,
-                concept=payload.concept)
+                concept=payload.concept,
+                age_rating=payload.age_rating)
             body = bootstrap_service.persist_structure(
                 db, payload.genre, payload.premise, structure,
                 generated_by="ai",
                 volume_count=payload.volume_count,
-                chapters_per_volume=payload.chapters_per_volume)
+                chapters_per_volume=payload.chapters_per_volume,
+                age_rating=payload.age_rating)
             return body
         except bootstrap_service.BootstrapAIError as exc:
             # 규칙 기반 폴백 — 템플릿으로라도 생성하고 502로 응답
@@ -252,7 +258,8 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
                 db, payload.genre, payload.premise, structure,
                 generated_by="fallback",
                 volume_count=payload.volume_count,
-                chapters_per_volume=payload.chapters_per_volume)
+                chapters_per_volume=payload.chapters_per_volume,
+                age_rating=payload.age_rating)
             body["detail"] = f"AI 생성 실패 — 규칙 기반 폴백으로 저장했습니다: {exc}"
             return JSONResponse(status_code=502, content=body)
 
@@ -264,7 +271,8 @@ async def bootstrap_project(payload: BootstrapRequest, db: Session = Depends(get
         db, payload.genre, payload.premise, structure,
         generated_by="fallback",
         volume_count=payload.volume_count,
-        chapters_per_volume=payload.chapters_per_volume)
+        chapters_per_volume=payload.chapters_per_volume,
+        age_rating=payload.age_rating)
 
 
 # ---------- projects ----------

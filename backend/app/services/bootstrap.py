@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 import openai  # pyright: ignore[reportMissingImports]
 from sqlalchemy.orm import Session
 
+from app.age_rating import age_rating_prompt_block, normalize_age_rating
 from app.concepts import concept_prompt_block, normalize_concept
 from app.models import (Chapter, ChapterGoal, ChapterGoalRevision, Character,
                         LoreEntry, Project, Relationship, VolumeNote)
@@ -161,8 +162,9 @@ _SYSTEM_JSON = (
 )
 
 
-def _bootstrap_system() -> str:
-    return _SYSTEM_JSON
+def _bootstrap_system(age_rating: str = "all") -> str:
+    """JSON 계약 + 작품 연령 등급 수위 규칙. 등급은 작가 데이터가 아니라 지시다."""
+    return f"{_SYSTEM_JSON}\n{age_rating_prompt_block(age_rating)}"
 
 
 def _concept_user_message(concept, user: str) -> str:
@@ -171,7 +173,7 @@ def _concept_user_message(concept, user: str) -> str:
 
 
 def _idea_messages(genre: str, premise: str | None, title_style: str,
-                   concept=None) -> list[dict]:
+                   concept=None, age_rating: str = "all") -> list[dict]:
     p = premise.strip() if premise and premise.strip() \
         else "(없음 — 네가 직접 발상하여 제시하라)"
     concept_instruction = (
@@ -191,13 +193,13 @@ def _idea_messages(genre: str, premise: str | None, title_style: str,
    "protagonist": "주인공의 결핍·능력·출발점", "inciting_incident": "이야기를 시작시키는 사건",
    "goal": "주인공이 이루려는 구체적 목표", "opposition": "목표를 막는 인물·세력·조건",
    "stakes": "실패했을 때 잃는 것 또는 대가", "hook": "이 작품만의 차별화된 서사 장치"}}}}"""
-    return [{"role": "system", "content": _bootstrap_system()},
+    return [{"role": "system", "content": _bootstrap_system(age_rating)},
             {"role": "user", "content": _concept_user_message(concept, user)}]
 
 
 def _outline_messages(genre: str, idea: dict, volume_count: int,
                       chapters_per_volume: int,
-                      concept=None) -> list[dict]:
+                      concept=None, age_rating: str = "all") -> list[dict]:
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
     title = titles[0] if titles else genre
     protagonist = _as_str(idea.get("protagonist_name"))
@@ -224,12 +226,12 @@ def _outline_messages(genre: str, idea: dict, volume_count: int,
   "overview": "권 개요 2~3문장", "emotion_curve": "감정 곡선 배치",
   "climax_note": "권 고봉 설계", "chapters": [
   {{"order": 1, "title": "회차 제목", "synopsis": "2문단 시놉시스", "key_event": "핵심 사건"}}]}}]}}"""
-    return [{"role": "system", "content": _bootstrap_system()},
+    return [{"role": "system", "content": _bootstrap_system(age_rating)},
             {"role": "user", "content": _concept_user_message(concept, user)}]
 
 
 def _characters_messages(genre: str, idea: dict, outline_summary: str,
-                         concept=None) -> list[dict]:
+                         concept=None, age_rating: str = "all") -> list[dict]:
     """콜 3 — 등장인물 심층 설계. 서사 기능(목표·결핍·비밀·변화)을 강제한다."""
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
     title = titles[0] if titles else genre
@@ -260,14 +262,14 @@ def _characters_messages(genre: str, idea: dict, outline_summary: str,
 {{"characters": [{{"name": "이름", "alias": "별칭", "role": "주연|조연|단역|기타",
   "appearance": "외형 1문장", "personality": "성격+1권 변화 방향 2문장",
   "speech_style": "구체적 말투", "background": "배경+목표+비밀 3문장 이상"}}]}}"""
-    return [{"role": "system", "content": _bootstrap_system()},
+    return [{"role": "system", "content": _bootstrap_system(age_rating)},
             {"role": "user", "content": _concept_user_message(concept, user)}]
 
 
 def _supporting_cast_messages(genre: str, idea: dict, volume: int,
                               volume_title: str, volume_context: str,
                               core_names: list[str],
-                              concept=None,
+                              concept=None, age_rating: str = "all",
                               ) -> list[dict]:
     """콜 3b — 한 권에 한정된 조연·단역 확장 프롬프트."""
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
@@ -295,13 +297,13 @@ def _supporting_cast_messages(genre: str, idea: dict, volume: int,
 {{"characters": [{{"name": "이름", "alias": "별칭", "role": "조연|단역",
   "first_volume": {volume}, "appearance": "외형 1문장", "personality": "성격 1문장",
   "speech_style": "말투 1문장", "background": "서사 기능+배경 1문장"}}]}}"""
-    return [{"role": "system", "content": _bootstrap_system()},
+    return [{"role": "system", "content": _bootstrap_system(age_rating)},
             {"role": "user", "content": _concept_user_message(concept, user)}]
 
 
 def _relations_lore_messages(genre: str, idea: dict, outline_summary: str,
                              character_names: list[str],
-                             concept=None) -> list[dict]:
+                             concept=None, age_rating: str = "all") -> list[dict]:
     """콜 4 — 관계망(긴장·변화 포함)과 상호 연결된 세계관 설계."""
     titles = [_as_str(t) for t in _as_list(idea.get("titles"))]
     title = titles[0] if titles else genre
@@ -333,7 +335,7 @@ def _relations_lore_messages(genre: str, idea: dict, outline_summary: str,
 {{"relationships": [{{"from": "이름", "to": "이름", "label": "2~6자", "note": "2문장"}}],
  "lore_entries": [{{"category": "용어", "title": "항목 제목", "content": "2~3문장",
   "keywords": ["키워드1", "키워드2"]}}]}}"""
-    return [{"role": "system", "content": _bootstrap_system()},
+    return [{"role": "system", "content": _bootstrap_system(age_rating)},
             {"role": "user", "content": _concept_user_message(concept, user)}]
 
 
@@ -734,7 +736,7 @@ def _bootstrap_goal(chapter: OutlineChapter,
 def persist_structure(db: Session, genre: str, premise: str | None,
                       structure: dict, generated_by: str,
                       volume_count: int, chapters_per_volume: int,
-                      concept=None) -> dict:
+                      concept=None, age_rating: str = "all") -> dict:
     """생성 결과를 Project+Chapter+Character+Relationship+LoreEntry로 저장.
 
     모델 객체를 세션에 모두 쌓고 commit을 마지막 한 번만 호출해
@@ -762,6 +764,7 @@ def persist_structure(db: Session, genre: str, premise: str | None,
     project = Project(
         title=title,
         genre=genre,
+        age_rating=normalize_age_rating(age_rating),
         concept=concept_data,
         synopsis=logline or None,
     )
@@ -906,7 +909,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
                              reasoning_effort: str | None = None,
                              db: Session | None = None,
                              on_stage=None,
-                             concept=None) -> dict:
+                             concept=None, age_rating: str = "all") -> dict:
     """LLM 4회+α 호출로 전체 구조 JSON을 만든다. 실패 시 BootstrapAIError.
 
     캐릭터 인원이 모자라면 부족분 보충 호출이, 3권 이상이면 권별 조연
@@ -917,7 +920,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         await on_stage("idea", "started", "제목·로그라인 발상")
     idea = await _call_json(
         client, model,
-        _idea_messages(genre, premise, title_style, concept),
+        _idea_messages(genre, premise, title_style, concept, age_rating),
         reasoning_effort=reasoning_effort, db=db, stage="idea")
     # 발상 단계가 만든 컨셉을 즉시 확정해 모든 후속 단계에 같은 계약으로 전달한다.
     effective_concept = _concept_from_idea(idea, concept)
@@ -927,7 +930,8 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
     if on_stage:
         await on_stage("outline", "started", f"{volume_count}권×{chapters_per_volume}화 목차 설계")
     outline_msgs = _outline_messages(
-        genre, idea, volume_count, chapters_per_volume, effective_concept)
+        genre, idea, volume_count, chapters_per_volume, effective_concept,
+        age_rating)
     outline_data = await _call_json(
         client, model, outline_msgs,
         reasoning_effort=reasoning_effort, db=db, stage="outline")
@@ -946,7 +950,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         await on_stage("characters", "started", "캐릭터 심층 설계")
     characters_data = await _call_json(
         client, model,
-        _characters_messages(genre, idea, summary, effective_concept),
+        _characters_messages(genre, idea, summary, effective_concept, age_rating),
         reasoning_effort=reasoning_effort, db=db, stage="characters")
     if on_stage:
         await on_stage("characters", "done", "캐릭터 심층 설계")
@@ -973,7 +977,8 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         try:
             retry = await _call_json(
                 client, model,
-                _characters_messages(genre, idea, summary, effective_concept) + [
+                _characters_messages(
+                    genre, idea, summary, effective_concept, age_rating) + [
                     {"role": "assistant",
                      "content": json.dumps({"characters": core_characters},
                                            ensure_ascii=False)},
@@ -1038,7 +1043,7 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
                 client, model,
                 _supporting_cast_messages(
                     genre, idea, volume, volume_title, volume_context, names,
-                    effective_concept),
+                    effective_concept, age_rating),
                 reasoning_effort=reasoning_effort, db=db,
                 stage=f"supporting-cast-volume-{volume}")
         except BootstrapAIError:
@@ -1061,7 +1066,8 @@ async def generate_structure(genre: str, premise: str | None, title_style: str,
         await on_stage("relations-lore", "started", "관계망·세계관 설계")
     rellore_data = await _call_json(
         client, model,
-        _relations_lore_messages(genre, idea, summary, names, effective_concept),
+        _relations_lore_messages(
+            genre, idea, summary, names, effective_concept, age_rating),
         reasoning_effort=reasoning_effort, db=db, stage="relations-lore")
     if on_stage:
         await on_stage("relations-lore", "done", "관계망·세계관 설계")

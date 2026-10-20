@@ -24,6 +24,10 @@ class Project(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     genre: Mapped[str | None] = mapped_column(String(100))
+    # 작품 연령 등급 — all(전체연령) | adult(19금). 생성·감수가 같은 값을 본다.
+    age_rating: Mapped[str] = mapped_column(
+        String(20), default="all", server_default="all"
+    )
     # premise·주인공·촉발 사건·목표·대립·위험·후크를 담는 구조화된 작품 컨셉.
     # JSON이므로 장르·테마·배경·톤과 분리된 서사 전제로 저장한다.
     concept: Mapped[dict | None] = mapped_column(JSON, nullable=True)

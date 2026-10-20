@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.age_rating import AgeRating
 from app.concepts import StoryConcept
 
 
@@ -25,6 +26,8 @@ def _reject_null_fields(data, *fields):
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     genre: str | None = Field(default=None, max_length=100)
+    # 연령 등급 — 생략 시 전체연령. 19금은 작가의 명시적 선택이어야 한다.
+    age_rating: AgeRating = "all"
     concept: StoryConcept | None = None
     synopsis: str | None = None
     platform_note: str | None = None
@@ -36,6 +39,8 @@ SerialState = Literal["ongoing", "hiatus", "completed"]
 class ProjectUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     genre: str | None = Field(default=None, max_length=100)
+    # 생략 시 불변. NOT NULL 컬럼이라 명시적 null은 422다(serial_state와 같은 계약).
+    age_rating: AgeRating | None = None
     concept: StoryConcept | None = None
     synopsis: str | None = None
     platform_note: str | None = None
@@ -58,6 +63,8 @@ class ProjectUpdate(BaseModel):
             # D03-7: NOT NULL 컬럼 — 명시적 null은 IntegrityError가 아니라 422다.
             if "ending_locked" in data and data["ending_locked"] is None:
                 raise ValueError("ending_locked must be a boolean")
+            if "age_rating" in data and data["age_rating"] is None:
+                raise ValueError("age_rating must be one of: all, adult")
         return data
 
 
@@ -99,6 +106,7 @@ class ProjectOut(BaseModel):
     id: int
     title: str
     genre: str | None
+    age_rating: str = "all"
     concept: StoryConcept | None = None
     synopsis: str | None
     platform_note: str | None
@@ -1443,6 +1451,10 @@ class AiUsageSummaryOut(BaseModel):
 # ---- Project Bootstrap (입력 하나로 작품 전체 구조 AI 생성) ----
 class BootstrapRequest(BaseModel):
     genre: str = Field(min_length=1, max_length=100, examples=["판타지"])
+    age_rating: AgeRating = Field(
+        default="all",
+        description="연령 등급 — all(전체연령) | adult(19금). 생성 수위 규칙에 반영된다.",
+    )
     concept: StoryConcept | None = Field(
         default=None,
         description="주인공·촉발 사건·목표·대립·위험·후크로 구성한 서사 전제",

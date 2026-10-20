@@ -8,7 +8,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect
 
-from app.database import Base, create_db_engine
+from app.database import ALEMBIC_HEAD, Base, create_db_engine
 
 
 _engines = []
@@ -216,7 +216,7 @@ def test_populated_historical_upgrade_from_initial_with_references(alembic_confi
     assert run == {"chapter_id": 1, "base_revision": None}
     assert rel_count == 1
     assert lore_count == 1
-    assert version == "j5a6b7c8d9e0"
+    assert version == ALEMBIC_HEAD
 
 
 def test_populated_upgrade_backfills_flow_stage(alembic_config):
@@ -349,7 +349,7 @@ def test_populated_upgrade_backfills_serial_state(alembic_config):
     engine.dispose()
 
     assert row == {"serial_state": "ongoing", "serial_completed_at": None, "title": "existing"}
-    assert version == "j5a6b7c8d9e0"
+    assert version == ALEMBIC_HEAD
 
     # 리빌드 후 ck_project_serial_state가 강제된다
     engine = _engine(_current_url())

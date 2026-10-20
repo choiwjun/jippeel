@@ -1174,3 +1174,16 @@ G0~G8 전체 통과(규약 v1). gates.json/traceability.json이 최신 상태 �
 - `foreshadows.py` 복선 후보 추출은 표면 신호·숨은 질문·회수 조건·회수 시 변화·인과를 요구하고, `canon.py`는 독자 약속/성장 엔진의 인과 단절을 근거가 있을 때만 점검하도록 보강했다.
 - TDD 회귀: 의도한 새 테스트 RED 확인 후 구현. 관련 isolated suite **134 passed**, `subprocess_attempts=0`, `violations=0`; 대상 `py_compile` 및 `git diff --check` 통과. 실제 provider/운영 DB 호출·변경 없음.
 - 작품별 `trend_pack` DB 모델/API와 생성 요청 opt-in은 아직 구현하지 않았다. 현재 병합은 전역 안정 원칙과 프롬프트별 설계 기준까지다.
+
+## 작품 생성 — 연령 등급(19금)·로맨스판타지 재구현 — 2026-10-20
+
+- 배경: 10/19 작업(19금 옵션·로맨스판타지 장르 추가)이 커밋되지 않은 상태였고, 10/20 01:48 `git clone`으로 작업 트리가 교체되며 소실됐다. `git reflog`에 clone 1건만 있고 원격·stash·브랜치·PR·Cursor 로컬 히스토리·Windows 휴지통·에이전트 세션 기록 어디에도 사본이 없어 복구 불가로 판단하고 재구현했다. 같은 원인으로 `backend/jippeel.db`(10/5 작업 데이터)도 소실 — 남은 백업은 `~/.jippeel/backups/2026-09-13-g01`(프로젝트 2·회차 20, 9/8까지)과 9/17 auto(빈 DB)뿐이다. auto-backup은 `prod.sh`에서만 켜지고 10/5 작업은 dev 모드였다.
+- 계약: `projects.age_rating`(`all`|`adult`, NOT NULL, 기본 `all`) 단일 컬럼. 등급 상향은 명시적 입력으로만 일어나며 알 수 없는 값·None은 `all`로 떨어진다(`app/age_rating.py:normalize_age_rating`).
+- 프롬프트: `age_rating_prompt_block()`이 단일 출처다. 부트스트랩 5개 호출의 system 메시지(`_bootstrap_system`)와 `ai_context.build_context_bundle`의 공유 컨텍스트에 같은 블록을 주입해 생성·감수·검수가 같은 수위 규칙을 본다. adult 블록은 등급과 무관한 금지선(미성년자 성적 묘사, 실존 인물 성적·명예훼손, 범죄·자해 수법 안내 금지)을 함께 싣는다 — 등급 상향이 금지선 해제로 읽히지 않게 하는 것이 계약이다.
+- API: `ProjectCreate`·`ProjectUpdate`·`ProjectOut`·`BootstrapRequest`에 필드 추가. PATCH 생략은 불변, 명시적 null·미지 값은 422(`serial_state`와 동일 계약).
+- 프론트: `BootstrapDialog` 장르 프리셋에 `로맨스판타지` 추가, 연령 등급 선택(전체연령/19금)과 선택별 설명 추가, `age_rating`을 bootstrap 요청에 전달. 작품 카드에 `19금` 배지. 생성 후 등급 변경 UI는 아직 없다(API만 지원) — 후속 과제.
+- 마이그레이션: `l7c8d9e0f1a2`(batch add column, `server_default="all"`). `app/database.py:ALEMBIC_HEAD`도 함께 갱신해야 한다 — 누락 시 기동 가드가 앱을 거부한다(이번에 실제로 겪었다).
+- 테스트: `backend/tests/test_age_rating.py` 9건 신규(정규화, adult 금지선 문구, 기본값, PATCH 계약·422, 공유 컨텍스트 주입, 부트스트랩 저장·프롬프트 전파·폴백 보존). 전체 회귀 **1009 passed / 1 skipped / 1 failed**, `violations=0`, `subprocess_attempts=0`.
+- 기존 결함 분리: 유일한 실패 `test_story_map_evidence.py::test_foreshadow_timeline_separates_actual_future_record`는 HEAD(20981f1) 깨끗한 worktree에서도 동일하게 실패한다 — 이번 변경과 무관한 기존 결함이며 미수정으로 남긴다. 한편 `test_migrations.py`가 head를 리터럴 `j5a6b7c8d9e0`로 단정해 k6b7 이후 이미 깨져 있었던 것은 `app.database.ALEMBIC_HEAD` 비교로 바꿔 고쳤다.
+- 실환경 검증: dev 백엔드(:8000)·프론트(:5174) 기동 후 실 HTTP — 생성 시 `adult` 저장, PATCH `all` 반영, `"19금"`·null 422, 검증용 프로젝트 삭제로 DB 원상복구(`[]`). vite는 `/mnt/c` 파일 감시 누락으로 코드 변경을 반영하지 못해 재기동이 필요했다(HMR 비신뢰 — 코드 수정 후 dev 서버 재기동 권장).
+- 미커밋 상태다. 10/19 소실이 '미커밋 + 트리 교체'로 발생했으므로 커밋은 별도 승인 경계로 남겨 둔다.

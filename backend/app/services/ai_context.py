@@ -12,6 +12,7 @@ from typing import Literal
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from app.age_rating import age_rating_prompt_block
 from app.concepts import concept_prompt_block
 from sqlalchemy.orm import Session
 
@@ -654,6 +655,8 @@ def build_context_bundle(db: Session, request: ContextBundleRequest) -> ContextB
     blocks: list[str] = []
     if project is not None:
         blocks.append(concept_prompt_block(project.concept))
+        # 연령 등급은 생성·감수·검수가 같은 수위 규칙을 보도록 공유 컨텍스트에 싣는다.
+        blocks.append(age_rating_prompt_block(project.age_rating))
     source_parts: list[str] = []
     trend_pack: ProjectTrendPack | None = None
     trend_pack_reason: str | None = None

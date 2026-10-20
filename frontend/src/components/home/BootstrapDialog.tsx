@@ -8,6 +8,7 @@ import {
   type BootstrapRequest,
   type BootstrapResponse,
   type GenerationOutputApplyResult,
+  type AgeRating,
   type StoryConcept,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -44,8 +45,14 @@ const GENRE_PRESETS = [
   "무협",
   "현대판타지",
   "로맨스",
+  "로맨스판타지",
   "미스터리",
 ] as const;
+
+const AGE_RATING_OPTIONS: { value: AgeRating; label: string; hint: string }[] = [
+  { value: "all", label: "전체연령", hint: "청소년이 읽을 수 있는 수위로 집필합니다." },
+  { value: "adult", label: "19금", hint: "성인 독자를 전제로 수위 높은 소재를 다룹니다." },
+];
 
 interface StageEvent {
   stage: string;
@@ -65,6 +72,7 @@ export function BootstrapDialog({
 
   const [genreChoice, setGenreChoice] = useState<string>(GENRE_PRESETS[0]);
   const [customGenre, setCustomGenre] = useState("");
+  const [ageRating, setAgeRating] = useState<AgeRating>("all");
   const [premise, setPremise] = useState("");
   const [concept, setConcept] = useState<StoryConcept>({});
   const [volumeCount, setVolumeCount] = useState(1);
@@ -268,6 +276,7 @@ export function BootstrapDialog({
 
   const reset = () => {
     setGenreChoice(GENRE_PRESETS[0]);
+    setAgeRating("all");
     setCustomGenre("");
     setPremise("");
     setConcept({});
@@ -302,6 +311,7 @@ export function BootstrapDialog({
   const start = () => {
     startStream({
       genre: effectiveGenre,
+      age_rating: ageRating,
       concept: compactStoryConcept(concept),
       premise: premise.trim() || null,
       volume_count: volumeCount,
@@ -370,6 +380,31 @@ export function BootstrapDialog({
                     maxLength={100}
                   />
                 )}
+              </fieldset>
+
+              <fieldset className="flex flex-col gap-1.5">
+                <legend className="text-xs font-medium text-muted-foreground">연령 등급 *</legend>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="연령 등급 선택">
+                  {AGE_RATING_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-sm transition-colors duration-fast",
+                        ageRating === option.value
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background hover:bg-muted",
+                      )}
+                      aria-pressed={ageRating === option.value}
+                      onClick={() => setAgeRating(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {AGE_RATING_OPTIONS.find((o) => o.value === ageRating)?.hint}
+                </p>
               </fieldset>
 
               <div className="flex flex-col gap-1.5">

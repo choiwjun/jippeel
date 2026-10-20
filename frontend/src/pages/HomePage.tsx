@@ -130,6 +130,9 @@ export function HomePage() {
                 {project.genre ? (
                   <Badge variant="secondary" className="w-fit">{project.genre}</Badge>
                 ) : null}
+                {project.age_rating === 'adult' ? (
+                  <Badge variant="default" className="w-fit">19금</Badge>
+                ) : null}
                 {storyConceptSummary(project.concept) ? (
                   <Badge variant="outline" className="w-fit">컨셉 있음</Badge>
                 ) : null}

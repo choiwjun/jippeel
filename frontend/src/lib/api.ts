@@ -87,6 +87,8 @@ export type ChapterStatus = "초고" | "수정중" | "완료";
 
 /** D03-3 연재 상태 — 회차 집필 확정(confirmed)과 다른 수명주기 */
 export type SerialState = "ongoing" | "hiatus" | "completed";
+/** 작품 연령 등급 — all(전체연령) | adult(19금) */
+export type AgeRating = "all" | "adult";
 
 /** 작품 컨셉 — 장르·테마·톤과 분리된 서사 전제 */
 export interface StoryConcept {
@@ -103,6 +105,7 @@ export interface Project {
   id: number;
   title: string;
   genre: string | null;
+  age_rating?: AgeRating; // 연령 등급 (기본 전체연령)
   concept: StoryConcept | null;
   synopsis: string | null;
   platform_note: string | null;
@@ -508,6 +511,7 @@ export interface PlusStatus {
 
 export interface BootstrapRequest {
   genre: string;
+  age_rating?: AgeRating; // 생략 시 전체연령
   concept?: StoryConcept | null;
   premise?: string | null;
   volume_count?: number;
